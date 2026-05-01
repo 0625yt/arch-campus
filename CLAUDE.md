@@ -5,33 +5,62 @@
 - 디자인 가이드 (색·여백·반응형·체크리스트) → [docs/design/DESIGN.md](docs/design/DESIGN.md)
 - 도입 보류 외부 자료·라이브러리 (HWPX·OCR·RAG 보일러플레이트 등) → [docs/REFERENCES.md](docs/REFERENCES.md)
 - 코드 리뷰 서브에이전트: `Agent` 툴에 `subagent_type: "code-reviewer"` (`.claude/agents/code-reviewer.md`)
-- UI 검증 (스크린샷·반응형): Playwright MCP 설치됨 (`~/.claude.json` `mcpServers.playwright`). Claude Code 재시작 후 사용 가능
+- UI 검증 (스크린샷·반응형): Playwright MCP는 환경 설정만 돼있고 실제 사용 X. 지금까지 검증은 `npm run build` + `curl` 라우트 200 확인으로 충분했음.
 
 ---
 
 ## 현재 구현 상태 (2026-05-01 기준)
 
-> **§4 아키텍처는 MVP 청사진이고, 그 중 대부분은 아직 코드가 없다.** 라우트·라이브러리 import 경로 안내를 보고 작업하기 전에 이 섹션부터 확인할 것.
+> **§4 아키텍처는 MVP 청사진이고, 그 중 데이터/AI 레이어는 아직 코드가 없다.** UI 셸·디자인 시스템·라우트 11개는 mock data로 다 살아있다. 작업 전에 이 섹션부터 확인할 것.
 
-### 실재하는 것
+### 라이브 데모
 
-**라우트 (UI 셸)**
-- `/` → `/dashboard/today` 리다이렉트 ([src/app/page.tsx](src/app/page.tsx))
-- `/dashboard/today` — 디자인 완료, mock data ([src/app/dashboard/today/page.tsx](src/app/dashboard/today/page.tsx))
-- `/dashboard/study`, `/calendar`, `/tools` — placeholder만 ([src/components/placeholder.tsx](src/components/placeholder.tsx))
-- 대시보드 레이아웃: Sidebar(데스크톱) + MobileTopbar/MobileTabBar (모바일) ([src/app/dashboard/layout.tsx](src/app/dashboard/layout.tsx))
+- 프로덕션: https://arch-campus.vercel.app (Vercel + GitHub auto-deploy)
+- GitHub: https://github.com/0625yt/arch-campus
+- `git push` → Vercel 자동 배포. 수동 배포는 `vercel --prod`도 가능 (CLI 로그인 필요)
+- `vercel.json`은 framework preset 고정용 — 첫 배포에서 Vercel이 Next.js 인식 못 한 이슈 회피. 지우지 말 것
 
-**디자인 시스템**
-- 토큰 + Pretendard 가변폰트 + wght-* 클래스 + 키프레임([src/app/globals.css](src/app/globals.css))
-- 타이포 프리미티브: `Numeral`, `TimeStamp`, `Arrow`, `Dot`, `ProgressLine`, `Kbd`, `Divider` ([src/components/primitives.tsx](src/components/primitives.tsx))
-- 카운트다운 (1초 갱신, 24h 미만일 때만) ([src/components/countdown.tsx](src/components/countdown.tsx))
-- 사이드바 + 모바일 네비 (자체 SVG 아이콘) ([src/components/sidebar.tsx](src/components/sidebar.tsx) · [src/components/mobile-nav.tsx](src/components/mobile-nav.tsx))
+### 라우트 (모두 200, mock data)
 
-**Anthropic SDK 패턴 (호출되지 않음, 청사진)**
+- `/` → `/dashboard` 307 ([src/app/page.tsx](src/app/page.tsx))
+- `/dashboard` — ChatGPT 톤 시작 화면. 큰 검색창 (⌘K 트리거) + 시작점 4개 ([src/app/dashboard/start-screen.tsx](src/app/dashboard/start-screen.tsx))
+- `/dashboard/today` — 코랄 hero + 카운트다운 + 5분 액션 + 주간 리스트
+- `/dashboard/study` — 강의 4개 카드 ([src/app/dashboard/study/page.tsx](src/app/dashboard/study/page.tsx))
+- `/dashboard/study/[course]` — 강의 상세 + "이번 학기 한눈에" (키워드/Top 개념/한 번 더 볼만해요) + 자료 카드 + 업로드 + xl+에서 좌측 히스토리 패널
+- `/dashboard/study/[course]/[material]` — 노션 톤 풀 요약 + 키워드 칩, 우상단/푸터에 **"문제 만들기"** 버튼 → Modal로 GenerateForm
+- `/dashboard/calendar` — 업로드 → 강의계획서 카드 → 학기 일정 타임라인. **각 일정 클릭하면 인라인 편집** (강의·종류·날짜·시간·비중·삭제)
+- `/dashboard/tools` — 위저드 12종 그리드, 카테고리 필터 칩
+- `/dashboard/tools/presentation` — 5단계 위저드 인터랙티브 (입력/선택지 → 결과: 슬라이드 5장 + 예상 질문)
+- `/dashboard/history` — 이번 주 4-stat + 14일 contributions + 검색·필터·시간순 그룹
+
+### 글로벌 인터랙션
+
+- **⌘K / Ctrl+K / `/`** — 어디서든 명령 팔레트 ([src/components/command-palette.tsx](src/components/command-palette.tsx)). 페이지·강의·자료·위저드·최근 활동 통합 검색. ↑↓ Enter ESC
+- **사이드바** ([src/components/sidebar.tsx](src/components/sidebar.tsx)) — 검색 input · 학습 메뉴 4개 (Today에 마감 코랄 뱃지) · 강의 4개 (클릭 시 `getResumeMaterial()`로 미완료 자료로 점프) · 히스토리 · 학기 진행률 (5/15주차) · User
+- **모바일** — 햄버거 좌상단 → Drawer로 사이드바 그대로 노출 ([src/components/mobile-drawer.tsx](src/components/mobile-drawer.tsx)). 사이드바와 마크업 100% 공유 (`SidebarBody onNavigate=`). 탭바는 Today/Study/Calendar/Tools 4개 유지
+- **Modal** ([src/components/modal.tsx](src/components/modal.tsx)) — `createPortal`로 `document.body`에 렌더 (main의 `overflow-y-auto`에서 빠져나와 viewport 정중앙). ESC·외부 클릭·body scroll lock·focus 진입
+
+### 디자인 시스템 (단일 출처)
+
+- **공유 컴포넌트** ([src/components/page-shell.tsx](src/components/page-shell.tsx)) — `PageShell`(width: narrow/md/wide), `PageHint`, `PageTitle`, `MetaLine`, `SectionLabel`, `PageFooter`, `EmptyState`. 모든 페이지가 이걸 써야 자동 정합성. **새 페이지 만들 때 절대 자체 외곽 div 만들지 X**
+- **타이포 프리미티브** ([src/components/primitives.tsx](src/components/primitives.tsx)) — `Numeral`, `TimeStamp`, `Arrow`, `Dot`, `ProgressLine`, `Kbd`, `Divider`
+- **카운트다운** ([src/components/countdown.tsx](src/components/countdown.tsx)) — 24h 미만은 1초, 그 이상은 1분 갱신. SSR-safe (`mounted` 가드)
+- **토큰** ([src/app/globals.css](src/app/globals.css)) — `--color-fg-strong: #0c0c0b` (절대 #000 X), 코랄 `--color-urgent: #e0445e`, 코발트 `--color-accent: #1d4ed8`, 하이라이트 `--color-highlight: #e8efff`, `wght-300~700` 클래스, `kerning-tight/normal/wide/mono`, `fade-up`/`fade-up-1~5`, `slide-in-left`, `pulse-dot`, `row-shift`, `reveal-right`
+
+### Mock 데이터 (단일 출처)
+
+- 강의·자료·요약(SummaryBlock 단락 구조)·키워드·Top 개념: [src/app/dashboard/study/data.ts](src/app/dashboard/study/data.ts). `getCourse()`, `getMaterial()`, `getResumeMaterial()` 헬퍼
+- 활동 히스토리·주간 통계: [src/app/dashboard/history/data.ts](src/app/dashboard/history/data.ts)
+- 강의계획서·일정·위저드 목록: 각 페이지 안에 inline (작아서)
+
+### 알아둘 SSR 함정
+
+- 클라이언트 컴포넌트에서 `Date.now()`/`new Date()`로 상대시간 계산하면 hydration mismatch 발생. `useState/useEffect`로 `mounted` 플래그 + `suppressHydrationWarning` + 조건부 렌더 패턴 (history-panel, history-view에서 사용)
+- `usePlatform`/`isMac` 같은 navigator 의존도 마찬가지
+
+### Anthropic SDK 패턴 (호출되지 않음, 청사진)
+
 - [src/lib/claude.ts](src/lib/claude.ts) — `generate()` + 1h ephemeral 캐싱 + `estimateCost()`. 새 위저드 만들 때 그대로 복제. 사용 예시 [src/lib/README.md](src/lib/README.md)
-
-**유틸**
-- `cn()` clsx+tailwind-merge ([src/lib/utils.ts](src/lib/utils.ts))
 
 ### 아직 없는 것 (§4 청사진에 언급되지만 미구현)
 
@@ -40,9 +69,9 @@
 - 프롬프트 룰 (`src/prompts/<tool>.md`)
 - API 라우트 (`src/app/api/<tool>/route.ts`) — Anthropic 실제 호출 0건
 - DB 스키마·마이그레이션 (`supabase/migrations/*`)
-- 페르소나·history·rate-limit·sanitize·input-limits 라이브러리
+- 페르소나·history-server·rate-limit·sanitize·input-limits 라이브러리
 - 강의계획서 파싱·OCR 워커
-- 위저드 12종 중 0종
+- 위저드 12종 중 발표만 인터랙티브 데모, 나머지 11종은 그리드 카드만
 
 ### 의존성 (실재)
 
@@ -98,12 +127,15 @@ npx tsc --noEmit   # 빠른 타입 체크 (build보다 가벼움)
 
 ---
 
-## 3. 배포 [미설정]
+## 3. 배포
 
-Vercel 프로젝트 아직 링크 안 됨 (`.vercel/project.json` 없음). 도입 시점에 다음 정책 적용:
-- **수동 배포**: 루트에서 `vercel --prod --yes` (사용자가 명시 요청한 경우만).
-- Vercel **Root Directory는 `.`** (저장소 루트). 바꾸지 말 것.
-- 환경변수: `vercel env pull .env.local`.
+- **프로덕션**: https://arch-campus.vercel.app
+- **GitHub auto-deploy 연결됨** — `main` push → production 자동 배포 / 다른 브랜치 push → preview URL 자동 생성. 따로 명령어 안 돌려도 됨.
+- **수동 배포 시점**: GitHub 거치지 않고 즉시 검증해야 할 때만 `vercel --prod`. 사용자가 명시 요청한 경우 외에는 자동 트리거 X.
+- **Root Directory `.`** 그대로. 바꾸지 말 것.
+- **`vercel.json`** — `framework: nextjs` 명시. 첫 배포 시 Vercel이 Next.js 인식 못 한 이슈 회피용. 함부로 지우거나 수정 X.
+- **환경변수**: `vercel env pull .env.local` (현재 env 변수 0개).
+- **롤백**: Vercel 대시보드 Deployments에서 이전 배포 → "Promote to Production" 1클릭.
 
 ---
 
