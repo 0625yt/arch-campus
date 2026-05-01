@@ -1,3 +1,7 @@
+# arch-campus
+
+한국 대학생을 위한 AI 학기 운영 OS — 데모: https://arch-campus.vercel.app
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
