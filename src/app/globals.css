@@ -1,26 +1,178 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css");
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --font-sans:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Iowan Old Style", "Apple Garamond", "Baskerville",
+    "Times New Roman", "Droid Serif", Times, serif;
+
+  /* 그레이스케일 — #000 절대 X. 한 단계 한 단계 의도적으로 좁힘 */
+  --color-bg: #ffffff;
+  --color-surface: #fafaf8;
+  --color-surface-strong: #f4f3ef;
+  --color-line: #ececea;
+  --color-line-strong: #d8d6d2;
+
+  --color-fg: #1c1c1a;
+  --color-fg-strong: #0c0c0b;
+  --color-fg-muted: #6f6e6a;
+  --color-fg-subtle: #a3a19c;
+  --color-fg-disabled: #c8c6c1;
+
+  /* 액센트 — 코발트 블루 (학생 거부감 적음, AI 흔한 인디고/바이올렛 회피) */
+  --color-accent: #1d4ed8;
+  --color-accent-strong: #1e40af;
+  --color-accent-soft: #ebf1ff;
+
+  --color-warn: #b45309;
+  --color-warn-soft: #fef3c7;
+  --color-success: #047857;
+
+  /* 다급함용 — 트렌디 코랄 (형광 빨강 X) */
+  --color-urgent: #e0445e;
+  --color-urgent-strong: #c2364c;
+  --color-urgent-soft: #ffeef1;
+
+  /* 헤드라인 강조용 — 셀렉션 같은 옅은 액센트 배경 */
+  --color-highlight: #e8efff;
+
+  /* 그림자 — 거의 보이지 않게 */
+  --shadow-soft: 0 1px 2px rgba(20, 20, 20, 0.04);
+  --shadow-lift: 0 1px 2px rgba(20, 20, 20, 0.04),
+    0 8px 24px -8px rgba(20, 20, 20, 0.08);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 380ms;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  /* tnum: 숫자 자리폭 균일. ss01: 한국어 정돈 자형. cv01/cv02: 영문 변형 */
+  font-feature-settings: "tnum", "ss01", "cv01", "cv02";
+  font-variation-settings: "wght" 400;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* 가변폰트 weight 유틸 — Tailwind의 font-weight 대신 사용 가능 */
+.wght-300 { font-variation-settings: "wght" 300; }
+.wght-380 { font-variation-settings: "wght" 380; }
+.wght-450 { font-variation-settings: "wght" 450; }
+.wght-500 { font-variation-settings: "wght" 500; }
+.wght-560 { font-variation-settings: "wght" 560; }
+.wght-620 { font-variation-settings: "wght" 620; }
+.wght-700 { font-variation-settings: "wght" 700; }
+
+/* 한국어 letter-spacing 미세 조정 */
+.kerning-tight { letter-spacing: -0.022em; }
+.kerning-normal { letter-spacing: -0.011em; }
+.kerning-wide { letter-spacing: 0.04em; }
+.kerning-mono { letter-spacing: 0.08em; }
+
+/* iOS Safari 100vh 폴백 */
+.h-screen-safe {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* 포커스 — 키보드 사용자만 */
+*:focus { outline: none; }
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+*,
+::after,
+::before {
+  border-color: var(--color-line);
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+/* 스크롤바 — Mac 스타일 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-fg-subtle) !important;
+  background-clip: padding-box;
+}
+
+/* 깜빡이는 점 — 라이브 신호 */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+.pulse-dot { animation: pulse-soft 2.4s var(--ease-out) infinite; }
+
+/* 페이지 진입 — 거의 안 보이는 fade-up */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 모바일 drawer — 좌측에서 슬라이드인 */
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.fade-up { animation: fade-up 420ms var(--ease-out) both; }
+.fade-up-1 { animation-delay: 40ms; }
+.fade-up-2 { animation-delay: 100ms; }
+.fade-up-3 { animation-delay: 160ms; }
+.fade-up-4 { animation-delay: 220ms; }
+.fade-up-5 { animation-delay: 280ms; }
+
+/* 행 호버 — 좌측으로 살짝 밀림 (종이 노트 느낌) */
+.row-shift {
+  transition: transform var(--duration-base) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+.row-shift:hover {
+  transform: translateX(2px);
+}
+
+/* 호버 시 안쪽으로 등장하는 우측 액션 */
+.reveal-right {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out);
+}
+.group:hover .reveal-right {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* prefers-reduced-motion 존중 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
