@@ -92,13 +92,11 @@ body {
   outline-offset: 3px;
   border-radius: 4px;
 }
+/* 텍스트 입력 필드만 outline 제거 — 컨테이너에서 focus 표현
+   button/a/role=button은 키보드 사용자 식별 위해 outline 유지 (WCAG 2.4.7) */
 input:focus-visible,
 textarea:focus-visible,
-select:focus-visible,
-button:focus-visible,
-a:focus-visible,
-[role="button"]:focus-visible,
-[tabindex]:focus-visible {
+select:focus-visible {
   outline: none;
 }
 

@@ -228,7 +228,7 @@ export function Wizard() {
                   : "text-[var(--color-fg-subtle)]"
             )}
           >
-            {i < step && <span aria-hidden>✓</span>}
+            {i < step && <CheckIcon />}
             {s.label}
             {i < STEPS.length - 1 && (
               <span className="ml-3 text-[var(--color-line-strong)]">·</span>
@@ -366,7 +366,8 @@ function Result({
       {/* 헤더 */}
       <div className="flex items-baseline justify-between gap-3">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-success)]/10 px-2.5 py-1 text-[10.5px] wght-700 kerning-mono uppercase text-[var(--color-success)]">
-          ✓ 만들어졌어요
+          <CheckIcon />
+          만들어졌어요
         </span>
         <button
           type="button"
@@ -446,30 +447,20 @@ function Result({
         ))}
       </ul>
 
-      {/* 액션 */}
-      <div className="mt-12 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <button
-          type="button"
-          className="group inline-flex items-baseline gap-1.5 text-[14px] wght-560 kerning-tight text-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
-        >
-          <span className="border-b border-[var(--color-accent)]/40 pb-px group-hover:border-[var(--color-accent-strong)]">
-            발표 대본 만들기
-          </span>
-          <Arrow className="text-[14px] transition-transform group-hover:translate-x-0.5" />
-        </button>
-        <button
-          type="button"
-          className="text-[13px] wght-450 kerning-tight text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-        >
-          PDF로 저장
-        </button>
-        <button
-          type="button"
-          className="text-[13px] wght-450 kerning-tight text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-        >
-          슬라이드 복사
-        </button>
-      </div>
     </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+      <path
+        d="M2 5.2l2 2L8 3"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

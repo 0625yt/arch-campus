@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { Arrow, Dot } from "@/components/primitives";
 import {
   PageShell,
@@ -143,19 +146,26 @@ const FILTERS: { id: "전체" | Category; label: string; count: number }[] = [
 
 /* ─────────── page ─────────── */
 
+type FilterId = "전체" | Category;
+
 export default function ToolsPage() {
+  const [filter, setFilter] = useState<FilterId>("전체");
+
+  const filtered =
+    filter === "전체" ? WIZARDS : WIZARDS.filter((w) => w.category === filter);
+
   return (
     <PageShell width="wide">
       <PageHint>프롬프트 못 짜도 괜찮아요. 답만 입력하면 결과물이 나와요</PageHint>
 
       <PageTitle className="mt-6">
-        AI 어떻게 쓸지{" "}
+        막막할 때{" "}
         <span className="relative inline-block text-[var(--color-accent-strong)]">
           <span
             aria-hidden
             className="absolute inset-x-[-0.12em] inset-y-[0.08em] -z-10 rounded-[2px] bg-[var(--color-highlight)]"
           />
-          단계별로 물어볼게요
+          단계별로 풀어드려요
         </span>
       </PageTitle>
 
@@ -169,9 +179,13 @@ export default function ToolsPage() {
         <span>5단계 평균 2분</span>
       </MetaLine>
 
-      <Filters className="mt-10 fade-up fade-up-2" />
+      <Filters
+        className="mt-10 fade-up fade-up-2"
+        active={filter}
+        onChange={setFilter}
+      />
 
-      <Grid className="mt-6 fade-up fade-up-3" />
+      <Grid className="mt-6 fade-up fade-up-3" wizards={filtered} />
 
       <PageFooter>
         위저드 결과물은 학습 보조용이에요. 본문을 대신 써주는 위저드는 만들지
@@ -181,18 +195,28 @@ export default function ToolsPage() {
   );
 }
 
-function Filters({ className }: { className?: string }) {
+function Filters({
+  className,
+  active,
+  onChange,
+}: {
+  className?: string;
+  active: FilterId;
+  onChange: (id: FilterId) => void;
+}) {
   return (
     <nav className={className}>
       <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
-        {FILTERS.map((f, i) => {
-          const active = i === 0;
+        {FILTERS.map((f) => {
+          const isActive = f.id === active;
           return (
             <li key={f.id}>
               <button
                 type="button"
+                onClick={() => onChange(f.id)}
+                aria-pressed={isActive}
                 className={
-                  active
+                  isActive
                     ? "inline-flex items-baseline gap-1.5 rounded-full bg-[var(--color-fg-strong)] px-3 py-1.5 text-[12.5px] wght-560 kerning-tight text-white"
                     : "inline-flex items-baseline gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] wght-450 kerning-tight text-[var(--color-fg-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-fg)]"
                 }
@@ -203,7 +227,7 @@ function Filters({ className }: { className?: string }) {
                 {f.label}
                 <span
                   className={
-                    active
+                    isActive
                       ? "tabular-nums text-white/60"
                       : "tabular-nums text-[var(--color-fg-subtle)]"
                   }
@@ -219,11 +243,17 @@ function Filters({ className }: { className?: string }) {
   );
 }
 
-function Grid({ className }: { className?: string }) {
+function Grid({
+  className,
+  wizards,
+}: {
+  className?: string;
+  wizards: Wizard[];
+}) {
   return (
     <section className={className}>
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {WIZARDS.map((w) => (
+        {wizards.map((w) => (
           <li key={w.slug}>
             <Card w={w} />
           </li>
@@ -234,20 +264,29 @@ function Grid({ className }: { className?: string }) {
 }
 
 function Card({ w }: { w: Wizard }) {
-  const href = w.slug === "presentation" ? "/dashboard/tools/presentation" : "#";
-  return (
-    <Link
-      href={href}
-      className="group flex h-full flex-col rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-5 transition-all duration-[var(--duration-base)] hover:-translate-y-px hover:border-[var(--color-line-strong)] hover:shadow-[var(--shadow-soft)]"
-    >
+  const ready = w.slug === "presentation";
+  const cardCls =
+    "group flex h-full flex-col rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] p-5 transition-all duration-[var(--duration-base)]";
+  const interactive =
+    "hover:-translate-y-px hover:border-[var(--color-line-strong)] hover:shadow-[var(--shadow-soft)]";
+  const dimmed = "opacity-60";
+
+  const inner = (
+    <>
       <div className="flex items-center justify-between">
         <span className="inline-flex items-center gap-1.5 text-[10.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]">
           <Dot color={CATEGORY[w.category]} size={5} />
           {w.category}
         </span>
-        {w.hot && (
-          <span className="text-[9.5px] wght-700 kerning-mono uppercase text-[var(--color-urgent)]">
-            많이 써요
+        {ready ? (
+          w.hot && (
+            <span className="text-[9.5px] wght-700 kerning-mono uppercase text-[var(--color-urgent)]">
+              많이 써요
+            </span>
+          )
+        ) : (
+          <span className="rounded-full bg-[var(--color-surface-strong)] px-2 py-0.5 text-[9.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-muted)]">
+            준비 중
           </span>
         )}
       </div>
@@ -266,8 +305,31 @@ function Card({ w }: { w: Wizard }) {
           <span className="mx-1.5 text-[var(--color-line-strong)]">·</span>
           {w.output}
         </span>
-        <Arrow className="text-[12px] text-[var(--color-fg-subtle)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-fg)]" />
+        {ready && (
+          <Arrow className="text-[12px] text-[var(--color-fg-subtle)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-fg)]" />
+        )}
       </div>
+    </>
+  );
+
+  if (!ready) {
+    return (
+      <div
+        aria-disabled
+        title="아직 준비 중이에요. 곧 만나요"
+        className={`${cardCls} ${dimmed} cursor-not-allowed`}
+      >
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href="/dashboard/tools/presentation"
+      className={`${cardCls} ${interactive}`}
+    >
+      {inner}
     </Link>
   );
 }

@@ -79,7 +79,7 @@ export function StartScreen() {
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={onKeyDown}
             rows={1}
-            placeholder="무엇이든 물어보세요. Enter 전송, Shift+Enter 줄바꿈"
+            placeholder="무엇이든 물어보세요"
             autoFocus
             className="flex-1 resize-none bg-transparent px-2 py-1.5 text-[14.5px] wght-450 kerning-tight text-[var(--color-fg-strong)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none focus-visible:outline-none"
           />

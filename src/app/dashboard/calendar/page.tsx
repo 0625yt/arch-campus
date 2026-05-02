@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Dot, Divider } from "@/components/primitives";
@@ -198,8 +199,9 @@ function UploadZone({ className }: { className?: string }) {
       />
       {name ? (
         <>
-          <p className="text-[15px] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[16px]">
-            ✓ {name}
+          <p className="inline-flex items-center gap-1.5 text-[15px] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[16px]">
+            <CheckIcon />
+            {name}
           </p>
           <p className="mt-1 text-[12.5px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
             일정을 정리하고 있어요…
@@ -242,8 +244,8 @@ function SyllabusList({ className }: { className?: string }) {
       <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
         {SYLLABI.map((s) => (
           <li key={s.id}>
-            <button
-              type="button"
+            <Link
+              href={`/dashboard/study/${encodeURIComponent(s.course)}`}
               className="group flex w-full items-baseline gap-3 rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] px-4 py-3 text-left transition-all duration-[var(--duration-base)] hover:-translate-y-px hover:border-[var(--color-line-strong)] hover:shadow-[var(--shadow-soft)]"
             >
               <Dot
@@ -262,7 +264,7 @@ function SyllabusList({ className }: { className?: string }) {
               <span className="shrink-0 self-baseline text-[10.5px] wght-450 kerning-mono tabular-nums text-[var(--color-fg-subtle)]">
                 {s.uploaded}
               </span>
-            </button>
+            </Link>
           </li>
         ))}
       </ul>
@@ -411,7 +413,7 @@ function EventRow({
         </span>
         <span
           aria-hidden
-          className="reveal-right text-[10.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]"
+          className="text-[10.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]"
         >
           편집
         </span>
@@ -600,5 +602,26 @@ function Field({
       </div>
       <div className="mt-1.5">{children}</div>
     </label>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      aria-hidden
+      className="shrink-0 text-[var(--color-success)]"
+    >
+      <path
+        d="M2.5 6.4l2.4 2.4L9.5 3.6"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

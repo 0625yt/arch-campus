@@ -36,6 +36,7 @@ interface Item {
   due: Date;
   dueLabel: string;
   daysAway: number; // 0=today, 1=tomorrow
+  href: string;
 }
 
 const TODAY_END = new Date();
@@ -51,6 +52,7 @@ const HERO: Item = {
   due: TODAY_END,
   dueLabel: "오늘 자정",
   daysAway: 0,
+  href: "/dashboard/study/%EC%9E%90%EB%A3%8C%EA%B5%AC%EC%A1%B0/bst",
 };
 
 const REST: Item[] = [
@@ -60,6 +62,7 @@ const REST: Item[] = [
     due: FIVE,
     dueLabel: "5일 뒤",
     daysAway: 5,
+    href: "/dashboard/study/%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4/norm",
   },
   {
     course: "알고리즘",
@@ -67,6 +70,7 @@ const REST: Item[] = [
     due: NEXT_WED,
     dueLabel: "수요일",
     daysAway: 5,
+    href: "/dashboard/study/%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/dp",
   },
   {
     course: "운영체제",
@@ -74,6 +78,7 @@ const REST: Item[] = [
     due: NEXT_TUE,
     dueLabel: "다음 주 화 · 8:30",
     daysAway: 4,
+    href: "/dashboard/study/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C",
   },
   {
     course: "자료구조",
@@ -81,6 +86,7 @@ const REST: Item[] = [
     due: FIVE,
     dueLabel: "이번 주",
     daysAway: 5,
+    href: "/dashboard/study/%EC%9E%90%EB%A3%8C%EA%B5%AC%EC%A1%B0/balanced",
   },
 ];
 
@@ -177,7 +183,7 @@ function Hero({ className }: { className?: string }) {
       {/* 단일 액션 라인 — 박스 X */}
       <div className="mt-7 flex flex-wrap items-baseline gap-x-5 gap-y-2 sm:mt-8">
         <Link
-          href="#"
+          href={HERO.href}
           className="group inline-flex items-baseline gap-1.5 text-[15px] wght-560 kerning-tight text-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
         >
           <span className="border-b border-[var(--color-accent)]/40 pb-px group-hover:border-[var(--color-accent-strong)]">
@@ -186,10 +192,10 @@ function Hero({ className }: { className?: string }) {
           <Arrow className="text-[15px] transition-transform group-hover:translate-x-0.5" />
         </Link>
         <Link
-          href="#"
+          href={`/dashboard/chat?q=${encodeURIComponent(HERO.title + " 5단계로 정리해줘")}`}
           className="group inline-flex items-baseline gap-1 text-[13px] wght-450 kerning-tight text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
         >
-          AI로 5단계로 끝내기
+          5단계로 끝내기
           <Arrow className="text-[12px] opacity-50 group-hover:opacity-100" />
         </Link>
       </div>
@@ -207,7 +213,7 @@ function ListBlock({ className }: { className?: string }) {
           이번 주 · {REST.length}건
         </h2>
         <Link
-          href="#"
+          href="/dashboard/calendar"
           className="group inline-flex items-baseline gap-1 text-[11.5px] wght-500 kerning-tight text-[var(--color-fg-subtle)] transition-colors hover:text-[var(--color-fg)]"
         >
           모두 보기
@@ -230,7 +236,7 @@ function Row({ item }: { item: Item }) {
   const isUrgent = item.daysAway <= 3;
   return (
     <Link
-      href="#"
+      href={item.href}
       className={cn(
         "row-shift group flex items-baseline gap-3 border-b border-[var(--color-line)] py-3 sm:py-3.5",
         "text-[var(--color-fg)] hover:text-[var(--color-fg-strong)]"
@@ -284,7 +290,7 @@ function FiveMin({ className }: { className?: string }) {
 
       {/* 박스 — 옅은 surface 배경 + 라운드 + 보더 X. Hero보다 약함 */}
       <Link
-        href="#"
+        href="/dashboard/study/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C/process-sync"
         className="group mt-3 block rounded-2xl bg-[var(--color-surface)] p-5 transition-colors duration-[var(--duration-base)] hover:bg-[var(--color-surface-strong)] sm:p-6"
       >
         <p className="text-[17px] leading-[1.4] kerning-tight wght-560 text-[var(--color-fg-strong)] sm:text-[18px]">
@@ -324,14 +330,17 @@ function Suggest({ className }: { className?: string }) {
         <SuggestRow
           context="발표 5일 뒤"
           label="5단계로 발표 자료 만들기"
+          href="/dashboard/tools/presentation"
         />
         <SuggestRow
           context="시험 다음 주"
           label="범위별 벼락치기 계획 짜기"
+          href={`/dashboard/chat?q=${encodeURIComponent("운영체제 중간고사 범위별 벼락치기 계획 짜줘")}`}
         />
         <SuggestRow
           context="새 강의"
           label="강의계획서로 일정 자동 정리"
+          href="/dashboard/calendar"
         />
       </ul>
     </section>
@@ -341,14 +350,16 @@ function Suggest({ className }: { className?: string }) {
 function SuggestRow({
   context,
   label,
+  href,
 }: {
   context: string;
   label: string;
+  href: string;
 }) {
   return (
     <li>
       <Link
-        href="#"
+        href={href}
         className="row-shift group flex items-baseline justify-between gap-4 border-b border-[var(--color-line)] py-3 sm:py-3.5"
       >
         <div className="flex min-w-0 items-baseline gap-3">
