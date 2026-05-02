@@ -162,31 +162,24 @@ export function GenerateForm({
       </FieldGroup>
 
       {/* 액션 */}
-      <div className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--color-line)] pt-6">
+      <div className="mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-line)] pt-6">
         <button
           type="button"
           onClick={generate}
           disabled={kinds.size === 0}
           className={cn(
-            "group inline-flex items-baseline gap-1.5 text-[14.5px] wght-560 kerning-tight transition-colors",
+            "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13.5px] wght-560 kerning-tight transition-all duration-[var(--duration-fast)]",
             kinds.size > 0
-              ? "text-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
-              : "cursor-not-allowed text-[var(--color-fg-disabled)]"
+              ? "bg-[var(--color-fg-strong)] text-white hover:opacity-90"
+              : "cursor-not-allowed bg-[var(--color-surface-strong)] text-[var(--color-fg-disabled)]",
           )}
         >
-          <span
-            className={cn(
-              "border-b pb-px",
-              kinds.size > 0
-                ? "border-[var(--color-accent)]/40 group-hover:border-[var(--color-accent-strong)]"
-                : "border-transparent"
-            )}
-          >
-            {kinds.size === 0
-              ? "유형을 한 개 이상 골라주세요"
-              : `${count}문제 만들기`}
-          </span>
-          <Arrow className="text-[14px] transition-transform group-hover:translate-x-0.5" />
+          {kinds.size === 0
+            ? "유형을 한 개 이상 골라주세요"
+            : `${count}문제 만들기`}
+          {kinds.size > 0 && (
+            <Arrow className="text-[12px] transition-transform group-hover:translate-x-0.5" />
+          )}
         </button>
 
         <span className="ml-auto hidden items-center gap-1.5 text-[11px] wght-450 kerning-tight text-[var(--color-fg-subtle)] sm:inline-flex">

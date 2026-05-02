@@ -131,6 +131,16 @@ function CourseCard({ course }: { course: Course }) {
         <p className="truncate text-[12px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
           {course.professor} · {course.semester}
         </p>
+        {/* 모바일에서만 — 자료 수 한 줄 (다른 메타는 sm+에서 우측 노출) */}
+        <p className="mt-1 text-[11px] wght-450 kerning-tight tabular-nums text-[var(--color-fg-subtle)] sm:hidden">
+          자료 <span className="text-[var(--color-fg)]">{course.materials.length}</span>
+          {total > 0 && (
+            <>
+              <span className="mx-1.5 text-[var(--color-line-strong)]">·</span>
+              문제 <span className="text-[var(--color-fg)]">{done}/{total}</span>
+            </>
+          )}
+        </p>
       </div>
 
       <div className="hidden shrink-0 items-baseline gap-3 self-baseline text-[11px] wght-450 kerning-tight tabular-nums text-[var(--color-fg-subtle)] sm:flex">

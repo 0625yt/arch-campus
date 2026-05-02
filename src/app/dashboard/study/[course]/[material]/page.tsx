@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Dot, ProgressLine } from "@/components/primitives";
+import { PageShell, PageFooter } from "@/components/page-shell";
 import { COURSE_COLOR, getMaterial, type SummaryBlock } from "../../data";
 import { GenerateButton } from "./generate-button";
 
@@ -26,26 +27,26 @@ export default async function MaterialDetailPage({
       : 0;
 
   return (
-    <div className="mx-auto w-full max-w-[760px] px-5 pb-12 pt-6 sm:px-7 sm:pt-8 md:px-12 md:pt-10 md:pb-20 xl:max-w-[820px]">
+    <PageShell width="md">
       {/* breadcrumb */}
-      <nav className="fade-up flex items-baseline gap-2 text-[12px] wght-450 kerning-tight">
+      <nav className="fade-up flex min-w-0 items-baseline gap-2 text-[12px] wght-450 kerning-tight">
         <Link
           href="/dashboard/study"
-          className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+          className="shrink-0 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
         >
           강의
         </Link>
-        <span className="text-[var(--color-line-strong)]">/</span>
+        <span className="shrink-0 text-[var(--color-line-strong)]">/</span>
         <Link
           href={`/dashboard/study/${course.slug}`}
-          className="inline-flex items-center gap-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+          className="inline-flex shrink-0 items-center gap-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
         >
           <Dot color={COURSE_COLOR[course.slug]} size={5} />
           {course.slug}
         </Link>
-        <span className="text-[var(--color-line-strong)]">/</span>
-        <span className="truncate wght-560 text-[var(--color-fg-strong)]">
-          자료
+        <span className="shrink-0 text-[var(--color-line-strong)]">/</span>
+        <span className="min-w-0 truncate wght-560 text-[var(--color-fg-strong)]">
+          {material.title}
         </span>
       </nav>
 
@@ -137,11 +138,11 @@ export default async function MaterialDetailPage({
         />
       </section>
 
-      <p className="mt-20 text-[11px] wght-380 kerning-tight text-[var(--color-fg-subtle)]">
+      <PageFooter>
         문제는 자료에 있는 문장으로만 만들어요. 출처 페이지·문단이 모든 문제에
         붙어요.
-      </p>
-    </div>
+      </PageFooter>
+    </PageShell>
   );
 }
 

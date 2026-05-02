@@ -4,14 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Arrow, Dot } from "@/components/primitives";
+import { COURSE_COLOR } from "@/app/dashboard/study/data";
 import type { Activity, ActivityKind } from "./data";
-
-const COURSE_COLOR: Record<string, string> = {
-  운영체제: "#7aa6d6",
-  자료구조: "#7fb38c",
-  데이터베이스: "#cca06b",
-  알고리즘: "#a08bc4",
-};
 
 type Filter = "전체" | ActivityKind;
 
@@ -128,9 +122,9 @@ function Row({ activity, mounted }: { activity: Activity; mounted: boolean }) {
       </span>
 
       {activity.course && (
-        <span className="hidden shrink-0 items-center gap-1.5 sm:inline-flex sm:w-[88px]">
-          <Dot color={COURSE_COLOR[activity.course]} size={5} />
-          <span className="text-[10.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]">
+        <span className="inline-flex shrink-0 items-center gap-1.5 sm:w-[88px]">
+          <Dot color={COURSE_COLOR[activity.course as keyof typeof COURSE_COLOR]} size={5} />
+          <span className="hidden text-[10.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)] sm:inline">
             {activity.course}
           </span>
         </span>

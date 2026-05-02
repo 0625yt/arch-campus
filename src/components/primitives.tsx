@@ -165,3 +165,30 @@ export function Divider({ className }: { className?: string }) {
     />
   );
 }
+
+/**
+ * 헤드라인 인라인 하이라이트 — 셀렉션 같은 옅은 액센트 배경 + 텍스트만 진한 액센트.
+ *   <PageTitle>막막할 때 <HighlightText>풀어드려요</HighlightText></PageTitle>
+ */
+export function HighlightText({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "relative inline-block wght-700 text-[var(--color-accent-strong)]",
+        className,
+      )}
+    >
+      <span
+        aria-hidden
+        className="absolute inset-x-[-0.12em] inset-y-[0.08em] -z-10 rounded-[2px] bg-[var(--color-highlight)]"
+      />
+      {children}
+    </span>
+  );
+}

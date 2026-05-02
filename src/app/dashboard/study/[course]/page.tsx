@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Arrow, Dot, ProgressLine } from "@/components/primitives";
+import { PageShell, PageFooter } from "@/components/page-shell";
 import { COURSE_COLOR, getCourse, type Course, type Material } from "../data";
 import { UploadZone } from "./upload-zone";
 
@@ -20,7 +21,7 @@ export default async function CourseDetailPage({
   const acc = done > 0 ? Math.round((correct / done) * 100) : 0;
 
   return (
-    <div className="mx-auto w-full max-w-[760px] px-5 pb-12 pt-6 sm:px-7 sm:pt-8 md:px-12 md:pt-10 md:pb-20 xl:max-w-[820px]">
+    <PageShell width="md">
       {/* breadcrumb */}
       <nav className="fade-up flex items-baseline gap-2 text-[12px] wght-450 kerning-tight">
         <Link
@@ -130,10 +131,10 @@ export default async function CourseDetailPage({
         </div>
       </section>
 
-      <p className="mt-20 text-[11px] wght-380 kerning-tight text-[var(--color-fg-subtle)]">
+      <PageFooter>
         모든 문제는 업로드한 자료에서 추출되고, 출처 페이지·문단을 함께 보여줘요.
-      </p>
-    </div>
+      </PageFooter>
+    </PageShell>
   );
 }
 

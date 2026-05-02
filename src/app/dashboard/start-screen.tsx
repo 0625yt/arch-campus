@@ -108,10 +108,6 @@ export function StartScreen() {
           </li>
         ))}
       </ul>
-
-      <p className="mt-12 fade-up fade-up-4 text-center text-[11px] wght-380 kerning-tight text-[var(--color-fg-subtle)]">
-        학습 보조용입니다. 결과는 본인이 검토·수정해 사용하세요.
-      </p>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Arrow, Dot } from "@/components/primitives";
+import { Arrow, Dot, HighlightText } from "@/components/primitives";
 import {
   PageShell,
   PageHint,
@@ -159,14 +159,7 @@ export default function ToolsPage() {
       <PageHint>프롬프트 못 짜도 괜찮아요. 답만 입력하면 결과물이 나와요</PageHint>
 
       <PageTitle className="mt-6">
-        막막할 때{" "}
-        <span className="relative inline-block text-[var(--color-accent-strong)]">
-          <span
-            aria-hidden
-            className="absolute inset-x-[-0.12em] inset-y-[0.08em] -z-10 rounded-[2px] bg-[var(--color-highlight)]"
-          />
-          단계별로 풀어드려요
-        </span>
+        막막할 때 <HighlightText>단계별로 풀어드려요</HighlightText>
       </PageTitle>
 
       <MetaLine className="mt-2 fade-up fade-up-1">

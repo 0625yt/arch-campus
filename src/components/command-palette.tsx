@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Kbd } from "@/components/primitives";
-import { COURSES } from "@/app/dashboard/study/data";
+import { COURSES, COURSE_COLOR } from "@/app/dashboard/study/data";
 import { ACTIVITIES } from "@/app/dashboard/history/data";
 
 /* ─────────── command types ─────────── */
@@ -134,7 +134,7 @@ export function CommandPalette() {
         hint: `${c.materials.length}개 자료 · ${c.professor}`,
         keywords: c.professor,
         meta: "강의",
-        dotColor: COURSE_COLOR_MAP[c.slug],
+        dotColor: COURSE_COLOR[c.slug],
         run: () => router.push(`/dashboard/study/${c.slug}`),
       });
     }
@@ -149,7 +149,7 @@ export function CommandPalette() {
           hint: m.oneLine,
           keywords: `${c.slug} ${m.unit ?? ""}`,
           meta: c.slug,
-          dotColor: COURSE_COLOR_MAP[c.slug],
+          dotColor: COURSE_COLOR[c.slug],
           run: () => router.push(`/dashboard/study/${c.slug}/${m.id}`),
         });
       }
@@ -176,7 +176,9 @@ export function CommandPalette() {
         hint: a.meta,
         keywords: a.course ?? "",
         meta: a.kind,
-        dotColor: a.course ? COURSE_COLOR_MAP[a.course] : undefined,
+        dotColor: a.course
+          ? COURSE_COLOR[a.course as keyof typeof COURSE_COLOR]
+          : undefined,
         run: () => router.push(a.href),
       });
     }
@@ -401,13 +403,6 @@ export function CommandPalette() {
 }
 
 /* ─────────── helpers ─────────── */
-
-const COURSE_COLOR_MAP: Record<string, string> = {
-  운영체제: "#7aa6d6",
-  자료구조: "#7fb38c",
-  데이터베이스: "#cca06b",
-  알고리즘: "#a08bc4",
-};
 
 function groupByKind(items: Command[]) {
   const order: CommandKind[] = ["이동", "액션", "최근"];

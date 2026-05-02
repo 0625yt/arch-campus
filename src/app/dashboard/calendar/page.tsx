@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Dot, Divider } from "@/components/primitives";
 import {
@@ -440,6 +440,14 @@ function EventEditor({
   const [time, setTime] = useState(timeInputValue(event.due));
   const [weight, setWeight] = useState(event.weight ?? "");
 
+  // 모바일에서 즉시 autoFocus는 OS 키보드가 폼을 가리는 문제. 데스크톱(coarse pointer X)에서만 자동 포커스
+  const titleRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isCoarse = window.matchMedia("(pointer: coarse)").matches;
+    if (!isCoarse) titleRef.current?.focus();
+  }, []);
+
   function commit() {
     if (!title.trim()) return;
     const [yyyy, mm, dd] = date.split("-").map((s) => parseInt(s, 10));
@@ -463,10 +471,10 @@ function EventEditor({
     >
       {/* 제목 */}
       <input
+        ref={titleRef}
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        autoFocus
         placeholder="일정 제목"
         onKeyDown={(e) => {
           if (e.key === "Enter") {

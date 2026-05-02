@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Arrow, Dot, ProgressLine } from "@/components/primitives";
+import { Arrow, Dot, ProgressLine, HighlightText } from "@/components/primitives";
 import { Countdown } from "@/components/countdown";
 import { PageShell } from "@/components/page-shell";
+import { COURSE_COLOR, type CourseSlug } from "@/app/dashboard/study/data";
 
 /* ─────────── helpers ─────────── */
 
@@ -21,17 +22,8 @@ function timeLabel(d: Date) {
 
 /* ─────────── data (mock) ─────────── */
 
-const COURSE = {
-  운영체제: "#7aa6d6",
-  자료구조: "#7fb38c",
-  데이터베이스: "#cca06b",
-  알고리즘: "#a08bc4",
-} as const;
-
-type CourseName = keyof typeof COURSE;
-
 interface Item {
-  course: CourseName;
+  course: CourseSlug;
   title: string;
   due: Date;
   dueLabel: string;
@@ -144,7 +136,7 @@ function Hero({ className }: { className?: string }) {
           />
           오늘 자정 마감!
         </span>
-        <Dot color={COURSE[HERO.course]} size={6} />
+        <Dot color={COURSE_COLOR[HERO.course]} size={6} />
         <span className="wght-560 text-[var(--color-fg-muted)]">
           {HERO.course}
         </span>
@@ -156,13 +148,7 @@ function Hero({ className }: { className?: string }) {
           오늘 자정까지
         </span>
         <br />
-        <span className="relative inline-block wght-700 text-[var(--color-accent-strong)]">
-          <span
-            aria-hidden
-            className="absolute inset-x-[-0.12em] inset-y-[0.08em] -z-10 rounded-[2px] bg-[var(--color-highlight)]"
-          />
-          {taskNoun}
-        </span>
+        <HighlightText>{taskNoun}</HighlightText>
         <span className="wght-380 text-[var(--color-fg-muted)]">,</span>
         <br />
         <span className="wght-560 text-[var(--color-fg)]">
@@ -242,7 +228,7 @@ function Row({ item }: { item: Item }) {
         "text-[var(--color-fg)] hover:text-[var(--color-fg-strong)]"
       )}
     >
-      <Dot color={COURSE[item.course]} size={6} className="translate-y-[-1px]" />
+      <Dot color={COURSE_COLOR[item.course]} size={6} className="translate-y-[-1px]" />
       <div className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-baseline sm:gap-3">
         <span className="text-[10.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)] sm:w-[88px] sm:shrink-0">
           {item.course}
