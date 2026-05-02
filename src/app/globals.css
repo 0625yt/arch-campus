@@ -84,12 +84,22 @@ body {
   height: 100dvh;
 }
 
-/* 포커스 — 키보드 사용자만 */
+/* 포커스 — 키보드 사용자만, 폼 컨트롤 제외
+   input/textarea/button/a는 자기 컨테이너에서 focus 표현. 코발트 ring 둘러두면 GPT 톤 깨짐. */
 *:focus { outline: none; }
 *:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 3px;
   border-radius: 4px;
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
 }
 
 *,
