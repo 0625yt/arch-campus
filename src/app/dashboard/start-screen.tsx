@@ -1,68 +1,54 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Arrow, Dot } from "@/components/primitives";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
-const SUGGESTIONS: {
-  label: string;
-  hint: string;
-  href: string;
-  meta: string;
-  dot?: string;
-}[] = [
-  {
-    label: "오늘 마감 보기",
-    hint: "지금 해야 할 것 한눈에",
-    href: "/dashboard/today",
-    meta: "Today",
-  },
-  {
-    label: "발표 위저드 시작",
-    hint: "5단계로 슬라이드·대본·질문",
-    href: "/dashboard/tools/presentation",
-    meta: "위저드",
-  },
-  {
-    label: "운영체제 5주차로",
-    hint: "프로세스 동기화 · 12문제 중 5문제",
-    href: "/dashboard/study/운영체제/process-sync",
-    meta: "자료",
-    dot: "#7aa6d6",
-  },
-  {
-    label: "강의계획서 올리기",
-    hint: "학기 일정 자동 정리",
-    href: "/dashboard/calendar",
-    meta: "Calendar",
-  },
+const PROMPT_CHIPS: { label: string; prompt: string }[] = [
+  { label: "운영체제 5주차 정리해줘", prompt: "운영체제 5주차 프로세스 동기화 자료 요약해줘" },
+  { label: "이번 주 마감 알려줘", prompt: "이번 주 마감 일정 알려줘" },
+  { label: "발표 자료 만들기", prompt: "발표 자료 만들어줘" },
+  { label: "강의계획서 정리하기", prompt: "강의계획서 PDF 올리면 일정 자동 정리해줘" },
 ];
 
 const GREETINGS = [
-  "오늘은 무엇부터 해볼까요",
+  "오늘은 무엇을 도와드릴까요",
   "어디서부터 시작해볼까요",
   "오늘은 어떤 공부를 도와드릴까요",
 ];
 
 export function StartScreen() {
+  const router = useRouter();
   const [greeting, setGreeting] = useState(GREETINGS[0]);
-  const [isMac, setIsMac] = useState(false);
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // 메시지 + Mac 감지는 클라이언트에서만 — hydration 안전
   useEffect(() => {
     setGreeting(GREETINGS[Math.floor(Math.random() * GREETINGS.length)]);
-    setIsMac(/Mac|iPod|iPhone|iPad/.test(navigator.platform));
   }, []);
 
-  const openPalette = () => {
-    const ev = new KeyboardEvent("keydown", {
-      key: "k",
-      code: "KeyK",
-      metaKey: isMac,
-      ctrlKey: !isMac,
-      bubbles: true,
-    });
-    window.dispatchEvent(ev);
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+  }, [draft]);
+
+  const submit = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    router.push(`/dashboard/chat?q=${encodeURIComponent(trimmed)}`);
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submit(draft);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      submit(draft);
+    }
   };
 
   return (
@@ -78,90 +64,67 @@ export function StartScreen() {
         <span suppressHydrationWarning>{greeting}</span>
       </h1>
       <p className="mt-3 fade-up fade-up-1 text-center text-[13.5px] wght-450 kerning-tight text-[var(--color-fg-muted)] sm:text-[14.5px]">
-        강의·자료·위저드를 검색하거나, 아래 시작점에서 골라보세요
+        강의·자료·일정·위저드까지, 자연어로 물어보세요
       </p>
 
-      {/* 큰 검색창 */}
-      <button
-        type="button"
-        onClick={openPalette}
-        className="group mt-10 fade-up fade-up-2 flex w-full items-center gap-3 rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg)] px-5 py-4 text-left shadow-[var(--shadow-soft)] transition-all duration-[var(--duration-base)] hover:-translate-y-px hover:border-[var(--color-line-strong)] hover:shadow-[var(--shadow-lift)]"
+      {/* 큰 입력창 */}
+      <form
+        onSubmit={onSubmit}
+        className="mt-10 fade-up fade-up-2 w-full"
       >
-        <SearchIcon />
-        <span className="flex-1 text-[14px] wght-450 kerning-tight text-[var(--color-fg-subtle)] sm:text-[15px]">
-          무엇이든 물어보세요. 강의·자료·위저드 검색이나 이동
-        </span>
-        <span
-          suppressHydrationWarning
-          className="hidden items-center gap-0.5 text-[10px] wght-700 kerning-mono text-[var(--color-fg-subtle)] sm:inline-flex"
-        >
-          <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[4px] border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-1 text-[var(--color-fg-muted)]">
-            {isMac ? "⌘" : "Ctrl"}
-          </kbd>
-          <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[4px] border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-1 text-[var(--color-fg-muted)]">
-            K
-          </kbd>
-        </span>
-      </button>
+        <div className="flex items-end gap-2 rounded-2xl border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-3 py-2.5 shadow-[var(--shadow-soft)] transition-all duration-[var(--duration-base)] focus-within:border-[var(--color-fg-strong)] focus-within:shadow-[var(--shadow-lift)]">
+          <textarea
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={onKeyDown}
+            rows={1}
+            placeholder="무엇이든 물어보세요. Enter 전송, Shift+Enter 줄바꿈"
+            autoFocus
+            className="flex-1 resize-none bg-transparent px-2 py-1.5 text-[14.5px] wght-450 kerning-tight text-[var(--color-fg-strong)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim()}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-fg-strong)] text-white transition-opacity disabled:opacity-30"
+            aria-label="전송"
+          >
+            <SendIcon />
+          </button>
+        </div>
+      </form>
 
-      {/* 시작점 4개 */}
-      <ul className="mt-10 fade-up fade-up-3 grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
-        {SUGGESTIONS.map((s) => (
-          <li key={s.label}>
-            <Link
-              href={s.href}
-              className="group flex h-full items-baseline gap-3 rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] px-4 py-3.5 transition-all duration-[var(--duration-base)] hover:-translate-y-px hover:border-[var(--color-line-strong)] hover:shadow-[var(--shadow-soft)]"
+      {/* prompt chip 4개 — 자주 쓰는 첫 질문 */}
+      <ul className="mt-6 fade-up fade-up-3 flex w-full flex-wrap justify-center gap-1.5">
+        {PROMPT_CHIPS.map((c) => (
+          <li key={c.label}>
+            <button
+              type="button"
+              onClick={() => submit(c.prompt)}
+              className="rounded-full border border-[var(--color-line)] bg-[var(--color-bg)] px-3.5 py-1.5 text-[12px] wght-450 kerning-tight text-[var(--color-fg-muted)] transition-all duration-[var(--duration-base)] hover:-translate-y-px hover:border-[var(--color-line-strong)] hover:text-[var(--color-fg-strong)] hover:shadow-[var(--shadow-soft)]"
             >
-              {s.dot ? (
-                <Dot color={s.dot} size={6} className="translate-y-[-1px]" />
-              ) : (
-                <span
-                  aria-hidden
-                  className="h-1.5 w-1.5 shrink-0 translate-y-[-1px] rounded-full bg-[var(--color-fg-disabled)]"
-                />
-              )}
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <div className="flex items-baseline gap-2">
-                  <h3 className="truncate text-[13.5px] wght-560 kerning-tight text-[var(--color-fg-strong)] sm:text-[14px]">
-                    {s.label}
-                  </h3>
-                  <span className="shrink-0 text-[9.5px] wght-700 kerning-mono uppercase text-[var(--color-fg-subtle)]">
-                    {s.meta}
-                  </span>
-                </div>
-                <p className="truncate text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-                  {s.hint}
-                </p>
-              </div>
-              <Arrow className="reveal-right shrink-0 self-baseline text-[12px] text-[var(--color-fg-subtle)]" />
-            </Link>
+              {c.label}
+            </button>
           </li>
         ))}
       </ul>
 
       <p className="mt-12 fade-up fade-up-4 text-center text-[11px] wght-380 kerning-tight text-[var(--color-fg-subtle)]">
-        매일 아침 마감 알림을 받고 싶으면 알림을 켜주세요
+        학습 보조용입니다. 결과는 본인이 검토·수정해 사용하세요.
       </p>
     </div>
   );
 }
 
-function SearchIcon() {
+function SendIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 18 18"
-      fill="none"
-      aria-hidden
-      className="shrink-0 text-[var(--color-fg-muted)]"
-    >
-      <circle cx="8" cy="8" r="5.2" stroke="currentColor" strokeWidth={1.4} />
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path
-        d="M12.4 12.4L16 16"
+        d="M8 13V3M8 3L4 7M8 3l4 4"
         stroke="currentColor"
-        strokeWidth={1.4}
+        strokeWidth={1.6}
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );

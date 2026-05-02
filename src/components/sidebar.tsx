@@ -62,6 +62,14 @@ function IconTools() {
     </svg>
   );
 }
+function IconNewChat() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path d="M2.5 4.5h7c.9 0 1.5.6 1.5 1.5v3.5L8.6 11.7H4c-.9 0-1.5-.6-1.5-1.5V4.5z" stroke="currentColor" strokeWidth={1.2} strokeLinejoin="round" />
+      <path d="M5.5 7h3M7 5.5v3" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" />
+    </svg>
+  );
+}
 function IconHistory() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
@@ -111,8 +119,25 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
       </div>
 
       {/* Cmd+K 진입점 */}
-      <div className="px-3 pb-3">
+      <div className="px-3 pb-2">
         <SearchTrigger variant="sidebar" />
+      </div>
+
+      {/* 새 대화 — 대시보드 진입점 */}
+      <div className="px-3 pb-3">
+        <Link
+          href="/dashboard"
+          onClick={onNavigate}
+          className={cn(
+            "group flex w-full items-center gap-2.5 rounded-md border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-[12.5px] kerning-tight transition-all duration-[var(--duration-fast)] hover:border-[var(--color-line-strong)] hover:shadow-[var(--shadow-soft)]",
+            pathname === "/dashboard" || pathname === "/dashboard/chat"
+              ? "wght-560 text-[var(--color-fg-strong)]"
+              : "wght-450 text-[var(--color-fg-muted)] hover:text-[var(--color-fg-strong)]"
+          )}
+        >
+          <IconNewChat />
+          <span className="flex-1">새 대화</span>
+        </Link>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 py-1">
