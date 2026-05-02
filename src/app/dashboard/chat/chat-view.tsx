@@ -206,7 +206,7 @@ export function ChatView() {
         className="pointer-events-none sticky bottom-0 left-0 right-0 -mx-5 sm:-mx-7 md:-mx-10"
       >
         <div className="pointer-events-auto bg-gradient-to-t from-[var(--color-bg)] via-[var(--color-bg)]/95 to-[var(--color-bg)]/0 px-5 pb-5 pt-8 sm:px-7 md:px-10">
-          <div className="mx-auto flex w-full items-end gap-2 rounded-2xl border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-3 py-2.5 shadow-[var(--shadow-soft)] focus-within:border-[var(--color-fg-strong)] focus-within:shadow-[var(--shadow-lift)]">
+          <div className="mx-auto flex w-full items-end gap-2 rounded-2xl border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-3 py-2.5 shadow-[var(--shadow-soft)] transition-shadow duration-[var(--duration-base)] focus-within:shadow-[var(--shadow-lift)]">
             <textarea
               ref={inputRef}
               value={draft}
@@ -214,7 +214,7 @@ export function ChatView() {
               onKeyDown={onKeyDown}
               rows={1}
               placeholder="무엇이든 물어보세요. Enter 전송, Shift+Enter 줄바꿈"
-              className="flex-1 resize-none bg-transparent px-2 py-1.5 text-[14.5px] wght-450 kerning-tight text-[var(--color-fg-strong)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none"
+              className="flex-1 resize-none bg-transparent px-2 py-1.5 text-[14.5px] wght-450 kerning-tight text-[var(--color-fg-strong)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none focus-visible:outline-none"
             />
             <button
               type="submit"

@@ -72,7 +72,7 @@ export function StartScreen() {
         onSubmit={onSubmit}
         className="mt-10 fade-up fade-up-2 w-full"
       >
-        <div className="flex items-end gap-2 rounded-2xl border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-3 py-2.5 shadow-[var(--shadow-soft)] transition-all duration-[var(--duration-base)] focus-within:border-[var(--color-fg-strong)] focus-within:shadow-[var(--shadow-lift)]">
+        <div className="flex items-end gap-2 rounded-2xl border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-3 py-2.5 shadow-[var(--shadow-soft)] transition-shadow duration-[var(--duration-base)] focus-within:shadow-[var(--shadow-lift)]">
           <textarea
             ref={inputRef}
             value={draft}
@@ -81,7 +81,7 @@ export function StartScreen() {
             rows={1}
             placeholder="무엇이든 물어보세요. Enter 전송, Shift+Enter 줄바꿈"
             autoFocus
-            className="flex-1 resize-none bg-transparent px-2 py-1.5 text-[14.5px] wght-450 kerning-tight text-[var(--color-fg-strong)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none"
+            className="flex-1 resize-none bg-transparent px-2 py-1.5 text-[14.5px] wght-450 kerning-tight text-[var(--color-fg-strong)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none focus-visible:outline-none"
           />
           <button
             type="submit"
