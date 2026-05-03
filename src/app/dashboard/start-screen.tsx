@@ -4,27 +4,16 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 const PROMPT_CHIPS: { label: string; prompt: string }[] = [
-  { label: "운영체제 5주차 정리해줘", prompt: "운영체제 5주차 프로세스 동기화 자료 요약해줘" },
-  { label: "이번 주 마감 알려줘", prompt: "이번 주 마감 일정 알려줘" },
-  { label: "발표 자료 만들기", prompt: "발표 자료 만들어줘" },
-  { label: "강의계획서 정리하기", prompt: "강의계획서 PDF 올리면 일정 자동 정리해줘" },
-];
-
-const GREETINGS = [
-  "오늘은 무엇을 도와드릴까요",
-  "어디서부터 시작해볼까요",
-  "오늘은 어떤 공부를 도와드릴까요",
+  { label: "시험 전 뭐부터 볼지", prompt: "운영체제 중간고사 전까지 뭐부터 보면 좋을지 정리해줘" },
+  { label: "과제 3단계로 쪼개기", prompt: "자료구조 과제를 오늘 끝낼 수 있게 3단계로 쪼개줘" },
+  { label: "발표 흐름 잡기", prompt: "데이터베이스 발표를 슬라이드 흐름과 예상 질문으로 정리해줘" },
+  { label: "이번 주 위험 일정", prompt: "이번 주 마감과 시험 중 위험한 것부터 알려줘" },
 ];
 
 export function StartScreen() {
   const router = useRouter();
-  const [greeting, setGreeting] = useState(GREETINGS[0]);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    setGreeting(GREETINGS[Math.floor(Math.random() * GREETINGS.length)]);
-  }, []);
 
   useEffect(() => {
     const el = inputRef.current;
@@ -52,34 +41,29 @@ export function StartScreen() {
   };
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col items-center justify-start px-5 pb-10 pt-12 sm:justify-center sm:px-7 sm:py-14 md:px-12 md:py-20">
-      {/* 인사말 */}
-      <p
-        suppressHydrationWarning
-        className="fade-up text-[12.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]"
-      >
-        윤태경 · 컴퓨터공학과 3학년
+    <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col justify-start px-5 pb-10 pt-12 sm:px-7 sm:py-14 md:px-12 md:py-20">
+      <p className="fade-up text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+        새로 물어보기
       </p>
-      <h1 className="mt-3 fade-up fade-up-1 text-center text-[28px] leading-[1.25] kerning-tight wght-700 text-[var(--color-fg-strong)] sm:text-[34px] md:text-[40px]">
-        <span suppressHydrationWarning>{greeting}</span>
+      <h1 className="mt-3 fade-up fade-up-1 text-[27px] leading-[1.24] kerning-tight wght-700 text-[var(--color-fg-strong)] sm:text-[32px] md:text-[36px]">
+        막힌 걸 그대로 적으면, 공부 순서로 바꿔드려요
       </h1>
-      <p className="mt-3 fade-up fade-up-1 text-center text-[13.5px] wght-450 kerning-tight text-[var(--color-fg-muted)] sm:text-[14.5px]">
-        강의·자료·일정·위저드까지, 자연어로 물어보세요
+      <p className="mt-3 fade-up fade-up-1 max-w-[520px] text-[13.5px] leading-[1.6] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+        “뭘 해야 할지 모르겠다” 같은 말도 괜찮아요. 과제·시험·발표 중 지금 행동으로 옮길 수 있는 형태로 쪼갭니다.
       </p>
 
-      {/* 큰 입력창 */}
       <form
         onSubmit={onSubmit}
-        className="mt-10 fade-up fade-up-2 w-full"
+        className="mt-8 fade-up fade-up-2 w-full"
       >
-        <div className="flex items-end gap-2 rounded-2xl border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-3 py-2.5 shadow-[var(--shadow-soft)] transition-shadow duration-[var(--duration-base)] focus-within:shadow-[var(--shadow-lift)]">
+        <div className="flex items-end gap-2 rounded-xl border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-3 py-2.5 shadow-[var(--shadow-soft)] transition-shadow duration-[var(--duration-base)] focus-within:shadow-[var(--shadow-lift)]">
           <textarea
             ref={inputRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={onKeyDown}
             rows={1}
-            placeholder="무엇이든 물어보세요"
+            placeholder="예: 운영체제 시험이 4일 남았는데 뭐부터 볼까"
             autoFocus
             className="flex-1 resize-none bg-transparent px-2 py-1.5 text-[14.5px] wght-450 kerning-tight text-[var(--color-fg-strong)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none focus-visible:outline-none"
           />
@@ -94,14 +78,13 @@ export function StartScreen() {
         </div>
       </form>
 
-      {/* prompt chip 4개 — 자주 쓰는 첫 질문 */}
-      <ul className="mt-6 fade-up fade-up-3 flex w-full flex-wrap justify-center gap-1.5">
+      <ul className="mt-6 fade-up fade-up-3 grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
         {PROMPT_CHIPS.map((c) => (
           <li key={c.label}>
             <button
               type="button"
               onClick={() => submit(c.prompt)}
-              className="rounded-full border border-[var(--color-line)] bg-[var(--color-bg)] px-3.5 py-1.5 text-[12px] wght-450 kerning-tight text-[var(--color-fg-muted)] transition-all duration-[var(--duration-base)] hover:-translate-y-px hover:border-[var(--color-line-strong)] hover:text-[var(--color-fg-strong)] hover:shadow-[var(--shadow-soft)]"
+              className="w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] px-3.5 py-3 text-left text-[12.5px] wght-450 kerning-tight text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-surface)] hover:text-[var(--color-fg-strong)]"
             >
               {c.label}
             </button>

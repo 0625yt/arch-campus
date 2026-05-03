@@ -1,11 +1,17 @@
 import Link from "next/link";
+import {
+  BookOpenCheck,
+  ClipboardCheck,
+  TimerReset,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Arrow, Dot, ProgressLine, HighlightText } from "@/components/primitives";
+import { Arrow, Dot, ProgressLine } from "@/components/primitives";
 import { Countdown } from "@/components/countdown";
 import { PageShell } from "@/components/page-shell";
 import { COURSE_COLOR, type CourseSlug } from "@/app/dashboard/study/data";
 
-/* ─────────── helpers ─────────── */
+export const dynamic = "force-dynamic";
 
 function dateLabel(d: Date) {
   const days = ["일", "월", "화", "수", "목", "금", "토"];
@@ -20,77 +26,151 @@ function timeLabel(d: Date) {
   return `${ampm} ${hh}:${m.toString().padStart(2, "0")}`;
 }
 
-/* ─────────── data (mock) ─────────── */
+function dayOffset(base: Date, days: number, hour = 23, minute = 59) {
+  const d = new Date(base);
+  d.setDate(d.getDate() + days);
+  d.setHours(hour, minute, 0, 0);
+  return d;
+}
 
-interface Item {
+function nextWeekday(base: Date, weekday: number, hour = 23, minute = 59) {
+  const offset = (weekday - base.getDay() + 7) % 7 || 7;
+  return dayOffset(base, offset, hour, minute);
+}
+
+function daysAwayFrom(base: Date, target: Date) {
+  const start = new Date(base);
+  start.setHours(0, 0, 0, 0);
+  const targetStart = new Date(target);
+  targetStart.setHours(0, 0, 0, 0);
+  return Math.floor((targetStart.getTime() - start.getTime()) / 86400000);
+}
+
+type TaskKind = "과제" | "시험" | "발표" | "퀴즈" | "복습";
+
+interface Task {
   course: CourseSlug;
+  kind: TaskKind;
   title: string;
   due: Date;
   dueLabel: string;
-  daysAway: number; // 0=today, 1=tomorrow
+  daysAway: number;
   href: string;
+  weight?: string;
 }
 
-const TODAY_END = new Date();
-TODAY_END.setHours(23, 59, 0, 0);
+interface Move {
+  title: string;
+  label: string;
+  meta: string;
+  href: string;
+  icon: LucideIcon;
+  urgent?: boolean;
+}
 
-const FIVE = new Date(TODAY_END); FIVE.setDate(FIVE.getDate() + 5);
-const NEXT_WED = new Date(TODAY_END); NEXT_WED.setDate(NEXT_WED.getDate() + ((3 - NEXT_WED.getDay() + 7) % 7 || 7));
-const NEXT_TUE = new Date(TODAY_END); NEXT_TUE.setDate(NEXT_TUE.getDate() + ((2 - NEXT_TUE.getDay() + 7) % 7 || 7));
+function createTodayData(now: Date) {
+  const todayEnd = new Date(now);
+  todayEnd.setHours(23, 59, 0, 0);
 
-const HERO: Item = {
-  course: "자료구조",
-  title: "과제 3 — 이진 탐색 트리 구현",
-  due: TODAY_END,
-  dueLabel: "오늘 자정",
-  daysAway: 0,
-  href: "/dashboard/study/%EC%9E%90%EB%A3%8C%EA%B5%AC%EC%A1%B0/bst",
-};
-
-const REST: Item[] = [
-  {
-    course: "데이터베이스",
-    title: "중간 발표 — 정규화 사례 분석",
-    due: FIVE,
-    dueLabel: "5일 뒤",
-    daysAway: 5,
-    href: "/dashboard/study/%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4/norm",
-  },
-  {
-    course: "알고리즘",
-    title: "퀴즈 2 — 동적 계획법",
-    due: NEXT_WED,
-    dueLabel: "수요일",
-    daysAway: 5,
-    href: "/dashboard/study/%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/dp",
-  },
-  {
-    course: "운영체제",
-    title: "중간고사",
-    due: NEXT_TUE,
-    dueLabel: "다음 주 화 · 8:30",
-    daysAway: 4,
-    href: "/dashboard/study/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C",
-  },
-  {
+  const focus: Task = {
     course: "자료구조",
-    title: "5장 균형 트리 읽기",
-    due: FIVE,
-    dueLabel: "이번 주",
-    daysAway: 5,
-    href: "/dashboard/study/%EC%9E%90%EB%A3%8C%EA%B5%AC%EC%A1%B0/balanced",
-  },
-];
+    kind: "과제",
+    title: "과제 3 — 이진 탐색 트리 구현",
+    due: todayEnd,
+    dueLabel: "오늘 자정",
+    daysAway: 0,
+    href: "/dashboard/study/%EC%9E%90%EB%A3%8C%EA%B5%AC%EC%A1%B0/bst",
+    weight: "10%",
+  };
 
-/* ─────────── page ─────────── */
+  const operatingExam = nextWeekday(now, 2, 8, 30);
+  const dbPresentation = dayOffset(now, 5, 14, 0);
+  const algoQuiz = nextWeekday(now, 3, 11, 0);
+
+  const week: Task[] = [
+    {
+      course: "운영체제",
+      kind: "시험",
+      title: "중간고사",
+      due: operatingExam,
+      dueLabel: "다음 화 · 8:30",
+      daysAway: daysAwayFrom(now, operatingExam),
+      href: "/dashboard/study/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C",
+      weight: "30%",
+    },
+    {
+      course: "데이터베이스",
+      kind: "발표",
+      title: "정규화 사례 분석",
+      due: dbPresentation,
+      dueLabel: "5일 뒤",
+      daysAway: daysAwayFrom(now, dbPresentation),
+      href: "/dashboard/tools/presentation",
+      weight: "15%",
+    },
+    {
+      course: "알고리즘",
+      kind: "퀴즈",
+      title: "퀴즈 2 — 동적 계획법",
+      due: algoQuiz,
+      dueLabel: "수요일",
+      daysAway: daysAwayFrom(now, algoQuiz),
+      href: "/dashboard/study/%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/dp",
+      weight: "5%",
+    },
+  ];
+
+  const moves: Move[] = [
+    {
+      label: "제출 전",
+      title: "90초 감점 검사",
+      meta: "파일명·예외 케이스·시간복잡도",
+      href: `/dashboard/chat?q=${encodeURIComponent("자료구조 BST 과제 제출 전 감점 포인트를 체크해줘")}`,
+      icon: ClipboardCheck,
+      urgent: true,
+    },
+    {
+      label: "시험",
+      title: "운영체제 약점 7문제",
+      meta: "D-4 · 중간고사 30%",
+      href: "/dashboard/study/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C/process-sync",
+      icon: BookOpenCheck,
+    },
+  ];
+
+  return { focus, week, moves };
+}
 
 export default function TodayPage() {
   const now = new Date();
+  const { focus, week, moves } = createTodayData(now);
 
   return (
-    <PageShell width="narrow">
-      {/* Header — 한 줄, 가볍게 */}
-      <header className="fade-up flex flex-wrap items-baseline gap-x-2.5 gap-y-1 text-[12px] wght-450 kerning-tight">
+    <PageShell width="md" className="pb-24 md:pb-20">
+      <TopBar now={now} />
+
+      <header className="mt-7 fade-up fade-up-1 sm:mt-9">
+        <p className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+          오늘
+        </p>
+        <h1 className="mt-3 max-w-[560px] text-[28px] leading-[1.2] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[34px]">
+          오늘은 이 과제 하나만 끝내면 돼요
+        </h1>
+      </header>
+
+      <FocusCard className="mt-6 fade-up fade-up-2" task={focus} />
+
+      <NextMoves className="mt-8 fade-up fade-up-3" moves={moves} />
+
+      <WeekList className="mt-10 fade-up fade-up-4" tasks={week} />
+    </PageShell>
+  );
+}
+
+function TopBar({ now }: { now: Date }) {
+  return (
+    <header className="fade-up flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[12px] wght-450 kerning-tight">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <span className="wght-560 text-[var(--color-fg-strong)]">
           {dateLabel(now)}
         </span>
@@ -98,119 +178,130 @@ export default function TodayPage() {
         <span className="tabular-nums text-[var(--color-fg-muted)]">
           {timeLabel(now)}
         </span>
-        <span className="text-[var(--color-line-strong)]">·</span>
-        <span className="text-[var(--color-fg-muted)]">윤태경</span>
-      </header>
-
-      {/* Hero — 단일 큰 타이포 */}
-      <Hero className="mt-12 fade-up fade-up-1 sm:mt-16 md:mt-20" />
-
-      {/* 5분 액션 — Hero 다음 바로 */}
-      <FiveMin className="mt-14 fade-up fade-up-2 sm:mt-16 md:mt-20" />
-
-      {/* 리스트 */}
-      <ListBlock className="mt-14 fade-up fade-up-3 sm:mt-16" />
-
-      {/* Suggest */}
-      <Suggest className="mt-14 fade-up fade-up-4 sm:mt-16" />
-
-      <p className="mt-20 text-[11px] wght-380 kerning-tight text-[var(--color-fg-subtle)]">
-        모든 결과물은 학습 보조용이에요. 본인이 한 번 검토하고 다듬어 주세요.
-      </p>
-    </PageShell>
+      </div>
+      <Link
+        href="/dashboard"
+        className="group inline-flex items-baseline gap-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+      >
+        학기 대시보드
+        <Arrow className="text-[11px] transition-transform group-hover:translate-x-0.5" />
+      </Link>
+    </header>
   );
 }
 
-/* ─────────── HERO — 박스 X, 타이포만 ─────────── */
+function FocusCard({ task, className }: { task: Task; className?: string }) {
+  const taskNoun = task.title.replace(/^.*?— /, "");
 
-function Hero({ className }: { className?: string }) {
-  const taskNoun = HERO.title.replace(/^.*?— /, "");
   return (
-    <section className={className}>
-      {/* eyebrow — 트렌디 코랄 + ! */}
-      <div className="flex flex-wrap items-center gap-2 text-[11.5px] wght-700 kerning-mono uppercase">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-urgent-soft)] px-2.5 py-1 text-[var(--color-urgent)]">
+    <section
+      className={cn(
+        "rounded-lg border border-[var(--color-line-strong)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-soft)] sm:p-6",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-urgent-soft)] px-2.5 py-1 text-[11px] wght-700 kerning-tight text-[var(--color-urgent)]">
           <span
             aria-hidden
             className="h-1.5 w-1.5 rounded-full bg-[var(--color-urgent)] pulse-dot"
           />
-          오늘 자정 마감!
+          {task.dueLabel} · {task.weight}
         </span>
-        <Dot color={COURSE_COLOR[HERO.course]} size={6} />
-        <span className="wght-560 text-[var(--color-fg-muted)]">
-          {HERO.course}
+        <span className="inline-flex items-center gap-1.5 text-[11.5px] wght-560 kerning-tight text-[var(--color-fg-muted)]">
+          <Dot color={COURSE_COLOR[task.course]} size={6} />
+          {task.course}
         </span>
       </div>
 
-      {/* 거대 헤드라인 — 핵심 명사에 하이라이트 */}
-      <h1 className="mt-5 text-[34px] leading-[1.22] kerning-tight break-keep sm:mt-6 sm:text-[40px] md:text-[46px]">
-        <span className="wght-700 text-[var(--color-fg-strong)]">
-          오늘 자정까지
-        </span>
-        <br />
-        <HighlightText>{taskNoun}</HighlightText>
-        <span className="wght-380 text-[var(--color-fg-muted)]">,</span>
-        <br />
-        <span className="wght-560 text-[var(--color-fg)]">
-          지금 시작하면 끝낼 수 있어요
-        </span>
-      </h1>
+      <h2 className="mt-5 text-[24px] leading-[1.22] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[29px]">
+        {taskNoun}
+      </h2>
 
-      {/* 카운트다운 */}
-      <p className="mt-5 text-[13px] wght-450 kerning-tight text-[var(--color-fg-muted)] sm:text-[14px]">
+      <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
         <Countdown
-          target={HERO.due}
-          className="wght-700 text-[var(--color-urgent)] tabular-nums"
+          target={task.due}
+          className="wght-700 tabular-nums text-[var(--color-urgent)]"
         />
-        <span className="mx-2 text-[var(--color-line-strong)]">·</span>
-        <span>아직 0%</span>
-      </p>
+        <span className="text-[var(--color-line-strong)]">·</span>
+        <span>필요 시간 약 60분</span>
+      </div>
 
-      {/* 단일 액션 라인 — 박스 X */}
-      <div className="mt-7 flex flex-wrap items-baseline gap-x-5 gap-y-2 sm:mt-8">
-        <Link
-          href={HERO.href}
-          className="group inline-flex items-baseline gap-1.5 text-[15px] wght-560 kerning-tight text-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
-        >
-          <span className="border-b border-[var(--color-accent)]/40 pb-px group-hover:border-[var(--color-accent-strong)]">
-            바로 시작하기
-          </span>
-          <Arrow className="text-[15px] transition-transform group-hover:translate-x-0.5" />
-        </Link>
-        <Link
-          href={`/dashboard/chat?q=${encodeURIComponent(HERO.title + " 5단계로 정리해줘")}`}
-          className="group inline-flex items-baseline gap-1 text-[13px] wght-450 kerning-tight text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-        >
-          5단계로 끝내기
-          <Arrow className="text-[12px] opacity-50 group-hover:opacity-100" />
-        </Link>
+      <div className="mt-6 grid gap-5 md:grid-cols-[1fr_190px] md:items-end">
+        <div>
+          <div className="flex items-baseline justify-between gap-3 text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+            <span>오늘 진행</span>
+            <span className="tabular-nums text-[var(--color-fg)]">0/3</span>
+          </div>
+          <ProgressLine value={0} className="mt-3" />
+          <ol className="mt-4 flex flex-col gap-2.5">
+            <Step label="BST 삭제 케이스 확인" meta="40분" active />
+            <Step label="샘플 입력 5개 돌리기" meta="15분" />
+            <Step label="제출 형식 검사" meta="5분" />
+          </ol>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Link
+            href={task.href}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-[var(--color-fg-strong)] px-4 text-[13.5px] wght-560 kerning-tight text-white transition-colors hover:bg-[var(--color-fg)]"
+          >
+            <TimerReset size={16} strokeWidth={2.1} />
+            10분만 시작
+          </Link>
+          <Link
+            href={`/dashboard/chat?q=${encodeURIComponent(task.title + " 제출 전 감점 체크리스트 만들어줘")}`}
+            className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-4 text-[13px] wght-560 kerning-tight text-[var(--color-fg)] transition-colors hover:bg-[var(--color-surface)]"
+          >
+            <ClipboardCheck size={15} strokeWidth={2.1} />
+            제출 전 검사
+          </Link>
+        </div>
       </div>
     </section>
   );
 }
 
-/* ─────────── 리스트 ─────────── */
+function Step({
+  label,
+  meta,
+  active,
+}: {
+  label: string;
+  meta: string;
+  active?: boolean;
+}) {
+  return (
+    <li className="flex items-center gap-2 text-[12.5px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+      <span
+        aria-hidden
+        className={cn(
+          "flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border",
+          active
+            ? "border-[var(--color-urgent)] bg-[var(--color-urgent-soft)]"
+            : "border-[var(--color-line-strong)] bg-[var(--color-bg)]",
+        )}
+      >
+        {active && <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-urgent)]" />}
+      </span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="tabular-nums text-[11px] text-[var(--color-fg-subtle)]">
+        {meta}
+      </span>
+    </li>
+  );
+}
 
-function ListBlock({ className }: { className?: string }) {
+function NextMoves({ moves, className }: { moves: Move[]; className?: string }) {
   return (
     <section className={className}>
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-[12px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]">
-          이번 주 · {REST.length}건
-        </h2>
-        <Link
-          href="/dashboard/calendar"
-          className="group inline-flex items-baseline gap-1 text-[11.5px] wght-500 kerning-tight text-[var(--color-fg-subtle)] transition-colors hover:text-[var(--color-fg)]"
-        >
-          모두 보기
-          <Arrow className="text-[11px]" />
-        </Link>
-      </div>
-
+      <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+        그다음 2개
+      </h2>
       <ul className="mt-3 border-t border-[var(--color-line)]">
-        {REST.map((item, i) => (
-          <li key={i}>
-            <Row item={item} />
+        {moves.map((move) => (
+          <li key={move.title}>
+            <MoveRow move={move} />
           </li>
         ))}
       </ul>
@@ -218,39 +309,115 @@ function ListBlock({ className }: { className?: string }) {
   );
 }
 
-function Row({ item }: { item: Item }) {
+function MoveRow({ move }: { move: Move }) {
+  const Icon = move.icon;
+
+  return (
+    <Link
+      href={move.href}
+      className="row-shift group flex items-center gap-3 border-b border-[var(--color-line)] py-3.5"
+    >
+      <span
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+          move.urgent
+            ? "bg-[var(--color-urgent-soft)] text-[var(--color-urgent)]"
+            : "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
+        )}
+      >
+        <Icon size={16} strokeWidth={2.1} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="text-[10.5px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+          {move.label}
+        </span>
+        <span className="mt-0.5 block truncate text-[13.5px] wght-700 kerning-tight text-[var(--color-fg-strong)]">
+          {move.title}
+        </span>
+      </span>
+      <span className="hidden max-w-[190px] truncate text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)] sm:block">
+        {move.meta}
+      </span>
+      <Arrow className="reveal-right text-[12px] text-[var(--color-fg-subtle)]" />
+    </Link>
+  );
+}
+
+function WeekList({ tasks, className }: { tasks: Task[]; className?: string }) {
+  return (
+    <section className={className}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+          이번 주
+        </h2>
+        <Link
+          href="/dashboard/calendar"
+          className="group inline-flex items-baseline gap-1 text-[11.5px] wght-500 kerning-tight text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]"
+        >
+          마감 레이더
+          <Arrow className="text-[11px]" />
+        </Link>
+      </div>
+
+      <ul className="mt-3 border-t border-[var(--color-line)]">
+        {tasks.map((item) => (
+          <li key={`${item.course}-${item.title}`}>
+            <TaskRow item={item} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function TaskRow({ item }: { item: Task }) {
   const isUrgent = item.daysAway <= 3;
+
   return (
     <Link
       href={item.href}
-      className={cn(
-        "row-shift group flex items-baseline gap-3 border-b border-[var(--color-line)] py-3 sm:py-3.5",
-        "text-[var(--color-fg)] hover:text-[var(--color-fg-strong)]"
-      )}
+      className="row-shift group flex items-baseline gap-3 border-b border-[var(--color-line)] py-3 text-[var(--color-fg)] hover:text-[var(--color-fg-strong)] sm:py-3.5"
     >
       <Dot color={COURSE_COLOR[item.course]} size={6} className="translate-y-[-1px]" />
-      <div className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-baseline sm:gap-3">
-        <span className="text-[10.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)] sm:w-[88px] sm:shrink-0">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
+        <span className="text-[10.5px] wght-560 kerning-tight text-[var(--color-fg-subtle)] sm:w-[88px] sm:shrink-0">
           {item.course}
         </span>
-        <span
-          className={cn(
-            "truncate kerning-tight text-[13.5px] sm:text-[14px]",
-            isUrgent
-              ? "wght-560 text-[var(--color-fg-strong)]"
-              : "wght-450 text-[var(--color-fg)]"
-          )}
-        >
-          {item.title}
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span
+            className={cn(
+              "shrink-0 text-[10px] wght-700 kerning-tight",
+              item.kind === "시험"
+                ? "text-[var(--color-urgent)]"
+                : "text-[var(--color-fg-subtle)]",
+            )}
+          >
+            {item.kind}
+          </span>
+          <span
+            className={cn(
+              "truncate text-[13.5px] kerning-tight sm:text-[14px]",
+              isUrgent
+                ? "wght-560 text-[var(--color-fg-strong)]"
+                : "wght-450 text-[var(--color-fg)]",
+            )}
+          >
+            {item.title}
+          </span>
         </span>
       </div>
-      <div className="flex items-baseline gap-2.5 self-baseline">
+      <div className="flex shrink-0 items-baseline gap-2.5 self-baseline">
+        {item.weight && (
+          <span className="hidden text-[10.5px] wght-450 kerning-mono tabular-nums text-[var(--color-fg-subtle)] sm:inline">
+            {item.weight}
+          </span>
+        )}
         <span
           className={cn(
             "text-[11.5px] kerning-tight tabular-nums",
             isUrgent
               ? "wght-560 text-[var(--color-accent)]"
-              : "wght-450 text-[var(--color-fg-subtle)]"
+              : "wght-450 text-[var(--color-fg-subtle)]",
           )}
         >
           {item.dueLabel}
@@ -258,106 +425,5 @@ function Row({ item }: { item: Item }) {
         <Arrow className="reveal-right text-[12px] text-[var(--color-fg-subtle)]" />
       </div>
     </Link>
-  );
-}
-
-/* ─────────── 5분 ─────────── */
-
-function FiveMin({ className }: { className?: string }) {
-  const total = 12;
-  const done = 5;
-  const remaining = total - done;
-  return (
-    <section className={className}>
-      {/* eyebrow */}
-      <h2 className="text-[12px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]">
-        시간이 5분뿐이라면
-      </h2>
-
-      {/* 박스 — 옅은 surface 배경 + 라운드 + 보더 X. Hero보다 약함 */}
-      <Link
-        href="/dashboard/study/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C/process-sync"
-        className="group mt-3 block rounded-2xl bg-[var(--color-surface)] p-5 transition-colors duration-[var(--duration-base)] hover:bg-[var(--color-surface-strong)] sm:p-6"
-      >
-        <p className="text-[17px] leading-[1.4] kerning-tight wght-560 text-[var(--color-fg-strong)] sm:text-[18px]">
-          시험에 나올 {remaining}문제만 골라뒀어요
-        </p>
-
-        <p className="mt-1.5 text-[13px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-          지난주 자주 틀린{" "}
-          <span className="text-[var(--color-fg)]">
-            프로세스 동기화 · 교착 상태
-          </span>
-        </p>
-
-        <ProgressLine value={done / total} className="mt-4 max-w-[300px]" />
-        <p className="mt-2 text-[11.5px] wght-450 kerning-tight tabular-nums text-[var(--color-fg-subtle)]">
-          {done}/{total} 푼 상태
-        </p>
-
-        <span className="mt-5 inline-flex items-baseline gap-1.5 text-[13.5px] wght-500 kerning-tight text-[var(--color-fg)] group-hover:text-[var(--color-fg-strong)]">
-          5분 시작하기
-          <Arrow className="text-[13px] text-[var(--color-fg-subtle)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-fg)]" />
-        </span>
-      </Link>
-    </section>
-  );
-}
-
-/* ─────────── Suggest ─────────── */
-
-function Suggest({ className }: { className?: string }) {
-  return (
-    <section className={className}>
-      <h2 className="text-[12px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]">
-        막막할 때
-      </h2>
-      <ul className="mt-3 border-t border-[var(--color-line)]">
-        <SuggestRow
-          context="발표 5일 뒤"
-          label="5단계로 발표 자료 만들기"
-          href="/dashboard/tools/presentation"
-        />
-        <SuggestRow
-          context="시험 다음 주"
-          label="범위별 벼락치기 계획 짜기"
-          href={`/dashboard/chat?q=${encodeURIComponent("운영체제 중간고사 범위별 벼락치기 계획 짜줘")}`}
-        />
-        <SuggestRow
-          context="새 강의"
-          label="강의계획서로 일정 자동 정리"
-          href="/dashboard/calendar"
-        />
-      </ul>
-    </section>
-  );
-}
-
-function SuggestRow({
-  context,
-  label,
-  href,
-}: {
-  context: string;
-  label: string;
-  href: string;
-}) {
-  return (
-    <li>
-      <Link
-        href={href}
-        className="row-shift group flex items-baseline justify-between gap-4 border-b border-[var(--color-line)] py-3 sm:py-3.5"
-      >
-        <div className="flex min-w-0 items-baseline gap-3">
-          <span className="text-[10.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)] sm:w-[88px] sm:shrink-0">
-            {context}
-          </span>
-          <span className="truncate text-[13.5px] wght-500 kerning-tight text-[var(--color-fg)] group-hover:text-[var(--color-fg-strong)] sm:text-[14px]">
-            {label}
-          </span>
-        </div>
-        <Arrow className="text-[12px] text-[var(--color-fg-subtle)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-fg)]" />
-      </Link>
-    </li>
   );
 }

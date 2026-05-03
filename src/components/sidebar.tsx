@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -81,10 +82,10 @@ function IconHistory() {
 }
 
 const NAV = [
-  { href: "/dashboard/today", label: "Today", Icon: IconToday },
-  { href: "/dashboard/study", label: "Study", Icon: IconStudy },
-  { href: "/dashboard/calendar", label: "Calendar", Icon: IconCalendar },
-  { href: "/dashboard/tools", label: "Tools", Icon: IconTools },
+  { href: "/dashboard/today", label: "오늘", Icon: IconToday },
+  { href: "/dashboard/study", label: "공부", Icon: IconStudy },
+  { href: "/dashboard/calendar", label: "마감", Icon: IconCalendar },
+  { href: "/dashboard/tools", label: "도구", Icon: IconTools },
 ] as const;
 
 export function Sidebar() {
@@ -123,7 +124,7 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
         <SearchTrigger variant="sidebar" />
       </div>
 
-      {/* 새 대화 — 대시보드 진입점 */}
+      {/* 대시보드 진입점 */}
       <div className="px-3 pb-3">
         <Link
           href="/dashboard"
@@ -136,7 +137,7 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
           )}
         >
           <IconNewChat />
-          <span className="flex-1">새 대화</span>
+          <span className="flex-1">학기 대시보드</span>
         </Link>
       </div>
 
@@ -146,6 +147,16 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
           {NAV.map(({ href, label, Icon }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
             const showDueBadge = href === "/dashboard/today" && TODAY_DUE_COUNT > 0;
+            if (href === "/dashboard/study") {
+              return (
+                <StudyNavItem
+                  key={href}
+                  active={active}
+                  onNavigate={onNavigate}
+                  pathname={pathname}
+                />
+              );
+            }
             return (
               <li key={href} className="relative">
                 {active && (
@@ -185,39 +196,6 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
                       {TODAY_DUE_COUNT}
                     </span>
                   )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-
-        <SectionLabel>이번 학기</SectionLabel>
-        <ul className="mb-6 mt-1 space-y-px">
-          {STUDY_COURSES.map((c) => {
-            const resume = getResumeMaterial(c.slug);
-            // 마지막에 본 자료가 있으면 그쪽으로 점프, 없으면 강의 인덱스
-            const href = resume
-              ? `/dashboard/study/${c.slug}/${resume.id}`
-              : `/dashboard/study/${c.slug}`;
-            const courseActive = pathname.startsWith(`/dashboard/study/${c.slug}`);
-            return (
-              <li key={c.slug}>
-                <Link
-                  href={href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "group flex w-full items-center gap-2.5 rounded-md py-1.5 pl-4 pr-2 text-[12.5px] kerning-tight transition-colors",
-                    courseActive
-                      ? "wght-560 text-[var(--color-fg-strong)]"
-                      : "wght-450 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-                  )}
-                >
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: COURSE_COLOR[c.slug] }}
-                    aria-hidden
-                  />
-                  <span className="flex-1 truncate">{c.slug}</span>
                 </Link>
               </li>
             );
@@ -291,6 +269,103 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <div className="px-4 pt-2 text-[10px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]">
       {children}
     </div>
+  );
+}
+
+function StudyNavItem({
+  active,
+  onNavigate,
+  pathname,
+}: {
+  active: boolean;
+  onNavigate?: () => void;
+  pathname: string;
+}) {
+  const [open, setOpen] = useState(active);
+
+  useEffect(() => {
+    if (active) setOpen(true);
+  }, [active]);
+
+  return (
+    <li className="relative">
+      {active && (
+        <span
+          aria-hidden
+          className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r-full bg-[var(--color-fg-strong)]"
+        />
+      )}
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className={cn(
+          "flex w-full items-center gap-2.5 rounded-md py-1.5 pl-4 pr-2 text-left text-[13px] kerning-tight transition-colors duration-[var(--duration-fast)]",
+          active
+            ? "wght-560 text-[var(--color-fg-strong)]"
+            : "wght-450 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
+        )}
+      >
+        <span
+          className={cn(
+            "transition-colors",
+            active ? "text-[var(--color-fg-strong)]" : "text-[var(--color-fg-subtle)]",
+          )}
+        >
+          <IconStudy />
+        </span>
+        <span className="flex-1">공부</span>
+        <span
+          aria-hidden
+          className={cn(
+            "text-[10px] text-[var(--color-fg-subtle)] transition-transform",
+            open && "rotate-90",
+          )}
+        >
+          →
+        </span>
+      </button>
+
+      <ul className={cn("pb-1 pl-[34px] pt-1", open ? "block" : "hidden")}>
+        {STUDY_COURSES.map((course) => {
+          const courseActive =
+            pathname.startsWith(`/dashboard/study/${course.slug}`) ||
+            pathname.startsWith(`/dashboard/study/${encodeURIComponent(course.slug)}`);
+          const href = `/dashboard/study/${course.slug}`;
+          const resume = getResumeMaterial(course.slug);
+          const done = course.materials.reduce((sum, m) => sum + m.problems.done, 0);
+          const total = course.materials.reduce((sum, m) => sum + m.problems.total, 0);
+
+          return (
+            <li key={course.slug}>
+              <Link
+                href={href}
+                onClick={onNavigate}
+                title={resume ? `최근 자료: ${resume.title}` : undefined}
+                className={cn(
+                  "group/course flex items-center gap-2 rounded-md py-1.5 pl-1 pr-2 text-[12px] kerning-tight transition-colors",
+                  courseActive
+                    ? "wght-560 text-[var(--color-fg-strong)]"
+                    : "wght-450 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
+                )}
+              >
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: COURSE_COLOR[course.slug] }}
+                  aria-hidden
+                />
+                <span className="min-w-0 flex-1 truncate">{course.slug}</span>
+                {total > 0 && (
+                  <span className="shrink-0 text-[9.5px] wght-450 kerning-mono tabular-nums text-[var(--color-fg-subtle)]">
+                    {done}/{total}
+                  </span>
+                )}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </li>
   );
 }
 

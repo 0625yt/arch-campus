@@ -2,14 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { BellRing, CalendarCheck2, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Dot, Divider } from "@/components/primitives";
-import {
-  PageShell,
-  PageHint,
-  PageTitle,
-  PageFooter,
-} from "@/components/page-shell";
+import { Arrow, Dot, Divider } from "@/components/primitives";
+import { PageShell, PageFooter } from "@/components/page-shell";
 
 /* ─────────── data (mock) ─────────── */
 
@@ -127,6 +123,8 @@ export default function CalendarPage() {
 
   const sorted = [...events].sort((a, b) => a.due.getTime() - b.due.getTime());
   const groups = groupByWeek(sorted);
+  const radar = sorted.filter((e) => daysAway(e.due) <= 7).slice(0, 4);
+  const todayCount = sorted.filter((e) => daysAway(e.due) <= 1).length;
 
   function updateEvent(id: string, patch: Partial<CalEvent>) {
     setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
@@ -138,27 +136,312 @@ export default function CalendarPage() {
 
   return (
     <PageShell width="md">
-      <PageHint>강의계획서를 올리면 학기 일정이 정리돼요. 클릭해서 직접 수정할 수도 있어요</PageHint>
+      <header className="fade-up">
+        <p className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+          마감 레이더
+        </p>
+        <h1 className="mt-3 text-[27px] leading-[1.23] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[32px]">
+          일정표가 아니라, 놓치면 위험한 것부터 보여줘야 해요
+        </h1>
+        <p className="mt-3 max-w-[560px] text-[13.5px] leading-[1.6] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+          강의계획서를 올리면 시험·과제·발표가 위험도 순서로 정리되고, 바로 준비 액션으로 이어져요.
+        </p>
+      </header>
 
-      <PageTitle className="mt-6">일정</PageTitle>
+      <RadarSummary
+        className="mt-7 fade-up fade-up-1"
+        todayCount={todayCount}
+        total={events.length}
+      />
 
-      <UploadZone className="mt-10 fade-up fade-up-1" />
+      <DeadlineRadar className="mt-8 fade-up fade-up-2" events={radar} />
 
-      <SyllabusList className="mt-12 fade-up fade-up-2" />
+      <ReminderMesh className="mt-8 fade-up fade-up-3" />
+
+      <UploadZone className="mt-8 fade-up fade-up-4" />
+
+      <ConfidencePanel className="mt-8 fade-up fade-up-5" />
 
       <Timeline
         groups={groups}
         total={events.length}
         onUpdate={updateEvent}
         onDelete={deleteEvent}
-        className="mt-14 fade-up fade-up-3 sm:mt-16"
+        className="mt-10"
       />
 
+      <SyllabusList className="mt-10" />
+
       <PageFooter>
-        업로드한 강의계획서는 본인만 볼 수 있어요. 일정은 직접 수정·삭제할 수
-        있어요.
+        업로드한 강의계획서는 본인만 볼 수 있어요. 자동 추출 일정은 클릭해서 바로 수정할 수 있어요.
       </PageFooter>
     </PageShell>
+  );
+}
+
+function ReminderMesh({ className }: { className?: string }) {
+  const reminders = [
+    { label: "7일 전", title: "범위만 확정", meta: "시험·발표", icon: CalendarCheck2 },
+    { label: "3일 전", title: "초안 만들기", meta: "과제·발표", icon: BellRing },
+    { label: "전날", title: "감점 검사", meta: "제출 형식", icon: ShieldCheck },
+    { label: "당일 18:00", title: "최종 끌어올림", meta: "자정 마감", icon: BellRing },
+  ];
+
+  return (
+    <section className={className}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+          마감 알림 설계
+        </h2>
+        <span className="text-[11px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+          놓치기 전에 끌어올림
+        </span>
+      </div>
+      <div className="mt-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] p-4 sm:p-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {reminders.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={item.label}
+                className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10.5px] wght-700 kerning-tight tabular-nums text-[var(--color-fg-subtle)]">
+                    {item.label}
+                  </span>
+                  <Icon size={14} strokeWidth={2} className="text-[var(--color-fg-subtle)]" />
+                </div>
+                <p className="mt-2 text-[13px] leading-[1.25] wght-700 kerning-tight text-[var(--color-fg-strong)]">
+                  {item.title}
+                </p>
+                <p className="mt-1 truncate text-[11px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+                  {item.meta}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-4 flex flex-wrap items-baseline justify-between gap-3 border-t border-[var(--color-line)] pt-4">
+          <p className="text-[12.5px] leading-[1.55] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+            일정 등록에서 끝나면 안 돼요. 마감마다 준비 행동과 제출 검사를 같이 예약해야 다시 열 이유가 생겨요.
+          </p>
+          <Link
+            href="/dashboard/today"
+            className="group inline-flex shrink-0 items-baseline gap-1.5 text-[13px] wght-560 kerning-tight text-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
+          >
+            Today에서 보기
+            <Arrow className="text-[12px] transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RadarSummary({
+  todayCount,
+  total,
+  className,
+}: {
+  todayCount: number;
+  total: number;
+  className?: string;
+}) {
+  return (
+    <section className={className}>
+      <dl className="grid grid-cols-3 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]">
+        <SummaryCell label="오늘·내일" value={todayCount} urgent={todayCount > 0} />
+        <SummaryCell label="전체 일정" value={total} />
+        <SummaryCell label="확인 필요" value={2} warn />
+      </dl>
+    </section>
+  );
+}
+
+function SummaryCell({
+  label,
+  value,
+  urgent,
+  warn,
+}: {
+  label: string;
+  value: number;
+  urgent?: boolean;
+  warn?: boolean;
+}) {
+  return (
+    <div className="border-r border-[var(--color-line)] px-4 py-3 last:border-r-0">
+      <dt className="text-[11px] wght-500 kerning-tight text-[var(--color-fg-subtle)]">
+        {label}
+      </dt>
+      <dd
+        className={cn(
+          "mt-1 text-[20px] wght-700 kerning-tight tabular-nums",
+          urgent && "text-[var(--color-urgent)]",
+          warn && !urgent && "text-[var(--color-warn)]",
+          !urgent && !warn && "text-[var(--color-fg-strong)]",
+        )}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function DeadlineRadar({
+  events,
+  className,
+}: {
+  events: CalEvent[];
+  className?: string;
+}) {
+  const first = events[0];
+
+  return (
+    <section className={className}>
+      <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+        지금 먼저 볼 일정
+      </h2>
+      {first && (
+        <div className="mt-3 rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-soft)] sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Dot color={COURSE[first.course]} size={7} />
+              <span className="text-[13px] wght-560 kerning-tight text-[var(--color-fg-muted)]">
+                {first.course}
+              </span>
+            </div>
+            <RiskText event={first} />
+          </div>
+          <p className="mt-4 text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+            {first.kind} · {dueLabel(first.due)}
+          </p>
+          <h3 className="mt-2 text-[22px] leading-[1.28] wght-700 kerning-tight text-[var(--color-fg-strong)]">
+            {first.title.replace(/^.*?— /, "")}
+          </h3>
+          <p className="mt-2 text-[13px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+            오늘 안에 시작하면 아직 만회할 수 있어요. 일정만 보지 말고 바로 준비로 넘어가야 해요.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <ActionLink event={first} primary />
+            <Link
+              href="/dashboard/today"
+              className="group inline-flex min-h-[44px] items-center gap-1.5 text-[13px] wght-500 kerning-tight text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+            >
+              Today에 고정
+              <Arrow className="text-[12px] transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+        </div>
+      )}
+      <ul className="mt-4 border-t border-[var(--color-line)]">
+        {events.slice(1).map((event) => (
+          <li key={event.id}>
+            <RadarRow event={event} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function RadarRow({ event }: { event: CalEvent }) {
+  return (
+    <div className="flex items-baseline gap-3 border-b border-[var(--color-line)] py-3.5">
+      <Dot color={COURSE[event.course]} size={6} className="translate-y-[-1px]" />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
+        <span className="text-[10.5px] wght-560 kerning-tight text-[var(--color-fg-subtle)] sm:w-[88px] sm:shrink-0">
+          {event.course}
+        </span>
+        <span className="min-w-0 truncate text-[13.5px] wght-500 kerning-tight text-[var(--color-fg)]">
+          {event.kind} · {event.title}
+        </span>
+      </div>
+      <div className="flex shrink-0 items-baseline gap-2.5">
+        <RiskText event={event} compact />
+        <ActionLink event={event} />
+      </div>
+    </div>
+  );
+}
+
+function RiskText({ event, compact }: { event: CalEvent; compact?: boolean }) {
+  const days = daysAway(event.due);
+  const urgent = days <= 1;
+  const label = dueLabel(event.due);
+  return (
+    <span
+      className={cn(
+        "text-[11.5px] wght-560 kerning-tight tabular-nums",
+        urgent ? "text-[var(--color-urgent)]" : "text-[var(--color-fg-subtle)]",
+      )}
+    >
+      {compact ? label.replace("다음 주 ", "") : label}
+    </span>
+  );
+}
+
+function ActionLink({ event, primary }: { event: CalEvent; primary?: boolean }) {
+  const query = `${event.course} ${event.title} 준비를 3단계로 쪼개줘`;
+  const href =
+    event.kind === "발표"
+      ? "/dashboard/tools/presentation"
+      : `/dashboard/chat?q=${encodeURIComponent(query)}`;
+
+  return (
+    <Link
+      href={href}
+      className={
+        primary
+          ? "inline-flex min-h-[44px] items-center rounded-lg bg-[var(--color-fg-strong)] px-4 text-[13.5px] wght-560 kerning-tight text-white hover:bg-[var(--color-fg)]"
+          : "group inline-flex items-baseline gap-1 text-[12px] wght-500 kerning-tight text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+      }
+    >
+      {event.kind === "시험" ? "복습 만들기" : event.kind === "발표" ? "발표 준비" : "준비 시작"}
+      {!primary && <Arrow className="text-[11px] transition-transform group-hover:translate-x-0.5" />}
+    </Link>
+  );
+}
+
+function ConfidencePanel({ className }: { className?: string }) {
+  return (
+    <section className={className}>
+      <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+        자동 등록 전 확인할 것
+      </h2>
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <CheckNote title="시험일" value="4건 확실" />
+        <CheckNote title="과제 마감" value="2건 확인 필요" warn />
+        <CheckNote title="평가 비중" value="평균 92%" />
+      </div>
+    </section>
+  );
+}
+
+function CheckNote({
+  title,
+  value,
+  warn,
+}: {
+  title: string;
+  value: string;
+  warn?: boolean;
+}) {
+  return (
+    <div className="border-y border-[var(--color-line)] py-3 sm:border-y-0 sm:border-l sm:py-1 sm:pl-4 first:sm:border-l-0 first:sm:pl-0">
+      <p className="text-[11px] wght-500 kerning-tight text-[var(--color-fg-subtle)]">
+        {title}
+      </p>
+      <p
+        className={cn(
+          "mt-1 text-[13px] wght-560 kerning-tight",
+          warn ? "text-[var(--color-warn)]" : "text-[var(--color-fg)]",
+        )}
+      >
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -210,10 +493,10 @@ function UploadZone({ className }: { className?: string }) {
       ) : (
         <>
           <p className="text-[15px] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[16px]">
-            강의계획서 PDF 끌어다 놓으세요
+            강의계획서 올리고 마감 레이더 만들기
           </p>
           <p className="mt-1 text-[12.5px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-            시험·과제·발표·평가 비중까지 한 번에 정리돼요
+            시험일·과제 마감·발표일·평가 비중을 먼저 뽑고, 애매한 건 확인 목록에 남겨요
           </p>
           <Divider className="my-4" />
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">

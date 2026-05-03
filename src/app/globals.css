@@ -137,7 +137,7 @@ select:focus-visible {
 }
 .pulse-dot { animation: pulse-soft 2.4s var(--ease-out) infinite; }
 
-/* 페이지 진입 — 거의 안 보이는 fade-up */
+/* 페이지 진입 — 생활형 도구라 첫 정보가 늦게 뜨지 않게 짧게 */
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(3px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -148,12 +148,12 @@ select:focus-visible {
   from { opacity: 0; transform: translateX(-12px); }
   to   { opacity: 1; transform: translateX(0); }
 }
-.fade-up { animation: fade-up 420ms var(--ease-out) both; }
-.fade-up-1 { animation-delay: 40ms; }
-.fade-up-2 { animation-delay: 100ms; }
-.fade-up-3 { animation-delay: 160ms; }
-.fade-up-4 { animation-delay: 220ms; }
-.fade-up-5 { animation-delay: 280ms; }
+.fade-up { animation: fade-up 120ms var(--ease-out) both; }
+.fade-up-1,
+.fade-up-2,
+.fade-up-3,
+.fade-up-4,
+.fade-up-5 { animation-delay: 0ms; }
 
 /* 행 호버 — 좌측으로 살짝 밀림 (종이 노트 느낌) */
 .row-shift {

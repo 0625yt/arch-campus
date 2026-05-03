@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cn } from "@/lib/utils";
 import { Arrow, Dot, ProgressLine } from "@/components/primitives";
 import { PageShell, PageFooter } from "@/components/page-shell";
 import { COURSE_COLOR, getCourse, type Course, type Material } from "../data";
+import { ACTIVITIES, type Activity } from "../../history/data";
 import { UploadZone } from "./upload-zone";
 
 export default async function CourseDetailPage({
@@ -19,6 +21,7 @@ export default async function CourseDetailPage({
   const done = course.materials.reduce((sum, m) => sum + m.problems.done, 0);
   const correct = course.materials.reduce((sum, m) => sum + m.problems.correct, 0);
   const acc = done > 0 ? Math.round((correct / done) * 100) : 0;
+  const activities = ACTIVITIES.filter((a) => a.course === course.slug).slice(0, 4);
 
   return (
     <PageShell width="md">
@@ -94,8 +97,14 @@ export default async function CourseDetailPage({
         className="mt-12 fade-up fade-up-3"
       />
 
+      <CourseHistory
+        activities={activities}
+        course={course}
+        className="mt-12 fade-up fade-up-4"
+      />
+
       {/* 자료 리스트 */}
-      <section className="mt-12 fade-up fade-up-4">
+      <section className="mt-12 fade-up fade-up-5">
         <h2 className="text-[12px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]">
           자료 · {course.materials.length}건
         </h2>
@@ -135,6 +144,85 @@ export default async function CourseDetailPage({
         모든 문제는 업로드한 자료에서 추출되고, 출처 페이지·문단을 함께 보여줘요.
       </PageFooter>
     </PageShell>
+  );
+}
+
+function CourseHistory({
+  activities,
+  course,
+  className,
+}: {
+  activities: Activity[];
+  course: Course;
+  className?: string;
+}) {
+  return (
+    <section className={className}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[12px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]">
+          이 과목 히스토리
+        </h2>
+        <Link
+          href="/dashboard/history"
+          className="group inline-flex items-baseline gap-1 text-[11.5px] wght-500 kerning-tight text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]"
+        >
+          전체 보기
+          <Arrow className="text-[11px] transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      </div>
+
+      {activities.length === 0 ? (
+        <div className="mt-3 rounded-xl border border-dashed border-[var(--color-line-strong)] bg-[var(--color-surface)] px-5 py-6">
+          <p className="text-[13px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+            아직 {course.slug} 활동이 없어요. 자료를 열거나 문제를 만들면 여기에 쌓여요.
+          </p>
+        </div>
+      ) : (
+        <ul className="mt-3 border-t border-[var(--color-line)]">
+          {activities.map((activity) => (
+            <li key={activity.id}>
+              <CourseActivityRow activity={activity} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function CourseActivityRow({ activity }: { activity: Activity }) {
+  return (
+    <Link
+      href={activity.href}
+      className="row-shift group flex items-baseline gap-3 border-b border-[var(--color-line)] py-3.5"
+    >
+      <span className="shrink-0 text-[10px] wght-700 kerning-mono uppercase text-[var(--color-fg-subtle)]">
+        {activity.kind}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13.5px] wght-560 kerning-tight text-[var(--color-fg-strong)]">
+          {activity.title}
+        </span>
+        {activity.meta && (
+          <span className="mt-0.5 block truncate text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+            {activity.meta}
+          </span>
+        )}
+      </span>
+      {activity.result && (
+        <span
+          className={cn(
+            "hidden shrink-0 text-[11px] wght-560 kerning-tight sm:inline",
+            activity.result.tone === "good" && "text-[var(--color-success)]",
+            activity.result.tone === "bad" && "text-[var(--color-urgent)]",
+            activity.result.tone === "neutral" && "text-[var(--color-fg-subtle)]",
+          )}
+        >
+          {activity.result.label}
+        </span>
+      )}
+      <Arrow className="reveal-right shrink-0 text-[12px] text-[var(--color-fg-subtle)]" />
+    </Link>
   );
 }
 

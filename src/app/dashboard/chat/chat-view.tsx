@@ -83,10 +83,10 @@ function generateMockReply(input: string): { text: string; suggestions?: Suggest
   // 일정·마감
   if (/(일정|마감|언제|시험|과제 마감|캘린더)/.test(q)) {
     return {
-      text: "이번 주 마감은 Today에서, 학기 전체 흐름은 Calendar에서 보실 수 있어요. 강의계획서 PDF 올리시면 시험·과제 일정이 자동 정리돼요.",
+      text: "이번 주 마감은 오늘 화면에서 바로 보고, 학기 전체 흐름은 마감 레이더에서 위험한 순서로 볼 수 있어요. 강의계획서를 올리면 시험·과제·발표가 먼저 정리돼요.",
       suggestions: [
-        { label: "오늘 마감 보기", href: "/dashboard/today", meta: "Today" },
-        { label: "학기 일정 캘린더", href: "/dashboard/calendar", meta: "Calendar" },
+        { label: "오늘 마감 보기", href: "/dashboard/today", meta: "오늘" },
+        { label: "마감 레이더", href: "/dashboard/calendar", meta: "마감" },
       ],
     };
   }
@@ -103,9 +103,9 @@ function generateMockReply(input: string): { text: string; suggestions?: Suggest
   return {
     text: "네, 이렇게 해보면 어떨까요. 지금 학기 자료를 업로드해 두셨다면 강의명을 알려주시면 거기 자료로 요약·문제 만들어 드릴 수 있어요. 발표·과제 위저드도 바로 시작할 수 있어요.",
     suggestions: [
-      { label: "오늘 마감 보기", href: "/dashboard/today", meta: "Today" },
-      { label: "발표 위저드 시작", href: "/dashboard/tools/presentation", meta: "위저드" },
-      { label: "강의 목록 보기", href: "/dashboard/study", meta: "Study" },
+      { label: "오늘 마감 보기", href: "/dashboard/today", meta: "오늘" },
+      { label: "발표 흐름 잡기", href: "/dashboard/tools/presentation", meta: "도구" },
+      { label: "공부 상태 보기", href: "/dashboard/study", meta: "공부" },
     ],
   };
 }

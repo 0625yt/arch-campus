@@ -28,11 +28,11 @@ interface Command {
 }
 
 const PAGES: { href: string; label: string; hint: string }[] = [
-  { href: "/dashboard/today", label: "Today", hint: "오늘 마감과 5분 학습" },
-  { href: "/dashboard/study", label: "Study", hint: "강의별 자료와 문제" },
-  { href: "/dashboard/calendar", label: "Calendar", hint: "학기 일정 + 강의계획서" },
-  { href: "/dashboard/tools", label: "Tools", hint: "발표·과제·시험 위저드" },
-  { href: "/dashboard/history", label: "히스토리", hint: "지금까지 활동 전체" },
+  { href: "/dashboard/today", label: "오늘", hint: "오늘 할 일과 5분 학습" },
+  { href: "/dashboard/study", label: "공부", hint: "시험 준비 상태와 남은 문제" },
+  { href: "/dashboard/calendar", label: "마감", hint: "위험 일정과 강의계획서" },
+  { href: "/dashboard/tools", label: "도구", hint: "발표·과제·시험 해결책" },
+  { href: "/dashboard/history", label: "약점 로그", hint: "오답과 학습 리듬" },
 ];
 
 const WIZARD_ACTIONS: { label: string; hint: string; href: string }[] = [

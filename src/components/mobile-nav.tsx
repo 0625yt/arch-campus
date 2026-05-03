@@ -49,9 +49,9 @@ function IconTools() {
 }
 
 const NAV = [
-  { href: "/dashboard/today", label: "Today", Icon: IconToday },
-  { href: "/dashboard/study", label: "Study", Icon: IconStudy },
-  { href: "/dashboard/calendar", label: "일정", Icon: IconCalendar },
+  { href: "/dashboard/today", label: "오늘", Icon: IconToday },
+  { href: "/dashboard/study", label: "공부", Icon: IconStudy },
+  { href: "/dashboard/calendar", label: "마감", Icon: IconCalendar },
   { href: "/dashboard/tools", label: "도구", Icon: IconTools },
 ] as const;
 
