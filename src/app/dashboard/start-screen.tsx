@@ -52,7 +52,7 @@ export function StartScreen() {
   };
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col items-center justify-center px-5 py-10 sm:px-7 sm:py-14 md:px-12 md:py-20">
+    <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col items-center justify-start px-5 pb-10 pt-12 sm:justify-center sm:px-7 sm:py-14 md:px-12 md:py-20">
       {/* 인사말 */}
       <p
         suppressHydrationWarning

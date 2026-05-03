@@ -161,8 +161,8 @@ export function GenerateForm({
         </ul>
       </FieldGroup>
 
-      {/* 액션 */}
-      <div className="mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-line)] pt-6">
+      {/* 액션 — 모바일에서 모달 잘려도 항상 viewport 안에 */}
+      <div className="sticky bottom-0 -mx-5 -mb-5 mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-line)] bg-[var(--color-bg)] px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5">
         <button
           type="button"
           onClick={generate}

@@ -143,7 +143,7 @@ function Hero({ className }: { className?: string }) {
       </div>
 
       {/* 거대 헤드라인 — 핵심 명사에 하이라이트 */}
-      <h1 className="mt-5 text-[34px] leading-[1.22] kerning-tight sm:mt-6 sm:text-[40px] md:text-[46px]">
+      <h1 className="mt-5 text-[34px] leading-[1.22] kerning-tight break-keep sm:mt-6 sm:text-[40px] md:text-[46px]">
         <span className="wght-700 text-[var(--color-fg-strong)]">
           오늘 자정까지
         </span>
