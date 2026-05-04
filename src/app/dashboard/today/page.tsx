@@ -1,19 +1,64 @@
 import Link from "next/link";
-import {
-  BellRing,
-  BookOpenCheck,
-  ClipboardCheck,
-  TimerReset,
-  UsersRound,
-  type LucideIcon,
-} from "lucide-react";
+import { BellRing, ClipboardCheck, TimerReset } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Arrow, Dot, ProgressLine } from "@/components/primitives";
+import { Arrow, Dot } from "@/components/primitives";
 import { Countdown } from "@/components/countdown";
 import { PageShell } from "@/components/page-shell";
 import { COURSE_COLOR, type CourseSlug } from "@/app/dashboard/study/data";
 
 export const dynamic = "force-dynamic";
+
+type TaskKind = "과제" | "시험" | "발표" | "퀴즈";
+
+interface Task {
+  course: CourseSlug;
+  kind: TaskKind;
+  title: string;
+  due: Date;
+  dueLabel: string;
+  href: string;
+  weight?: string;
+  source: string;
+}
+
+const NEXT_ITEMS = [
+  {
+    label: "수업 전",
+    title: "운영체제 8분 브리핑",
+    meta: "과제 시작 후 보기",
+    href: "/dashboard/study/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C/process-sync",
+  },
+  {
+    label: "팀플",
+    title: "데이터베이스 발표 역할 정리",
+    meta: "오늘 19:00 전",
+    href: "/dashboard/tools/presentation",
+  },
+] as const;
+
+const WEEK_ITEMS = [
+  {
+    day: "화",
+    title: "운영체제 중간고사",
+    meta: "평가 30% · 동기화/데드락",
+    href: "/dashboard/study/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C",
+    urgent: true,
+  },
+  {
+    day: "목",
+    title: "데이터베이스 발표 리허설",
+    meta: "정규화 사례 · 예상 질문 정리",
+    href: "/dashboard/tools/presentation",
+    urgent: false,
+  },
+  {
+    day: "금",
+    title: "알고리즘 퀴즈 2",
+    meta: "동적 계획법 기본 점화식",
+    href: "/dashboard/study/%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/dp",
+    urgent: false,
+  },
+] as const;
 
 function dateLabel(d: Date) {
   const days = ["일", "월", "화", "수", "목", "금", "토"];
@@ -28,48 +73,6 @@ function timeLabel(d: Date) {
   return `${ampm} ${hh}:${m.toString().padStart(2, "0")}`;
 }
 
-function dayOffset(base: Date, days: number, hour = 23, minute = 59) {
-  const d = new Date(base);
-  d.setDate(d.getDate() + days);
-  d.setHours(hour, minute, 0, 0);
-  return d;
-}
-
-function nextWeekday(base: Date, weekday: number, hour = 23, minute = 59) {
-  const offset = (weekday - base.getDay() + 7) % 7 || 7;
-  return dayOffset(base, offset, hour, minute);
-}
-
-function daysAwayFrom(base: Date, target: Date) {
-  const start = new Date(base);
-  start.setHours(0, 0, 0, 0);
-  const targetStart = new Date(target);
-  targetStart.setHours(0, 0, 0, 0);
-  return Math.floor((targetStart.getTime() - start.getTime()) / 86400000);
-}
-
-type TaskKind = "과제" | "시험" | "발표" | "퀴즈";
-
-interface Task {
-  course: CourseSlug;
-  kind: TaskKind;
-  title: string;
-  due: Date;
-  dueLabel: string;
-  daysAway: number;
-  href: string;
-  weight?: string;
-}
-
-interface Move {
-  title: string;
-  label: string;
-  meta: string;
-  href: string;
-  icon: LucideIcon;
-  urgent?: boolean;
-}
-
 function createNowData(now: Date) {
   const todayEnd = new Date(now);
   todayEnd.setHours(23, 59, 0, 0);
@@ -80,95 +83,50 @@ function createNowData(now: Date) {
     title: "과제 3 — 이진 탐색 트리 구현",
     due: todayEnd,
     dueLabel: "오늘 자정",
-    daysAway: 0,
     href: "/dashboard/study/%EC%9E%90%EB%A3%8C%EA%B5%AC%EC%A1%B0/bst",
     weight: "10%",
+    source: "과제 안내 캡처",
   };
 
-  const operatingExam = nextWeekday(now, 2, 8, 30);
-  const dbPresentation = dayOffset(now, 5, 14, 0);
-  const algoQuiz = nextWeekday(now, 3, 11, 0);
+  return { focus };
+}
 
-  const week: Task[] = [
-    {
-      course: "운영체제",
-      kind: "시험",
-      title: "중간고사",
-      due: operatingExam,
-      dueLabel: "다음 화 · 8:30",
-      daysAway: daysAwayFrom(now, operatingExam),
-      href: "/dashboard/study/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C",
-      weight: "30%",
-    },
-    {
-      course: "데이터베이스",
-      kind: "발표",
-      title: "정규화 사례 분석",
-      due: dbPresentation,
-      dueLabel: "5일 뒤",
-      daysAway: daysAwayFrom(now, dbPresentation),
-      href: "/dashboard/tools/presentation",
-      weight: "15%",
-    },
-    {
-      course: "알고리즘",
-      kind: "퀴즈",
-      title: "퀴즈 2 — 동적 계획법",
-      due: algoQuiz,
-      dueLabel: "수요일",
-      daysAway: daysAwayFrom(now, algoQuiz),
-      href: "/dashboard/study/%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98/dp",
-      weight: "5%",
-    },
-  ];
-
-  const moves: Move[] = [
-    {
-      label: "수업 전",
-      title: "운영체제 8분 브리핑",
-      meta: "교수님 강조 개념만 보기",
-      href: "/dashboard/study/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C/process-sync",
-      icon: BookOpenCheck,
-    },
-    {
-      label: "팀플",
-      title: "발표 역할 비어 있는 부분 정리",
-      meta: "데이터베이스 · 오늘 19:00 전",
-      href: "/dashboard/tools",
-      icon: UsersRound,
-    },
-  ];
-
-  return { focus, week, moves };
+function startPrompt(task: Task) {
+  return [
+    `${task.course} ${task.title}을 지금 시작할게.`,
+    "내가 바로 실행할 수 있게 1단계부터 같이 진행해줘.",
+    "파일명 규칙, 제출 조건, 테스트 케이스, 시간복잡도 설명까지 빠뜨리지 말고 체크해줘.",
+    "한 번에 길게 설명하지 말고 현재 단계에서 내가 해야 할 행동만 알려줘.",
+  ].join(" ");
 }
 
 export default function TodayPage() {
   const now = new Date();
-  const { focus, week, moves } = createNowData(now);
+  const { focus } = createNowData(now);
 
   return (
-    <PageShell width="md" className="pb-24 md:pb-20">
+    <PageShell width="narrow" className="pb-24 md:pb-20">
       <TopBar now={now} />
 
       <header className="mt-7 fade-up fade-up-1 sm:mt-9">
         <p className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
           지금
         </p>
-        <h1 className="mt-3 max-w-[580px] text-[28px] leading-[1.2] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[34px]">
-          다음 90분만 정리하면 하루가 풀려요
+        <h1 className="mt-3 max-w-[540px] text-[28px] leading-[1.18] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[34px]">
+          지금은 이거 하나만 하면 돼요
         </h1>
-        <p className="mt-3 max-w-[520px] text-[13.5px] leading-[1.6] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-          올린 과제 안내, 마감, 수업 전 준비를 같이 보고 지금 움직일 순서만 남겼어요.
+        <p className="mt-3 max-w-[500px] text-[13.5px] leading-[1.6] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+          오늘 마감과 감점 위험을 기준으로 가장 먼저 시작할 일을 하나만 골랐어요.
         </p>
       </header>
 
-      <NowBrief className="mt-6 fade-up fade-up-2" />
+      <FocusTask className="mt-7 fade-up fade-up-2" task={focus} />
 
-      <FocusCard className="mt-6 fade-up fade-up-3" task={focus} />
+      <ResumeWork className="mt-8 fade-up fade-up-3" />
 
-      <NextMoves className="mt-8 fade-up fade-up-4" moves={moves} />
+      <LaterQueue className="mt-8 fade-up fade-up-4" />
 
-      <WeekList className="mt-10 fade-up fade-up-5" tasks={week} />
+      <WeekQueue className="mt-8 fade-up fade-up-5" />
     </PageShell>
   );
 }
@@ -196,33 +154,9 @@ function TopBar({ now }: { now: Date }) {
   );
 }
 
-function NowBrief({ className }: { className?: string }) {
-  return (
-    <section
-      className={cn(
-        "rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-4",
-        className,
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
-          <BellRing size={16} strokeWidth={2.1} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[13.5px] wght-700 kerning-tight text-[var(--color-fg-strong)]">
-            과제 안내 2개를 보고 순서를 바꿨어요
-          </p>
-          <p className="mt-1 text-[12.5px] leading-[1.55] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-            자료구조 제출 규칙 변경이 있어서 공부보다 제출 전 검사가 먼저예요.
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FocusCard({ task, className }: { task: Task; className?: string }) {
+function FocusTask({ task, className }: { task: Task; className?: string }) {
   const taskNoun = task.title.replace(/^.*?— /, "");
+  const prompt = startPrompt(task);
 
   return (
     <section
@@ -241,11 +175,11 @@ function FocusCard({ task, className }: { task: Task; className?: string }) {
         </span>
         <span className="inline-flex items-center gap-1.5 text-[11.5px] wght-560 kerning-tight text-[var(--color-fg-muted)]">
           <Dot color={COURSE_COLOR[task.course]} size={6} />
-          {task.course}
+          {task.course} · {task.kind}
         </span>
       </div>
 
-      <h2 className="mt-5 text-[24px] leading-[1.22] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[29px]">
+      <h2 className="mt-5 text-[25px] leading-[1.18] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[31px]">
         {taskNoun}
       </h2>
 
@@ -255,131 +189,81 @@ function FocusCard({ task, className }: { task: Task; className?: string }) {
           className="wght-700 tabular-nums text-[var(--color-urgent)]"
         />
         <span className="text-[var(--color-line-strong)]">·</span>
-        <span>과제 안내 반영 후 제출 필요</span>
+        <span>{task.source} 기준으로 제출 조건 확인 필요</span>
       </div>
 
-      <div className="mt-6 grid gap-5 md:grid-cols-[1fr_190px] md:items-end">
-        <div>
-          <div className="flex items-baseline justify-between gap-3 text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
-            <span>지금 필요한 3단계</span>
-            <span className="tabular-nums text-[var(--color-fg)]">0/3</span>
+      <div className="mt-7 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-4">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-urgent-soft)] text-[var(--color-urgent)]">
+            <BellRing size={16} strokeWidth={2.1} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] wght-700 kerning-tight text-[var(--color-fg-strong)]">
+              유의할 점
+            </p>
+            <p className="mt-1 text-[12.5px] leading-[1.55] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+              제출 파일명은 <span className="wght-700 text-[var(--color-fg)]">학번.txt</span> 형식으로 맞추고,
+              실행 결과 캡처와 시간복잡도 설명을 같이 넣어야 해요.
+            </p>
           </div>
-          <ProgressLine value={0} className="mt-3" />
-          <ol className="mt-4 flex flex-col gap-2.5">
-            <Step label="파일명 규칙 확인" meta="5분" active />
-            <Step label="BST 삭제 케이스 테스트" meta="40분" />
-            <Step label="시간복잡도 설명 보강" meta="15분" />
-          </ol>
         </div>
+      </div>
 
-        <div className="flex flex-col gap-2">
-          <Link
-            href={`/dashboard/chat?q=${encodeURIComponent(task.title + " 과제 안내까지 반영해서 제출 전 감점 검사를 해줘")}`}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-[var(--color-fg-strong)] px-4 text-[13.5px] wght-560 kerning-tight text-white transition-colors hover:bg-[var(--color-fg)]"
-          >
-            <ClipboardCheck size={16} strokeWidth={2.1} />
-            감점 검사
-          </Link>
-          <Link
-            href={task.href}
-            className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-4 text-[13px] wght-560 kerning-tight text-[var(--color-fg)] transition-colors hover:bg-[var(--color-surface)]"
-          >
-            <TimerReset size={15} strokeWidth={2.1} />
-            과제 열기
-          </Link>
-        </div>
+      <div className="mt-7 grid gap-2 sm:grid-cols-[1fr_auto]">
+        <Link
+          href={`/dashboard/chat?q=${encodeURIComponent(prompt)}`}
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-[var(--color-fg-strong)] px-5 text-[14px] wght-700 kerning-tight text-white transition-colors hover:bg-[var(--color-fg)]"
+        >
+          <ClipboardCheck size={17} strokeWidth={2.2} />
+          바로 시작하기
+        </Link>
+        <Link
+          href={task.href}
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-4 text-[13px] wght-560 kerning-tight text-[var(--color-fg)] transition-colors hover:bg-[var(--color-surface)]"
+        >
+          <TimerReset size={15} strokeWidth={2.1} />
+          자료 열기
+        </Link>
       </div>
     </section>
   );
 }
 
-function Step({
-  label,
-  meta,
-  active,
-}: {
-  label: string;
-  meta: string;
-  active?: boolean;
-}) {
-  return (
-    <li className="flex items-center gap-2 text-[12.5px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-      <span
-        aria-hidden
-        className={cn(
-          "flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border",
-          active
-            ? "border-[var(--color-urgent)] bg-[var(--color-urgent-soft)]"
-            : "border-[var(--color-line-strong)] bg-[var(--color-bg)]",
-        )}
-      >
-        {active && <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-urgent)]" />}
-      </span>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="tabular-nums text-[11px] text-[var(--color-fg-subtle)]">
-        {meta}
-      </span>
-    </li>
-  );
-}
-
-function NextMoves({ moves, className }: { moves: Move[]; className?: string }) {
-  return (
-    <section className={className}>
-      <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-        다음 움직임
-      </h2>
-      <ul className="mt-3 border-t border-[var(--color-line)]">
-        {moves.map((move) => (
-          <li key={move.title}>
-            <MoveRow move={move} />
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function MoveRow({ move }: { move: Move }) {
-  const Icon = move.icon;
-
-  return (
-    <Link
-      href={move.href}
-      className="row-shift group flex items-center gap-3 border-b border-[var(--color-line)] py-3.5"
-    >
-      <span
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-          move.urgent
-            ? "bg-[var(--color-urgent-soft)] text-[var(--color-urgent)]"
-            : "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
-        )}
-      >
-        <Icon size={16} strokeWidth={2.1} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="text-[10.5px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-          {move.label}
-        </span>
-        <span className="mt-0.5 block truncate text-[13.5px] wght-700 kerning-tight text-[var(--color-fg-strong)]">
-          {move.title}
-        </span>
-      </span>
-      <span className="hidden max-w-[190px] truncate text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)] sm:block">
-        {move.meta}
-      </span>
-      <Arrow className="reveal-right text-[12px] text-[var(--color-fg-subtle)]" />
-    </Link>
-  );
-}
-
-function WeekList({ tasks, className }: { tasks: Task[]; className?: string }) {
+function ResumeWork({ className }: { className?: string }) {
   return (
     <section className={className}>
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-          이번 주 큰 신호
+          하다 만 과제
+        </h2>
+        <span className="text-[11px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+          18분 전 저장
+        </span>
+      </div>
+      <Link
+        href="/dashboard/chat?q=%EC%9E%90%EB%A3%8C%EA%B5%AC%EC%A1%B0%20BST%20%EC%82%AD%EC%A0%9C%20%EC%BC%80%EC%9D%B4%EC%8A%A4%20%EC%9D%B4%EC%96%B4%EC%84%9C%20%EC%A7%84%ED%96%89%ED%95%B4%EC%A4%98"
+        className="mt-3 flex items-baseline justify-between gap-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] px-4 py-3.5 transition-colors hover:bg-[var(--color-surface)]"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-[13.5px] wght-700 kerning-tight text-[var(--color-fg-strong)]">
+            BST 삭제 케이스 구현 이어서 하기
+          </span>
+          <span className="mt-0.5 block truncate text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+            predecessor/successor 선택 부분에서 멈췄어요
+          </span>
+        </span>
+        <Arrow className="shrink-0 text-[12px] text-[var(--color-fg-subtle)]" />
+      </Link>
+    </section>
+  );
+}
+
+function LaterQueue({ className }: { className?: string }) {
+  return (
+    <section className={className}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+          이거 끝나면
         </h2>
         <Link
           href="/dashboard/calendar"
@@ -389,11 +273,26 @@ function WeekList({ tasks, className }: { tasks: Task[]; className?: string }) {
           <Arrow className="text-[11px]" />
         </Link>
       </div>
-
       <ul className="mt-3 border-t border-[var(--color-line)]">
-        {tasks.map((item) => (
-          <li key={`${item.course}-${item.title}`}>
-            <TaskRow item={item} />
+        {NEXT_ITEMS.map((item) => (
+          <li key={item.title}>
+            <Link
+              href={item.href}
+              className="row-shift group flex items-baseline gap-3 border-b border-[var(--color-line)] py-3.5"
+            >
+              <span className="w-[54px] shrink-0 text-[10.5px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+                {item.label}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] wght-620 kerning-tight text-[var(--color-fg-strong)]">
+                  {item.title}
+                </span>
+                <span className="mt-0.5 block truncate text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+                  {item.meta}
+                </span>
+              </span>
+              <Arrow className="reveal-right text-[12px] text-[var(--color-fg-subtle)]" />
+            </Link>
           </li>
         ))}
       </ul>
@@ -401,60 +300,50 @@ function WeekList({ tasks, className }: { tasks: Task[]; className?: string }) {
   );
 }
 
-function TaskRow({ item }: { item: Task }) {
-  const isUrgent = item.daysAway <= 3;
-
+function WeekQueue({ className }: { className?: string }) {
   return (
-    <Link
-      href={item.href}
-      className="row-shift group flex items-baseline gap-3 border-b border-[var(--color-line)] py-3 text-[var(--color-fg)] hover:text-[var(--color-fg-strong)] sm:py-3.5"
-    >
-      <Dot color={COURSE_COLOR[item.course]} size={6} className="translate-y-[-1px]" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
-        <span className="text-[10.5px] wght-560 kerning-tight text-[var(--color-fg-subtle)] sm:w-[88px] sm:shrink-0">
-          {item.course}
-        </span>
-        <span className="flex min-w-0 items-baseline gap-2">
-          <span
-            className={cn(
-              "shrink-0 text-[10px] wght-700 kerning-tight",
-              item.kind === "시험"
-                ? "text-[var(--color-urgent)]"
-                : "text-[var(--color-fg-subtle)]",
-            )}
-          >
-            {item.kind}
-          </span>
-          <span
-            className={cn(
-              "truncate text-[13.5px] kerning-tight sm:text-[14px]",
-              isUrgent
-                ? "wght-560 text-[var(--color-fg-strong)]"
-                : "wght-450 text-[var(--color-fg)]",
-            )}
-          >
-            {item.title}
-          </span>
-        </span>
-      </div>
-      <div className="flex shrink-0 items-baseline gap-2.5 self-baseline">
-        {item.weight && (
-          <span className="hidden text-[10.5px] wght-450 kerning-mono tabular-nums text-[var(--color-fg-subtle)] sm:inline">
-            {item.weight}
-          </span>
-        )}
-        <span
-          className={cn(
-            "text-[11.5px] kerning-tight tabular-nums",
-            isUrgent
-              ? "wght-560 text-[var(--color-accent)]"
-              : "wght-450 text-[var(--color-fg-subtle)]",
-          )}
+    <section className={className}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
+          이번 주
+        </h2>
+        <Link
+          href="/dashboard/calendar"
+          className="group inline-flex items-baseline gap-1 text-[11.5px] wght-500 kerning-tight text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]"
         >
-          {item.dueLabel}
-        </span>
-        <Arrow className="reveal-right text-[12px] text-[var(--color-fg-subtle)]" />
+          전체 보기
+          <Arrow className="text-[11px]" />
+        </Link>
       </div>
-    </Link>
+      <ul className="mt-3 border-t border-[var(--color-line)]">
+        {WEEK_ITEMS.map((item) => (
+          <li key={item.title}>
+            <Link
+              href={item.href}
+              className="row-shift group flex items-baseline gap-3 border-b border-[var(--color-line)] py-3.5"
+            >
+              <span
+                className={
+                  item.urgent
+                    ? "w-[34px] shrink-0 text-[10.5px] wght-700 kerning-tight text-[var(--color-urgent)]"
+                    : "w-[34px] shrink-0 text-[10.5px] wght-560 kerning-tight text-[var(--color-fg-subtle)]"
+                }
+              >
+                {item.day}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] wght-620 kerning-tight text-[var(--color-fg-strong)]">
+                  {item.title}
+                </span>
+                <span className="mt-0.5 block truncate text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+                  {item.meta}
+                </span>
+              </span>
+              <Arrow className="reveal-right text-[12px] text-[var(--color-fg-subtle)]" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
