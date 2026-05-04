@@ -7,6 +7,25 @@ import { SearchTrigger } from "@/components/search-trigger";
 import { MobileDrawer } from "@/components/mobile-drawer";
 
 /* 자체 SVG icons — sidebar.tsx와 동일 톤 */
+function IconHome({ active }: { active?: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path
+        d="M4 8.2 9 4l5 4.2v5.5c0 .9-.6 1.5-1.5 1.5H5.5c-.9 0-1.5-.6-1.5-1.5V8.2z"
+        stroke="currentColor"
+        strokeWidth={active ? 1.6 : 1.3}
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7.2 15.2v-4.1h3.6v4.1"
+        stroke="currentColor"
+        strokeWidth={active ? 1.6 : 1.3}
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function IconToday({ active }: { active?: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
@@ -49,9 +68,10 @@ function IconTools() {
 }
 
 const NAV = [
-  { href: "/dashboard/today", label: "오늘", Icon: IconToday },
+  { href: "/dashboard", label: "홈", Icon: IconHome },
+  { href: "/dashboard/today", label: "지금", Icon: IconToday },
   { href: "/dashboard/study", label: "공부", Icon: IconStudy },
-  { href: "/dashboard/calendar", label: "마감", Icon: IconCalendar },
+  { href: "/dashboard/calendar", label: "레이더", Icon: IconCalendar },
   { href: "/dashboard/tools", label: "도구", Icon: IconTools },
 ] as const;
 
@@ -85,7 +105,11 @@ export function MobileTabBar() {
     >
       <ul className="flex h-14 items-stretch">
         {NAV.map(({ href, label, Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + "/");
+          const active =
+            pathname === href ||
+            (href === "/dashboard"
+              ? pathname === "/dashboard/chat"
+              : pathname.startsWith(href + "/"));
           return (
             <li key={href} className="flex-1">
               <Link

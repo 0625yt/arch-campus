@@ -117,7 +117,7 @@ export default function StudyIndexPage() {
                 href="/dashboard/calendar"
                 className="group inline-flex items-baseline gap-1 text-[11.5px] wght-500 kerning-tight text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]"
               >
-                마감 같이 보기
+                레이더 보기
                 <Arrow className="text-[11px]" />
               </Link>
             </div>

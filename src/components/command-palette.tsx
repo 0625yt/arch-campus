@@ -28,10 +28,11 @@ interface Command {
 }
 
 const PAGES: { href: string; label: string; hint: string }[] = [
-  { href: "/dashboard/today", label: "오늘", hint: "오늘 할 일과 5분 학습" },
-  { href: "/dashboard/study", label: "공부", hint: "시험 준비 상태와 남은 문제" },
-  { href: "/dashboard/calendar", label: "마감", hint: "위험 일정과 강의계획서" },
-  { href: "/dashboard/tools", label: "도구", hint: "발표·과제·시험 해결책" },
+  { href: "/dashboard", label: "내 캠퍼스", hint: "과제·공지·팀플·마감 신호" },
+  { href: "/dashboard/today", label: "지금", hint: "다음 90분 실행 순서" },
+  { href: "/dashboard/study", label: "공부", hint: "과목별 자료와 약점" },
+  { href: "/dashboard/calendar", label: "레이더", hint: "캠퍼스 위험 신호와 공지" },
+  { href: "/dashboard/tools", label: "도구", hint: "발표·과제·팀플 해결책" },
   { href: "/dashboard/history", label: "약점 로그", hint: "오답과 학습 리듬" },
 ];
 

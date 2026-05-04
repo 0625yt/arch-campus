@@ -18,8 +18,8 @@ const SEMESTER = {
   weekTotal: 15,
 };
 
-/* 오늘 마감 — Today 페이지 hero와 동기화. mock이라 일단 1개 */
-const TODAY_DUE_COUNT = 1;
+/* 지금 신호 — Today 페이지 hero와 동기화. mock이라 일단 1개 */
+const TODAY_SIGNAL_COUNT = 1;
 
 /* 우리 자체 mini icons — lucide 안 쓰고 SVG 직접. AI 티 회피. */
 
@@ -82,9 +82,9 @@ function IconHistory() {
 }
 
 const NAV = [
-  { href: "/dashboard/today", label: "오늘", Icon: IconToday },
+  { href: "/dashboard/today", label: "지금", Icon: IconToday },
   { href: "/dashboard/study", label: "공부", Icon: IconStudy },
-  { href: "/dashboard/calendar", label: "마감", Icon: IconCalendar },
+  { href: "/dashboard/calendar", label: "레이더", Icon: IconCalendar },
   { href: "/dashboard/tools", label: "도구", Icon: IconTools },
 ] as const;
 
@@ -137,16 +137,16 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
           )}
         >
           <IconNewChat />
-          <span className="flex-1">학기 대시보드</span>
+          <span className="flex-1">내 캠퍼스</span>
         </Link>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 py-1">
-        <SectionLabel>학습</SectionLabel>
+        <SectionLabel>캠퍼스</SectionLabel>
         <ul className="mb-6 mt-1 space-y-px">
           {NAV.map(({ href, label, Icon }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
-            const showDueBadge = href === "/dashboard/today" && TODAY_DUE_COUNT > 0;
+            const showSignalBadge = href === "/dashboard/today" && TODAY_SIGNAL_COUNT > 0;
             if (href === "/dashboard/study") {
               return (
                 <StudyNavItem
@@ -184,16 +184,16 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
                     <Icon active={active} />
                   </span>
                   <span className="flex-1">{label}</span>
-                  {showDueBadge && (
+                  {showSignalBadge && (
                     <span
-                      title={`오늘 마감 ${TODAY_DUE_COUNT}건`}
+                      title={`지금 신호 ${TODAY_SIGNAL_COUNT}건`}
                       className="inline-flex items-center gap-1 rounded-full bg-[var(--color-urgent-soft)] px-1.5 py-0.5 text-[9.5px] wght-700 kerning-mono tabular-nums text-[var(--color-urgent)]"
                     >
                       <span
                         aria-hidden
                         className="h-1 w-1 rounded-full bg-[var(--color-urgent)] pulse-dot"
                       />
-                      {TODAY_DUE_COUNT}
+                      {TODAY_SIGNAL_COUNT}
                     </span>
                   )}
                 </Link>

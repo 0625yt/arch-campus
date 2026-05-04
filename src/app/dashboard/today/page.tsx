@@ -1,8 +1,10 @@
 import Link from "next/link";
 import {
+  BellRing,
   BookOpenCheck,
   ClipboardCheck,
   TimerReset,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -46,7 +48,7 @@ function daysAwayFrom(base: Date, target: Date) {
   return Math.floor((targetStart.getTime() - start.getTime()) / 86400000);
 }
 
-type TaskKind = "과제" | "시험" | "발표" | "퀴즈" | "복습";
+type TaskKind = "과제" | "시험" | "발표" | "퀴즈";
 
 interface Task {
   course: CourseSlug;
@@ -68,7 +70,7 @@ interface Move {
   urgent?: boolean;
 }
 
-function createTodayData(now: Date) {
+function createNowData(now: Date) {
   const todayEnd = new Date(now);
   todayEnd.setHours(23, 59, 0, 0);
 
@@ -122,19 +124,18 @@ function createTodayData(now: Date) {
 
   const moves: Move[] = [
     {
-      label: "제출 전",
-      title: "90초 감점 검사",
-      meta: "파일명·예외 케이스·시간복잡도",
-      href: `/dashboard/chat?q=${encodeURIComponent("자료구조 BST 과제 제출 전 감점 포인트를 체크해줘")}`,
-      icon: ClipboardCheck,
-      urgent: true,
-    },
-    {
-      label: "시험",
-      title: "운영체제 약점 7문제",
-      meta: "D-4 · 중간고사 30%",
+      label: "수업 전",
+      title: "운영체제 8분 브리핑",
+      meta: "교수님 강조 개념만 보기",
       href: "/dashboard/study/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C/process-sync",
       icon: BookOpenCheck,
+    },
+    {
+      label: "팀플",
+      title: "발표 역할 비어 있는 부분 정리",
+      meta: "데이터베이스 · 오늘 19:00 전",
+      href: "/dashboard/tools",
+      icon: UsersRound,
     },
   ];
 
@@ -143,7 +144,7 @@ function createTodayData(now: Date) {
 
 export default function TodayPage() {
   const now = new Date();
-  const { focus, week, moves } = createTodayData(now);
+  const { focus, week, moves } = createNowData(now);
 
   return (
     <PageShell width="md" className="pb-24 md:pb-20">
@@ -151,18 +152,23 @@ export default function TodayPage() {
 
       <header className="mt-7 fade-up fade-up-1 sm:mt-9">
         <p className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-          오늘
+          지금
         </p>
-        <h1 className="mt-3 max-w-[560px] text-[28px] leading-[1.2] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[34px]">
-          오늘은 이 과제 하나만 끝내면 돼요
+        <h1 className="mt-3 max-w-[580px] text-[28px] leading-[1.2] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[34px]">
+          다음 90분만 정리하면 하루가 풀려요
         </h1>
+        <p className="mt-3 max-w-[520px] text-[13.5px] leading-[1.6] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+          올린 과제 안내, 마감, 수업 전 준비를 같이 보고 지금 움직일 순서만 남겼어요.
+        </p>
       </header>
 
-      <FocusCard className="mt-6 fade-up fade-up-2" task={focus} />
+      <NowBrief className="mt-6 fade-up fade-up-2" />
 
-      <NextMoves className="mt-8 fade-up fade-up-3" moves={moves} />
+      <FocusCard className="mt-6 fade-up fade-up-3" task={focus} />
 
-      <WeekList className="mt-10 fade-up fade-up-4" tasks={week} />
+      <NextMoves className="mt-8 fade-up fade-up-4" moves={moves} />
+
+      <WeekList className="mt-10 fade-up fade-up-5" tasks={week} />
     </PageShell>
   );
 }
@@ -183,10 +189,35 @@ function TopBar({ now }: { now: Date }) {
         href="/dashboard"
         className="group inline-flex items-baseline gap-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
       >
-        학기 대시보드
+        내 캠퍼스
         <Arrow className="text-[11px] transition-transform group-hover:translate-x-0.5" />
       </Link>
     </header>
+  );
+}
+
+function NowBrief({ className }: { className?: string }) {
+  return (
+    <section
+      className={cn(
+        "rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-4",
+        className,
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
+          <BellRing size={16} strokeWidth={2.1} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13.5px] wght-700 kerning-tight text-[var(--color-fg-strong)]">
+            과제 안내 2개를 보고 순서를 바꿨어요
+          </p>
+          <p className="mt-1 text-[12.5px] leading-[1.55] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+            자료구조 제출 규칙 변경이 있어서 공부보다 제출 전 검사가 먼저예요.
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -224,37 +255,37 @@ function FocusCard({ task, className }: { task: Task; className?: string }) {
           className="wght-700 tabular-nums text-[var(--color-urgent)]"
         />
         <span className="text-[var(--color-line-strong)]">·</span>
-        <span>필요 시간 약 60분</span>
+        <span>과제 안내 반영 후 제출 필요</span>
       </div>
 
       <div className="mt-6 grid gap-5 md:grid-cols-[1fr_190px] md:items-end">
         <div>
           <div className="flex items-baseline justify-between gap-3 text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
-            <span>오늘 진행</span>
+            <span>지금 필요한 3단계</span>
             <span className="tabular-nums text-[var(--color-fg)]">0/3</span>
           </div>
           <ProgressLine value={0} className="mt-3" />
           <ol className="mt-4 flex flex-col gap-2.5">
-            <Step label="BST 삭제 케이스 확인" meta="40분" active />
-            <Step label="샘플 입력 5개 돌리기" meta="15분" />
-            <Step label="제출 형식 검사" meta="5분" />
+            <Step label="파일명 규칙 확인" meta="5분" active />
+            <Step label="BST 삭제 케이스 테스트" meta="40분" />
+            <Step label="시간복잡도 설명 보강" meta="15분" />
           </ol>
         </div>
 
         <div className="flex flex-col gap-2">
           <Link
-            href={task.href}
+            href={`/dashboard/chat?q=${encodeURIComponent(task.title + " 과제 안내까지 반영해서 제출 전 감점 검사를 해줘")}`}
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-[var(--color-fg-strong)] px-4 text-[13.5px] wght-560 kerning-tight text-white transition-colors hover:bg-[var(--color-fg)]"
           >
-            <TimerReset size={16} strokeWidth={2.1} />
-            10분만 시작
+            <ClipboardCheck size={16} strokeWidth={2.1} />
+            감점 검사
           </Link>
           <Link
-            href={`/dashboard/chat?q=${encodeURIComponent(task.title + " 제출 전 감점 체크리스트 만들어줘")}`}
+            href={task.href}
             className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-4 text-[13px] wght-560 kerning-tight text-[var(--color-fg)] transition-colors hover:bg-[var(--color-surface)]"
           >
-            <ClipboardCheck size={15} strokeWidth={2.1} />
-            제출 전 검사
+            <TimerReset size={15} strokeWidth={2.1} />
+            과제 열기
           </Link>
         </div>
       </div>
@@ -296,7 +327,7 @@ function NextMoves({ moves, className }: { moves: Move[]; className?: string }) 
   return (
     <section className={className}>
       <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-        그다음 2개
+        다음 움직임
       </h2>
       <ul className="mt-3 border-t border-[var(--color-line)]">
         {moves.map((move) => (
@@ -348,13 +379,13 @@ function WeekList({ tasks, className }: { tasks: Task[]; className?: string }) {
     <section className={className}>
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-          이번 주
+          이번 주 큰 신호
         </h2>
         <Link
           href="/dashboard/calendar"
           className="group inline-flex items-baseline gap-1 text-[11.5px] wght-500 kerning-tight text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]"
         >
-          마감 레이더
+          레이더
           <Arrow className="text-[11px]" />
         </Link>
       </div>
