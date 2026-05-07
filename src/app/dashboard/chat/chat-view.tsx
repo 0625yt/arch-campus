@@ -83,10 +83,10 @@ function generateMockReply(input: string): { text: string; suggestions?: Suggest
   // 일정·마감
   if (/(일정|마감|언제|시험|과제 마감|캘린더)/.test(q)) {
     return {
-      text: "이번 주 위험 신호는 지금 화면에서 바로 보고, 학기 전체 흐름은 레이더에서 손해 큰 순서로 볼 수 있어요. 강의계획서와 과제 안내를 올리면 시험·과제·발표가 먼저 정리돼요.",
+      text: "이번 주 일정은 수업, 과제, 시험, 팀플, 개인 약속을 한 화면에서 볼 수 있어요. 강의계획서와 과제 안내를 올리면 시험·과제·발표 일정이 먼저 정리돼요.",
       suggestions: [
         { label: "지금 할 일 보기", href: "/dashboard/today", meta: "지금" },
-        { label: "레이더 보기", href: "/dashboard/calendar", meta: "레이더" },
+        { label: "일정 보기", href: "/dashboard/calendar", meta: "일정" },
       ],
     };
   }

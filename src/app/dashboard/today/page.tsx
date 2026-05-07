@@ -269,7 +269,7 @@ function LaterQueue({ className }: { className?: string }) {
           href="/dashboard/calendar"
           className="group inline-flex items-baseline gap-1 text-[11.5px] wght-500 kerning-tight text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]"
         >
-          레이더
+          일정
           <Arrow className="text-[11px]" />
         </Link>
       </div>

@@ -84,7 +84,7 @@ function IconHistory() {
 const NAV = [
   { href: "/dashboard/today", label: "지금", Icon: IconToday },
   { href: "/dashboard/study", label: "공부", Icon: IconStudy },
-  { href: "/dashboard/calendar", label: "레이더", Icon: IconCalendar },
+  { href: "/dashboard/calendar", label: "일정", Icon: IconCalendar },
   { href: "/dashboard/tools", label: "도구", Icon: IconTools },
 ] as const;
 

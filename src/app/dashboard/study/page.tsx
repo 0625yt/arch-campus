@@ -117,7 +117,7 @@ export default function StudyIndexPage() {
                 href="/dashboard/calendar"
                 className="group inline-flex items-baseline gap-1 text-[11.5px] wght-500 kerning-tight text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]"
               >
-                레이더 보기
+                일정 보기
                 <Arrow className="text-[11px]" />
               </Link>
             </div>
@@ -381,7 +381,7 @@ function AddCourseNudge({ className }: { className?: string }) {
       className={`group flex items-baseline justify-between gap-3 border-y border-[var(--color-line)] py-3.5 ${className ?? ""}`}
     >
       <span className="text-[13px] wght-500 kerning-tight text-[var(--color-fg-muted)] group-hover:text-[var(--color-fg)]">
-        새 강의는 강의계획서로 추가하는 게 제일 빨라요
+        새 강의는 내 캠퍼스에서 강의계획서를 올리는 게 제일 빨라요
       </span>
       <Arrow className="text-[12px] text-[var(--color-fg-subtle)] transition-transform group-hover:translate-x-0.5" />
     </Link>
