@@ -366,6 +366,13 @@ function eventTintStyle(color: string, alpha = 0.12): CSSProperties {
   } as CSSProperties;
 }
 
+function shortLabel(title: string): string {
+  // 모바일 셀 폭이 좁아 한글 4자 이상은 잘림. truncate로 ellipsis 자동 표시되니
+  // 굳이 슬라이스하지 않고 원본 그대로 넘김. 단, 시간 prefix(예: "오후 2:00 알바")가 붙어
+  // 들어오는 케이스는 시간 부분 제거.
+  return title.replace(/^(오전|오후)\s*\d{1,2}:\d{2}\s*/u, "");
+}
+
 function shortTime(time?: string) {
   if (!time) return "";
   const match = time.match(/(오전|오후)\s*(\d{1,2}):(\d{2})/);
@@ -696,24 +703,32 @@ export default function CalendarPage() {
                       )}
                     </div>
 
-                    {/* Events — 모바일: 도트만 (Apple Calendar 방식) / sm 이상: 텍스트 라벨 */}
+                    {/* Events — 모바일: 채워진 막대 (한컴 캘린더 스타일) / sm 이상: 텍스트 라벨 */}
                     {cellEvents.length > 0 && (
                       <>
-                        <div className="mt-1 flex flex-wrap items-center gap-[3px] sm:hidden">
-                          {cellEvents.slice(0, 4).map((event) => (
-                            <span
+                        <div className="mt-1 flex flex-col gap-[2px] sm:hidden">
+                          {cellEvents.slice(0, 3).map((event) => (
+                            <button
                               key={event.id}
-                              className="h-[5px] w-[5px] rounded-full"
+                              type="button"
+                              onClick={(clickEvent) => {
+                                clickEvent.stopPropagation();
+                                openEvent(event);
+                              }}
+                              className="flex h-[15px] items-center overflow-hidden rounded-[3px] px-[3px] text-left text-[9.5px] leading-none wght-620 text-white"
                               style={{ backgroundColor: event.color }}
-                              aria-label={event.title}
-                            />
+                            >
+                              <span className="min-w-0 truncate" style={{ letterSpacing: "-0.012em" }}>
+                                {shortLabel(event.title)}
+                              </span>
+                            </button>
                           ))}
-                          {cellEvents.length > 4 && (
+                          {cellEvents.length > 3 && (
                             <span
-                              className="text-[9px] wght-560 leading-none text-[var(--color-apple-muted)]"
+                              className="pl-[3px] text-[9px] wght-560 leading-none text-[var(--color-apple-muted)]"
                               aria-hidden
                             >
-                              +{cellEvents.length - 4}
+                              +{cellEvents.length - 3}
                             </span>
                           )}
                         </div>
