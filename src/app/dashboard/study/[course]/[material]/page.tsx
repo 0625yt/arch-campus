@@ -38,9 +38,9 @@ export default async function MaterialDetailPage({
           </span>
           <Link
             href={`/dashboard/study/${course.slug}`}
-            className="inline-flex shrink-0 items-center gap-1.5 hover:text-[var(--color-apple-ink)]"
+            className="shrink-0 wght-560 hover:opacity-80"
+            style={{ color: dotColor }}
           >
-            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
             {course.slug}
           </Link>
         </nav>
@@ -138,15 +138,12 @@ export default async function MaterialDetailPage({
         {/* ─── Footer CTA ─────────────── */}
         <section className="mt-14 fade-up fade-up-4 sm:mt-20">
           <div className="rounded-[18px] bg-white px-7 py-9 sm:px-12 sm:py-12">
-            <div className="flex items-center gap-2.5">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
-              <p
-                className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                요약을 다 읽으셨다면
-              </p>
-            </div>
+            <p
+              className="text-[12px] wght-560 uppercase tracking-[0.06em]"
+              style={{ color: dotColor, letterSpacing: "0.06em" }}
+            >
+              요약을 다 읽으셨다면
+            </p>
             <h2
               className="mt-3 text-[26px] leading-[1.12] wght-620 text-[var(--color-apple-ink)] sm:text-[34px]"
               style={{ letterSpacing: "-0.012em" }}

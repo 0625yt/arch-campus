@@ -696,47 +696,70 @@ export default function CalendarPage() {
                       )}
                     </div>
 
-                    {/* Events */}
-                    <div className="flex flex-col gap-0.5">
-                      {cellEvents.slice(0, 3).map((event) => (
-                        <button
-                          key={event.id}
-                          type="button"
-                          onClick={(clickEvent) => {
-                            clickEvent.stopPropagation();
-                            openEvent(event);
-                          }}
-                          className={cn(
-                            "flex min-h-[20px] items-center gap-1 overflow-hidden rounded-[5px] px-1.5 text-left text-[11px] leading-[1.2] wght-560 transition-colors",
-                            event.allDay
-                              ? "bg-[var(--event-bg)] text-[var(--color-apple-ink)]"
-                              : "bg-transparent text-[var(--color-apple-ink)] hover:bg-white",
-                          )}
-                          style={eventTintStyle(event.color, event.allDay ? 0.2 : 0)}
-                        >
-                          {!event.allDay && (
+                    {/* Events — 모바일: 도트만 (Apple Calendar 방식) / sm 이상: 텍스트 라벨 */}
+                    {cellEvents.length > 0 && (
+                      <>
+                        <div className="mt-1 flex flex-wrap items-center gap-[3px] sm:hidden">
+                          {cellEvents.slice(0, 4).map((event) => (
                             <span
-                              className="h-1.5 w-1.5 shrink-0 rounded-full"
+                              key={event.id}
+                              className="h-[5px] w-[5px] rounded-full"
                               style={{ backgroundColor: event.color }}
-                              aria-hidden
+                              aria-label={event.title}
                             />
+                          ))}
+                          {cellEvents.length > 4 && (
+                            <span
+                              className="text-[9px] wght-560 leading-none text-[var(--color-apple-muted)]"
+                              aria-hidden
+                            >
+                              +{cellEvents.length - 4}
+                            </span>
                           )}
-                          <span className="min-w-0 truncate">
-                            {!event.allDay && event.time && (
-                              <span className="text-[var(--color-apple-muted)] tabular-nums">
-                                {shortTime(event.time)}{" "}
+                        </div>
+
+                        <div className="hidden flex-col gap-0.5 sm:flex">
+                          {cellEvents.slice(0, 3).map((event) => (
+                            <button
+                              key={event.id}
+                              type="button"
+                              onClick={(clickEvent) => {
+                                clickEvent.stopPropagation();
+                                openEvent(event);
+                              }}
+                              className={cn(
+                                "flex min-h-[20px] items-center gap-1 overflow-hidden rounded-[5px] px-1.5 text-left text-[11px] leading-[1.2] wght-560 transition-colors",
+                                event.allDay
+                                  ? "bg-[var(--event-bg)] text-[var(--color-apple-ink)]"
+                                  : "bg-transparent text-[var(--color-apple-ink)] hover:bg-white",
+                              )}
+                              style={eventTintStyle(event.color, event.allDay ? 0.2 : 0)}
+                            >
+                              {!event.allDay && (
+                                <span
+                                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                                  style={{ backgroundColor: event.color }}
+                                  aria-hidden
+                                />
+                              )}
+                              <span className="min-w-0 truncate">
+                                {!event.allDay && event.time && (
+                                  <span className="text-[var(--color-apple-muted)] tabular-nums">
+                                    {shortTime(event.time)}{" "}
+                                  </span>
+                                )}
+                                {event.title}
                               </span>
-                            )}
-                            {event.title}
-                          </span>
-                        </button>
-                      ))}
-                      {cellEvents.length > 3 && (
-                        <span className="px-1.5 text-[10.5px] wght-560 text-[var(--color-apple-muted)]">
-                          +{cellEvents.length - 3}건 더
-                        </span>
-                      )}
-                    </div>
+                            </button>
+                          ))}
+                          {cellEvents.length > 3 && (
+                            <span className="px-1.5 text-[10.5px] wght-560 text-[var(--color-apple-muted)]">
+                              +{cellEvents.length - 3}건 더
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })}

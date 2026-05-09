@@ -36,8 +36,7 @@ export default async function CourseDetailPage({
           <span aria-hidden className="shrink-0 text-[var(--color-apple-hairline)]">
             ›
           </span>
-          <span className="inline-flex items-center gap-1.5 wght-560 text-[var(--color-apple-ink)]">
-            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+          <span className="wght-560" style={{ color: dotColor }}>
             {course.slug}
           </span>
         </nav>

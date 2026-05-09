@@ -203,18 +203,13 @@ function HeroCountdown({
 
   return (
     <section className={className}>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
         <span
-          className="inline-flex items-center text-[13px] wght-560 text-[var(--color-urgent)]"
-          style={{ letterSpacing: "-0.012em" }}
+          className="text-[13px] wght-560 uppercase tracking-[0.04em] text-[var(--color-urgent)]"
+          style={{ letterSpacing: "0.04em" }}
         >
-          <span
-            aria-hidden
-            className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-urgent)] pulse-dot"
-          />
           오늘 자정 마감 · {task.weight}
         </span>
-        <span className="text-[var(--color-apple-hairline)]">·</span>
         <div
           className={`flex items-baseline gap-2 ${
             isUrgent ? "text-[var(--color-urgent)]" : "text-[var(--color-apple-ink)]"

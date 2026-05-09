@@ -330,15 +330,12 @@ function ThisWeekMaterials({
               className="group flex flex-col rounded-[12px] bg-white p-6 transition-transform duration-200 hover:-translate-y-0.5"
             >
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
-                  <span
-                    className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-                    style={{ letterSpacing: "-0.012em" }}
-                  >
-                    {item.course}
-                  </span>
-                </div>
+                <span
+                  className="text-[12px] wght-560 uppercase tracking-[0.06em]"
+                  style={{ color: dotColor, letterSpacing: "0.06em" }}
+                >
+                  {item.course}
+                </span>
                 <span
                   className={`text-[11px] wght-560 uppercase tracking-[0.06em] ${
                     item.badgeTone === "urgent"
@@ -438,15 +435,12 @@ function ReviewSuggest({ signals, className }: { signals: CourseSignal[]; classN
       >
         {/* 좌 — 메시지 */}
         <div className="flex-1">
-          <div className="flex items-center gap-2.5">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
-            <span
-              className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              {weakest.course.slug}
-            </span>
-          </div>
+          <span
+            className="text-[12px] wght-560 uppercase tracking-[0.06em]"
+            style={{ color: dotColor, letterSpacing: "0.06em" }}
+          >
+            {weakest.course.slug}
+          </span>
           <h3
             className="mt-3 text-[22px] leading-[1.2] wght-620 text-[var(--color-apple-ink)] sm:text-[26px]"
             style={{ letterSpacing: "-0.012em" }}

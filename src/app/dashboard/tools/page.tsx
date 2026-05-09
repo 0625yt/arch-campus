@@ -242,15 +242,12 @@ function UrgentCard({ wizard }: { wizard: Wizard }) {
       className="group flex min-h-[200px] flex-col justify-between rounded-[18px] bg-white p-7 transition-transform duration-300 hover:-translate-y-0.5"
     >
       <div>
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
-          <span
-            className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            {wizard.category}
-          </span>
-        </div>
+        <span
+          className="text-[12px] wght-560 uppercase tracking-[0.06em]"
+          style={{ color: dotColor, letterSpacing: "0.06em" }}
+        >
+          {wizard.category}
+        </span>
         <h3
           className="mt-3 text-[22px] leading-[1.15] wght-620 text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
@@ -353,12 +350,12 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
       className="group flex h-full flex-col rounded-[12px] bg-white p-5 transition-transform duration-200 hover:-translate-y-0.5 sm:p-6"
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
-          <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-            {wizard.category}
-          </span>
-        </div>
+        <span
+          className="text-[11px] wght-560 uppercase tracking-[0.06em]"
+          style={{ color: dotColor }}
+        >
+          {wizard.category}
+        </span>
         <span
           className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.012em" }}
