@@ -10,14 +10,24 @@ export function isHwpEnabled(): boolean {
 export async function parseHwp(input: ParseInput): Promise<ParsedDocument> {
   const baseUrl = process.env.HWP_CONVERTER_URL;
   if (!baseUrl) {
-    throw new ParserRejectedError(
-      "HWP 변환 서비스가 연결되지 않았어요. PDF로 내보내서 다시 올려주세요.",
-      "unsupported",
-    );
+    // 라우터에서 isHwpEnabled() 체크하니 여기 도달하면 안 됨. 안전장치.
+    return {
+      text: `[한글 파일 — 변환 서비스 미연결]\n파일명: ${input.filename}`,
+      mimeType: input.mimeType ?? "application/x-hwp",
+      source: "rejected",
+      warnings: ["HWP 변환 서비스가 연결되지 않았어요"],
+    };
   }
 
   const bytes = toUint8Array(input.bytes);
-  if (bytes.byteLength === 0) throw new ParserRejectedError("빈 HWP", "empty");
+  if (bytes.byteLength === 0) {
+    return {
+      text: `[빈 HWP 파일]\n파일명: ${input.filename}`,
+      mimeType: input.mimeType ?? "application/x-hwp",
+      source: "rejected",
+      warnings: ["빈 파일이에요"],
+    };
+  }
 
   const ab = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
     ? (bytes.buffer as ArrayBuffer)

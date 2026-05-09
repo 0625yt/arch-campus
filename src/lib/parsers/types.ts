@@ -24,7 +24,7 @@ export class ParserRejectedError extends Error {
   }
 }
 
-export const MAX_PARSE_BYTES = 25 * 1024 * 1024;
+export const MAX_PARSE_BYTES = 60 * 1024 * 1024;
 
 export function toUint8Array(input: ParseBytes): Uint8Array {
   if (input instanceof Uint8Array) return input;

@@ -82,7 +82,7 @@ export async function POST(req: Request): Promise<NextResponse<SummarizeResponse
     );
   }
 
-  // 2. 파싱 + sanitize
+  // 2. 파싱 + sanitize — 거절도 placeholder로 살려냄 (사용자 자료는 무조건 결과 보장)
   let parsed: Awaited<ReturnType<typeof parseDocument>>;
   try {
     parsed = await parseDocument({
@@ -92,23 +92,25 @@ export async function POST(req: Request): Promise<NextResponse<SummarizeResponse
     });
   } catch (e) {
     if (e instanceof ParserRejectedError) {
+      // 빈 파일·파싱 실패도 placeholder 요약을 반환해서 UI가 끊기지 않게
+      const message = e.message;
+      parsed = {
+        text: `[자동 추출 실패]\n파일명: ${uploaded.filename}\n사유: ${message}`,
+        sanitizedText: `[자동 추출 실패]\n파일명: ${uploaded.filename}\n사유: ${message}`,
+        mimeType: uploaded.mimeType,
+        source: "rejected" as const,
+        warnings: [message],
+      };
+    } else {
       return NextResponse.json(
-        { ok: false, error: e.message, reason: e.reason },
-        { status: 415 },
+        { ok: false, error: e instanceof Error ? e.message : "파싱 실패" },
+        { status: 500 },
       );
     }
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "파싱 실패" },
-      { status: 500 },
-    );
   }
 
-  if (!parsed.sanitizedText || parsed.sanitizedText.trim().length < 30) {
-    return NextResponse.json(
-      { ok: false, error: "텍스트가 너무 짧아 요약할 수 없어요" },
-      { status: 422 },
-    );
-  }
+  // 짧은 텍스트(메타만)여도 거절하지 않음. 모델에게 "메타만으로 안내성 요약 만들어줘"로 지시.
+  const isMetadataOnly = !parsed.sanitizedText || parsed.sanitizedText.trim().length < 60;
 
   // 3. materials 행 생성 (요약 결과랑 같이 묶어 두기)
   const admin = getAdminSupabase();
@@ -144,6 +146,8 @@ export async function POST(req: Request): Promise<NextResponse<SummarizeResponse
     title,
     type: typeField,
     pageCount: parsed.pageCount,
+    isMetadataOnly,
+    parserWarnings: parsed.warnings,
   });
   const tokenBudget = breakdown({
     rule: rulePrompt,
@@ -157,7 +161,9 @@ export async function POST(req: Request): Promise<NextResponse<SummarizeResponse
       tool: "summarize",
       rulePrompt,
       dynamicContext,
-      userInput: parsed.sanitizedText.slice(0, 60_000),
+      userInput: parsed.sanitizedText.trim().length > 0
+        ? parsed.sanitizedText.slice(0, 60_000)
+        : `[본문 자동 추출 실패 — 파일명 ${title} · 종류 ${typeField}]`,
       maxTokens: 2048,
       temperature: 0.3,
     });
@@ -229,15 +235,30 @@ function buildDynamicContext(meta: {
   title: string;
   type: string;
   pageCount?: number;
+  isMetadataOnly?: boolean;
+  parserWarnings?: string[];
 }): string {
-  return [
+  const lines: string[] = [
     `자료 메타:`,
     `- 제목: ${meta.title}`,
     `- 종류: ${meta.type}`,
-    meta.pageCount ? `- 분량: ${meta.pageCount}쪽` : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ];
+  if (meta.pageCount) lines.push(`- 분량: ${meta.pageCount}쪽`);
+  if (meta.parserWarnings?.length) {
+    lines.push(`- 파서 경고: ${meta.parserWarnings.join(", ")}`);
+  }
+  if (meta.isMetadataOnly) {
+    lines.push(
+      "",
+      "⚠ 본문 텍스트가 충분하지 않아요. 그래도 거절하지 말고:",
+      "- leadSentence: 어떤 자료인지 메타로 한 줄 (예: '운영체제 5장 강의자료예요. 본문 추출이 안 돼서 정확한 요약은 어려워요.')",
+      "- blocks: 자료 종류·제목 기준으로 학생이 다음에 할 수 있는 행동 가이드 (예: '강의 노트인 것 같아요. 직접 읽으면서 핵심 키워드 5개를 적어보세요.')",
+      "- keywords: 제목·종류에서 뽑힌 일반 용어 3~5개",
+      "- reviewSpots: '본문이 더 명확한 자료를 다시 올려주세요' 같은 안내 1개",
+      "본문 substring 인용 규칙은 이번엔 적용 안 함 (substring 없으니까).",
+    );
+  }
+  return lines.join("\n");
 }
 
 async function logGeneration(opts: {

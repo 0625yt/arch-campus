@@ -97,29 +97,60 @@ export async function parseDocument(input: ParseInput): Promise<ParseResult> {
       break;
     case "hwp":
       if (!isHwpEnabled()) {
-        throw new ParserRejectedError(
-          "HWP는 아직 지원하지 않아요. PDF로 내보내서 다시 올려주세요.",
-          "unsupported",
-        );
+        // 변환 서비스 없을 때도 거절하지 말고 메타데이터만 가진 placeholder.
+        // /api/summarize가 짧은 텍스트도 받아서 "이 자료는 한컴 파일이에요. PDF로 변환하면 더 정확해져요" 안내 요약 만듬.
+        parsed = {
+          text: `[한글 파일 — 본문 자동 추출이 아직 안 돼요. PDF로 변환해서 다시 올리면 정확한 요약을 만들어줄 수 있어요.]\n파일명: ${input.filename}`,
+          mimeType: input.mimeType ?? "application/x-hwp",
+          source: "rejected",
+          warnings: ["HWP 변환 서비스가 연결되지 않아 메타데이터만 사용했어요"],
+        };
+        break;
       }
       parsed = await parseHwp(normalized);
       break;
     default:
-      throw new ParserRejectedError(unsupportedHint(input.filename), "unsupported");
+      // 어떤 형식이든 거절하지 말고 텍스트 디코드 시도 → 실패하면 메타만.
+      parsed = await fallbackText(normalized);
+      break;
   }
 
   return { ...parsed, sanitizedText: sanitizeForPrompt(parsed.text) };
 }
 
-function unsupportedHint(filename: string): string {
-  const ext = extensionOf(filename);
-  if (ext === "hwp" || ext === "hwpx") {
-    return "HWP는 아직 지원하지 않아요. PDF로 내보내서 다시 올려주세요.";
+async function fallbackText(input: ParseInput): Promise<ParsedDocument> {
+  // 알 수 없는 확장자·구버전 office 등 — UTF-8 best effort 디코딩 시도.
+  const bytes = toUint8Array(input.bytes);
+  const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  // 이진 파일이면 �·NUL이 가득. 그건 메타데이터로만.
+  const printableRatio = countPrintable(text) / Math.max(text.length, 1);
+  const ext = extensionOf(input.filename);
+  if (printableRatio > 0.7 && text.trim().length >= 4) {
+    return {
+      text,
+      mimeType: input.mimeType ?? "application/octet-stream",
+      source: "txt",
+      warnings: [`알 수 없는 형식(${ext || "확장자 없음"})이라 텍스트로 강제 추출했어요. 결과가 부정확할 수 있어요.`],
+    };
   }
-  if (ext === "doc" || ext === "ppt" || ext === "xls") {
-    return `${ext.toUpperCase()}는 구버전 포맷이라 지원 안 해요. ${ext}x 포맷으로 저장해서 다시 올려주세요.`;
+  return {
+    text: `[자동 추출이 안 되는 형식이에요. 가능하면 PDF·DOCX·이미지로 변환해서 올려주세요.]\n파일명: ${input.filename}\n형식: ${ext || "확장자 없음"}`,
+    mimeType: input.mimeType ?? "application/octet-stream",
+    source: "rejected",
+    warnings: ["이진 파일에서 텍스트를 추출하지 못했어요. 메타데이터로만 진행했어요."],
+  };
+}
+
+function countPrintable(text: string): number {
+  let n = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (code === 0xfffd) continue; // U+FFFD replacement
+    if (code === 0) continue;
+    if (code < 32 && code !== 9 && code !== 10 && code !== 13) continue;
+    n++;
   }
-  return `지원하지 않는 형식이에요: .${ext || "(확장자 없음)"}`;
+  return n;
 }
 
 export { ParserRejectedError } from "./types";
