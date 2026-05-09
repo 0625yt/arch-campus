@@ -1,35 +1,35 @@
 import { z } from "zod";
 
 export const SummarizeOutput = z.object({
-  leadSentence: z.string().min(10).max(80),
+  leadSentence: z.string().min(10).max(140),
   blocks: z
     .array(
       z.discriminatedUnion("type", [
-        z.object({ type: z.literal("h2"), content: z.string().max(20) }),
-        z.object({ type: z.literal("para"), content: z.string().min(40).max(200) }),
+        z.object({ type: z.literal("h2"), content: z.string().min(2).max(40) }),
+        z.object({ type: z.literal("para"), content: z.string().min(40).max(280) }),
         z.object({
           type: z.literal("bullets"),
-          items: z.array(z.string().min(3).max(120)).min(3).max(5),
+          items: z.array(z.string().min(3).max(160)).min(2).max(6),
         }),
         z.object({
           type: z.literal("callout"),
           tone: z.enum(["info", "warn", "tip"]),
-          content: z.string().min(10).max(200),
+          content: z.string().min(10).max(280),
         }),
       ]),
     )
     .min(3)
-    .max(5),
-  keywords: z.array(z.string().min(1).max(30)).min(5).max(10),
+    .max(8),
+  keywords: z.array(z.string().min(1).max(40)).min(3).max(12),
   reviewSpots: z
     .array(
       z.object({
-        title: z.string().min(2).max(40),
-        why: z.string().min(10).max(200),
+        title: z.string().min(2).max(60),
+        why: z.string().min(10).max(280),
       }),
     )
     .min(1)
-    .max(3),
+    .max(4),
   watermark: z.string().min(10),
 });
 export type SummarizeOutputT = z.infer<typeof SummarizeOutput>;

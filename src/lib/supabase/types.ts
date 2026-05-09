@@ -1,5 +1,11 @@
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
 export interface Database {
   public: {
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
     Tables: {
       profiles: {
         Row: {
@@ -31,6 +37,7 @@ export interface Database {
           weekly_hours?: number | null;
         };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Relationships: [];
       };
       courses: {
         Row: {
@@ -53,6 +60,7 @@ export interface Database {
           archived?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["courses"]["Insert"]>;
+        Relationships: [];
       };
       materials: {
         Row: {
@@ -83,6 +91,7 @@ export interface Database {
           extracted_keywords?: string[] | null;
         };
         Update: Partial<Database["public"]["Tables"]["materials"]["Insert"]>;
+        Relationships: [];
       };
       generations: {
         Row: {
@@ -117,6 +126,7 @@ export interface Database {
           payload?: Record<string, unknown>;
         };
         Update: Partial<Database["public"]["Tables"]["generations"]["Insert"]>;
+        Relationships: [];
       };
     };
   };

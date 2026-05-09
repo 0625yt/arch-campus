@@ -1,21 +1,76 @@
-import { encoding_for_model, get_encoding, type Tiktoken } from "tiktoken";
+import type { Tiktoken } from "tiktoken";
+
+/**
+ * 토큰 카운터.
+ *
+ * tiktoken은 wasm 의존성이라 Vercel/Turbopack 번들에서 빠지는 경우가 있음 → lazy import + fallback.
+ * fallback은 글자수 기반 휴리스틱(한글 위주 자료 평균 ~1.7 char/token).
+ */
 
 let encoder: Tiktoken | null = null;
+let encoderInit: Promise<Tiktoken | null> | null = null;
 
-function getEncoder(): Tiktoken {
+async function loadEncoder(): Promise<Tiktoken | null> {
   if (encoder) return encoder;
-  try {
-    encoder = encoding_for_model("gpt-4o");
-  } catch {
-    encoder = get_encoding("cl100k_base");
+  if (!encoderInit) {
+    encoderInit = (async () => {
+      try {
+        const mod = await import("tiktoken");
+        try {
+          encoder = mod.encoding_for_model("gpt-4o");
+        } catch {
+          encoder = mod.get_encoding("cl100k_base");
+        }
+        return encoder;
+      } catch {
+        encoder = null;
+        return null;
+      }
+    })();
   }
-  return encoder;
+  return encoderInit;
+}
+
+function approximateTokens(text: string): number {
+  // 한글 문자 ~ 1 token, 공백·라틴은 ~ 4 chars/token
+  let total = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (code >= 0xac00 && code <= 0xd7af) {
+      total += 1; // 한글 음절
+    } else if (code >= 0x4e00 && code <= 0x9fff) {
+      total += 1; // 한자
+    } else {
+      total += 0.25;
+    }
+  }
+  return Math.ceil(total);
 }
 
 export function countTokens(text: string): number {
   if (!text) return 0;
-  const enc = getEncoder();
-  return enc.encode(text).length;
+  if (encoder) {
+    try {
+      return encoder.encode(text).length;
+    } catch {
+      // fall through
+    }
+  }
+  return approximateTokens(text);
+}
+
+/** 비동기 경로 — tiktoken을 쓸 수 있으면 정확값, 아니면 휴리스틱. */
+export async function countTokensAsync(text: string): Promise<number> {
+  if (!text) return 0;
+  const enc = await loadEncoder();
+  if (enc) {
+    try {
+      return enc.encode(text).length;
+    } catch {
+      // fall through
+    }
+  }
+  return approximateTokens(text);
 }
 
 export interface TokenBreakdown {

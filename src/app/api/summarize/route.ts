@@ -1,0 +1,271 @@
+import { NextResponse } from "next/server";
+import { generate, estimateCost } from "@/lib/claude";
+import { getOwnerId, UnauthorizedError } from "@/lib/auth";
+import { parseDocument, ParserRejectedError } from "@/lib/parsers";
+import { loadPrompt } from "@/lib/prompts";
+import { parseModelJson, SummarizeOutput } from "@/lib/schemas";
+import { getAdminSupabase } from "@/lib/supabase/admin";
+import { storeMaterialFile } from "@/lib/storage";
+import { breakdown } from "@/lib/tokens";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+interface SummarizeResponseOk {
+  ok: true;
+  materialId: string;
+  parser: string;
+  pageCount?: number;
+  summary: ReturnType<typeof SummarizeOutput.parse>;
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheCreationTokens: number;
+    costUsd: number;
+    tokenBudget: ReturnType<typeof breakdown>;
+  };
+}
+
+interface SummarizeResponseError {
+  ok: false;
+  error: string;
+  reason?: string;
+}
+
+export async function POST(req: Request): Promise<NextResponse<SummarizeResponseOk | SummarizeResponseError>> {
+  let ownerId: string;
+  try {
+    ownerId = await getOwnerId();
+  } catch (e) {
+    if (e instanceof UnauthorizedError) {
+      return NextResponse.json({ ok: false, error: e.message }, { status: 401 });
+    }
+    throw e;
+  }
+
+  const contentType = req.headers.get("content-type") ?? "";
+  let form: FormData;
+  try {
+    form = await req.formData();
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    console.error("[/api/summarize] formData parse 실패", { contentType, detail });
+    return NextResponse.json(
+      { ok: false, error: `form-data 파싱 실패: ${detail}`, reason: contentType },
+      { status: 400 },
+    );
+  }
+
+  const file = form.get("file");
+  const courseId = (form.get("courseId") ?? "") as string;
+  const titleField = (form.get("title") ?? "") as string;
+  const typeField = (form.get("type") ?? "lecture") as string;
+
+  if (!(file instanceof File) || file.size === 0) {
+    return NextResponse.json({ ok: false, error: "file 필드가 비어있어요" }, { status: 400 });
+  }
+
+  // 1. Storage에 저장 + 바이트 확보
+  let uploaded: Awaited<ReturnType<typeof storeMaterialFile>>;
+  try {
+    uploaded = await storeMaterialFile({
+      ownerId,
+      file,
+      filename: file.name,
+      mimeType: file.type,
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : "업로드 실패" },
+      { status: 500 },
+    );
+  }
+
+  // 2. 파싱 + sanitize
+  let parsed: Awaited<ReturnType<typeof parseDocument>>;
+  try {
+    parsed = await parseDocument({
+      bytes: uploaded.bytes,
+      filename: uploaded.filename,
+      mimeType: uploaded.mimeType,
+    });
+  } catch (e) {
+    if (e instanceof ParserRejectedError) {
+      return NextResponse.json(
+        { ok: false, error: e.message, reason: e.reason },
+        { status: 415 },
+      );
+    }
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : "파싱 실패" },
+      { status: 500 },
+    );
+  }
+
+  if (!parsed.sanitizedText || parsed.sanitizedText.trim().length < 30) {
+    return NextResponse.json(
+      { ok: false, error: "텍스트가 너무 짧아 요약할 수 없어요" },
+      { status: 422 },
+    );
+  }
+
+  // 3. materials 행 생성 (요약 결과랑 같이 묶어 두기)
+  const admin = getAdminSupabase();
+  const title = titleField || file.name.replace(/\.[^.]+$/, "");
+  const { data: material, error: materialErr } = await admin
+    .from("materials")
+    .insert({
+      owner_id: ownerId,
+      course_id: courseId || null,
+      title,
+      type: (["lecture", "assignment", "exam", "team", "syllabus", "notice"].includes(typeField)
+        ? typeField
+        : "lecture") as "lecture",
+      original_filename: uploaded.filename,
+      mime_type: uploaded.mimeType,
+      storage_path: uploaded.storagePath,
+      page_count: parsed.pageCount ?? null,
+      full_text: parsed.sanitizedText.slice(0, 200_000),
+    })
+    .select("id")
+    .single();
+
+  if (materialErr || !material) {
+    return NextResponse.json(
+      { ok: false, error: `materials 저장 실패: ${materialErr?.message ?? "unknown"}` },
+      { status: 500 },
+    );
+  }
+
+  // 4. Claude 호출
+  const rulePrompt = loadPrompt("summarize");
+  const dynamicContext = buildDynamicContext({
+    title,
+    type: typeField,
+    pageCount: parsed.pageCount,
+  });
+  const tokenBudget = breakdown({
+    rule: rulePrompt,
+    dynamic: dynamicContext,
+    user: parsed.sanitizedText,
+  });
+
+  let result: Awaited<ReturnType<typeof generate>>;
+  try {
+    result = await generate({
+      tool: "summarize",
+      rulePrompt,
+      dynamicContext,
+      userInput: parsed.sanitizedText.slice(0, 60_000),
+      maxTokens: 2048,
+      temperature: 0.3,
+    });
+  } catch (e) {
+    await logGeneration({
+      ownerId,
+      materialId: material.id,
+      modelId: "claude-haiku-4-5",
+      status: "error",
+      errorMessage: e instanceof Error ? e.message : String(e),
+    });
+    return NextResponse.json(
+      { ok: false, error: "AI 호출 실패" },
+      { status: 502 },
+    );
+  }
+
+  // 5. JSON 파싱 + Zod 검증
+  let summary: ReturnType<typeof SummarizeOutput.parse>;
+  try {
+    summary = parseModelJson(SummarizeOutput, result.text);
+  } catch (e) {
+    await logGeneration({
+      ownerId,
+      materialId: material.id,
+      modelId: result.modelId,
+      usage: result.usage,
+      cost: estimateCost(result.usage, result.modelId),
+      status: "error",
+      errorMessage: `Zod 검증 실패: ${e instanceof Error ? e.message : String(e)}`,
+      payload: { rawText: result.text.slice(0, 4000) },
+    });
+    return NextResponse.json(
+      { ok: false, error: "AI 출력이 형식에 안 맞아요. 다시 시도해주세요." },
+      { status: 502 },
+    );
+  }
+
+  // 6. 비용·기록
+  const costUsd = estimateCost(result.usage, result.modelId);
+  await logGeneration({
+    ownerId,
+    materialId: material.id,
+    modelId: result.modelId,
+    usage: result.usage,
+    cost: costUsd,
+    status: "ok",
+    payload: { summary },
+  });
+
+  return NextResponse.json({
+    ok: true,
+    materialId: material.id,
+    parser: parsed.source,
+    pageCount: parsed.pageCount,
+    summary,
+    usage: {
+      inputTokens: result.usage.inputTokens,
+      outputTokens: result.usage.outputTokens,
+      cacheReadTokens: result.usage.cacheReadTokens,
+      cacheCreationTokens: result.usage.cacheCreationTokens,
+      costUsd,
+      tokenBudget,
+    },
+  });
+}
+
+function buildDynamicContext(meta: {
+  title: string;
+  type: string;
+  pageCount?: number;
+}): string {
+  return [
+    `자료 메타:`,
+    `- 제목: ${meta.title}`,
+    `- 종류: ${meta.type}`,
+    meta.pageCount ? `- 분량: ${meta.pageCount}쪽` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function logGeneration(opts: {
+  ownerId: string;
+  materialId: string;
+  modelId: string;
+  usage?: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number };
+  cost?: number;
+  status: "ok" | "rejected" | "error";
+  errorMessage?: string;
+  payload?: Record<string, unknown>;
+}): Promise<void> {
+  const admin = getAdminSupabase();
+  const { error } = await admin.from("generations").insert({
+    owner_id: opts.ownerId,
+    material_id: opts.materialId,
+    tool: "summarize",
+    model_id: opts.modelId,
+    input_tokens: opts.usage?.inputTokens ?? 0,
+    output_tokens: opts.usage?.outputTokens ?? 0,
+    cache_read_tokens: opts.usage?.cacheReadTokens ?? 0,
+    cache_creation_tokens: opts.usage?.cacheCreationTokens ?? 0,
+    cost_usd: opts.cost ?? 0,
+    status: opts.status,
+    error_message: opts.errorMessage ?? null,
+    payload: opts.payload ?? {},
+  });
+  if (error) {
+    console.error("generations 기록 실패:", error.message);
+  }
+}
