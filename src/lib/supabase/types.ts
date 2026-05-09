@@ -128,6 +128,62 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["generations"]["Insert"]>;
         Relationships: [];
       };
+      quizzes: {
+        Row: {
+          id: string;
+          owner_id: string;
+          material_id: string | null;
+          course_id: string | null;
+          title: string;
+          difficulty: "쉬움" | "보통" | "어려움";
+          question_count: number;
+          questions: Json;
+          watermark: string;
+          model_id: string;
+          generation_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          material_id?: string | null;
+          course_id?: string | null;
+          title: string;
+          difficulty?: "쉬움" | "보통" | "어려움";
+          question_count: number;
+          questions: Json;
+          watermark: string;
+          model_id: string;
+          generation_id?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["quizzes"]["Insert"]>;
+        Relationships: [];
+      };
+      quiz_attempts: {
+        Row: {
+          id: string;
+          owner_id: string;
+          quiz_id: string;
+          answers: Json;
+          score: number;
+          total: number;
+          duration_ms: number | null;
+          status: "completed" | "abandoned";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          quiz_id: string;
+          answers: Json;
+          score: number;
+          total: number;
+          duration_ms?: number | null;
+          status?: "completed" | "abandoned";
+        };
+        Update: Partial<Database["public"]["Tables"]["quiz_attempts"]["Insert"]>;
+        Relationships: [];
+      };
     };
   };
 }
