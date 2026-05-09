@@ -435,7 +435,7 @@ function WeekStrip({ className }: { className?: string }) {
         </span>
       </div>
 
-      <div className="mt-8 grid grid-cols-7 gap-2 sm:gap-3">
+      <div className="mt-8 grid grid-cols-7 gap-1 sm:gap-2 md:gap-3">
         {WEEK.map((d, idx) => {
           const isToday = idx === TODAY_INDEX;
           const isPast = idx < TODAY_INDEX;
@@ -445,7 +445,7 @@ function WeekStrip({ className }: { className?: string }) {
             <Link
               key={d.day}
               href="/dashboard/calendar"
-              className={`group flex aspect-[3/4] flex-col rounded-[12px] p-3 transition-transform duration-200 hover:-translate-y-0.5 sm:p-4 ${
+              className={`group flex aspect-[3/4] flex-col rounded-[12px] p-2 transition-transform duration-200 hover:-translate-y-0.5 sm:p-3 md:p-4 ${
                 isToday
                   ? "bg-[var(--color-apple-ink)] text-white"
                   : isPast

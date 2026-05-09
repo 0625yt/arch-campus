@@ -170,7 +170,7 @@ export function ChatView() {
 
   return (
     <div className="relative min-h-full bg-[var(--color-apple-pearl)]">
-      <div className="mx-auto flex w-full max-w-[820px] flex-col px-6 sm:px-10 md:px-12">
+      <div className="mx-auto flex w-full max-w-[820px] flex-col px-4 sm:px-10 md:px-12">
         <div className="flex-1 pb-[200px] pt-10 sm:pt-14">
           {messages.length === 0 ? (
             <EmptyHint />

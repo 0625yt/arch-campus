@@ -224,7 +224,7 @@ export function UploadIntake({ className }: { className?: string }) {
 
           {/* 1. 어디로 보낼까 */}
           <ChoiceBlock label="어디로 보낼까">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <DestinationCard
                 active={destination === "study"}
                 icon={<BookOpen size={16} strokeWidth={1.8} />}

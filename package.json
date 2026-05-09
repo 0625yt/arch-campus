@@ -13,10 +13,13 @@
     "lint:fix": "biome lint --write .",
     "format": "biome format --write .",
     "check": "biome check .",
-    "check:fix": "biome check --write ."
+    "check:fix": "biome check --write .",
+    "verify:env": "node --env-file=.env.local scripts/verify-env.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.76",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.105.4",
     "ai": "^6.0.177",
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",

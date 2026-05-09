@@ -634,8 +634,8 @@ export default function CalendarPage() {
 
             {/* Month grid */}
             <div
-              className="grid grid-cols-7"
-              style={{ gridTemplateRows: `repeat(${monthCells.length / 7}, minmax(96px, 1fr))` }}
+              className="month-grid grid grid-cols-7"
+              style={{ ["--rows" as string]: monthCells.length / 7 } as CSSProperties}
             >
               {monthCells.map((cell, index) => {
                 const cellEvents = visibleEvents.filter((e) => e.date === cell.key);
@@ -1142,7 +1142,7 @@ function ReviewModal({
     >
       <section
         onClick={(e) => e.stopPropagation()}
-        className="flex h-full max-h-[720px] w-full max-w-[920px] flex-col overflow-hidden rounded-[16px] border border-[var(--color-apple-hairline)] bg-white shadow-[0_30px_60px_-30px_rgba(0,0,0,0.25)]"
+        className="flex h-full max-h-[min(720px,calc(100dvh-32px))] w-full max-w-[920px] flex-col overflow-hidden rounded-[16px] border border-[var(--color-apple-hairline)] bg-white shadow-[0_30px_60px_-30px_rgba(0,0,0,0.25)]"
       >
         <header className="flex items-center justify-between gap-3 border-b border-[var(--color-apple-hairline)] px-6 py-4">
           <div>
