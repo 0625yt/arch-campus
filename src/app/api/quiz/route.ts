@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generate, estimateCost } from "@/lib/claude";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
+import { classifyMaterial, classificationToContext, type Classification } from "@/lib/classify-material";
 import { parseDocument, ParserRejectedError } from "@/lib/parsers";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, QuizOutput, type QuizOutputT } from "@/lib/schemas";
@@ -149,9 +150,20 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
     );
   }
 
-  // 4. Claude 호출
-  const rulePrompt = loadPrompt("quiz");
+  // 4. 자료 분류 (Haiku 1차 판별)
   const isMetadataOnly = !parsed.sanitizedText || parsed.sanitizedText.trim().length < 60;
+  let classification: Classification | null = null;
+  if (!isMetadataOnly) {
+    classification = await classifyMaterial({
+      title,
+      type: typeField,
+      fullText: parsed.sanitizedText,
+      pageCount: parsed.pageCount,
+    });
+  }
+
+  // 5. Claude 호출 (분류 힌트 주입)
+  const rulePrompt = loadPrompt("quiz");
   const dynamicContext = buildDynamicContext({
     title,
     type: typeField,
@@ -160,6 +172,7 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
     pageCount: parsed.pageCount,
     isMetadataOnly,
     parserWarnings: parsed.warnings,
+    classification,
   });
   const tokenBudget = breakdown({
     rule: rulePrompt,
@@ -288,6 +301,7 @@ function buildDynamicContext(meta: {
   pageCount?: number;
   isMetadataOnly: boolean;
   parserWarnings: string[];
+  classification: Classification | null;
 }): string {
   const lines: string[] = [
     `자료 메타:`,
@@ -298,6 +312,9 @@ function buildDynamicContext(meta: {
   ];
   if (meta.pageCount) lines.push(`- 분량: ${meta.pageCount}쪽`);
   if (meta.parserWarnings.length) lines.push(`- 파서 경고: ${meta.parserWarnings.join(", ")}`);
+  if (meta.classification) {
+    lines.push("", classificationToContext(meta.classification));
+  }
   if (meta.isMetadataOnly) {
     lines.push(
       "",

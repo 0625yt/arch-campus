@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generate, estimateCost } from "@/lib/claude";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
+import { classifyMaterial, classificationToContext, type Classification } from "@/lib/classify-material";
 import { parseDocument, ParserRejectedError } from "@/lib/parsers";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, SummarizeOutput } from "@/lib/schemas";
@@ -140,7 +141,18 @@ export async function POST(req: Request): Promise<NextResponse<SummarizeResponse
     );
   }
 
-  // 4. Claude 호출
+  // 4. 분류 (어떤 종류 자료인지 Haiku로 1차 판별)
+  let classification: Classification | null = null;
+  if (!isMetadataOnly) {
+    classification = await classifyMaterial({
+      title,
+      type: typeField,
+      fullText: parsed.sanitizedText,
+      pageCount: parsed.pageCount,
+    });
+  }
+
+  // 5. Claude 호출 (분류 힌트 주입)
   const rulePrompt = loadPrompt("summarize");
   const dynamicContext = buildDynamicContext({
     title,
@@ -148,6 +160,7 @@ export async function POST(req: Request): Promise<NextResponse<SummarizeResponse
     pageCount: parsed.pageCount,
     isMetadataOnly,
     parserWarnings: parsed.warnings,
+    classification,
   });
   const tokenBudget = breakdown({
     rule: rulePrompt,
@@ -237,6 +250,7 @@ function buildDynamicContext(meta: {
   pageCount?: number;
   isMetadataOnly?: boolean;
   parserWarnings?: string[];
+  classification?: Classification | null;
 }): string {
   const lines: string[] = [
     `자료 메타:`,
@@ -247,12 +261,15 @@ function buildDynamicContext(meta: {
   if (meta.parserWarnings?.length) {
     lines.push(`- 파서 경고: ${meta.parserWarnings.join(", ")}`);
   }
+  if (meta.classification) {
+    lines.push("", classificationToContext(meta.classification));
+  }
   if (meta.isMetadataOnly) {
     lines.push(
       "",
       "⚠ 본문 텍스트가 충분하지 않아요. 그래도 거절하지 말고:",
       "- leadSentence: 어떤 자료인지 메타로 한 줄 (예: '운영체제 5장 강의자료예요. 본문 추출이 안 돼서 정확한 요약은 어려워요.')",
-      "- blocks: 자료 종류·제목 기준으로 학생이 다음에 할 수 있는 행동 가이드 (예: '강의 노트인 것 같아요. 직접 읽으면서 핵심 키워드 5개를 적어보세요.')",
+      "- blocks: 자료 종류·제목 기준으로 학생이 다음에 할 수 있는 행동 가이드",
       "- keywords: 제목·종류에서 뽑힌 일반 용어 3~5개",
       "- reviewSpots: '본문이 더 명확한 자료를 다시 올려주세요' 같은 안내 1개",
       "본문 substring 인용 규칙은 이번엔 적용 안 함 (substring 없으니까).",
