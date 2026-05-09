@@ -18,13 +18,14 @@ interface QuizResponseOk {
   materialId: string;
   parser: string;
   pageCount?: number;
-  // 정답·해설은 풀이 끝나기 전엔 안 보냄 (사용자 무결성)
+  // 정답·해설은 풀이 끝나기 전엔 안 보냄 (사용자 무결성). hint는 OK.
   questions: Array<{
     id: number;
     difficulty: string;
     topic: string;
     stem: string;
     choices: { key: "A" | "B" | "C" | "D"; text: string }[];
+    hint?: string;
   }>;
   total: number;
   watermark: string;
@@ -159,6 +160,7 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
       type: typeField,
       fullText: parsed.sanitizedText,
       pageCount: parsed.pageCount,
+      difficulty,
     });
   }
 
@@ -272,13 +274,14 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
     materialId: material.id,
     parser: parsed.source,
     pageCount: parsed.pageCount,
-    // 정답·해설·증거는 빼고 보냄 (제출 후 공개)
+    // 정답·해설·증거는 빼고 보냄 (제출 후 공개). hint는 풀이 중에도 노출.
     questions: parsedQuiz.questions.map((q) => ({
       id: q.id,
       difficulty: q.difficulty,
       topic: q.topic,
       stem: q.stem,
       choices: q.choices,
+      hint: q.hint,
     })),
     total: parsedQuiz.questions.length,
     watermark: parsedQuiz.watermark,

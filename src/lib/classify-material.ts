@@ -51,6 +51,14 @@ const SYSTEM_PROMPT = `당신은 한국 대학생 학습 보조 도구의 자료
   예시: 영어 어휘 자료 → "영어 본문 그대로 + 한국어 짧은 보조 설명", 한국어 강의노트 → "한국어"
 - contentNotes: 출제자(다음 단계 모델)가 알아야 할 자료 특성 한 단락. 빠뜨리면 안 되는 핵심 키워드·범위·주의점.
 
+★ 난이도가 "쉬움"이고 자료가 외국어(영어 등)면 questionStyleHints에 반드시:
+   "한국어 stem + 자료 원어 단어·정의 보기 (한국 대학생이 의미 파악하고 단어 고르는 수준)"
+   를 넣고, answerLanguage도 "한국어 stem·해설 + 영어 단어·정의 보기" 식으로.
+
+★ 난이도가 "보통"이고 외국어 자료면 questionStyleHints는 원어 stem + 원어 보기. answerLanguage는 "원어 위주, 한국어 보조 가능".
+
+★ 난이도가 "어려움"이면 100% 원어.
+
 JSON만 출력. 마크다운 펜스 사용 가능. 다른 설명 없음.
 
 ⚠ 자료 본문이 거의 없거나 메타뿐이면 추측 가능한 만큼만 채우고, 빈 칸은 "본문 부족으로 추정"이라 적기.`;
@@ -60,12 +68,15 @@ export async function classifyMaterial(opts: {
   type: string;
   fullText: string;
   pageCount?: number;
+  /** 사용자가 고른 난이도. 있으면 분류기가 그에 맞는 questionStyleHints·answerLanguage를 잡아줌. */
+  difficulty?: "쉬움" | "보통" | "어려움";
 }): Promise<Classification | null> {
   // 본문 첫 6,000자만 보면 충분 (보통 도입+첫 단락에서 도메인 파악 가능)
   const sample = opts.fullText.slice(0, 6000);
   const userMsg = [
     `제목: ${opts.title}`,
     `사용자가 고른 종류: ${opts.type}`,
+    opts.difficulty ? `사용자가 고른 난이도: ${opts.difficulty}` : null,
     opts.pageCount ? `분량: ${opts.pageCount}쪽` : null,
     "",
     "자료 본문 일부:",

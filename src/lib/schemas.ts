@@ -1,35 +1,35 @@
 import { z } from "zod";
 
 export const SummarizeOutput = z.object({
-  leadSentence: z.string().min(10).max(140),
+  leadSentence: z.string().min(10).max(200),
   blocks: z
     .array(
       z.discriminatedUnion("type", [
-        z.object({ type: z.literal("h2"), content: z.string().min(2).max(40) }),
-        z.object({ type: z.literal("para"), content: z.string().min(40).max(280) }),
+        z.object({ type: z.literal("h2"), content: z.string().min(2).max(80) }),
+        z.object({ type: z.literal("para"), content: z.string().min(20).max(800) }),
         z.object({
           type: z.literal("bullets"),
-          items: z.array(z.string().min(3).max(160)).min(2).max(6),
+          items: z.array(z.string().min(2).max(300)).min(1).max(20),
         }),
         z.object({
           type: z.literal("callout"),
           tone: z.enum(["info", "warn", "tip"]),
-          content: z.string().min(10).max(280),
+          content: z.string().min(10).max(600),
         }),
       ]),
     )
     .min(3)
-    .max(8),
-  keywords: z.array(z.string().min(1).max(40)).min(3).max(12),
+    .max(30),
+  keywords: z.array(z.string().min(1).max(60)).min(3).max(50),
   reviewSpots: z
     .array(
       z.object({
-        title: z.string().min(2).max(60),
-        why: z.string().min(10).max(280),
+        title: z.string().min(2).max(80),
+        why: z.string().min(10).max(400),
       }),
     )
     .min(1)
-    .max(4),
+    .max(8),
   watermark: z.string().min(10),
 });
 export type SummarizeOutputT = z.infer<typeof SummarizeOutput>;
@@ -38,20 +38,21 @@ export const QuizQuestion = z.object({
   id: z.number().int().positive(),
   difficulty: z.enum(["쉬움", "보통", "어려움"]),
   topic: z.string().min(1).max(60),
-  stem: z.string().min(20).max(200),
+  stem: z.string().min(15).max(400),
   choices: z
     .array(
       z.object({
         key: z.enum(["A", "B", "C", "D"]),
-        text: z.string().min(2).max(120),
+        text: z.string().min(1).max(300),
       }),
     )
     .length(4),
   answer: z.enum(["A", "B", "C", "D"]),
-  explanation: z.string().min(40).max(300),
-  evidence: z.string().min(10),
+  explanation: z.string().min(20).max(500),
+  evidence: z.string().min(0).max(2000),
   evidencePage: z.number().int().nullable().optional(),
   trapAnalysis: z.string().optional(),
+  hint: z.string().min(5).max(200).optional(),
 });
 
 export const QuizOutput = z.union([

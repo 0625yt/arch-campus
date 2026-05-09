@@ -10,6 +10,7 @@ interface QuizQuestion {
   topic: string;
   stem: string;
   choices: { key: Choice; text: string }[];
+  hint?: string;
 }
 
 interface QuizGenOk {
@@ -56,6 +57,7 @@ export default function DevQuizPage() {
   const [phase, setPhase] = useState<"upload" | "solve" | "result">("upload");
   const [quiz, setQuiz] = useState<QuizGenOk | null>(null);
   const [answers, setAnswers] = useState<Record<number, Choice>>({});
+  const [shownHints, setShownHints] = useState<Record<number, boolean>>({});
   const [result, setResult] = useState<SubmitOk | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -132,6 +134,7 @@ export default function DevQuizPage() {
     setPhase("upload");
     setQuiz(null);
     setAnswers({});
+    setShownHints({});
     setResult(null);
     setError(null);
     setFile(null);
@@ -281,6 +284,26 @@ export default function DevQuizPage() {
                   );
                 })}
               </div>
+              {q.hint && (
+                <div className="mt-4">
+                  {shownHints[q.id] ? (
+                    <div className="rounded-[10px] bg-[var(--color-apple-action-soft)] p-3 text-[13px] leading-[1.5] text-[var(--color-apple-ink)]">
+                      <span className="mr-1.5 text-[11px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-action)]">
+                        힌트
+                      </span>
+                      {q.hint}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShownHints((prev) => ({ ...prev, [q.id]: true }))}
+                      className="text-[13px] wght-560 text-[var(--color-apple-action)] hover:underline"
+                    >
+                      힌트 보기
+                    </button>
+                  )}
+                </div>
+              )}
             </article>
           ))}
 
