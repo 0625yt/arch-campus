@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
 import { Arrow, Kbd } from "@/components/primitives";
+import { cn } from "@/lib/utils";
 
 /* ─────────── types ─────────── */
 
@@ -76,15 +76,15 @@ export function GenerateForm({
                     "group flex w-full items-baseline gap-3 rounded-xl border px-4 py-3 text-left transition-all duration-[var(--duration-fast)]",
                     checked
                       ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
-                      : "border-[var(--color-line)] hover:border-[var(--color-fg-disabled)] hover:bg-[var(--color-surface)]"
+                      : "border-[var(--color-apple-hairline)] hover:border-[var(--color-apple-hairline)] hover:bg-[var(--color-apple-pearl)]",
                   )}
                 >
                   <span
                     className={cn(
-                      "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[10px] wght-700 kerning-tight transition-colors",
+                      "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[10px] wght-700 transition-colors",
                       checked
                         ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white"
-                        : "border-[var(--color-line-strong)] text-[var(--color-fg-disabled)] group-hover:border-[var(--color-fg-disabled)]"
+                        : "border-[var(--color-apple-hairline)] text-[var(--color-apple-hairline)] group-hover:border-[var(--color-apple-hairline)]",
                     )}
                   >
                     {checked ? "✓" : ""}
@@ -92,15 +92,15 @@ export function GenerateForm({
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span
                       className={cn(
-                        "text-[14px] kerning-tight sm:text-[14.5px]",
+                        "text-[14px] sm:text-[14.5px]",
                         checked
                           ? "wght-560 text-[var(--color-accent-strong)]"
-                          : "wght-500 text-[var(--color-fg)]"
+                          : "wght-500 text-[var(--color-apple-ink)]",
                       )}
                     >
                       {k}
                     </span>
-                    <span className="mt-0.5 text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+                    <span className="mt-0.5 text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
                       {KIND_HINTS[k]}
                     </span>
                   </div>
@@ -122,10 +122,10 @@ export function GenerateForm({
                   type="button"
                   onClick={() => setDifficulty(d)}
                   className={cn(
-                    "rounded-full px-3 py-1.5 text-[12.5px] kerning-tight transition-colors",
+                    "rounded-full px-3 py-1.5 text-[12.5px] transition-colors",
                     active
-                      ? "wght-560 bg-[var(--color-fg-strong)] text-white"
-                      : "wght-450 text-[var(--color-fg-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-fg)]"
+                      ? "wght-560 bg-[var(--color-apple-ink)] text-white"
+                      : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
                   )}
                 >
                   {d}
@@ -147,10 +147,10 @@ export function GenerateForm({
                   type="button"
                   onClick={() => setCount(n)}
                   className={cn(
-                    "rounded-full px-3 py-1.5 text-[12.5px] kerning-tight tabular-nums transition-colors",
+                    "rounded-full px-3 py-1.5 text-[12.5px] tabular-nums transition-colors",
                     active
-                      ? "wght-560 bg-[var(--color-fg-strong)] text-white"
-                      : "wght-450 text-[var(--color-fg-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-fg)]"
+                      ? "wght-560 bg-[var(--color-apple-ink)] text-white"
+                      : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
                   )}
                 >
                   {n}문제
@@ -162,28 +162,26 @@ export function GenerateForm({
       </FieldGroup>
 
       {/* 액션 — 모바일에서 모달 잘려도 항상 viewport 안에 */}
-      <div className="sticky bottom-0 -mx-5 -mb-5 mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-line)] bg-[var(--color-bg)] px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5">
+      <div className="sticky bottom-0 -mx-5 -mb-5 mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-apple-hairline)] bg-white px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5">
         <button
           type="button"
           onClick={generate}
           disabled={kinds.size === 0}
           className={cn(
-            "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13.5px] wght-560 kerning-tight transition-all duration-[var(--duration-fast)]",
+            "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13.5px] wght-560 transition-all duration-[var(--duration-fast)]",
             kinds.size > 0
-              ? "bg-[var(--color-fg-strong)] text-white hover:opacity-90"
-              : "cursor-not-allowed bg-[var(--color-surface-strong)] text-[var(--color-fg-disabled)]",
+              ? "bg-[var(--color-apple-ink)] text-white hover:opacity-90"
+              : "cursor-not-allowed bg-[var(--color-apple-pearl)] text-[var(--color-apple-hairline)]",
           )}
         >
-          {kinds.size === 0
-            ? "유형을 한 개 이상 골라주세요"
-            : `${count}문제 만들기`}
+          {kinds.size === 0 ? "유형을 한 개 이상 골라주세요" : `${count}문제 만들기`}
           {kinds.size > 0 && (
             <Arrow className="text-[12px] transition-transform group-hover:translate-x-0.5" />
           )}
         </button>
 
-        <span className="ml-auto hidden items-center gap-1.5 text-[11px] wght-450 kerning-tight text-[var(--color-fg-subtle)] sm:inline-flex">
-          평균 <span className="tabular-nums text-[var(--color-fg)]">15초</span>
+        <span className="ml-auto hidden items-center gap-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)] sm:inline-flex">
+          평균 <span className="tabular-nums text-[var(--color-apple-ink)]">15초</span>
           소요
         </span>
       </div>
@@ -207,13 +205,11 @@ function FieldGroup({
   return (
     <div className={className}>
       <div className="flex items-baseline gap-2">
-        <h3 className="text-[11px] wght-700 kerning-mono uppercase text-[var(--color-fg-subtle)]">
+        <h3 className="text-[11px] wght-700 tabular-nums uppercase text-[var(--color-apple-muted)]">
           {label}
         </h3>
         {hint && (
-          <span className="text-[11px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
-            {hint}
-          </span>
+          <span className="text-[11px] wght-450 text-[var(--color-apple-muted)]">{hint}</span>
         )}
       </div>
       <div className="mt-3">{children}</div>
@@ -290,34 +286,34 @@ function Quiz({
     <div className="fade-up">
       {/* 생성 결과 헤더 */}
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[11px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-success)]/10 px-2 py-0.5 text-[10.5px] wght-700 kerning-mono uppercase text-[var(--color-success)]">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[11px] wght-450 text-[var(--color-apple-muted)]">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-success)]/10 px-2 py-0.5 text-[10.5px] wght-700 tabular-nums uppercase text-[var(--color-success)]">
             ✓ {count}문제 만들어졌어요
           </span>
-          <span className="text-[var(--color-line-strong)]">·</span>
+          <span className="text-[var(--color-apple-hairline)]">·</span>
           <span>유형 {kinds.join(" · ")}</span>
-          <span className="text-[var(--color-line-strong)]">·</span>
+          <span className="text-[var(--color-apple-hairline)]">·</span>
           <span>{difficulty}</span>
         </div>
         <button
           type="button"
           onClick={onReset}
-          className="text-[12px] wght-450 kerning-tight text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+          className="text-[12px] wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
         >
           다시 만들기
         </button>
       </div>
 
       {/* 진행률 */}
-      <div className="mt-5 flex items-baseline justify-between gap-3 text-[11px] wght-560 kerning-mono uppercase">
-        <span className="tabular-nums text-[var(--color-fg)]">
+      <div className="mt-5 flex items-baseline justify-between gap-3 text-[11px] wght-560 tabular-nums uppercase">
+        <span className="tabular-nums text-[var(--color-apple-ink)]">
           {String(QUESTION.num).padStart(2, "0")} / {String(count).padStart(2, "0")}
         </span>
-        <span className="text-[var(--color-fg-subtle)]">{QUESTION.kind}</span>
+        <span className="text-[var(--color-apple-muted)]">{QUESTION.kind}</span>
       </div>
 
       {/* 질문 */}
-      <p className="mt-4 text-[16px] leading-[1.55] kerning-tight wght-560 text-[var(--color-fg-strong)] sm:text-[17px]">
+      <p className="mt-4 text-[16px] leading-[1.55] wght-560 text-[var(--color-apple-ink)] sm:text-[17px]">
         {QUESTION.text}
       </p>
 
@@ -339,38 +335,37 @@ function Quiz({
                   "group flex w-full items-baseline gap-3 rounded-xl border px-4 py-3 text-left transition-all duration-[var(--duration-fast)]",
                   "disabled:cursor-default",
                   !revealed &&
-                    "border-[var(--color-line)] hover:border-[var(--color-fg-disabled)] hover:bg-[var(--color-surface)]",
+                    "border-[var(--color-apple-hairline)] hover:border-[var(--color-apple-hairline)] hover:bg-[var(--color-apple-pearl)]",
                   showCorrect &&
                     "border-[var(--color-success)] bg-[color-mix(in_srgb,var(--color-success)_8%,transparent)]",
-                  showWrong &&
-                    "border-[var(--color-urgent)] bg-[var(--color-urgent-soft)]",
+                  showWrong && "border-[var(--color-urgent)] bg-[var(--color-urgent-soft)]",
                   revealed &&
                     !showCorrect &&
                     !showWrong &&
-                    "border-[var(--color-line)] opacity-50"
+                    "border-[var(--color-apple-hairline)] opacity-50",
                 )}
               >
                 <span
                   className={cn(
-                    "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] wght-700 kerning-tight transition-colors",
+                    "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] wght-700 transition-colors",
                     showCorrect && "bg-[var(--color-success)] text-white",
                     showWrong && "bg-[var(--color-urgent)] text-white",
                     !revealed &&
-                      "border border-[var(--color-line-strong)] text-[var(--color-fg-muted)] group-hover:border-[var(--color-fg-disabled)] group-hover:text-[var(--color-fg)]",
+                      "border border-[var(--color-apple-hairline)] text-[var(--color-apple-muted)] group-hover:border-[var(--color-apple-hairline)] group-hover:text-[var(--color-apple-ink)]",
                     revealed &&
                       !showCorrect &&
                       !showWrong &&
-                      "border border-[var(--color-line)] text-[var(--color-fg-subtle)]"
+                      "border border-[var(--color-apple-hairline)] text-[var(--color-apple-muted)]",
                   )}
                 >
                   {c.id}
                 </span>
                 <span
                   className={cn(
-                    "flex-1 text-[14px] kerning-tight sm:text-[14.5px]",
-                    showCorrect && "wght-560 text-[var(--color-fg-strong)]",
+                    "flex-1 text-[14px] sm:text-[14.5px]",
+                    showCorrect && "wght-560 text-[var(--color-apple-ink)]",
                     showWrong && "wght-560 text-[var(--color-urgent-strong)]",
-                    !revealed && "wght-450 text-[var(--color-fg)]"
+                    !revealed && "wght-450 text-[var(--color-apple-ink)]",
                   )}
                 >
                   {c.text}
@@ -387,25 +382,23 @@ function Quiz({
           <p
             className={cn(
               "text-[13.5px] wght-560 kerning-tight",
-              isCorrect
-                ? "text-[var(--color-success)]"
-                : "text-[var(--color-urgent)]"
+              isCorrect ? "text-[var(--color-success)]" : "text-[var(--color-urgent)]",
             )}
           >
             {isCorrect ? "맞았어요." : "다음에는 맞출 수 있어요."} 정답은{" "}
             <span className="wght-700">{QUESTION.answer}</span>.
           </p>
 
-          <p className="mt-2 text-[13.5px] leading-[1.6] kerning-tight text-[var(--color-fg)]">
+          <p className="mt-2 text-[13.5px] leading-[1.6] text-[var(--color-apple-ink)]">
             {QUESTION.explain}
           </p>
 
           {/* 출처 근거 */}
-          <div className="mt-5 border-l-2 border-[var(--color-line-strong)] pl-4">
-            <p className="text-[10.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]">
+          <div className="mt-5 border-l-2 border-[var(--color-apple-hairline)] pl-4">
+            <p className="text-[10.5px] wght-560 tabular-nums uppercase text-[var(--color-apple-muted)]">
               근거 · {QUESTION.evidence.page}p {QUESTION.evidence.paragraph}문단
             </p>
-            <p className="mt-1.5 text-[12.5px] leading-[1.6] kerning-tight italic text-[var(--color-fg-muted)]">
+            <p className="mt-1.5 text-[12.5px] leading-[1.6] italic text-[var(--color-apple-muted)]">
               "{QUESTION.evidence.quote}"
             </p>
           </div>
@@ -414,7 +407,7 @@ function Quiz({
             <button
               type="button"
               onClick={handleNext}
-              className="group inline-flex items-baseline gap-1.5 text-[14px] wght-560 kerning-tight text-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
+              className="group inline-flex items-baseline gap-1.5 text-[14px] wght-560 text-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
             >
               <span className="border-b border-[var(--color-accent)]/40 pb-px group-hover:border-[var(--color-accent-strong)]">
                 다음 문제
@@ -422,11 +415,11 @@ function Quiz({
               <Arrow className="text-[14px] transition-transform group-hover:translate-x-0.5" />
             </button>
             {!isCorrect && (
-              <span className="text-[12.5px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+              <span className="text-[12.5px] wght-450 text-[var(--color-apple-muted)]">
                 오답노트에 저장됨
               </span>
             )}
-            <span className="ml-auto hidden items-center gap-1.5 text-[11px] wght-450 kerning-tight text-[var(--color-fg-subtle)] sm:inline-flex">
+            <span className="ml-auto hidden items-center gap-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)] sm:inline-flex">
               <Kbd>Enter</Kbd>
               다음
             </span>
@@ -435,7 +428,7 @@ function Quiz({
       )}
 
       {!revealed && (
-        <p className="mt-5 text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+        <p className="mt-5 text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
           답을 고르면 출처 페이지·해설이 함께 나와요
         </p>
       )}

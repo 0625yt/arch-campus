@@ -1,0 +1,18 @@
+{
+  "name": "arch-campus-hwp-converter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HWP → PDF converter microservice using LibreOffice headless. Deployed separately (Render/Fly.io) and called by the Next.js app via HWP_CONVERTER_URL.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -2,9 +2,11 @@
 @import "tailwindcss";
 
 @theme {
+  /* SF Pro 우선 (Mac/iOS Safari에서 자동 매핑) → Pretendard 폴백 */
   --font-sans:
-    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
-    system-ui, "Segoe UI", Roboto, sans-serif;
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Pretendard Variable", Pretendard, system-ui, "Segoe UI", Roboto,
+    sans-serif;
   --font-serif: "Iowan Old Style", "Apple Garamond", "Baskerville",
     "Times New Roman", "Droid Serif", Times, serif;
 
@@ -38,6 +40,23 @@
   /* 헤드라인 강조용 — 셀렉션 같은 옅은 액센트 배경 */
   --color-highlight: #e8efff;
 
+  /* Apple 어휘 — /dashboard 한정 사용 (다른 라우트 영향 X) */
+  --color-apple-action: #0071e3;
+  --color-apple-action-hover: #0077e6;
+  --color-apple-ink: #1d1d1f;
+  --color-apple-pearl: #f5f5f7;
+  --color-apple-muted: #6e6e73;
+  --color-apple-hairline: #d2d2d7;
+  --color-apple-hairline-soft: rgba(0, 0, 0, 0.08);
+
+  /* 의미 액센트 — 도메인용 (정답률·streak·코랄·코발트) */
+  --color-apple-success: #34c759;
+  --color-apple-streak: #ff9500;
+  --color-apple-coral: #e0445e;
+  --color-apple-coral-soft: #fff0f3;
+  --color-apple-cobalt: #7aa6d6;
+  --color-apple-action-soft: #f0f7ff;
+
   /* 그림자 — 거의 보이지 않게 */
   --shadow-soft: 0 1px 2px rgba(20, 20, 20, 0.04);
   --shadow-lift: 0 1px 2px rgba(20, 20, 20, 0.04),
@@ -47,6 +66,23 @@
   --duration-fast: 140ms;
   --duration-base: 220ms;
   --duration-slow: 380ms;
+}
+
+/* Apple 토큰 백업 — @theme 빌드 누락 방지용 :root 선언 */
+:root {
+  --color-apple-action: #0071e3;
+  --color-apple-action-hover: #0077e6;
+  --color-apple-ink: #1d1d1f;
+  --color-apple-pearl: #f5f5f7;
+  --color-apple-muted: #6e6e73;
+  --color-apple-hairline: #d2d2d7;
+  --color-apple-hairline-soft: rgba(0, 0, 0, 0.08);
+  --color-apple-success: #34c759;
+  --color-apple-streak: #ff9500;
+  --color-apple-coral: #e0445e;
+  --color-apple-coral-soft: #fff0f3;
+  --color-apple-cobalt: #7aa6d6;
+  --color-apple-action-soft: #f0f7ff;
 }
 
 html,
@@ -64,19 +100,41 @@ body {
 }
 
 /* 가변폰트 weight 유틸 — Tailwind의 font-weight 대신 사용 가능 */
-.wght-300 { font-variation-settings: "wght" 300; }
-.wght-380 { font-variation-settings: "wght" 380; }
-.wght-450 { font-variation-settings: "wght" 450; }
-.wght-500 { font-variation-settings: "wght" 500; }
-.wght-560 { font-variation-settings: "wght" 560; }
-.wght-620 { font-variation-settings: "wght" 620; }
-.wght-700 { font-variation-settings: "wght" 700; }
+.wght-300 {
+  font-variation-settings: "wght" 300;
+}
+.wght-380 {
+  font-variation-settings: "wght" 380;
+}
+.wght-450 {
+  font-variation-settings: "wght" 450;
+}
+.wght-500 {
+  font-variation-settings: "wght" 500;
+}
+.wght-560 {
+  font-variation-settings: "wght" 560;
+}
+.wght-620 {
+  font-variation-settings: "wght" 620;
+}
+.wght-700 {
+  font-variation-settings: "wght" 700;
+}
 
 /* 한국어 letter-spacing 미세 조정 */
-.kerning-tight { letter-spacing: -0.022em; }
-.kerning-normal { letter-spacing: -0.011em; }
-.kerning-wide { letter-spacing: 0.04em; }
-.kerning-mono { letter-spacing: 0.08em; }
+.kerning-tight {
+  letter-spacing: -0.022em;
+}
+.kerning-normal {
+  letter-spacing: -0.011em;
+}
+.kerning-wide {
+  letter-spacing: 0.04em;
+}
+.kerning-mono {
+  letter-spacing: 0.08em;
+}
 
 /* iOS Safari 100vh 폴백 */
 .h-screen-safe {
@@ -86,7 +144,9 @@ body {
 
 /* 포커스 — 키보드 사용자만, 폼 컨트롤 제외
    input/textarea/button/a는 자기 컨테이너에서 focus 표현. 코발트 ring 둘러두면 GPT 톤 깨짐. */
-*:focus { outline: none; }
+*:focus {
+  outline: none;
+}
 *:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 3px;
@@ -112,8 +172,13 @@ select:focus-visible {
 }
 
 /* 스크롤바 — Mac 스타일 */
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 ::-webkit-scrollbar-thumb {
   background: transparent;
   border: 2px solid transparent;
@@ -132,33 +197,57 @@ select:focus-visible {
 
 /* 깜빡이는 점 — 라이브 신호 */
 @keyframes pulse-soft {
-  0%, 100% { opacity: 0.5; }
-  50%      { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }
-.pulse-dot { animation: pulse-soft 2.4s var(--ease-out) infinite; }
+.pulse-dot {
+  animation: pulse-soft 2.4s var(--ease-out) infinite;
+}
 
 /* 페이지 진입 — 생활형 도구라 첫 정보가 늦게 뜨지 않게 짧게 */
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(3px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* 모바일 drawer — 좌측에서 슬라이드인 */
 @keyframes slide-in-left {
-  from { opacity: 0; transform: translateX(-12px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
-.fade-up { animation: fade-up 120ms var(--ease-out) both; }
+.fade-up {
+  animation: fade-up 120ms var(--ease-out) both;
+}
 .fade-up-1,
 .fade-up-2,
 .fade-up-3,
 .fade-up-4,
-.fade-up-5 { animation-delay: 0ms; }
+.fade-up-5 {
+  animation-delay: 0ms;
+}
 
 /* 행 호버 — 좌측으로 살짝 밀림 (종이 노트 느낌) */
 .row-shift {
-  transition: transform var(--duration-base) var(--ease-out),
-              color var(--duration-fast) var(--ease-out);
+  transition:
+    transform var(--duration-base) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 .row-shift:hover {
   transform: translateX(2px);
@@ -168,17 +257,41 @@ select:focus-visible {
 .reveal-right {
   opacity: 0;
   transform: translateX(-4px);
-  transition: opacity var(--duration-base) var(--ease-out),
-              transform var(--duration-base) var(--ease-out);
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
 }
 .group:hover .reveal-right {
   opacity: 1;
   transform: translateX(0);
 }
 
+/* CTA 도착 시 강조 펄스 — Action Blue 보더가 1초간 빛남 */
+@keyframes upload-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 102, 204, 0);
+  }
+  20% {
+    box-shadow: 0 0 0 6px rgba(0, 102, 204, 0.18);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 102, 204, 0);
+  }
+}
+#upload-zone:target {
+  animation: upload-glow 1.4s var(--ease-out);
+}
+
+/* smooth scroll — 페이지 단위 */
+html {
+  scroll-behavior: smooth;
+}
+
 /* prefers-reduced-motion 존중 */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

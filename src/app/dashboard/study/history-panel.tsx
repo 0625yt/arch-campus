@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { cn } from "@/lib/utils";
 import { Dot } from "@/components/primitives";
+import { cn } from "@/lib/utils";
 import { ACTIVITIES, type Activity } from "../history/data";
 
 const COURSE_COLOR: Record<string, string> = {
@@ -36,17 +36,15 @@ export function HistoryPanel() {
   useEffect(() => setMounted(true), []);
 
   return (
-    <aside className="sticky top-0 hidden h-screen-safe w-[260px] shrink-0 flex-col overflow-y-auto border-r border-[var(--color-line)] bg-[var(--color-bg)] xl:flex">
+    <aside className="sticky top-0 hidden h-screen-safe w-[260px] shrink-0 flex-col overflow-y-auto border-r border-[var(--color-apple-hairline)] bg-white xl:flex">
       {/* 헤더 */}
-      <div className="border-b border-[var(--color-line)] px-4 py-4">
-        <h2 className="text-[10px] wght-700 kerning-mono uppercase text-[var(--color-fg-subtle)]">
+      <div className="border-b border-[var(--color-apple-hairline)] px-4 py-4">
+        <h2 className="text-[10px] wght-700 tabular-nums uppercase text-[var(--color-apple-muted)]">
           {scope.label}
         </h2>
-        <p className="mt-1 text-[12.5px] wght-560 kerning-tight text-[var(--color-fg-strong)]">
-          {scope.title}
-        </p>
+        <p className="mt-1 text-[12.5px] wght-560 text-[var(--color-apple-ink)]">{scope.title}</p>
         {scope.hint && (
-          <p className="mt-0.5 text-[11px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+          <p className="mt-0.5 text-[11px] wght-450 text-[var(--color-apple-muted)]">
             {scope.hint}
           </p>
         )}
@@ -55,7 +53,7 @@ export function HistoryPanel() {
       {/* 활동 리스트 */}
       <div className="flex-1 px-2 py-3">
         {scope.items.length === 0 ? (
-          <p className="px-3 py-6 text-center text-[12px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+          <p className="px-3 py-6 text-center text-[12px] wght-450 text-[var(--color-apple-muted)]">
             아직 이 자료에서 활동이 없어요
           </p>
         ) : (
@@ -70,10 +68,10 @@ export function HistoryPanel() {
       </div>
 
       {/* 풋터 — 전체 보기 */}
-      <div className="border-t border-[var(--color-line)] px-4 py-3">
+      <div className="border-t border-[var(--color-apple-hairline)] px-4 py-3">
         <Link
           href="/dashboard/history"
-          className="group inline-flex items-baseline gap-1 text-[11.5px] wght-500 kerning-tight text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+          className="group inline-flex items-baseline gap-1 text-[11.5px] wght-500 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
         >
           전체 활동 보기
           <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
@@ -91,31 +89,31 @@ function ActivityRow({ activity, mounted }: { activity: Activity; mounted: boole
   return (
     <Link
       href={activity.href}
-      className="group flex flex-col gap-0.5 rounded-md px-3 py-2 transition-colors hover:bg-[var(--color-surface)]"
+      className="group flex flex-col gap-0.5 rounded-md px-3 py-2 transition-colors hover:bg-[var(--color-apple-pearl)]"
     >
       {/* 라벨 줄 */}
       <div className="flex items-baseline gap-1.5">
-        <span className="shrink-0 text-[9.5px] wght-700 kerning-mono uppercase text-[var(--color-fg-subtle)]">
+        <span className="shrink-0 text-[9.5px] wght-700 tabular-nums uppercase text-[var(--color-apple-muted)]">
           {activity.kind}
         </span>
         {activity.course && (
           <Dot color={COURSE_COLOR[activity.course]} size={4} className="self-center" />
         )}
         {activity.course && (
-          <span className="shrink-0 text-[9.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]">
+          <span className="shrink-0 text-[9.5px] wght-560 tabular-nums uppercase text-[var(--color-apple-muted)]">
             {activity.course}
           </span>
         )}
         <span
           suppressHydrationWarning
-          className="ml-auto shrink-0 text-[10px] wght-450 kerning-tight tabular-nums text-[var(--color-fg-subtle)]"
+          className="ml-auto shrink-0 text-[10px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
         >
           {mounted ? relativeTime(activity.at) : ""}
         </span>
       </div>
 
       {/* 제목 */}
-      <p className="truncate text-[12.5px] wght-500 kerning-tight text-[var(--color-fg)] group-hover:text-[var(--color-fg-strong)]">
+      <p className="truncate text-[12.5px] wght-500 text-[var(--color-apple-ink)] group-hover:text-[var(--color-apple-ink)]">
         {activity.title}
       </p>
 
@@ -126,7 +124,7 @@ function ActivityRow({ activity, mounted }: { activity: Activity; mounted: boole
             "truncate text-[10.5px] wght-500 kerning-tight",
             activity.result.tone === "good" && "text-[var(--color-success)]",
             activity.result.tone === "bad" && "text-[var(--color-urgent)]",
-            activity.result.tone === "neutral" && "text-[var(--color-fg-subtle)]"
+            activity.result.tone === "neutral" && "text-[var(--color-apple-muted)]",
           )}
         >
           {activity.result.label}
@@ -144,9 +142,7 @@ function buildScope(course: string | null, materialId: string | null) {
       label: "이 자료의 활동",
       title: shortMaterialTitle(materialId),
       hint: course,
-      items: ACTIVITIES.filter(
-        (a) => a.course === course && a.href.includes(`/${materialId}`)
-      ),
+      items: ACTIVITIES.filter((a) => a.course === course && a.href.includes(`/${materialId}`)),
     };
   }
   if (course) {
@@ -169,12 +165,12 @@ function shortMaterialTitle(id: string) {
   // mock id를 사람이 읽을 수 있는 형태로
   const map: Record<string, string> = {
     "process-sync": "프로세스 동기화",
-    "memory": "메모리 관리",
-    "scheduling": "프로세스 스케줄링",
-    "bst": "이진 탐색 트리",
-    "balanced": "균형 트리",
-    "norm": "정규화 1~3NF",
-    "dp": "동적 계획법 입문",
+    memory: "메모리 관리",
+    scheduling: "프로세스 스케줄링",
+    bst: "이진 탐색 트리",
+    balanced: "균형 트리",
+    norm: "정규화 1~3NF",
+    dp: "동적 계획법 입문",
   };
   return map[id] ?? id;
 }

@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { SearchTrigger } from "@/components/search-trigger";
+import { useEffect, useState } from "react";
 import {
-  COURSES as STUDY_COURSES,
   COURSE_COLOR,
   getResumeMaterial,
+  COURSES as STUDY_COURSES,
 } from "@/app/dashboard/study/data";
+import { SearchTrigger } from "@/components/search-trigger";
+import { cn } from "@/lib/utils";
 
 /* 학기 정보 mock — 추후 user state로 대체 */
 const SEMESTER = {
@@ -41,7 +41,12 @@ function IconToday({ active }: { active?: boolean }) {
 function IconStudy() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path d="M2.5 3.5h6.4c1 0 1.6.6 1.6 1.5v6.5H4.1c-.9 0-1.6-.7-1.6-1.6V3.5z" stroke="currentColor" strokeWidth={1.2} strokeLinejoin="round" />
+      <path
+        d="M2.5 3.5h6.4c1 0 1.6.6 1.6 1.5v6.5H4.1c-.9 0-1.6-.7-1.6-1.6V3.5z"
+        stroke="currentColor"
+        strokeWidth={1.2}
+        strokeLinejoin="round"
+      />
       <path d="M2.5 3.5v8h7.9" stroke="currentColor" strokeWidth={1.2} strokeLinejoin="round" />
     </svg>
   );
@@ -49,16 +54,34 @@ function IconStudy() {
 function IconCalendar() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <rect x="2.2" y="3.4" width="9.6" height="8.4" rx="1.2" stroke="currentColor" strokeWidth={1.2} />
+      <rect
+        x="2.2"
+        y="3.4"
+        width="9.6"
+        height="8.4"
+        rx="1.2"
+        stroke="currentColor"
+        strokeWidth={1.2}
+      />
       <path d="M2.2 5.8h9.6" stroke="currentColor" strokeWidth={1.2} />
-      <path d="M5 2.6v1.6M9 2.6v1.6" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" />
+      <path
+        d="M5 2.6v1.6M9 2.6v1.6"
+        stroke="currentColor"
+        strokeWidth={1.2}
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 function IconTools() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path d="M3 11l4.2-4.2M9 4.5l1.5-1.5 1 1L10 5.5l-1-1z" stroke="currentColor" strokeWidth={1.2} strokeLinejoin="round" />
+      <path
+        d="M3 11l4.2-4.2M9 4.5l1.5-1.5 1 1L10 5.5l-1-1z"
+        stroke="currentColor"
+        strokeWidth={1.2}
+        strokeLinejoin="round"
+      />
       <circle cx="3" cy="11" r="1" stroke="currentColor" strokeWidth={1.2} />
     </svg>
   );
@@ -66,7 +89,12 @@ function IconTools() {
 function IconNewChat() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path d="M2.5 4.5h7c.9 0 1.5.6 1.5 1.5v3.5L8.6 11.7H4c-.9 0-1.5-.6-1.5-1.5V4.5z" stroke="currentColor" strokeWidth={1.2} strokeLinejoin="round" />
+      <path
+        d="M2.5 4.5h7c.9 0 1.5.6 1.5 1.5v3.5L8.6 11.7H4c-.9 0-1.5-.6-1.5-1.5V4.5z"
+        stroke="currentColor"
+        strokeWidth={1.2}
+        strokeLinejoin="round"
+      />
       <path d="M5.5 7h3M7 5.5v3" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" />
     </svg>
   );
@@ -74,9 +102,26 @@ function IconNewChat() {
 function IconHistory() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path d="M2.6 7a4.4 4.4 0 1 0 1.3-3.1" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" />
-      <path d="M2.6 3.5v2.2h2.2" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M7 4.6V7l1.5 1" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M2.6 7a4.4 4.4 0 1 0 1.3-3.1"
+        stroke="currentColor"
+        strokeWidth={1.2}
+        strokeLinecap="round"
+      />
+      <path
+        d="M2.6 3.5v2.2h2.2"
+        stroke="currentColor"
+        strokeWidth={1.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7 4.6V7l1.5 1"
+        stroke="currentColor"
+        strokeWidth={1.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -86,11 +131,12 @@ const NAV = [
   { href: "/dashboard/study", label: "공부", Icon: IconStudy },
   { href: "/dashboard/calendar", label: "일정", Icon: IconCalendar },
   { href: "/dashboard/tools", label: "도구", Icon: IconTools },
+  { href: "/dashboard/history", label: "기록", Icon: IconHistory },
 ] as const;
 
 export function Sidebar() {
   return (
-    <aside className="hidden h-screen-safe w-[228px] shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-surface)] md:flex">
+    <aside className="hidden h-screen-safe w-[228px] shrink-0 flex-col border-r border-[var(--color-apple-hairline)] bg-white md:flex">
       <SidebarBody />
     </aside>
   );
@@ -113,7 +159,10 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
           className="flex items-center gap-2 transition-opacity hover:opacity-70"
         >
           <Logo />
-          <span className="wght-560 kerning-tight text-[15px] text-[var(--color-fg-strong)]">
+          <span
+            className="text-[15px] wght-620 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
             arch
           </span>
         </Link>
@@ -130,11 +179,12 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
           href="/dashboard"
           onClick={onNavigate}
           className={cn(
-            "group flex w-full items-center gap-2.5 rounded-md border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-[12.5px] kerning-tight transition-all duration-[var(--duration-fast)] hover:border-[var(--color-line-strong)] hover:shadow-[var(--shadow-soft)]",
+            "flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--color-apple-hairline)] px-3 py-2 text-[12.5px] transition-colors",
             pathname === "/dashboard" || pathname === "/dashboard/chat"
-              ? "wght-560 text-[var(--color-fg-strong)]"
-              : "wght-450 text-[var(--color-fg-muted)] hover:text-[var(--color-fg-strong)]"
+              ? "wght-620 bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)]"
+              : "wght-450 bg-white text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
           )}
+          style={{ letterSpacing: "-0.012em" }}
         >
           <IconNewChat />
           <span className="flex-1">내 캠퍼스</span>
@@ -142,8 +192,8 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 py-1">
-        <SectionLabel>캠퍼스</SectionLabel>
-        <ul className="mb-6 mt-1 space-y-px">
+        <SectionLabel>학습</SectionLabel>
+        <ul className="mb-6 mt-2 space-y-px">
           {NAV.map(({ href, label, Icon }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
             const showSignalBadge = href === "/dashboard/today" && TODAY_SIGNAL_COUNT > 0;
@@ -162,23 +212,26 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
                 {active && (
                   <span
                     aria-hidden
-                    className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r-full bg-[var(--color-fg-strong)]"
+                    className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r-full bg-[var(--color-apple-action)]"
                   />
                 )}
                 <Link
                   href={href}
                   onClick={onNavigate}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-md py-1.5 pl-4 pr-2 text-[13px] kerning-tight transition-colors duration-[var(--duration-fast)]",
+                    "flex items-center gap-2.5 rounded-[8px] py-1.5 pl-4 pr-2 text-[13px] transition-colors",
                     active
-                      ? "wght-560 text-[var(--color-fg-strong)]"
-                      : "wght-450 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+                      ? "wght-620 bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)]"
+                      : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
                   )}
+                  style={{ letterSpacing: "-0.012em" }}
                 >
                   <span
                     className={cn(
                       "transition-colors",
-                      active ? "text-[var(--color-fg-strong)]" : "text-[var(--color-fg-subtle)]"
+                      active
+                        ? "text-[var(--color-apple-action)]"
+                        : "text-[var(--color-apple-muted)]",
                     )}
                   >
                     <Icon active={active} />
@@ -187,12 +240,9 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
                   {showSignalBadge && (
                     <span
                       title={`지금 신호 ${TODAY_SIGNAL_COUNT}건`}
-                      className="inline-flex items-center gap-1 rounded-full bg-[var(--color-urgent-soft)] px-1.5 py-0.5 text-[9.5px] wght-700 kerning-mono tabular-nums text-[var(--color-urgent)]"
+                      className="inline-flex items-center gap-1 rounded-full bg-[#fff0f3] px-1.5 py-0.5 text-[10px] wght-620 tabular-nums text-[#e0445e]"
                     >
-                      <span
-                        aria-hidden
-                        className="h-1 w-1 rounded-full bg-[var(--color-urgent)] pulse-dot"
-                      />
+                      <span aria-hidden className="h-1 w-1 rounded-full bg-[#e0445e] pulse-dot" />
                       {TODAY_SIGNAL_COUNT}
                     </span>
                   )}
@@ -201,60 +251,29 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
             );
           })}
         </ul>
-
-        <SectionLabel>활동</SectionLabel>
-        <ul className="mt-1 space-y-px">
-          <li className="relative">
-            {(pathname === "/dashboard/history" ||
-              pathname.startsWith("/dashboard/history/")) && (
-              <span
-                aria-hidden
-                className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r-full bg-[var(--color-fg-strong)]"
-              />
-            )}
-            <Link
-              href="/dashboard/history"
-              onClick={onNavigate}
-              className={cn(
-                "flex items-center gap-2.5 rounded-md py-1.5 pl-4 pr-2 text-[13px] kerning-tight transition-colors duration-[var(--duration-fast)]",
-                pathname === "/dashboard/history" ||
-                  pathname.startsWith("/dashboard/history/")
-                  ? "wght-560 text-[var(--color-fg-strong)]"
-                  : "wght-450 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-              )}
-            >
-              <span
-                className={cn(
-                  "transition-colors",
-                  pathname === "/dashboard/history" ||
-                    pathname.startsWith("/dashboard/history/")
-                    ? "text-[var(--color-fg-strong)]"
-                    : "text-[var(--color-fg-subtle)]"
-                )}
-              >
-                <IconHistory />
-              </span>
-              히스토리
-            </Link>
-          </li>
-        </ul>
       </nav>
 
       {/* 학기 진행률 — 미세하게 */}
       <SemesterProgress />
 
       {/* User — 글자 X, 그라데이션 원 */}
-      <div className="border-t border-[var(--color-line)] px-3 py-3">
+      <div className="border-t border-[var(--color-apple-hairline)] px-3 py-3">
         <button
           type="button"
-          className="flex w-full items-center gap-2.5 rounded-md p-1 text-left transition-colors hover:bg-white/60"
+          className="flex w-full items-center gap-2.5 rounded-[8px] p-1 text-left transition-colors hover:bg-[var(--color-apple-pearl)]"
         >
           <Avatar />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[12.5px] wght-560 kerning-tight text-[var(--color-fg-strong)]">
+            <div
+              className="truncate text-[12.5px] wght-560 text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
               윤태경
             </div>
-            <div className="truncate text-[10.5px] wght-380 kerning-tight text-[var(--color-fg-subtle)]">
+            <div
+              className="truncate text-[10.5px] wght-450 text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
               컴퓨터공학과 · 3학년
             </div>
           </div>
@@ -266,7 +285,7 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-4 pt-2 text-[10px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]">
+    <div className="px-4 pt-2 text-[10.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
       {children}
     </div>
   );
@@ -292,39 +311,45 @@ function StudyNavItem({
       {active && (
         <span
           aria-hidden
-          className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r-full bg-[var(--color-fg-strong)]"
+          className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r-full bg-[var(--color-apple-action)]"
         />
       )}
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+      <div
         className={cn(
-          "flex w-full items-center gap-2.5 rounded-md py-1.5 pl-4 pr-2 text-left text-[13px] kerning-tight transition-colors duration-[var(--duration-fast)]",
+          "flex w-full items-center gap-2.5 rounded-[8px] py-1.5 pl-4 pr-2 text-[13px] transition-colors",
           active
-            ? "wght-560 text-[var(--color-fg-strong)]"
-            : "wght-450 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
+            ? "wght-620 bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)]"
+            : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
         )}
+        style={{ letterSpacing: "-0.012em" }}
       >
-        <span
-          className={cn(
-            "transition-colors",
-            active ? "text-[var(--color-fg-strong)]" : "text-[var(--color-fg-subtle)]",
-          )}
+        <Link
+          href="/dashboard/study"
+          onClick={onNavigate}
+          className="flex flex-1 items-center gap-2.5 text-left"
         >
-          <IconStudy />
-        </span>
-        <span className="flex-1">공부</span>
-        <span
-          aria-hidden
-          className={cn(
-            "text-[10px] text-[var(--color-fg-subtle)] transition-transform",
-            open && "rotate-90",
-          )}
+          <span
+            className={cn(
+              "transition-colors",
+              active ? "text-[var(--color-apple-action)]" : "text-[var(--color-apple-muted)]",
+            )}
+          >
+            <IconStudy />
+          </span>
+          <span className="flex-1">공부</span>
+        </Link>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={open ? "강의 목록 접기" : "강의 목록 펼치기"}
+          onClick={() => setOpen((value) => !value)}
+          className="-mr-1 flex h-6 w-6 items-center justify-center rounded-[6px] text-[11px] text-[var(--color-apple-muted)] transition-colors hover:bg-white hover:text-[var(--color-apple-ink)]"
         >
-          →
-        </span>
-      </button>
+          <span aria-hidden className={cn("transition-transform", open && "rotate-90")}>
+            ›
+          </span>
+        </button>
+      </div>
 
       <ul className={cn("pb-1 pl-[34px] pt-1", open ? "block" : "hidden")}>
         {STUDY_COURSES.map((course) => {
@@ -343,11 +368,12 @@ function StudyNavItem({
                 onClick={onNavigate}
                 title={resume ? `최근 자료: ${resume.title}` : undefined}
                 className={cn(
-                  "group/course flex items-center gap-2 rounded-md py-1.5 pl-1 pr-2 text-[12px] kerning-tight transition-colors",
+                  "flex items-center gap-2 rounded-[6px] py-1.5 pl-1.5 pr-2 text-[12px] transition-colors",
                   courseActive
-                    ? "wght-560 text-[var(--color-fg-strong)]"
-                    : "wght-450 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
+                    ? "wght-620 bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)]"
+                    : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
                 )}
+                style={{ letterSpacing: "-0.012em" }}
               >
                 <span
                   className="h-1.5 w-1.5 shrink-0 rounded-full"
@@ -356,7 +382,7 @@ function StudyNavItem({
                 />
                 <span className="min-w-0 flex-1 truncate">{course.slug}</span>
                 {total > 0 && (
-                  <span className="shrink-0 text-[9.5px] wght-450 kerning-mono tabular-nums text-[var(--color-fg-subtle)]">
+                  <span className="shrink-0 text-[10px] wght-560 tabular-nums text-[var(--color-apple-muted)]">
                     {done}/{total}
                   </span>
                 )}
@@ -371,15 +397,12 @@ function StudyNavItem({
 
 function Logo() {
   return (
-    <div className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-[7px] bg-[var(--color-fg-strong)]">
-      {/* 미세한 하이라이트 — 단색 박스 X */}
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"
-      />
-      <span className="relative wght-700 kerning-tight text-[10px] text-white">
-        a
-      </span>
+    <div
+      aria-hidden
+      className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-[7px] bg-[var(--color-apple-action)]"
+    >
+      <div className="absolute inset-x-1 top-1 h-px rounded-full bg-white/45" />
+      <span className="relative text-[10px] wght-620 text-white">a</span>
     </div>
   );
 }
@@ -387,21 +410,21 @@ function Logo() {
 function SemesterProgress() {
   const pct = SEMESTER.weekCurrent / SEMESTER.weekTotal;
   return (
-    <div className="border-t border-[var(--color-line)] px-4 pt-3 pb-2">
+    <div className="border-t border-[var(--color-apple-hairline)] px-4 pt-3 pb-3">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[10px] wght-700 kerning-mono uppercase text-[var(--color-fg-subtle)]">
+        <span className="text-[10.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
           {SEMESTER.label}
         </span>
-        <span className="text-[10px] wght-560 kerning-mono tabular-nums text-[var(--color-fg-muted)]">
+        <span className="text-[10.5px] wght-560 tabular-nums text-[var(--color-apple-muted)]">
           {SEMESTER.weekCurrent}/{SEMESTER.weekTotal}주차
         </span>
       </div>
       <span
         aria-hidden
-        className="relative mt-2 block h-px w-full overflow-hidden bg-[var(--color-line-strong)]"
+        className="relative mt-2 block h-1 w-full overflow-hidden rounded-full bg-[var(--color-apple-hairline)]"
       >
         <span
-          className="absolute inset-y-0 left-0 bg-[var(--color-fg-strong)]"
+          className="absolute inset-y-0 left-0 rounded-full bg-[var(--color-apple-action)]"
           style={{ width: `${pct * 100}%` }}
         />
       </span>
@@ -416,8 +439,7 @@ function Avatar() {
       aria-hidden
       className="h-7 w-7 shrink-0 rounded-full"
       style={{
-        background:
-          "radial-gradient(circle at 30% 30%, #f0a8c0 0%, #c785b0 38%, #6a4a8a 100%)",
+        background: "radial-gradient(circle at 30% 30%, #f0a8c0 0%, #c785b0 38%, #6a4a8a 100%)",
       }}
     />
   );

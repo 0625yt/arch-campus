@@ -43,7 +43,7 @@ export function SearchTrigger({
         onClick={open}
         aria-label="검색 (⌘K)"
         className={cn(
-          "inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-surface)] hover:text-[var(--color-fg)]",
+          "inline-flex h-9 w-9 items-center justify-center rounded-[8px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
           className,
         )}
       >
@@ -57,19 +57,22 @@ export function SearchTrigger({
       type="button"
       onClick={open}
       className={cn(
-        "group flex w-full items-center gap-2 rounded-md border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-left transition-colors hover:border-[var(--color-line-strong)]",
+        "group flex w-full items-center gap-2 rounded-[10px] border border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)] px-3 py-2 text-left transition-colors hover:bg-white",
         className,
       )}
+      style={{ letterSpacing: "-0.012em" }}
     >
-      <SearchIcon />
-      <span className="flex-1 text-[12px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+      <span className="text-[var(--color-apple-muted)]">
+        <SearchIcon />
+      </span>
+      <span className="flex-1 text-[12.5px] wght-450 text-[var(--color-apple-muted)]">
         검색하거나 어디로 갈지
       </span>
-      <span className="hidden items-center gap-0.5 text-[9.5px] wght-700 kerning-mono text-[var(--color-fg-subtle)] sm:inline-flex">
-        <kbd className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-[3px] border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-1 wght-700 text-[var(--color-fg-muted)]">
+      <span className="hidden items-center gap-0.5 text-[10px] wght-560 text-[var(--color-apple-muted)] sm:inline-flex">
+        <kbd className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-[4px] border border-[var(--color-apple-hairline)] bg-white px-1 wght-560 text-[var(--color-apple-muted)]">
           {isMac ? "⌘" : "Ctrl"}
         </kbd>
-        <kbd className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-[3px] border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-1 wght-700 text-[var(--color-fg-muted)]">
+        <kbd className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-[4px] border border-[var(--color-apple-hairline)] bg-white px-1 wght-560 text-[var(--color-apple-muted)]">
           K
         </kbd>
       </span>
@@ -79,27 +82,9 @@ export function SearchTrigger({
 
 function SearchIcon() {
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      aria-hidden
-      className="shrink-0"
-    >
-      <circle
-        cx="6"
-        cy="6"
-        r="4"
-        stroke="currentColor"
-        strokeWidth={1.3}
-      />
-      <path
-        d="M9.3 9.3L12 12"
-        stroke="currentColor"
-        strokeWidth={1.3}
-        strokeLinecap="round"
-      />
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0">
+      <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth={1.3} />
+      <path d="M9.3 9.3L12 12" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" />
     </svg>
   );
 }

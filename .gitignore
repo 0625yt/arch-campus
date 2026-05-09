@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# tooling artifacts
+.codex/
+.playwright-mcp/
+apple-business-full.png
+apple-home-snapshot.md

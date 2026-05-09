@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: arch-campus-hwp-converter
+    runtime: docker
+    plan: free
+    region: singapore
+    rootDir: services/hwp-converter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HWP_CONVERTER_TOKEN
+        sync: false

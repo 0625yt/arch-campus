@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { cn } from "@/lib/utils";
 import { SidebarBody } from "@/components/sidebar";
+import { cn } from "@/lib/utils";
 
 /**
  * 모바일 햄버거 — 좌상단에 박혀있고 클릭 시 좌측에서 슬라이드인.
@@ -36,7 +36,7 @@ export function MobileDrawer() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="메뉴 열기"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-surface)] hover:text-[var(--color-fg)] md:hidden"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] md:hidden"
       >
         <HamburgerIcon />
       </button>
@@ -56,7 +56,7 @@ export function MobileDrawer() {
                 onClick={() => setOpen(false)}
                 tabIndex={-1}
                 className={cn(
-                  "absolute inset-0 bg-[var(--color-fg-strong)]/30 backdrop-blur-[2px]",
+                  "absolute inset-0 bg-[var(--color-apple-ink)]/30 backdrop-blur-[2px]",
                   "fade-up",
                 )}
               />
@@ -64,7 +64,7 @@ export function MobileDrawer() {
               {/* Panel — 좌측 슬라이드인 */}
               <aside
                 className={cn(
-                  "relative h-full w-[260px] max-w-[80vw] border-r border-[var(--color-line)] bg-[var(--color-surface)] shadow-[var(--shadow-lift)]",
+                  "relative h-full w-[260px] max-w-[80vw] border-r border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)] shadow-[var(--shadow-lift)]",
                   "fade-up",
                 )}
                 style={{ animation: "slide-in-left 280ms var(--ease-out) both" }}
@@ -81,14 +81,7 @@ export function MobileDrawer() {
 
 function HamburgerIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 18 18"
-      fill="none"
-      aria-hidden
-      className="shrink-0"
-    >
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden className="shrink-0">
       <path
         d="M3 5h12M3 9h12M3 13h12"
         stroke="currentColor"

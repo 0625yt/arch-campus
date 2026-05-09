@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type DragEvent } from "react";
+import { CloudUpload } from "lucide-react";
+import { type DragEvent, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Divider } from "@/components/primitives";
 
 export function UploadZone() {
   const [over, setOver] = useState(false);
@@ -29,10 +29,10 @@ export function UploadZone() {
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "group block cursor-pointer rounded-2xl border border-dashed p-5 transition-colors duration-[var(--duration-base)] sm:p-6",
+        "flex min-h-[200px] cursor-pointer flex-col items-center justify-center rounded-[12px] border border-dashed px-8 py-10 text-center transition-colors",
         over
-          ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
-          : "border-[var(--color-line-strong)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-strong)]"
+          ? "border-[var(--color-apple-action)] bg-[#f0f7ff]"
+          : "border-[var(--color-apple-hairline)] bg-white hover:bg-[var(--color-apple-pearl)]",
       )}
     >
       <input
@@ -45,29 +45,45 @@ export function UploadZone() {
 
       {name ? (
         <>
-          <p className="text-[14px] wght-560 kerning-tight text-[var(--color-fg-strong)] sm:text-[15px]">
-            ✓ {name}
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-apple-pearl)] text-[var(--color-apple-success)]">
+            ✓
+          </span>
+          <p
+            className="mt-4 text-[15px] wght-560 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {name}
           </p>
-          <p className="mt-1 text-[12px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+          <p
+            className="mt-1.5 text-[13px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.022em" }}
+          >
             요약과 첫 문제를 만들고 있어요…
           </p>
         </>
       ) : (
         <>
-          <p className="text-[14px] wght-560 kerning-tight text-[var(--color-fg-strong)] sm:text-[15px]">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)]">
+            <CloudUpload size={20} strokeWidth={1.6} />
+          </span>
+          <p
+            className="mt-4 text-[15px] wght-560 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
             끌어다 놓거나 클릭해서 선택
           </p>
-          <p className="mt-1 text-[12px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+          <p
+            className="mt-1.5 text-[13px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.022em" }}
+          >
             PDF · HWPX · PPTX · DOCX · TXT · MD
           </p>
-          <Divider className="my-4" />
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
-            <span>HWP는 변환 안내</span>
-            <span className="text-[var(--color-line-strong)]">·</span>
-            <span>본인만 볼 수 있어요</span>
-            <span className="text-[var(--color-line-strong)]">·</span>
-            <span>60초 안에 첫 결과</span>
-          </div>
+          <p
+            className="mt-3 text-[11px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            HWP 변환 안내 · 본인만 볼 수 있어요 · 60초 안에 첫 결과
+          </p>
         </>
       )}
     </label>

@@ -49,7 +49,7 @@ export function Modal({
     // focus
     setTimeout(() => {
       const focusable = panelRef.current?.querySelector<HTMLElement>(
-        'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
       );
       focusable?.focus();
     }, 50);
@@ -75,31 +75,31 @@ export function Modal({
         type="button"
         aria-label="닫기"
         onClick={onClose}
-        className="absolute inset-0 bg-[var(--color-fg-strong)]/30 backdrop-blur-[2px] fade-up"
+        className="absolute inset-0 bg-[var(--color-apple-ink)]/30 backdrop-blur-[2px] fade-up"
       />
 
       {/* Panel — 항상 화면 중앙 */}
       <div
         ref={panelRef}
         className={cn(
-          "relative w-full max-h-[90vh] rounded-2xl bg-[var(--color-bg)] shadow-[var(--shadow-lift)] fade-up sm:max-h-[85vh]",
+          "relative w-full max-h-[90vh] rounded-2xl bg-white shadow-[var(--shadow-lift)] fade-up sm:max-h-[85vh]",
           size === "md" && "sm:max-w-[560px]",
-          size === "lg" && "sm:max-w-[680px]"
+          size === "lg" && "sm:max-w-[680px]",
         )}
       >
         {/* Header */}
-        <div className="flex items-baseline justify-between gap-4 border-b border-[var(--color-line)] px-5 py-4 sm:px-6 sm:py-5">
+        <div className="flex items-baseline justify-between gap-4 border-b border-[var(--color-apple-hairline)] px-5 py-4 sm:px-6 sm:py-5">
           <div className="min-w-0 flex-1">
             <h2
               id="modal-title"
-              className="text-[16px] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[17px]"
+              className="text-[16px] wght-700 text-[var(--color-apple-ink)] sm:text-[17px]"
             >
               {title}
             </h2>
             {description && (
               <p
                 id="modal-description"
-                className="mt-0.5 truncate text-[12px] wght-450 kerning-tight text-[var(--color-fg-muted)]"
+                className="mt-0.5 truncate text-[12px] wght-450 text-[var(--color-apple-muted)]"
               >
                 {description}
               </p>
@@ -109,15 +109,9 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="닫기"
-            className="shrink-0 rounded-md p-1 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-surface)] hover:text-[var(--color-fg)]"
+            className="shrink-0 rounded-md p-1 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden
-            >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
               <path
                 d="M3.5 3.5l9 9M12.5 3.5l-9 9"
                 stroke="currentColor"

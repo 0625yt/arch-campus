@@ -1,12 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { Kbd } from "@/components/primitives";
-import { COURSES, COURSE_COLOR } from "@/app/dashboard/study/data";
 import { ACTIVITIES } from "@/app/dashboard/history/data";
+import { COURSE_COLOR, COURSES } from "@/app/dashboard/study/data";
+import { Kbd } from "@/components/primitives";
+import { cn } from "@/lib/utils";
 
 /* ─────────── command types ─────────── */
 
@@ -82,12 +82,7 @@ export function CommandPalette() {
         return;
       }
       // "/" 단축키 — 입력 중이 아닐 때만
-      if (
-        e.key === "/" &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !isEditableTarget(e.target)
-      ) {
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey && !isEditableTarget(e.target)) {
         e.preventDefault();
         setOpen(true);
       }
@@ -177,9 +172,7 @@ export function CommandPalette() {
         hint: a.meta,
         keywords: a.course ?? "",
         meta: a.kind,
-        dotColor: a.course
-          ? COURSE_COLOR[a.course as keyof typeof COURSE_COLOR]
-          : undefined,
+        dotColor: a.course ? COURSE_COLOR[a.course as keyof typeof COURSE_COLOR] : undefined,
         run: () => router.push(a.href),
       });
     }
@@ -192,8 +185,7 @@ export function CommandPalette() {
     const q = query.trim().toLowerCase();
     if (!q) return allCommands;
     return allCommands.filter((c) => {
-      const hay =
-        `${c.label} ${c.hint ?? ""} ${c.meta ?? ""} ${c.keywords ?? ""}`.toLowerCase();
+      const hay = `${c.label} ${c.hint ?? ""} ${c.meta ?? ""} ${c.keywords ?? ""}`.toLowerCase();
       // 띄어쓰기로 나눈 모든 토큰이 다 포함돼야 함
       return q.split(/\s+/).every((t) => hay.includes(t));
     });
@@ -236,9 +228,7 @@ export function CommandPalette() {
 
   // 활성 항목으로 스크롤
   useEffect(() => {
-    const el = listRef.current?.querySelector<HTMLElement>(
-      `[data-index="${activeIndex}"]`,
-    );
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`);
     el?.scrollIntoView({ block: "nearest" });
   }, [activeIndex]);
 
@@ -259,16 +249,16 @@ export function CommandPalette() {
         aria-label="닫기"
         onClick={() => setOpen(false)}
         tabIndex={-1}
-        className="absolute inset-0 bg-[var(--color-fg-strong)]/30 backdrop-blur-[2px] fade-up"
+        className="absolute inset-0 bg-[var(--color-apple-ink)]/30 backdrop-blur-[2px] fade-up"
       />
 
       {/* Panel */}
       <div
-        className="relative w-full max-w-[600px] overflow-hidden rounded-2xl bg-[var(--color-bg)] shadow-[var(--shadow-lift)] fade-up"
+        className="relative w-full max-w-[600px] overflow-hidden rounded-2xl bg-white shadow-[var(--shadow-lift)] fade-up"
         onKeyDown={onKeyDown}
       >
         {/* Search row */}
-        <div className="flex items-center gap-3 border-b border-[var(--color-line)] px-4 py-3">
+        <div className="flex items-center gap-3 border-b border-[var(--color-apple-hairline)] px-4 py-3">
           <SearchIcon />
           <input
             ref={inputRef}
@@ -276,29 +266,26 @@ export function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="강의·자료·위저드 검색하거나 어디로 갈지 입력하세요"
-            className="flex-1 bg-transparent text-[14px] wght-450 kerning-tight text-[var(--color-fg)] placeholder:wght-380 placeholder:text-[var(--color-fg-disabled)] focus-visible:outline-none"
+            className="flex-1 bg-transparent text-[14px] wght-450 text-[var(--color-apple-ink)] placeholder:wght-380 placeholder:text-[var(--color-apple-muted)] focus-visible:outline-none"
           />
           <Kbd>ESC</Kbd>
         </div>
 
         {/* Results */}
-        <div
-          ref={listRef}
-          className="max-h-[60vh] overflow-y-auto overscroll-contain px-2 py-2"
-        >
+        <div ref={listRef} className="max-h-[60vh] overflow-y-auto overscroll-contain px-2 py-2">
           {filtered.length === 0 ? (
             <div className="px-3 py-10 text-center">
-              <p className="text-[13.5px] wght-560 kerning-tight text-[var(--color-fg)]">
+              <p className="text-[13.5px] wght-560 text-[var(--color-apple-ink)]">
                 "{query}"에 해당하는 항목이 없어요
               </p>
-              <p className="mt-1 text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+              <p className="mt-1 text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
                 강의명·자료명·위저드 이름으로 다시 검색해보세요
               </p>
             </div>
           ) : (
             groups.map((g) => (
               <div key={g.kind} className="mb-2 last:mb-0">
-                <div className="px-3 pb-1 pt-2 text-[10px] wght-700 kerning-mono uppercase text-[var(--color-fg-subtle)]">
+                <div className="px-3 pb-1 pt-2 text-[10px] wght-700 tabular-nums uppercase text-[var(--color-apple-muted)]">
                   {g.kind}
                 </div>
                 <ul className="flex flex-col gap-px">
@@ -318,7 +305,7 @@ export function CommandPalette() {
                           }}
                           className={cn(
                             "group flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors",
-                            active && "bg-[var(--color-surface)]",
+                            active && "bg-[var(--color-apple-pearl)]",
                           )}
                         >
                           {/* dot */}
@@ -335,8 +322,8 @@ export function CommandPalette() {
                                 className={cn(
                                   "h-1.5 w-1.5 rounded-full",
                                   active
-                                    ? "bg-[var(--color-fg-muted)]"
-                                    : "bg-[var(--color-fg-disabled)]",
+                                    ? "bg-[var(--color-apple-muted)]"
+                                    : "bg-[var(--color-apple-muted)]",
                                 )}
                               />
                             )}
@@ -345,17 +332,17 @@ export function CommandPalette() {
                           {/* content */}
                           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                             <span className="flex items-baseline gap-2">
-                              <span className="truncate text-[13.5px] wght-560 kerning-tight text-[var(--color-fg-strong)]">
+                              <span className="truncate text-[13.5px] wght-560 text-[var(--color-apple-ink)]">
                                 {c.label}
                               </span>
                               {c.meta && (
-                                <span className="shrink-0 text-[10px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)]">
+                                <span className="shrink-0 text-[10px] wght-560 tabular-nums uppercase text-[var(--color-apple-muted)]">
                                   {c.meta}
                                 </span>
                               )}
                             </span>
                             {c.hint && (
-                              <span className="truncate text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+                              <span className="truncate text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
                                 {c.hint}
                               </span>
                             )}
@@ -363,7 +350,7 @@ export function CommandPalette() {
 
                           {/* enter hint */}
                           {active && (
-                            <span className="shrink-0 text-[10.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+                            <span className="shrink-0 text-[10.5px] wght-450 text-[var(--color-apple-muted)]">
                               <Kbd>↵</Kbd>
                             </span>
                           )}
@@ -378,7 +365,7 @@ export function CommandPalette() {
         </div>
 
         {/* Footer hint */}
-        <div className="flex items-center justify-between gap-3 border-t border-[var(--color-line)] px-4 py-2.5 text-[10.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+        <div className="flex items-center justify-between gap-3 border-t border-[var(--color-apple-hairline)] px-4 py-2.5 text-[10.5px] wght-450 text-[var(--color-apple-muted)]">
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-1">
               <Kbd>↑</Kbd>
@@ -418,12 +405,7 @@ function groupByKind(items: Command[]) {
 function isEditableTarget(t: EventTarget | null) {
   if (!(t instanceof HTMLElement)) return false;
   const tag = t.tagName.toLowerCase();
-  return (
-    tag === "input" ||
-    tag === "textarea" ||
-    tag === "select" ||
-    t.isContentEditable
-  );
+  return tag === "input" || tag === "textarea" || tag === "select" || t.isContentEditable;
 }
 
 function isMac() {
@@ -439,15 +421,10 @@ function SearchIcon() {
       viewBox="0 0 16 16"
       fill="none"
       aria-hidden
-      className="shrink-0 text-[var(--color-fg-subtle)]"
+      className="shrink-0 text-[var(--color-apple-muted)]"
     >
       <circle cx="7" cy="7" r="4.6" stroke="currentColor" strokeWidth={1.4} />
-      <path
-        d="M11 11l3 3"
-        stroke="currentColor"
-        strokeWidth={1.4}
-        strokeLinecap="round"
-      />
+      <path d="M11 11l3 3" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
     </svg>
   );
 }

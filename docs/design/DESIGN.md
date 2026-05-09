@@ -1,5 +1,7 @@
 # DESIGN.md — arch-campus 디자인 가이드
 
+> Current product-specific style command: [ARCH-CAMPUS-STYLE.md](ARCH-CAMPUS-STYLE.md)
+
 > **사람이 만든 것처럼 보이는** 깔끔한 UI/UX. ChatGPT·Claude·Linear·Granola 톤.
 > **반응형 1급 (Mobile · iPad · Desktop 동등)**. 대학생은 폰(지하철)·태블릿(카페·도서관)·노트북(스터디룸·집) 다 씀.
 > Bitjaru StyleSeed의 69개 룰 중 arch-campus(학습 SaaS, 한국어, 라이트모드)에 맞는 것만 압축. 원본: [STYLESEED-FULL.md](STYLESEED-FULL.md). Linear 토큰: [styleseed-linear-tokens.css](styleseed-linear-tokens.css).

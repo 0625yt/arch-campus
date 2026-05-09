@@ -1,0 +1,67 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": ["src/**", "*.ts", "*.tsx", "*.mts", "*.json"],
+    "experimentalScannerIgnores": [
+      ".next/**",
+      "node_modules/**",
+      "tsconfig.tsbuildinfo",
+      "public/**"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "noNonNullAssertion": "off",
+        "useImportType": "warn"
+      },
+      "suspicious": {
+        "noExplicitAny": "warn",
+        "noConsole": {
+          "level": "warn",
+          "options": { "allow": ["warn", "error", "info"] }
+        }
+      },
+      "complexity": {
+        "noUselessFragments": "warn"
+      },
+      "a11y": {
+        "useKeyWithClickEvents": "off"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "json": {
+    "formatter": { "enabled": true },
+    "parser": { "allowComments": true }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}

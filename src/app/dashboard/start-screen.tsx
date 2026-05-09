@@ -42,21 +42,17 @@ export function StartScreen() {
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col justify-start px-5 pb-10 pt-12 sm:px-7 sm:py-14 md:px-12 md:py-20">
-      <p className="fade-up text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-        새로 물어보기
-      </p>
-      <h1 className="mt-3 fade-up fade-up-1 text-[27px] leading-[1.24] kerning-tight wght-700 text-[var(--color-fg-strong)] sm:text-[32px] md:text-[36px]">
+      <p className="fade-up text-[12px] wght-560 text-[var(--color-apple-muted)]">새로 물어보기</p>
+      <h1 className="mt-3 fade-up fade-up-1 text-[27px] leading-[1.24] wght-700 text-[var(--color-apple-ink)] sm:text-[32px] md:text-[36px]">
         막힌 걸 그대로 적으면, 공부 순서로 바꿔드려요
       </h1>
-      <p className="mt-3 fade-up fade-up-1 max-w-[520px] text-[13.5px] leading-[1.6] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-        “뭘 해야 할지 모르겠다” 같은 말도 괜찮아요. 과제·시험·발표 중 지금 행동으로 옮길 수 있는 형태로 쪼갭니다.
+      <p className="mt-3 fade-up fade-up-1 max-w-[520px] text-[13.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
+        “뭘 해야 할지 모르겠다” 같은 말도 괜찮아요. 과제·시험·발표 중 지금 행동으로 옮길 수 있는
+        형태로 쪼갭니다.
       </p>
 
-      <form
-        onSubmit={onSubmit}
-        className="mt-8 fade-up fade-up-2 w-full"
-      >
-        <div className="flex items-end gap-2 rounded-xl border border-[var(--color-line-strong)] bg-[var(--color-bg)] px-3 py-2.5 shadow-[var(--shadow-soft)] transition-shadow duration-[var(--duration-base)] focus-within:shadow-[var(--shadow-lift)]">
+      <form onSubmit={onSubmit} className="mt-8 fade-up fade-up-2 w-full">
+        <div className="flex items-end gap-2 rounded-xl border border-[var(--color-apple-hairline)] bg-white px-3 py-2.5 shadow-[var(--shadow-soft)] transition-shadow duration-[var(--duration-base)] focus-within:shadow-[var(--shadow-lift)]">
           <textarea
             ref={inputRef}
             value={draft}
@@ -65,12 +61,12 @@ export function StartScreen() {
             rows={1}
             placeholder="예: 운영체제 시험이 4일 남았는데 뭐부터 볼까"
             autoFocus
-            className="flex-1 resize-none bg-transparent px-2 py-1.5 text-[14.5px] wght-450 kerning-tight text-[var(--color-fg-strong)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none focus-visible:outline-none"
+            className="flex-1 resize-none bg-transparent px-2 py-1.5 text-[14.5px] wght-450 text-[var(--color-apple-ink)] placeholder:text-[var(--color-apple-muted)] focus:outline-none focus-visible:outline-none"
           />
           <button
             type="submit"
             disabled={!draft.trim()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-fg-strong)] text-white transition-opacity disabled:opacity-30"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-apple-ink)] text-white transition-opacity disabled:opacity-30"
             aria-label="전송"
           >
             <SendIcon />
@@ -84,7 +80,7 @@ export function StartScreen() {
             <button
               type="button"
               onClick={() => submit(c.prompt)}
-              className="w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-bg)] px-3.5 py-3 text-left text-[12.5px] wght-450 kerning-tight text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-surface)] hover:text-[var(--color-fg-strong)]"
+              className="w-full rounded-lg border border-[var(--color-apple-hairline)] bg-white px-3.5 py-3 text-left text-[12.5px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
             >
               {c.label}
             </button>

@@ -34,7 +34,11 @@ export function Countdown({
   }, [target]);
 
   if (!now) {
-    return <span className={className}>{prefix}계산 중{suffix}</span>;
+    return (
+      <span className={className}>
+        {prefix}계산 중{suffix}
+      </span>
+    );
   }
 
   const t = typeof target === "string" ? new Date(target) : target;

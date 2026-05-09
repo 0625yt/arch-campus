@@ -56,12 +56,7 @@ export function PageHint({
   className?: string;
 }) {
   return (
-    <p
-      className={cn(
-        "fade-up text-[12.5px] wght-450 kerning-tight text-[var(--color-fg-muted)]",
-        className,
-      )}
-    >
+    <p className={cn("fade-up text-[12.5px] wght-450 text-[var(--color-apple-muted)]", className)}>
       {children}
     </p>
   );
@@ -81,7 +76,7 @@ export function PageTitle({
   return (
     <h1
       className={cn(
-        "fade-up fade-up-1 text-[26px] leading-[1.2] kerning-tight wght-700 text-[var(--color-fg-strong)] sm:text-[30px] md:text-[34px]",
+        "fade-up fade-up-1 text-[26px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] sm:text-[30px] md:text-[34px]",
         className,
       )}
     >
@@ -107,13 +102,13 @@ export function SectionLabel({
   return (
     <h2
       className={cn(
-        "text-[10.5px] wght-700 kerning-mono uppercase text-[var(--color-fg-subtle)]",
+        "text-[10.5px] wght-700 tabular-nums uppercase text-[var(--color-apple-muted)]",
         className,
       )}
     >
       {children}
       {typeof count === "number" && (
-        <span className="ml-2 wght-450 tabular-nums text-[var(--color-fg-disabled)]">
+        <span className="ml-2 wght-450 tabular-nums text-[var(--color-apple-hairline)]">
           {count}건
         </span>
       )}
@@ -136,14 +131,14 @@ export function MetaLine({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-muted)]",
+        "flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[11.5px] wght-450 text-[var(--color-apple-muted)]",
         className,
       )}
     >
       {items.map((child, i) => (
         <span key={i} className="inline-flex items-baseline gap-2">
           {i > 0 && (
-            <span aria-hidden className="text-[var(--color-line-strong)]">
+            <span aria-hidden className="text-[var(--color-apple-hairline)]">
               ·
             </span>
           )}
@@ -165,12 +160,7 @@ export function PageFooter({
   className?: string;
 }) {
   return (
-    <p
-      className={cn(
-        "mt-20 text-[11px] wght-380 kerning-tight text-[var(--color-fg-subtle)]",
-        className,
-      )}
-    >
+    <p className={cn("mt-20 text-[11px] wght-380 text-[var(--color-apple-muted)]", className)}>
       {children}
     </p>
   );
@@ -194,15 +184,15 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-start rounded-2xl border border-dashed border-[var(--color-line-strong)] bg-[var(--color-surface)] px-6 py-10 sm:py-12",
+        "flex flex-col items-start rounded-2xl border border-dashed border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)] px-6 py-10 sm:py-12",
         className,
       )}
     >
-      <p className="text-[15.5px] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[16.5px]">
+      <p className="text-[15.5px] wght-700 text-[var(--color-apple-ink)] sm:text-[16.5px]">
         {title}
       </p>
       {hint && (
-        <p className="mt-1.5 max-w-[440px] text-[13px] leading-[1.6] wght-450 kerning-tight text-[var(--color-fg-muted)] sm:text-[13.5px]">
+        <p className="mt-1.5 max-w-[440px] text-[13px] leading-[1.6] wght-450 text-[var(--color-apple-muted)] sm:text-[13.5px]">
           {hint}
         </p>
       )}

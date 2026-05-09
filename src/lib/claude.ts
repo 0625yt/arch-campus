@@ -1,122 +1,127 @@
-import Anthropic from "@anthropic-ai/sdk";
-
-/**
- * arch-campus Anthropic SDK wrapper.
- *
- * Canonical pattern for every wizard / generator route. New tools must
- * replicate this shape (CLAUDE.md §4-2 4-Layer, layer 2).
- *
- * Caching strategy (1h ephemeral):
- *   system[0] = static rule prompt (CACHED)
- *   system[1] = dynamic context: persona + course + user metadata (NOT cached)
- *   messages  = user_input wrapped in <user_input>…</user_input>  (NOT cached)
- */
+import { anthropic } from "@ai-sdk/anthropic";
+import { generateText, type LanguageModel, type ModelMessage } from "ai";
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey && process.env.NODE_ENV === "production") {
   throw new Error("ANTHROPIC_API_KEY is required in production");
 }
 
-export const anthropic = new Anthropic({
-  apiKey: apiKey ?? "missing-key-dev",
-});
-
-export const CLAUDE_MODEL = "claude-sonnet-4-6" as const;
+export const MODELS = {
+  sonnet: anthropic("claude-sonnet-4-6"),
+  haiku: anthropic("claude-haiku-4-5"),
+} as const;
 
 export type ToolKind =
-  | "summary"
-  | "questions"
-  | "wizard-presentation"
+  | "summarize"
+  | "quiz"
+  | "presentation"
   | "wizard-assignment"
   | "wizard-exam"
   | "wizard-cram"
   | "syllabus-extract"
   | "post-mortem";
 
+export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
+  summarize: MODELS.haiku,
+  quiz: MODELS.sonnet,
+  presentation: MODELS.sonnet,
+  "wizard-assignment": MODELS.sonnet,
+  "wizard-exam": MODELS.sonnet,
+  "wizard-cram": MODELS.haiku,
+  "syllabus-extract": MODELS.sonnet,
+  "post-mortem": MODELS.haiku,
+};
+
+const ANTHROPIC_CACHE_1H = {
+  anthropic: { cacheControl: { type: "ephemeral", ttl: "1h" } as const },
+};
+
 export interface GenerateInput {
-  /** Static rule prompt for the tool. Loaded from src/prompts/<tool>.md */
+  tool: ToolKind;
   rulePrompt: string;
-  /** Dynamic context: persona, course, semester. Concatenated, NOT cached. */
   dynamicContext: string;
-  /** Free-text from the user — wrapped in <user_input> on our side. */
   userInput: string;
-  /** Optional override (defaults below). */
   maxTokens?: number;
   temperature?: number;
 }
 
-export interface GenerateResult {
-  text: string;
-  usage: {
-    inputTokens: number;
-    outputTokens: number;
-    cacheReadTokens: number;
-    cacheCreationTokens: number;
-  };
+export interface GenerateUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
 }
 
-/**
- * Single source of truth for Anthropic message construction.
- * Always go through this — never call anthropic.messages.create directly
- * from a route, so caching + usage logging stay consistent.
- */
+export interface GenerateResult {
+  text: string;
+  usage: GenerateUsage;
+  modelId: string;
+}
+
 export async function generate({
+  tool,
   rulePrompt,
   dynamicContext,
   userInput,
   maxTokens = 4096,
   temperature = 0.4,
 }: GenerateInput): Promise<GenerateResult> {
+  const model = TOOL_MODEL[tool];
   const wrappedUserInput = `<user_input>\n${userInput}\n</user_input>`;
 
-  const response = await anthropic.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: maxTokens,
+  const messages: ModelMessage[] = [
+    {
+      role: "system",
+      content: rulePrompt,
+      providerOptions: ANTHROPIC_CACHE_1H,
+    },
+    {
+      role: "system",
+      content: dynamicContext,
+    },
+    {
+      role: "user",
+      content: wrappedUserInput,
+    },
+  ];
+
+  const result = await generateText({
+    model,
+    maxOutputTokens: maxTokens,
     temperature,
-    system: [
-      {
-        type: "text",
-        text: rulePrompt,
-        cache_control: { type: "ephemeral", ttl: "1h" },
-      },
-      {
-        type: "text",
-        text: dynamicContext,
-      },
-    ],
-    messages: [{ role: "user", content: wrappedUserInput }],
+    messages,
   });
 
-  const text = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((b) => b.text)
-    .join("\n");
+  const meta = (result.providerMetadata?.anthropic ?? {}) as Record<string, unknown>;
+  const cacheRead = Number(meta.cacheReadInputTokens ?? 0);
+  const cacheCreation = Number(meta.cacheCreationInputTokens ?? 0);
+  const modelId =
+    typeof model === "object" && "modelId" in model ? (model.modelId as string) : String(model);
 
   return {
-    text,
+    text: result.text,
+    modelId,
     usage: {
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
-      cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
-      cacheCreationTokens: response.usage.cache_creation_input_tokens ?? 0,
+      inputTokens: result.usage.inputTokens ?? 0,
+      outputTokens: result.usage.outputTokens ?? 0,
+      cacheReadTokens: cacheRead,
+      cacheCreationTokens: cacheCreation,
     },
   };
 }
 
-/**
- * Estimate cost in USD for one generate() call.
- * Sonnet 4.6 pricing (verify quarterly):
- *   - input:        $3.00 / 1M
- *   - cache write:  $3.75 / 1M (1h ephemeral)
- *   - cache read:   $0.30 / 1M (90% off)
- *   - output:       $15.00 / 1M
- */
-export function estimateCost(usage: GenerateResult["usage"]): number {
+const PRICING = {
+  sonnet: { input: 3, cacheWrite1h: 6, cacheRead: 0.3, output: 15 },
+  haiku: { input: 0.8, cacheWrite1h: 1.6, cacheRead: 0.08, output: 4 },
+} as const;
+
+export function estimateCost(usage: GenerateUsage, modelId: string): number {
+  const tier = modelId.includes("haiku") ? PRICING.haiku : PRICING.sonnet;
   const M = 1_000_000;
   return (
-    (usage.inputTokens * 3.0) / M +
-    (usage.cacheCreationTokens * 3.75) / M +
-    (usage.cacheReadTokens * 0.3) / M +
-    (usage.outputTokens * 15.0) / M
+    (usage.inputTokens * tier.input) / M +
+    (usage.cacheCreationTokens * tier.cacheWrite1h) / M +
+    (usage.cacheReadTokens * tier.cacheRead) / M +
+    (usage.outputTokens * tier.output) / M
   );
 }

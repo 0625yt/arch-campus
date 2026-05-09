@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Arrow, Dot } from "@/components/primitives";
-import { PageShell, PageFooter } from "@/components/page-shell";
 
 const CATEGORY = {
   발표: "#7aa6d6",
@@ -145,88 +143,144 @@ type FilterId = "전체" | Category;
 export default function ToolsPage() {
   const [filter, setFilter] = useState<FilterId>("전체");
 
-  const filtered =
-    filter === "전체" ? WIZARDS : WIZARDS.filter((w) => w.category === filter);
-  const urgent = WIZARDS.filter((w) => ["exam-cram", "report-checklist", "presentation"].includes(w.slug));
+  const filtered = filter === "전체" ? WIZARDS : WIZARDS.filter((w) => w.category === filter);
+  const urgent = WIZARDS.filter((w) =>
+    ["exam-cram", "report-checklist", "presentation"].includes(w.slug),
+  );
 
   return (
-    <PageShell width="wide">
-      <header className="fade-up">
-        <p className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-          막혔을 때 쓰는 도구
-        </p>
-        <h1 className="mt-3 max-w-[680px] text-[27px] leading-[1.23] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[32px]">
-          프롬프트 목록이 아니라, 지금 상황에서 바로 꺼내는 해결책
-        </h1>
-        <p className="mt-3 max-w-[560px] text-[13.5px] leading-[1.6] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-          글을 대신 써주는 기능은 빼고, 학생이 직접 완성할 수 있게 구조·순서·체크포인트만 잡아줘요.
-        </p>
-      </header>
+    <div className="bg-[var(--color-apple-pearl)]">
+      <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
+        {/* Top bar */}
+        <header className="fade-up flex items-baseline justify-between gap-3">
+          <p
+            className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            도구
+          </p>
+          <Link
+            href="/dashboard"
+            className="group inline-flex items-baseline text-[12px] wght-450 text-[var(--color-apple-action)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            <span className="border-b border-transparent group-hover:border-[var(--color-apple-action)]">
+              내 캠퍼스
+            </span>
+            <span className="ml-0.5">›</span>
+          </Link>
+        </header>
 
-      <SituationBoard className="mt-7 fade-up fade-up-1" wizards={urgent} />
+        {/* Hero */}
+        <header className="mt-10 fade-up fade-up-1 sm:mt-14">
+          <h1
+            className="max-w-[820px] text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[48px] md:text-[56px]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            막혔을 때 꺼내는 <span className="text-[var(--color-apple-muted)]">12개 도구.</span>
+          </h1>
+          <p
+            className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
+            style={{ letterSpacing: "-0.022em" }}
+          >
+            글을 대신 써주는 게 아니라, 직접 완성할 수 있도록 구조·순서·체크포인트만 잡아드려요.
+          </p>
+        </header>
 
-      <Filters
-        className="mt-9 fade-up fade-up-2"
-        active={filter}
-        onChange={setFilter}
-      />
+        {/* 이번 주 자주 막히는 순간 — Bento 3 */}
+        <UrgentBoard wizards={urgent} className="mt-12 fade-up fade-up-2 sm:mt-14" />
 
-      <ToolList className="mt-5 fade-up fade-up-3" wizards={filtered} />
+        {/* 필터 + 리스트 */}
+        <section className="mt-16 fade-up fade-up-3 sm:mt-20">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2
+              className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              모든 도구.
+            </h2>
+            <span
+              className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              {filtered.length}개
+            </span>
+          </div>
 
-      <PageFooter>
-        결과물은 학습 보조용이에요. 리포트·자기소개서 본문을 대신 쓰는 도구는 만들지 않아요.
-      </PageFooter>
-    </PageShell>
+          <Filters active={filter} onChange={setFilter} className="mt-6" />
+
+          <ToolList wizards={filtered} className="mt-6" />
+        </section>
+      </div>
+    </div>
   );
 }
 
-function SituationBoard({
-  wizards,
-  className,
-}: {
-  wizards: Wizard[];
-  className?: string;
-}) {
+/* ──────────── 이번 주 자주 막히는 순간 ──────────── */
+
+function UrgentBoard({ wizards, className }: { wizards: Wizard[]; className?: string }) {
   return (
     <section className={className}>
-      <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-        이번 주 가장 많이 막히는 순간
+      <h2 className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+        이번 주 자주 막히는 순간
       </h2>
-      <ul className="mt-3 grid grid-cols-1 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] sm:grid-cols-3">
-        {wizards.map((wizard) => (
-          <li key={wizard.slug} className="border-b border-[var(--color-line)] last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
-            <SituationLink wizard={wizard} />
-          </li>
+      <div className="mt-6 grid gap-4 sm:grid-cols-3 sm:gap-5">
+        {wizards.map((w) => (
+          <UrgentCard key={w.slug} wizard={w} />
         ))}
-      </ul>
+      </div>
     </section>
   );
 }
 
-function SituationLink({ wizard }: { wizard: Wizard }) {
+function UrgentCard({ wizard }: { wizard: Wizard }) {
+  const dotColor = CATEGORY[wizard.category];
+
   return (
     <Link
       href={wizardHref(wizard)}
-      className="group flex h-full min-h-[118px] flex-col justify-between px-4 py-4 transition-colors hover:bg-[var(--color-bg)]"
+      className="group flex min-h-[200px] flex-col justify-between rounded-[18px] bg-white p-7 transition-transform duration-300 hover:-translate-y-0.5"
     >
       <div>
-        <span className="inline-flex items-center gap-1.5 text-[11px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-          <Dot color={CATEGORY[wizard.category]} size={5} />
-          {wizard.category}
-        </span>
-        <p className="mt-2 text-[14.5px] leading-[1.35] wght-620 kerning-tight text-[var(--color-fg-strong)]">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
+          <span
+            className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {wizard.category}
+          </span>
+        </div>
+        <h3
+          className="mt-3 text-[22px] leading-[1.15] wght-620 text-[var(--color-apple-ink)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
           {wizard.title}
+        </h3>
+        <p
+          className="mt-2 text-[13px] leading-[1.5] wght-450 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.022em" }}
+        >
+          {wizard.situation}
         </p>
       </div>
-      <div className="mt-4 flex items-baseline justify-between gap-3">
-        <span className="truncate text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
-          {wizard.minutes}분 안에 틀 잡기
+
+      <div className="mt-6 flex items-baseline justify-between">
+        <span
+          className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          {wizard.minutes}분 안에
         </span>
-        <Arrow className="text-[12px] text-[var(--color-fg-subtle)] transition-transform group-hover:translate-x-0.5" />
+        <span className="text-[14px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
+          ›
+        </span>
       </div>
     </Link>
   );
 }
+
+/* ──────────── Filters ──────────── */
 
 function Filters({
   className,
@@ -239,10 +293,11 @@ function Filters({
 }) {
   return (
     <nav className={className}>
-      <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
+      <ul className="flex flex-wrap gap-1.5">
         {FILTERS.map((f) => {
           const isActive = f === active;
-          const count = f === "전체" ? WIZARDS.length : WIZARDS.filter((w) => w.category === f).length;
+          const count =
+            f === "전체" ? WIZARDS.length : WIZARDS.filter((w) => w.category === f).length;
           return (
             <li key={f}>
               <button
@@ -251,12 +306,19 @@ function Filters({
                 aria-pressed={isActive}
                 className={
                   isActive
-                    ? "inline-flex items-baseline gap-1.5 rounded-full bg-[var(--color-fg-strong)] px-3 py-1.5 text-[12.5px] wght-560 kerning-tight text-white"
-                    : "inline-flex items-baseline gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] wght-450 kerning-tight text-[var(--color-fg-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-fg)]"
+                    ? "inline-flex h-[32px] items-center gap-1.5 rounded-full bg-[var(--color-apple-ink)] px-3.5 text-[13px] wght-560 text-white"
+                    : "inline-flex h-[32px] items-center gap-1.5 rounded-full border border-[var(--color-apple-hairline-soft)] bg-white px-3.5 text-[13px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-hairline)] hover:text-[var(--color-apple-ink)]"
                 }
+                style={{ letterSpacing: "-0.012em" }}
               >
                 {f}
-                <span className={isActive ? "tabular-nums text-white/60" : "tabular-nums text-[var(--color-fg-subtle)]"}>
+                <span
+                  className={
+                    isActive
+                      ? "tabular-nums text-white/60"
+                      : "tabular-nums text-[var(--color-apple-muted)]"
+                  }
+                >
                   {count}
                 </span>
               </button>
@@ -268,54 +330,66 @@ function Filters({
   );
 }
 
-function ToolList({
-  className,
-  wizards,
-}: {
-  className?: string;
-  wizards: Wizard[];
-}) {
+/* ──────────── Tool List ──────────── */
+
+function ToolList({ className, wizards }: { className?: string; wizards: Wizard[] }) {
   return (
-    <section className={className}>
-      <ul className="border-t border-[var(--color-line)]">
-        {wizards.map((wizard) => (
-          <li key={wizard.slug}>
-            <ToolRow wizard={wizard} />
-          </li>
-        ))}
-      </ul>
-    </section>
+    <ul className={`grid gap-3 sm:grid-cols-2 ${className ?? ""}`}>
+      {wizards.map((w) => (
+        <li key={w.slug}>
+          <ToolCard wizard={w} />
+        </li>
+      ))}
+    </ul>
   );
 }
 
-function ToolRow({ wizard }: { wizard: Wizard }) {
+function ToolCard({ wizard }: { wizard: Wizard }) {
+  const dotColor = CATEGORY[wizard.category];
+
   return (
     <Link
       href={wizardHref(wizard)}
-      className="row-shift group flex items-baseline gap-3 border-b border-[var(--color-line)] py-3.5"
+      className="group flex h-full flex-col rounded-[12px] bg-white p-5 transition-transform duration-200 hover:-translate-y-0.5 sm:p-6"
     >
-      <Dot color={CATEGORY[wizard.category]} size={6} className="translate-y-[-1px]" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
-        <span className="text-[10.5px] wght-560 kerning-tight text-[var(--color-fg-subtle)] sm:w-[66px] sm:shrink-0">
-          {wizard.category}
-        </span>
-        <div className="min-w-0 flex-1">
-          <span className="block truncate text-[13.5px] wght-620 kerning-tight text-[var(--color-fg-strong)] sm:text-[14px]">
-            {wizard.title}
-          </span>
-          <span className="mt-0.5 block truncate text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
-            {wizard.situation}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+          <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+            {wizard.category}
           </span>
         </div>
-      </div>
-      <div className="flex shrink-0 items-baseline gap-2.5 self-baseline">
-        <span className="hidden text-[10.5px] wght-450 kerning-tight tabular-nums text-[var(--color-fg-subtle)] sm:inline">
+        <span
+          className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
           {wizard.minutes}분
         </span>
-        <span className="hidden max-w-[170px] truncate text-[10.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)] md:inline">
+      </div>
+
+      <h4
+        className="mt-3 text-[16px] leading-[1.3] wght-560 text-[var(--color-apple-ink)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        {wizard.title}
+      </h4>
+      <p
+        className="mt-1.5 text-[13px] leading-[1.5] wght-450 text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "-0.022em" }}
+      >
+        {wizard.situation}
+      </p>
+
+      <div className="mt-auto flex items-center justify-between pt-5">
+        <span
+          className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
           {wizard.output}
         </span>
-        <Arrow className="reveal-right text-[12px] text-[var(--color-fg-subtle)]" />
+        <span className="text-[14px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
+          ›
+        </span>
       </div>
     </Link>
   );

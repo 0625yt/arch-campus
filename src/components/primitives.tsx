@@ -25,21 +25,14 @@ export function Numeral({
     xl: { num: "text-[48px]", unit: "text-[16px]" },
   } as const;
   return (
-    <span
-      className={cn(
-        "inline-flex items-baseline tabular-nums kerning-tight",
-        className
-      )}
-    >
-      <span className={cn(sizes[size].num, "wght-560 leading-none")}>
-        {value}
-      </span>
+    <span className={cn("inline-flex items-baseline tabular-nums kerning-tight", className)}>
+      <span className={cn(sizes[size].num, "wght-560 leading-none")}>{value}</span>
       {unit && (
         <span
           className={cn(
             sizes[size].unit,
-            "ml-0.5 wght-450 text-[var(--color-fg-muted)]",
-            unitClassName
+            "ml-0.5 wght-450 text-[var(--color-apple-muted)]",
+            unitClassName,
           )}
         >
           {unit}
@@ -52,25 +45,14 @@ export function Numeral({
 /**
  * "5분 전", "방금" 같은 상대 시간. 정확한 시각이 필요하면 title로 fallback.
  */
-export function TimeStamp({
-  label,
-  title,
-  dot,
-}: {
-  label: string;
-  title?: string;
-  dot?: boolean;
-}) {
+export function TimeStamp({ label, title, dot }: { label: string; title?: string; dot?: boolean }) {
   return (
     <span
       title={title}
-      className="inline-flex items-center gap-1 text-[11px] wght-450 kerning-tight text-[var(--color-fg-subtle)] tabular-nums"
+      className="inline-flex items-center gap-1 text-[11px] wght-450 text-[var(--color-apple-muted)] tabular-nums"
     >
       {dot && (
-        <span
-          aria-hidden
-          className="h-1 w-1 rounded-full bg-[var(--color-fg-disabled)]"
-        />
+        <span aria-hidden className="h-1 w-1 rounded-full bg-[var(--color-apple-hairline)]" />
       )}
       {label}
     </span>
@@ -113,20 +95,14 @@ export function Dot({
       style={{
         width: size,
         height: size,
-        backgroundColor: color ?? "var(--color-fg-disabled)",
+        backgroundColor: color ?? "var(--color-apple-hairline)",
       }}
     />
   );
 }
 
 /** 가는 가로 진행률 라인 — 박스 X */
-export function ProgressLine({
-  value,
-  className,
-}: {
-  value: number;
-  className?: string;
-}) {
+export function ProgressLine({ value, className }: { value: number; className?: string }) {
   const pct = Math.min(100, Math.max(0, value * 100));
   return (
     <span
@@ -135,12 +111,12 @@ export function ProgressLine({
       aria-valuemin={0}
       aria-valuemax={100}
       className={cn(
-        "relative inline-block h-px w-full overflow-hidden bg-[var(--color-line)]",
-        className
+        "relative inline-block h-px w-full overflow-hidden bg-[var(--color-apple-hairline)]",
+        className,
       )}
     >
       <span
-        className="absolute inset-y-0 left-0 bg-[var(--color-fg-strong)]"
+        className="absolute inset-y-0 left-0 bg-[var(--color-apple-ink)]"
         style={{ width: `${pct}%` }}
       />
     </span>
@@ -150,7 +126,7 @@ export function ProgressLine({
 /** 키보드 단축키 표시 — Linear 톤 */
 export function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[4px] border border-[var(--color-line-strong)] bg-white px-1 text-[10px] wght-560 text-[var(--color-fg-muted)] tabular-nums">
+    <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[4px] border border-[var(--color-apple-hairline)] bg-white px-1 text-[10px] wght-560 text-[var(--color-apple-muted)] tabular-nums">
       {children}
     </kbd>
   );
@@ -159,10 +135,7 @@ export function Kbd({ children }: { children: React.ReactNode }) {
 /** 가는 섹션 구분 라인 — 카드 박스 대체 */
 export function Divider({ className }: { className?: string }) {
   return (
-    <div
-      aria-hidden
-      className={cn("h-px w-full bg-[var(--color-line)]", className)}
-    />
+    <div aria-hidden className={cn("h-px w-full bg-[var(--color-apple-hairline)]", className)} />
   );
 }
 
@@ -179,10 +152,7 @@ export function HighlightText({
 }) {
   return (
     <span
-      className={cn(
-        "relative inline-block wght-700 text-[var(--color-accent-strong)]",
-        className,
-      )}
+      className={cn("relative inline-block wght-700 text-[var(--color-accent-strong)]", className)}
     >
       <span
         aria-hidden

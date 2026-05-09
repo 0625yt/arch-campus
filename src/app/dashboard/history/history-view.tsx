@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { Arrow, Dot } from "@/components/primitives";
+import { useEffect, useMemo, useState } from "react";
 import { COURSE_COLOR } from "@/app/dashboard/study/data";
 import type { Activity, ActivityKind } from "./data";
 
@@ -45,33 +43,35 @@ export function HistoryView({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="자료·문제·위저드 검색"
-          className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] px-4 py-3 text-[14px] wght-450 kerning-tight text-[var(--color-fg)] placeholder:wght-380 placeholder:text-[var(--color-fg-disabled)] focus:border-[var(--color-fg-disabled)] focus-visible:outline-none"
+          className="w-full rounded-full border border-[var(--color-apple-hairline-soft)] bg-white px-5 py-3 text-[14px] wght-450 text-[var(--color-apple-ink)] placeholder:wght-450 placeholder:text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-hairline)] focus:border-[var(--color-apple-action)] focus-visible:outline-none"
+          style={{ letterSpacing: "-0.012em" }}
         />
       </div>
 
       {/* 필터 */}
-      <nav className="mt-4 -mx-1 flex flex-wrap gap-x-1 gap-y-2">
+      <nav className="mt-5 flex flex-wrap gap-1.5">
         {FILTERS.map((f) => {
           const active = filter === f;
-          const count = f === "전체" ? activities.length : counts[f as ActivityKind] ?? 0;
+          const count = f === "전체" ? activities.length : (counts[f as ActivityKind] ?? 0);
           return (
             <button
               key={f}
               type="button"
               onClick={() => setFilter(f)}
-              className={cn(
-                "inline-flex items-baseline gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] kerning-tight transition-colors",
+              className={
                 active
-                  ? "wght-560 bg-[var(--color-fg-strong)] text-white"
-                  : "wght-450 text-[var(--color-fg-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-fg)]"
-              )}
+                  ? "inline-flex h-[32px] items-center gap-1.5 rounded-full bg-[var(--color-apple-ink)] px-3.5 text-[13px] wght-560 text-white"
+                  : "inline-flex h-[32px] items-center gap-1.5 rounded-full border border-[var(--color-apple-hairline-soft)] bg-white px-3.5 text-[13px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-hairline)] hover:text-[var(--color-apple-ink)]"
+              }
+              style={{ letterSpacing: "-0.012em" }}
             >
               {f}
               <span
-                className={cn(
-                  "tabular-nums",
-                  active ? "text-white/60" : "text-[var(--color-fg-subtle)]"
-                )}
+                className={
+                  active
+                    ? "tabular-nums text-white/60"
+                    : "tabular-nums text-[var(--color-apple-muted)]"
+                }
               >
                 {count}
               </span>
@@ -82,20 +82,32 @@ export function HistoryView({
 
       {/* 결과 */}
       {filtered.length === 0 ? (
-        <Empty query={query} className="mt-10" />
+        <Empty query={query} className="mt-12" />
       ) : (
-        <div className="mt-8 flex flex-col gap-7">
+        <div className="mt-8 flex flex-col gap-9">
           {groups.map((g) => (
             <div key={g.label}>
-              <h3 className="text-[10.5px] wght-700 kerning-mono uppercase text-[var(--color-fg-subtle)]">
-                {g.label}
-                <span className="ml-2 wght-450 tabular-nums text-[var(--color-fg-disabled)]">
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+                  {g.label}
+                </h3>
+                <span
+                  className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+                  style={{ letterSpacing: "-0.012em" }}
+                >
                   {g.items.length}건
                 </span>
-              </h3>
-              <ul className="mt-2 border-t border-[var(--color-line)]">
-                {g.items.map((a) => (
-                  <li key={a.id}>
+              </div>
+              <ul className="mt-3 overflow-hidden rounded-[12px] border border-[var(--color-apple-hairline)] bg-white">
+                {g.items.map((a, idx) => (
+                  <li
+                    key={a.id}
+                    className={
+                      idx !== g.items.length - 1
+                        ? "border-b border-[var(--color-apple-hairline-soft)]"
+                        : ""
+                    }
+                  >
                     <Row activity={a} mounted={mounted} />
                   </li>
                 ))}
@@ -111,56 +123,69 @@ export function HistoryView({
 /* ─────────── row ─────────── */
 
 function Row({ activity, mounted }: { activity: Activity; mounted: boolean }) {
+  const dotColor = activity.course
+    ? COURSE_COLOR[activity.course as keyof typeof COURSE_COLOR]
+    : undefined;
+
   return (
     <Link
       href={activity.href}
-      className="row-shift group flex items-baseline gap-3 border-b border-[var(--color-line)] py-3 sm:py-3.5"
+      className="group grid grid-cols-[60px_1fr_auto] items-center gap-4 px-5 py-[18px] transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[64px_1fr_auto] sm:gap-5 sm:px-7"
     >
-      {/* kind label */}
-      <span className="shrink-0 text-[10px] wght-700 kerning-mono uppercase tabular-nums text-[var(--color-fg-subtle)] sm:w-[52px]">
+      <span className="text-[11px] wght-450 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
         {activity.kind}
       </span>
 
-      {activity.course && (
-        <span className="inline-flex shrink-0 items-center gap-1.5 sm:w-[88px]">
-          <Dot color={COURSE_COLOR[activity.course as keyof typeof COURSE_COLOR]} size={5} />
-          <span className="hidden text-[10.5px] wght-560 kerning-mono uppercase text-[var(--color-fg-subtle)] sm:inline">
-            {activity.course}
+      <span className="min-w-0">
+        <span className="flex items-center gap-2">
+          {dotColor && (
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: dotColor }}
+            />
+          )}
+          <span
+            className="truncate text-[14px] leading-[1.3] wght-560 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {activity.title}
           </span>
         </span>
-      )}
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[13.5px] wght-500 kerning-tight text-[var(--color-fg)] group-hover:text-[var(--color-fg-strong)] sm:text-[14px]">
-          {activity.title}
-        </span>
         {activity.meta && (
-          <span className="mt-0.5 truncate text-[11px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
+          <span
+            className="mt-1 block truncate text-[12px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.022em" }}
+          >
             {activity.meta}
           </span>
         )}
-      </div>
-
-      <div className="flex shrink-0 items-baseline gap-2.5 self-baseline">
         {activity.result && (
           <span
-            className={cn(
-              "hidden text-[10.5px] wght-560 kerning-mono uppercase sm:inline",
-              activity.result.tone === "good" && "text-[var(--color-success)]",
-              activity.result.tone === "bad" && "text-[var(--color-urgent)]",
-              activity.result.tone === "neutral" && "text-[var(--color-fg-subtle)]"
-            )}
+            className={`mt-1 inline-block text-[11px] wght-560 ${
+              activity.result.tone === "good"
+                ? "text-[var(--color-apple-success)]"
+                : activity.result.tone === "bad"
+                  ? "text-[var(--color-urgent)]"
+                  : "text-[var(--color-apple-muted)]"
+            }`}
+            style={{ letterSpacing: "-0.012em" }}
           >
             {activity.result.label}
           </span>
         )}
+      </span>
+
+      <div className="flex shrink-0 items-center gap-2">
         <span
           suppressHydrationWarning
-          className="text-[11px] wght-450 kerning-tight tabular-nums text-[var(--color-fg-subtle)]"
+          className="text-[12px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.012em" }}
         >
           {mounted ? relativeTime(activity.at) : ""}
         </span>
-        <Arrow className="reveal-right text-[12px] text-[var(--color-fg-subtle)]" />
+        <span className="text-[15px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
+          ›
+        </span>
       </div>
     </Link>
   );
@@ -170,11 +195,17 @@ function Row({ activity, mounted }: { activity: Activity; mounted: boolean }) {
 
 function Empty({ query, className }: { query: string; className?: string }) {
   return (
-    <div className={cn("py-10 text-center", className)}>
-      <p className="text-[14px] wght-560 kerning-tight text-[var(--color-fg)]">
+    <div className={`rounded-[18px] bg-white px-8 py-12 text-center ${className ?? ""}`}>
+      <p
+        className="text-[15px] wght-560 text-[var(--color-apple-ink)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
         {query ? `"${query}"에 해당하는 활동이 없어요` : "아직 활동이 없어요"}
       </p>
-      <p className="mt-1.5 text-[12px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
+      <p
+        className="mt-2 text-[13px] wght-450 text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "-0.022em" }}
+      >
         {query
           ? "다른 키워드로 검색해보거나 필터를 바꿔보세요"
           : "강의 자료를 올려서 첫 활동을 시작해보세요"}
@@ -201,10 +232,14 @@ function relativeTime(d: Date) {
 
 function groupByTime(items: Activity[]) {
   const now = new Date();
-  const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
-  const startOfYesterday = new Date(startOfToday); startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-  const startOfWeek = new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate() - 7);
-  const startOfLastWeek = new Date(startOfToday); startOfLastWeek.setDate(startOfLastWeek.getDate() - 14);
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  const startOfWeek = new Date(startOfToday);
+  startOfWeek.setDate(startOfWeek.getDate() - 7);
+  const startOfLastWeek = new Date(startOfToday);
+  startOfLastWeek.setDate(startOfLastWeek.getDate() - 14);
 
   const buckets: { label: string; items: Activity[] }[] = [
     { label: "오늘", items: [] },

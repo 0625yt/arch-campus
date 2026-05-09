@@ -1,52 +1,52 @@
 import Link from "next/link";
-import { Arrow, HighlightText } from "@/components/primitives";
-import { PageShell, PageFooter } from "@/components/page-shell";
 import { Wizard } from "./wizard";
 
 export default function PresentationWizardPage() {
   return (
-    <PageShell width="narrow">
-      <header className="fade-up flex items-baseline justify-between gap-3 text-[12px] wght-450 kerning-tight">
-        <Link
-          href="/dashboard/tools"
-          className="group inline-flex items-baseline gap-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-        >
-          <Arrow
-            variant="right"
-            className="rotate-180 text-[12px] transition-transform group-hover:-translate-x-0.5"
-          />
-          위저드 목록
-        </Link>
-        <span className="text-[var(--color-fg-subtle)]">발표 · 5단계</span>
-      </header>
+    <div className="bg-[var(--color-apple-pearl)]">
+      <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
+        {/* Top bar */}
+        <header className="fade-up flex items-baseline justify-between gap-3">
+          <Link
+            href="/dashboard/tools"
+            className="group inline-flex items-baseline gap-1 text-[12px] wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            <span className="transition-transform group-hover:-translate-x-0.5">‹</span>
+            도구
+          </Link>
+          <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+            발표 · 5단계
+          </span>
+        </header>
 
-      <Intro className="mt-10 fade-up fade-up-1 sm:mt-14" />
+        {/* Hero */}
+        <section className="mt-10 fade-up fade-up-1 sm:mt-14">
+          <p
+            className="text-[12px] wght-560 uppercase tracking-[0.06em]"
+            style={{ color: "var(--color-apple-cobalt)" }}
+          >
+            발표자료 구조화
+          </p>
+          <h1
+            className="mt-3 text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[44px] md:text-[52px]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            5단계로 답하면 <span className="text-[var(--color-apple-muted)]">발표 한 세트가</span>{" "}
+            만들어져요.
+          </h1>
+          <p
+            className="mt-4 max-w-[560px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
+            style={{ letterSpacing: "-0.022em" }}
+          >
+            슬라이드 구조 · 발표 대본 · 예상 질문까지. 평균 2분 안쪽.
+          </p>
+        </section>
 
-      <div className="mt-12 fade-up fade-up-2 sm:mt-14">
-        <Wizard />
+        <div className="mt-12 fade-up fade-up-2 sm:mt-14">
+          <Wizard />
+        </div>
       </div>
-
-      <PageFooter>
-        결과물은 학습 보조용이에요. 발표 전에 본인이 한 번 검토하고 다듬어 주세요.
-      </PageFooter>
-    </PageShell>
-  );
-}
-
-function Intro({ className }: { className?: string }) {
-  return (
-    <section className={className}>
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1 text-[10.5px] wght-700 kerning-mono uppercase text-[var(--color-accent-strong)]">
-        발표자료 구조화
-      </span>
-      <h1 className="mt-5 text-[28px] leading-[1.25] kerning-tight sm:text-[32px] md:text-[36px]">
-        <span className="wght-700 text-[var(--color-fg-strong)]">5단계로 답하면 </span>
-        <HighlightText>발표 한 세트</HighlightText>
-        <span className="wght-700 text-[var(--color-fg-strong)]">가 만들어져요</span>
-      </h1>
-      <p className="mt-3 text-[14px] wght-450 kerning-tight text-[var(--color-fg-muted)] sm:text-[15px]">
-        슬라이드 구조 · 발표 대본 · 예상 질문까지. 평균 2분 안쪽.
-      </p>
-    </section>
+    </div>
   );
 }

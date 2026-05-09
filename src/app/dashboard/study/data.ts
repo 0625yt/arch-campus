@@ -91,7 +91,7 @@ export const COURSES: Course[] = [
           {
             kind: "callout",
             tone: "highlight",
-            text: "교수님이 시험에 자주 내는 포인트 — Peterson은 \"왜 두 프로세스만 되는가\". 답: turn 변수가 단일 정수라서.",
+            text: '교수님이 시험에 자주 내는 포인트 — Peterson은 "왜 두 프로세스만 되는가". 답: turn 변수가 단일 정수라서.',
           },
           { kind: "h2", text: "세마포어와 뮤텍스" },
           {
@@ -119,7 +119,7 @@ export const COURSES: Course[] = [
           {
             kind: "callout",
             tone: "warn",
-            text: "흔한 실수 — \"선점 가능\"이 4조건 중 하나라고 답하는 경우. 정답은 \"비선점\". 헷갈리지 말 것.",
+            text: '흔한 실수 — "선점 가능"이 4조건 중 하나라고 답하는 경우. 정답은 "비선점". 헷갈리지 말 것.',
           },
           { kind: "h2", text: "예방 전략" },
           {
@@ -336,7 +336,7 @@ export const COURSES: Course[] = [
           { kind: "h2", text: "함수 종속 (Functional Dependency)" },
           {
             kind: "para",
-            text: "X → Y는 \"X가 같으면 Y도 같다\"는 의미. 후보키와 비키 속성 간의 관계를 정의하는 핵심 개념. 정규화는 결국 함수 종속을 깔끔하게 정리하는 작업이다.",
+            text: 'X → Y는 "X가 같으면 Y도 같다"는 의미. 후보키와 비키 속성 간의 관계를 정의하는 핵심 개념. 정규화는 결국 함수 종속을 깔끔하게 정리하는 작업이다.',
           },
           { kind: "h2", text: "1NF → 2NF → 3NF" },
           {
@@ -350,7 +350,7 @@ export const COURSES: Course[] = [
           {
             kind: "callout",
             tone: "warn",
-            text: "헷갈리기 쉬운 부분 — 2NF는 \"복합키\"가 있을 때만 의미가 있다. 단일키면 자동으로 2NF.",
+            text: '헷갈리기 쉬운 부분 — 2NF는 "복합키"가 있을 때만 의미가 있다. 단일키면 자동으로 2NF.',
           },
           { kind: "h2", text: "BCNF" },
           {
@@ -395,7 +395,7 @@ export const COURSES: Course[] = [
         summary: [
           {
             kind: "para",
-            text: "큰 문제를 작은 부분 문제로 나누어 풀고, 그 결과를 저장해 재사용하는 기법. 분할 정복과 다른 점은 \"부분 문제가 겹친다(overlapping)\"는 점.",
+            text: '큰 문제를 작은 부분 문제로 나누어 풀고, 그 결과를 저장해 재사용하는 기법. 분할 정복과 다른 점은 "부분 문제가 겹친다(overlapping)"는 점.',
           },
           { kind: "h2", text: "DP가 가능한 조건" },
           {

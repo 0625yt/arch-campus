@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { BookOpenCheck, ShieldCheck, TimerReset } from "lucide-react";
-import { Arrow, Dot, ProgressLine } from "@/components/primitives";
-import { PageShell, PageFooter, EmptyState } from "@/components/page-shell";
-import { COURSES, COURSE_COLOR, type Course } from "./data";
+import { ACTIVITIES, type Activity } from "../history/data";
+import { COURSE_COLOR, COURSES, type Course } from "./data";
 
 type CourseSignal = {
   course: Course;
@@ -12,9 +10,7 @@ type CourseSignal = {
   accuracy: number;
   remaining: number;
   fresh: number;
-  risk: "high" | "medium" | "low";
-  nextLabel: string;
-  nextHref: string;
+  topKeywords: string[];
 };
 
 function courseHref(course: Course) {
@@ -35,13 +31,7 @@ function getSignal(course: Course): CourseSignal {
   const fresh = course.materials.filter((m) => m.problems.done === 0).length;
   const remaining = Math.max(0, total - done);
   const accuracy = done > 0 ? Math.round((correct / done) * 100) : 0;
-  const weak = done > 0 && accuracy < 75;
-  const risk: CourseSignal["risk"] =
-    remaining >= 10 || weak ? "high" : remaining >= 4 || fresh > 0 ? "medium" : "low";
-
-  let nextLabel = "요약 다시 보기";
-  if (remaining > 0) nextLabel = `${remaining}문제 풀기`;
-  if (fresh > 0) nextLabel = "새 자료 정리";
+  const topKeywords = course.keywords?.slice(0, 3).map((k) => k.name) ?? [];
 
   return {
     course,
@@ -51,339 +41,544 @@ function getSignal(course: Course): CourseSignal {
     accuracy,
     remaining,
     fresh,
-    risk,
-    nextLabel,
-    nextHref: resumeHref(course),
+    topKeywords,
   };
 }
 
-export default function StudyIndexPage() {
-  const signals = COURSES.map(getSignal).sort((a, b) => {
-    const order = { high: 0, medium: 1, low: 2 };
-    return order[a.risk] - order[b.risk] || b.remaining - a.remaining;
+/** 이번 주 임박 — 마감 가까운 자료 + 미완료 자료 우선 */
+function getThisWeekMaterials() {
+  const items: {
+    course: CourseSlug;
+    materialId: string;
+    title: string;
+    unit?: string;
+    keywords?: string[];
+    progress: number;
+    pages: number;
+    href: string;
+    badge: string;
+    badgeTone: "urgent" | "info" | "neutral";
+  }[] = [];
+
+  // 우선순위 1: 미완료 자료 (done < total)
+  COURSES.forEach((course) => {
+    course.materials
+      .filter((m) => m.problems.total > m.problems.done && m.problems.done > 0)
+      .forEach((m) => {
+        items.push({
+          course: course.slug,
+          materialId: m.id,
+          title: m.title,
+          unit: m.unit,
+          keywords: m.keywords,
+          progress: m.problems.done / m.problems.total,
+          pages: m.pages,
+          href: `/dashboard/study/${course.slug}/${m.id}`,
+          badge: `${m.problems.total - m.problems.done}문제 남음`,
+          badgeTone: "urgent" as const,
+        });
+      });
   });
+
+  // 우선순위 2: 새 자료 (done === 0)
+  COURSES.forEach((course) => {
+    course.materials
+      .filter((m) => m.problems.done === 0)
+      .forEach((m) => {
+        items.push({
+          course: course.slug,
+          materialId: m.id,
+          title: m.title,
+          unit: m.unit,
+          keywords: m.keywords,
+          progress: 0,
+          pages: m.pages,
+          href: `/dashboard/study/${course.slug}/${m.id}`,
+          badge: "새 자료",
+          badgeTone: "info" as const,
+        });
+      });
+  });
+
+  return items.slice(0, 4);
+}
+
+type CourseSlug = keyof typeof COURSE_COLOR;
+
+export default function StudyIndexPage() {
+  const signals = COURSES.map(getSignal);
+  const thisWeek = getThisWeekMaterials();
   const totalMaterials = COURSES.reduce((acc, c) => acc + c.materials.length, 0);
-  const totalRemaining = signals.reduce((acc, s) => acc + s.remaining, 0);
-  const primary = signals[0];
+  const totalDone = signals.reduce((acc, s) => acc + s.done, 0);
+  const totalProblems = signals.reduce((acc, s) => acc + s.total, 0);
+  const overallAccuracy =
+    totalDone > 0
+      ? Math.round((signals.reduce((acc, s) => acc + s.correct, 0) / totalDone) * 100)
+      : 0;
 
   return (
-    <PageShell width="md">
-      <header className="fade-up">
-        <p className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-          시험 준비실
-        </p>
-        <h1 className="mt-3 text-[27px] leading-[1.23] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[32px]">
-          자료를 모아두는 곳이 아니라, 시험 전까지 뭘 풀지 정하는 곳
-        </h1>
-        <p className="mt-3 max-w-[560px] text-[13.5px] leading-[1.6] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-          과목별 자료·문제·정답률을 한 줄로 보고, 밀린 과목부터 바로 이어서 시작해요.
-        </p>
-      </header>
+    <div className="bg-[var(--color-apple-pearl)]">
+      <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
+        {/* ─── Top bar ─────────────── */}
+        <header className="fade-up flex items-baseline justify-between gap-3">
+          <p
+            className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            공부
+          </p>
+          <Link
+            href="/dashboard"
+            className="group inline-flex items-baseline text-[12px] wght-450 text-[var(--color-apple-action)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            <span className="border-b border-transparent group-hover:border-[var(--color-apple-action)]">
+              내 캠퍼스
+            </span>
+            <span className="ml-0.5">›</span>
+          </Link>
+        </header>
 
-      {COURSES.length === 0 ? (
-        <EmptyState
-          className="mt-10 fade-up fade-up-1"
-          title="아직 등록된 강의가 없어요"
-          hint="강의계획서 PDF를 올리면 시험·과제 일정과 과목이 함께 정리돼요."
-          action={
-            <Link
-              href="/dashboard/calendar"
-              className="group inline-flex items-baseline gap-1.5 text-[14px] wght-560 kerning-tight text-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
-            >
-              강의계획서 올리기
-              <Arrow className="text-[13px] transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          }
-        />
-      ) : (
-        <>
-          <StudyBrief
-            className="mt-7 fade-up fade-up-1"
-            courseCount={COURSES.length}
-            materialCount={totalMaterials}
-            remaining={totalRemaining}
-          />
+        {/* ─── Hero ─────────────── */}
+        <header className="mt-10 fade-up fade-up-1 sm:mt-14">
+          <h1
+            className="max-w-[820px] text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[48px] md:text-[56px]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            이번 학기,{" "}
+            <span className="text-[var(--color-apple-muted)]">{COURSES.length} 강의.</span>
+          </h1>
+          <p
+            className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
+            style={{ letterSpacing: "-0.022em" }}
+          >
+            자료 {totalMaterials}개 · 문제 {totalDone}/{totalProblems} 풀이
+            {totalDone > 0 && ` · 정답률 ${overallAccuracy}%`}.
+          </p>
+        </header>
 
-          {primary && <PriorityBlock className="mt-8 fade-up fade-up-2" signal={primary} />}
+        {/* ─── 강의 Bento ─────────────── */}
+        <CourseBento signals={signals} className="mt-10 fade-up fade-up-2 sm:mt-12" />
 
-          <ExamMode className="mt-8 fade-up fade-up-3" />
+        {/* ─── 이번 주 임박 자료 ─────────────── */}
+        <ThisWeekMaterials items={thisWeek} className="mt-16 fade-up fade-up-3 sm:mt-20" />
 
-          <section className="mt-10 fade-up fade-up-4">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-                과목별 준비 상태
-              </h2>
-              <Link
-                href="/dashboard/calendar"
-                className="group inline-flex items-baseline gap-1 text-[11.5px] wght-500 kerning-tight text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]"
-              >
-                일정 보기
-                <Arrow className="text-[11px]" />
-              </Link>
-            </div>
-            <ul className="mt-3 border-t border-[var(--color-line)]">
-              {signals.map((signal) => (
-                <li key={signal.course.slug}>
-                  <CourseRow signal={signal} />
-                </li>
-              ))}
-            </ul>
-          </section>
+        {/* ─── 다시 보면 좋을 만한 ─────────────── */}
+        <ReviewSuggest signals={signals} className="mt-14 fade-up fade-up-4 sm:mt-16" />
 
-          <AddCourseNudge className="mt-8 fade-up fade-up-5" />
-        </>
-      )}
-
-      <PageFooter>
-        문제는 업로드한 자료에서 만들고, 출처 근거와 함께 확인하는 흐름으로 설계돼요.
-      </PageFooter>
-    </PageShell>
-  );
-}
-
-function StudyBrief({
-  courseCount,
-  materialCount,
-  remaining,
-  className,
-}: {
-  courseCount: number;
-  materialCount: number;
-  remaining: number;
-  className?: string;
-}) {
-  return (
-    <section className={className}>
-      <dl className="grid grid-cols-3 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)]">
-        <BriefItem label="과목" value={courseCount} />
-        <BriefItem label="자료" value={materialCount} />
-        <BriefItem label="남은 문제" value={remaining} urgent={remaining > 0} />
-      </dl>
-    </section>
-  );
-}
-
-function BriefItem({
-  label,
-  value,
-  urgent,
-}: {
-  label: string;
-  value: number;
-  urgent?: boolean;
-}) {
-  return (
-    <div className="border-r border-[var(--color-line)] px-4 py-3 last:border-r-0">
-      <dt className="text-[11px] wght-500 kerning-tight text-[var(--color-fg-subtle)]">
-        {label}
-      </dt>
-      <dd
-        className={
-          urgent
-            ? "mt-1 text-[20px] wght-700 kerning-tight tabular-nums text-[var(--color-urgent)]"
-            : "mt-1 text-[20px] wght-700 kerning-tight tabular-nums text-[var(--color-fg-strong)]"
-        }
-      >
-        {value}
-      </dd>
+        {/* ─── 최근 활동 ─────────────── */}
+        <RecentActivity className="mt-14 fade-up fade-up-5 sm:mt-16" />
+      </div>
     </div>
   );
 }
 
-function PriorityBlock({
-  signal,
-  className,
-}: {
-  signal: CourseSignal;
-  className?: string;
-}) {
+/* ──────────── Course Bento ──────────── */
+
+function CourseBento({ signals, className }: { signals: CourseSignal[]; className?: string }) {
   return (
     <section className={className}>
-      <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-        지금 밀리기 쉬운 과목
-      </h2>
-      <div className="mt-3 rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-soft)] sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Dot color={COURSE_COLOR[signal.course.slug]} size={7} />
-            <span className="text-[13px] wght-560 kerning-tight text-[var(--color-fg-muted)]">
-              {signal.course.slug}
-            </span>
-          </div>
-          <RiskLabel risk={signal.risk} />
-        </div>
-        <h3 className="mt-4 text-[22px] leading-[1.28] wght-700 kerning-tight text-[var(--color-fg-strong)]">
-          {signal.remaining > 0
-            ? `아직 ${signal.remaining}문제가 남아 있어요`
-            : "이번 주는 복습만 유지하면 돼요"}
-        </h3>
-        <p className="mt-2 text-[13px] leading-[1.6] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-          {signal.course.professor} · 정답률{" "}
-          <span className="tabular-nums text-[var(--color-fg)]">{signal.accuracy || 0}%</span>
-          {signal.fresh > 0 && (
-            <>
-              <span className="mx-1.5 text-[var(--color-line-strong)]">·</span>
-              새 자료 {signal.fresh}개
-            </>
-          )}
-        </p>
-        <ProgressLine
-          value={signal.total ? signal.done / signal.total : 0}
-          className="mt-5 max-w-[360px]"
-        />
-        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2">
-          <Link
-            href={signal.nextHref}
-            className="inline-flex min-h-[44px] items-center rounded-lg bg-[var(--color-fg-strong)] px-4 text-[13.5px] wght-560 kerning-tight text-white hover:bg-[var(--color-fg)]"
-          >
-            {signal.nextLabel}
-          </Link>
-          <Link
-            href={courseHref(signal.course)}
-            className="group inline-flex min-h-[44px] items-center gap-1.5 text-[13px] wght-500 kerning-tight text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-          >
-            과목 전체 보기
-            <Arrow className="text-[12px] transition-transform group-hover:translate-x-0.5" />
-          </Link>
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+        {signals.map((s) => (
+          <CourseCard key={s.course.slug} signal={s} />
+        ))}
       </div>
     </section>
   );
 }
 
-function ExamMode({ className }: { className?: string }) {
-  return (
-    <section className={className}>
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-subtle)]">
-          시험 12분 모드
-        </h2>
-        <span className="text-[11px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
-          D-4 · 운영체제 30%
-        </span>
-      </div>
-      <div className="mt-3 rounded-lg border border-[var(--color-line-strong)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-soft)] sm:p-6">
-        <div className="grid gap-5 md:grid-cols-[1fr_220px] md:items-end">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
-                <BookOpenCheck size={17} strokeWidth={2.1} />
-              </span>
-              <span className="text-[12px] wght-560 kerning-tight text-[var(--color-fg-muted)]">
-                교수님 강조 + 내 오답 합산
-              </span>
-            </div>
-            <h3 className="mt-4 max-w-[520px] text-[21px] leading-[1.28] wght-700 kerning-tight text-[var(--color-fg-strong)]">
-              시험 범위 전체 말고, 틀리면 크게 흔들리는 7문제만 먼저 풀어요
-            </h3>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <ConceptChip label="Peterson 한계" urgent />
-              <ConceptChip label="세마포어 wait/signal" />
-              <ConceptChip label="교착 상태 4조건" />
-            </div>
-          </div>
+function CourseCard({ signal }: { signal: CourseSignal }) {
+  const { course, total, done, accuracy, remaining, fresh, topKeywords } = signal;
+  const progress = total > 0 ? done / total : 0;
+  const dotColor = COURSE_COLOR[course.slug];
 
-          <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-4">
-            <div className="flex items-baseline justify-between gap-3 text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
-              <span>예상 회복</span>
-              <span className="tabular-nums text-[var(--color-fg)]">+18%</span>
-            </div>
-            <ProgressLine value={0.62} className="mt-3" />
-            <Link
-              href="/dashboard/study/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C/process-sync"
-              className="mt-4 inline-flex min-h-[40px] w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-fg-strong)] px-4 text-[13px] wght-560 kerning-tight text-white transition-colors hover:bg-[var(--color-fg)]"
-            >
-              <TimerReset size={15} strokeWidth={2.1} />
-              12분 시작
-            </Link>
-          </div>
-        </div>
-
-        <div className="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-2 border-t border-[var(--color-line)] pt-4 text-[11.5px] wght-450 kerning-tight text-[var(--color-fg-subtle)]">
-          <span className="inline-flex items-center gap-1.5">
-            <ShieldCheck size={13} strokeWidth={2} />
-            시험 직전에는 오답만 다시 보여줌
-          </span>
-          <span>자료 출처: 5주차 프로세스 동기화</span>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ConceptChip({ label, urgent }: { label: string; urgent?: boolean }) {
-  return (
-    <span
-      className={
-        urgent
-          ? "rounded-full bg-[var(--color-urgent-soft)] px-3 py-1.5 text-[11.5px] wght-700 kerning-tight text-[var(--color-urgent)]"
-          : "rounded-full bg-[var(--color-surface)] px-3 py-1.5 text-[11.5px] wght-560 kerning-tight text-[var(--color-fg-muted)]"
-      }
-    >
-      {label}
-    </span>
-  );
-}
-
-function CourseRow({ signal }: { signal: CourseSignal }) {
   return (
     <Link
-      href={signal.nextHref}
-      className="row-shift group flex items-baseline gap-3 border-b border-[var(--color-line)] py-3.5 text-[var(--color-fg)] hover:text-[var(--color-fg-strong)]"
+      href={resumeHref(course)}
+      className="group flex min-h-[280px] flex-col justify-between rounded-[18px] bg-white p-7 transition-transform duration-300 hover:-translate-y-0.5 sm:p-8"
     >
-      <Dot color={COURSE_COLOR[signal.course.slug]} size={6} className="translate-y-[-1px]" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
-        <span className="text-[13.5px] wght-620 kerning-tight text-[var(--color-fg-strong)] sm:w-[92px] sm:shrink-0">
-          {signal.course.slug}
-        </span>
-        <span className="min-w-0 truncate text-[13px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-          {signal.nextLabel}
-        </span>
+      <div>
+        <div className="flex items-center gap-2.5">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dotColor }} />
+          <span
+            className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {course.professor}
+          </span>
+        </div>
+
+        <h3
+          className="mt-4 text-[28px] leading-[1.05] wght-620 text-[var(--color-apple-ink)] sm:text-[32px]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          {course.slug}
+        </h3>
+
+        {/* 키워드 */}
+        {topKeywords.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {topKeywords.map((k) => (
+              <span
+                key={k}
+                className="rounded-full bg-[var(--color-apple-pearl)] px-2.5 py-1 text-[11px] wght-450 text-[var(--color-apple-muted)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                {k}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
-      <div className="flex shrink-0 items-baseline gap-2.5 self-baseline">
-        <span className="hidden text-[10.5px] wght-450 kerning-tight tabular-nums text-[var(--color-fg-subtle)] sm:inline">
-          {signal.done}/{signal.total || 0}
-        </span>
-        <RiskLabel risk={signal.risk} compact />
-        <Arrow className="reveal-right text-[12px] text-[var(--color-fg-subtle)]" />
+
+      {/* 하단 통계 */}
+      <div className="mt-6">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="flex items-baseline gap-1">
+            <span
+              className="text-[28px] leading-none wght-620 text-[var(--color-apple-ink)] tabular-nums"
+              style={{ letterSpacing: "-0.024em" }}
+            >
+              {course.materials.length}
+            </span>
+            <span
+              className="text-[13px] wght-450 text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              자료
+            </span>
+            {fresh > 0 && (
+              <span className="ml-1 text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]">
+                · {fresh} new
+              </span>
+            )}
+          </div>
+          <div
+            className="text-[13px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {done > 0 ? `${accuracy}%` : "—"}
+          </div>
+        </div>
+
+        {/* 진행률 */}
+        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-[var(--color-apple-hairline)]">
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.max(2, progress * 100)}%`,
+              backgroundColor: dotColor,
+            }}
+          />
+        </div>
+
+        <div className="mt-4 flex items-center justify-between">
+          <span
+            className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {remaining > 0 ? `${remaining}문제 남음` : done > 0 ? "전부 풀었어요" : "시작 전"}
+          </span>
+          <span className="text-[14px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
+            ›
+          </span>
+        </div>
       </div>
     </Link>
   );
 }
 
-function RiskLabel({
-  risk,
-  compact,
+/* ──────────── 이번 주 임박 자료 ──────────── */
+
+function ThisWeekMaterials({
+  items,
+  className,
 }: {
-  risk: CourseSignal["risk"];
-  compact?: boolean;
+  items: ReturnType<typeof getThisWeekMaterials>;
+  className?: string;
 }) {
-  const label = risk === "high" ? "위험" : risk === "medium" ? "주의" : "안정";
+  if (items.length === 0) return null;
+
   return (
-    <span
-      className={
-        risk === "high"
-          ? "text-[11px] wght-700 kerning-tight text-[var(--color-urgent)]"
-          : risk === "medium"
-            ? "text-[11px] wght-700 kerning-tight text-[var(--color-warn)]"
-            : "text-[11px] wght-560 kerning-tight text-[var(--color-success)]"
-      }
-    >
-      {compact ? label : `${label} 과목`}
-    </span>
+    <section className={className}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2
+          className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          이번 주 자료.
+        </h2>
+        <Link
+          href="/dashboard/calendar"
+          className="group inline-flex items-baseline text-[14px] wght-450 text-[var(--color-apple-action)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          <span className="border-b border-transparent group-hover:border-[var(--color-apple-action)]">
+            전체 일정
+          </span>
+          <span className="ml-1">›</span>
+        </Link>
+      </div>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        {items.map((item) => {
+          const dotColor = COURSE_COLOR[item.course];
+          return (
+            <Link
+              key={`${item.course}-${item.materialId}`}
+              href={item.href}
+              className="group flex flex-col rounded-[12px] bg-white p-6 transition-transform duration-200 hover:-translate-y-0.5"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
+                  <span
+                    className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+                    style={{ letterSpacing: "-0.012em" }}
+                  >
+                    {item.course}
+                  </span>
+                </div>
+                <span
+                  className={`text-[11px] wght-560 uppercase tracking-[0.06em] ${
+                    item.badgeTone === "urgent"
+                      ? "text-[var(--color-urgent)]"
+                      : "text-[var(--color-apple-action)]"
+                  }`}
+                >
+                  {item.badge}
+                </span>
+              </div>
+
+              <h4
+                className="mt-3 text-[16px] leading-[1.3] wght-560 text-[var(--color-apple-ink)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                {item.title}
+              </h4>
+
+              {item.unit && (
+                <p
+                  className="mt-1.5 text-[13px] wght-450 text-[var(--color-apple-muted)]"
+                  style={{ letterSpacing: "-0.022em" }}
+                >
+                  {item.unit} · {item.pages}쪽
+                </p>
+              )}
+
+              {item.keywords && item.keywords.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-1">
+                  {item.keywords.slice(0, 3).map((k) => (
+                    <span
+                      key={k}
+                      className="rounded-full bg-[var(--color-apple-pearl)] px-2 py-0.5 text-[10.5px] wght-450 text-[var(--color-apple-muted)]"
+                      style={{ letterSpacing: "-0.012em" }}
+                    >
+                      {k}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* 진행률 (있을 때만) */}
+              {item.progress > 0 && (
+                <div className="mt-4">
+                  <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--color-apple-hairline)]">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${item.progress * 100}%`,
+                        backgroundColor: dotColor,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-auto flex items-center pt-5">
+                <span
+                  className="text-[13px] wght-450 text-[var(--color-apple-action)] transition-transform group-hover:translate-x-0.5"
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  자료 열기 ›
+                </span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
-function AddCourseNudge({ className }: { className?: string }) {
+/* ──────────── 다시 보면 좋을 만한 ──────────── */
+
+function ReviewSuggest({ signals, className }: { signals: CourseSignal[]; className?: string }) {
+  // 정답률이 가장 낮은 강의를 추출 (mock)
+  const weakest = signals
+    .filter((s) => s.done > 0 && s.accuracy < 80)
+    .sort((a, b) => a.accuracy - b.accuracy)[0];
+
+  if (!weakest) return null;
+
+  const dotColor = COURSE_COLOR[weakest.course.slug];
+
+  return (
+    <section className={className}>
+      <h2
+        className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        다시 보면 좋을 만한.
+      </h2>
+
+      <Link
+        href={resumeHref(weakest.course)}
+        className="group mt-8 flex flex-col gap-6 rounded-[18px] bg-white p-7 transition-transform duration-300 hover:-translate-y-0.5 sm:flex-row sm:items-center sm:gap-8 sm:p-8"
+      >
+        {/* 좌 — 메시지 */}
+        <div className="flex-1">
+          <div className="flex items-center gap-2.5">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
+            <span
+              className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              {weakest.course.slug}
+            </span>
+          </div>
+          <h3
+            className="mt-3 text-[22px] leading-[1.2] wght-620 text-[var(--color-apple-ink)] sm:text-[26px]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {weakest.course.topConcepts?.[0]?.name ?? "핵심 개념"}을(를)
+            <br />한 번 더 보면 좋아요.
+          </h3>
+          <p
+            className="mt-3 text-[14px] leading-[1.5] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.022em" }}
+          >
+            지금 정답률 {weakest.accuracy}%, 자료에서 가장 자주 나온 개념인데 약해요.
+          </p>
+        </div>
+
+        {/* 우 — 큰 정답률 + CTA */}
+        <div className="flex shrink-0 items-end gap-5 sm:flex-col sm:items-end sm:gap-3">
+          <div className="flex items-baseline gap-1">
+            <span
+              className="text-[44px] leading-none wght-620 text-[var(--color-apple-ink)] tabular-nums sm:text-[56px]"
+              style={{ letterSpacing: "-0.024em" }}
+            >
+              {weakest.accuracy}
+            </span>
+            <span
+              className="text-[20px] wght-450 text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              %
+            </span>
+          </div>
+          <span
+            className="inline-flex h-[40px] items-center rounded-full bg-[var(--color-apple-action)] px-5 text-[14px] wght-560 text-white transition-colors duration-150 group-hover:bg-[var(--color-apple-action-hover)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            바로 풀어보기
+            <span className="ml-1.5 transition-transform group-hover:translate-x-0.5">›</span>
+          </span>
+        </div>
+      </Link>
+    </section>
+  );
+}
+
+/* ──────────── 최근 활동 ──────────── */
+
+function RecentActivity({ className }: { className?: string }) {
+  const recent = ACTIVITIES.slice(0, 6);
+
+  return (
+    <section className={className}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2
+          className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          최근 활동.
+        </h2>
+        <Link
+          href="/dashboard/history"
+          className="group inline-flex items-baseline text-[14px] wght-450 text-[var(--color-apple-action)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          <span className="border-b border-transparent group-hover:border-[var(--color-apple-action)]">
+            전체 기록
+          </span>
+          <span className="ml-1">›</span>
+        </Link>
+      </div>
+
+      <ul className="mt-8 overflow-hidden rounded-[12px] border border-[var(--color-apple-hairline)] bg-white">
+        {recent.map((a, idx) => (
+          <li
+            key={a.id}
+            className={
+              idx !== recent.length - 1 ? "border-b border-[var(--color-apple-hairline-soft)]" : ""
+            }
+          >
+            <ActivityRow activity={a} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ActivityRow({ activity }: { activity: Activity }) {
+  const dotColor = activity.course
+    ? COURSE_COLOR[activity.course as keyof typeof COURSE_COLOR]
+    : undefined;
+
   return (
     <Link
-      href="/dashboard/calendar"
-      className={`group flex items-baseline justify-between gap-3 border-y border-[var(--color-line)] py-3.5 ${className ?? ""}`}
+      href={activity.href}
+      className="group grid grid-cols-[60px_1fr_auto] items-center gap-4 px-5 py-[18px] transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[72px_1fr_auto] sm:gap-5 sm:px-7"
     >
-      <span className="text-[13px] wght-500 kerning-tight text-[var(--color-fg-muted)] group-hover:text-[var(--color-fg)]">
-        새 강의는 내 캠퍼스에서 강의계획서를 올리는 게 제일 빨라요
+      <span className="text-[11px] wght-450 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+        {activity.kind}
       </span>
-      <Arrow className="text-[12px] text-[var(--color-fg-subtle)] transition-transform group-hover:translate-x-0.5" />
+      <span className="min-w-0">
+        <span className="flex items-center gap-2">
+          {dotColor && (
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: dotColor }}
+            />
+          )}
+          <span
+            className="truncate text-[14px] leading-[1.3] wght-560 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {activity.title}
+          </span>
+        </span>
+        {activity.result && (
+          <span
+            className={`mt-1 block truncate text-[12px] wght-450 ${
+              activity.result.tone === "good"
+                ? "text-[var(--color-apple-success)]"
+                : activity.result.tone === "bad"
+                  ? "text-[var(--color-urgent)]"
+                  : "text-[var(--color-apple-muted)]"
+            }`}
+            style={{ letterSpacing: "-0.022em" }}
+          >
+            {activity.result.label}
+          </span>
+        )}
+      </span>
+      <span className="text-[15px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
+        ›
+      </span>
     </Link>
   );
 }

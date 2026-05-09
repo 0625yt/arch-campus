@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { SearchTrigger } from "@/components/search-trigger";
 import { MobileDrawer } from "@/components/mobile-drawer";
+import { SearchTrigger } from "@/components/search-trigger";
+import { cn } from "@/lib/utils";
 
 /* 자체 SVG icons — sidebar.tsx와 동일 톤 */
 function IconHome({ active }: { active?: boolean }) {
@@ -37,14 +37,26 @@ function IconToday({ active }: { active?: boolean }) {
         strokeWidth={active ? 1.7 : 1.4}
         fill={active ? "currentColor" : "none"}
       />
-      <circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth={1.2} opacity={active ? 0.5 : 0.35} />
+      <circle
+        cx="9"
+        cy="9"
+        r="6.5"
+        stroke="currentColor"
+        strokeWidth={1.2}
+        opacity={active ? 0.5 : 0.35}
+      />
     </svg>
   );
 }
 function IconStudy() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-      <path d="M3.5 4.5h7.5c1.1 0 1.8.7 1.8 1.7v8H5.3c-1 0-1.8-.7-1.8-1.7V4.5z" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round" />
+      <path
+        d="M3.5 4.5h7.5c1.1 0 1.8.7 1.8 1.7v8H5.3c-1 0-1.8-.7-1.8-1.7V4.5z"
+        stroke="currentColor"
+        strokeWidth={1.3}
+        strokeLinejoin="round"
+      />
       <path d="M3.5 4.5v10h9.3" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round" />
     </svg>
   );
@@ -52,16 +64,34 @@ function IconStudy() {
 function IconCalendar() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-      <rect x="3" y="4.4" width="12" height="10.4" rx="1.4" stroke="currentColor" strokeWidth={1.3} />
+      <rect
+        x="3"
+        y="4.4"
+        width="12"
+        height="10.4"
+        rx="1.4"
+        stroke="currentColor"
+        strokeWidth={1.3}
+      />
       <path d="M3 7.4h12" stroke="currentColor" strokeWidth={1.3} />
-      <path d="M6.5 3.2v2M11.5 3.2v2" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" />
+      <path
+        d="M6.5 3.2v2M11.5 3.2v2"
+        stroke="currentColor"
+        strokeWidth={1.3}
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 function IconTools() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-      <path d="M4 14l5.4-5.4M11.5 5.8l1.9-1.9 1.3 1.3-1.9 1.9-1.3-1.3z" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round" />
+      <path
+        d="M4 14l5.4-5.4M11.5 5.8l1.9-1.9 1.3 1.3-1.9 1.9-1.3-1.3z"
+        stroke="currentColor"
+        strokeWidth={1.3}
+        strokeLinejoin="round"
+      />
       <circle cx="4" cy="14" r="1.2" stroke="currentColor" strokeWidth={1.3} />
     </svg>
   );
@@ -77,17 +107,15 @@ const NAV = [
 
 export function MobileTopbar() {
   return (
-    <header className="sticky top-0 z-30 flex h-12 items-center justify-between gap-2 border-b border-[var(--color-line)] bg-[var(--color-bg)]/85 px-3 backdrop-blur-md md:hidden">
+    <header className="sticky top-0 z-30 flex h-12 items-center justify-between gap-2 border-b border-[var(--color-apple-hairline)] bg-white/85 px-3 backdrop-blur-md md:hidden">
       <div className="flex items-center gap-1">
         <MobileDrawer />
         <Link href="/dashboard" className="flex items-center gap-2 px-1">
-          <div className="relative flex h-5 w-5 items-center justify-center overflow-hidden rounded-[6px] bg-[var(--color-fg-strong)]">
+          <div className="relative flex h-5 w-5 items-center justify-center overflow-hidden rounded-[6px] bg-[var(--color-apple-ink)]">
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
             <span className="relative wght-700 text-[9.5px] text-white">a</span>
           </div>
-          <span className="wght-560 kerning-tight text-[14px] text-[var(--color-fg-strong)]">
-            arch
-          </span>
+          <span className="wght-560 text-[14px] text-[var(--color-apple-ink)]">arch</span>
         </Link>
       </div>
       <SearchTrigger variant="icon" />
@@ -100,7 +128,7 @@ export function MobileTabBar() {
 
   return (
     <nav
-      className="sticky bottom-0 z-30 border-t border-[var(--color-line)] bg-[var(--color-bg)]/95 backdrop-blur-md md:hidden"
+      className="sticky bottom-0 z-30 border-t border-[var(--color-apple-hairline)] bg-white/95 backdrop-blur-md md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="flex h-14 items-stretch">
@@ -116,17 +144,17 @@ export function MobileTabBar() {
                 href={href}
                 className={cn(
                   "group relative flex h-full min-h-[44px] flex-col items-center justify-center gap-0.5 transition-colors",
-                  "active:bg-[var(--color-surface)]",
+                  "active:bg-[var(--color-apple-pearl)]",
                   active
-                    ? "wght-560 text-[var(--color-fg-strong)]"
-                    : "wght-450 text-[var(--color-fg-subtle)]"
+                    ? "wght-560 text-[var(--color-apple-ink)]"
+                    : "wght-450 text-[var(--color-apple-muted)]",
                 )}
                 aria-current={active ? "page" : undefined}
               >
                 {active && (
                   <span
                     aria-hidden
-                    className="absolute left-1/2 top-0 h-[2px] w-7 -translate-x-1/2 rounded-b-full bg-[var(--color-fg-strong)]"
+                    className="absolute left-1/2 top-0 h-[2px] w-7 -translate-x-1/2 rounded-b-full bg-[var(--color-apple-ink)]"
                   />
                 )}
                 <Icon active={active} />

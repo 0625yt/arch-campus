@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Dot, ProgressLine } from "@/components/primitives";
-import { PageShell, PageFooter } from "@/components/page-shell";
 import { COURSE_COLOR, getMaterial, type SummaryBlock } from "../../data";
 import { GenerateButton } from "./generate-button";
 
@@ -17,152 +15,179 @@ export default async function MaterialDetailPage({
   if (!found) notFound();
 
   const { course, material } = found;
-  const pct =
-    material.problems.total > 0
-      ? material.problems.done / material.problems.total
-      : 0;
+  const dotColor = COURSE_COLOR[course.slug];
+  const pct = material.problems.total > 0 ? material.problems.done / material.problems.total : 0;
   const acc =
     material.problems.done > 0
       ? Math.round((material.problems.correct / material.problems.done) * 100)
       : 0;
 
   return (
-    <PageShell width="md">
-      {/* breadcrumb */}
-      <nav className="fade-up flex min-w-0 items-baseline gap-2 text-[12px] wght-450 kerning-tight">
-        <Link
-          href="/dashboard/study"
-          className="shrink-0 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+    <div className="bg-[var(--color-apple-pearl)]">
+      <div className="mx-auto w-full max-w-[920px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
+        {/* ─── Breadcrumb ─────────────── */}
+        <nav
+          className="fade-up flex min-w-0 items-center gap-1.5 text-[12px] wght-450 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.012em" }}
         >
-          강의
-        </Link>
-        <span className="shrink-0 text-[var(--color-line-strong)]">/</span>
-        <Link
-          href={`/dashboard/study/${course.slug}`}
-          className="inline-flex shrink-0 items-center gap-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-        >
-          <Dot color={COURSE_COLOR[course.slug]} size={5} />
-          {course.slug}
-        </Link>
-        <span className="shrink-0 text-[var(--color-line-strong)]">/</span>
-        <span className="min-w-0 truncate wght-560 text-[var(--color-fg-strong)]">
-          {material.title}
-        </span>
-      </nav>
+          <Link href="/dashboard/study" className="shrink-0 hover:text-[var(--color-apple-ink)]">
+            공부
+          </Link>
+          <span aria-hidden className="shrink-0 text-[var(--color-apple-hairline)]">
+            ›
+          </span>
+          <Link
+            href={`/dashboard/study/${course.slug}`}
+            className="inline-flex shrink-0 items-center gap-1.5 hover:text-[var(--color-apple-ink)]"
+          >
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+            {course.slug}
+          </Link>
+        </nav>
 
-      {/* 자료 헤더 — 타이틀 + 메타 + 우상단 액션 */}
-      <header className="mt-8 fade-up fade-up-1 flex flex-wrap items-start justify-between gap-x-5 gap-y-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[24px] leading-[1.25] kerning-tight wght-700 text-[var(--color-fg-strong)] sm:text-[28px] md:text-[30px]">
-            {material.title}
+        {/* ─── Hero ─────────────── */}
+        <header className="mt-10 fade-up fade-up-1 sm:mt-14">
+          <p
+            className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {material.unit ?? "자료"}
+          </p>
+          <h1
+            className="mt-3 text-[30px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[40px] sm:leading-[1.06] md:text-[44px]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {material.title}.
           </h1>
-          <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11.5px] wght-450 kerning-tight tabular-nums text-[var(--color-fg-subtle)]">
-            <span>{material.pages}p</span>
-            <span className="text-[var(--color-line-strong)]">·</span>
+
+          {/* 메타 라인 — 위계 정리 */}
+          <div
+            className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            <span className="tabular-nums">{material.pages}쪽</span>
+            <span className="text-[var(--color-apple-hairline)]">·</span>
             <span>{material.uploaded}</span>
             {material.problems.total > 0 && (
               <>
-                <span className="text-[var(--color-line-strong)]">·</span>
-                <span>
+                <span className="text-[var(--color-apple-hairline)]">·</span>
+                <span className="tabular-nums">
                   {material.problems.done}/{material.problems.total} 풂
                 </span>
                 {acc > 0 && (
-                  <>
-                    <span className="text-[var(--color-line-strong)]">·</span>
-                    <span>정답률 {acc}%</span>
-                  </>
+                  <span
+                    className={`tabular-nums wght-560 ${
+                      acc >= 80
+                        ? "text-[var(--color-apple-success)]"
+                        : acc >= 60
+                          ? "text-[var(--color-apple-ink)]"
+                          : "text-[var(--color-urgent)]"
+                    }`}
+                  >
+                    정답률 {acc}%
+                  </span>
                 )}
               </>
             )}
           </div>
-        </div>
-        {/* 헤더 우측 — 작은 버튼 */}
-        <div className="shrink-0 self-center">
-          <GenerateButton
-            variant="compact"
-            courseSlug={course.slug}
-            materialId={material.id}
-            materialTitle={material.title}
-          />
-        </div>
-      </header>
 
-      {material.problems.total > 0 && (
-        <ProgressLine value={pct} className="mt-4 max-w-[300px] fade-up fade-up-1" />
-      )}
+          {/* 진행률 바 */}
+          {material.problems.total > 0 && (
+            <div className="mt-4 h-1 w-full max-w-[320px] overflow-hidden rounded-full bg-[var(--color-apple-hairline)]">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${Math.max(2, pct * 100)}%`,
+                  backgroundColor: dotColor,
+                }}
+              />
+            </div>
+          )}
+        </header>
 
-      {/* 키워드 — 요약 위, 빠르게 훑기용 */}
-      {material.keywords && material.keywords.length > 0 && (
-        <section className="mt-8 fade-up fade-up-2">
-          <h2 className="text-[10.5px] wght-700 kerning-mono uppercase text-[var(--color-fg-subtle)]">
-            핵심 키워드
-          </h2>
-          <ul className="mt-2 flex flex-wrap gap-x-1.5 gap-y-1.5 text-[12.5px] wght-500 kerning-tight">
-            {material.keywords.map((k) => (
-              <li
-                key={k}
-                className="rounded-full border border-[var(--color-line)] px-2.5 py-1 text-[var(--color-fg-muted)]"
+        {/* ─── 키워드 ─────────────── */}
+        {material.keywords && material.keywords.length > 0 && (
+          <section className="mt-12 fade-up fade-up-2">
+            <h2 className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+              핵심 키워드
+            </h2>
+            <ul className="mt-3 flex flex-wrap gap-1.5">
+              {material.keywords.map((k) => (
+                <li key={k}>
+                  <span
+                    className="inline-block rounded-full bg-white px-3 py-1.5 text-[12px] wght-450 text-[var(--color-apple-ink)]"
+                    style={{ letterSpacing: "-0.012em" }}
+                  >
+                    {k}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* ─── 요약 본문 ─────────────── */}
+        {material.summary && material.summary.length > 0 && (
+          <section className="mt-14 fade-up fade-up-3 sm:mt-16">
+            <article className="rounded-[18px] bg-white px-7 py-9 sm:px-10 sm:py-12">
+              <SummaryBody blocks={material.summary} />
+            </article>
+          </section>
+        )}
+
+        {/* ─── Footer CTA ─────────────── */}
+        <section className="mt-14 fade-up fade-up-4 sm:mt-20">
+          <div className="rounded-[18px] bg-white px-7 py-9 sm:px-12 sm:py-12">
+            <div className="flex items-center gap-2.5">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
+              <p
+                className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+                style={{ letterSpacing: "-0.012em" }}
               >
-                {k}
-              </li>
-            ))}
-          </ul>
+                요약을 다 읽으셨다면
+              </p>
+            </div>
+            <h2
+              className="mt-3 text-[26px] leading-[1.12] wght-620 text-[var(--color-apple-ink)] sm:text-[34px]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              이제 직접 풀어보면서 점검해 봐요.
+            </h2>
+            <p
+              className="mt-4 max-w-[520px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)] sm:text-[15px]"
+              style={{ letterSpacing: "-0.022em" }}
+            >
+              객관식 · 주관식 · 서술형 중에 골라 문제를 만들 수 있어요. 모든 문제는 이 자료의
+              문장에서만 나와요.
+            </p>
+
+            <div className="mt-7">
+              <GenerateButton
+                variant="primary"
+                courseSlug={course.slug}
+                materialId={material.id}
+                materialTitle={material.title}
+              />
+            </div>
+          </div>
         </section>
-      )}
-
-      {/* 요약 본문 — 페이지의 주인공 */}
-      {material.summary && material.summary.length > 0 && (
-        <section className="mt-10 fade-up fade-up-3">
-          <h2 className="text-[10.5px] wght-700 kerning-mono uppercase text-[var(--color-fg-subtle)]">
-            요약
-          </h2>
-          <SummaryBody blocks={material.summary} className="mt-4" />
-        </section>
-      )}
-
-      {/* 푸터 액션 — 큰 버튼. 요약 다 읽고 자연스럽게 도착 */}
-      <section className="mt-12 fade-up fade-up-4 flex flex-wrap items-center gap-4 border-t border-[var(--color-line)] pt-8">
-        <div className="min-w-0 flex-1">
-          <p className="text-[15px] wght-560 kerning-tight text-[var(--color-fg-strong)] sm:text-[16px]">
-            요약 다 읽으셨어요?
-          </p>
-          <p className="mt-1 text-[12.5px] wght-450 kerning-tight text-[var(--color-fg-muted)]">
-            객관식·주관식·서술형 중에 골라 문제를 만들 수 있어요
-          </p>
-        </div>
-        <GenerateButton
-          variant="primary"
-          courseSlug={course.slug}
-          materialId={material.id}
-          materialTitle={material.title}
-        />
-      </section>
-
-      <PageFooter>
-        문제는 자료에 있는 문장으로만 만들어요. 출처 페이지·문단이 모든 문제에
-        붙어요.
-      </PageFooter>
-    </PageShell>
+      </div>
+    </div>
   );
 }
 
-/* ─────────── 요약 렌더러 — 노션 톤 ─────────── */
+/* ─────────── 요약 렌더러 — 노션 톤 + Apple ─────────── */
 
-function SummaryBody({
-  blocks,
-  className,
-}: {
-  blocks: SummaryBlock[];
-  className?: string;
-}) {
+function SummaryBody({ blocks }: { blocks: SummaryBlock[] }) {
   return (
-    <div className={className}>
+    <div>
       {blocks.map((b, i) => {
         if (b.kind === "h2") {
           return (
             <h3
               key={i}
-              className="mt-7 first:mt-0 text-[15.5px] wght-700 kerning-tight text-[var(--color-fg-strong)] sm:text-[16px]"
+              className="mt-9 first:mt-0 text-[19px] wght-620 text-[var(--color-apple-ink)] sm:text-[21px]"
+              style={{ letterSpacing: "-0.012em" }}
             >
               {b.text}
             </h3>
@@ -172,7 +197,8 @@ function SummaryBody({
           return (
             <p
               key={i}
-              className="mt-3 text-[14.5px] leading-[1.75] kerning-tight text-[var(--color-fg)] sm:text-[15px]"
+              className="mt-4 text-[15px] leading-[1.7] text-[var(--color-apple-ink)] sm:text-[16px]"
+              style={{ letterSpacing: "-0.012em" }}
             >
               {b.text}
             </p>
@@ -182,16 +208,15 @@ function SummaryBody({
           return (
             <ul
               key={i}
-              className="mt-3 flex flex-col gap-1.5 text-[14px] leading-[1.7] kerning-tight text-[var(--color-fg)] sm:text-[14.5px]"
+              className="mt-4 flex flex-col gap-2 text-[15px] leading-[1.65] text-[var(--color-apple-ink)] sm:text-[16px]"
+              style={{ letterSpacing: "-0.012em" }}
             >
               {b.items.map((item, j) => (
                 <li key={j} className="flex gap-3">
                   <span
                     aria-hidden
-                    className="shrink-0 select-none text-[var(--color-fg-disabled)]"
-                  >
-                    ·
-                  </span>
+                    className="mt-[10px] h-1 w-1 shrink-0 select-none rounded-full bg-[var(--color-apple-muted)]"
+                  />
                   <span>{item}</span>
                 </li>
               ))}
@@ -203,18 +228,15 @@ function SummaryBody({
         return (
           <aside
             key={i}
-            className={
-              isWarn
-                ? "mt-4 rounded-md border-l-2 border-[var(--color-warn)] bg-[var(--color-warn-soft)]/40 px-4 py-3"
-                : "mt-4 rounded-md border-l-2 border-[var(--color-accent)] bg-[var(--color-accent-soft)]/60 px-4 py-3"
-            }
+            className={`mt-5 rounded-[12px] px-5 py-4 ${
+              isWarn ? "bg-[var(--color-urgent-soft)]" : "bg-[var(--color-apple-pearl)]"
+            }`}
           >
             <p
-              className={
-                isWarn
-                  ? "text-[13px] leading-[1.6] kerning-tight wght-500 text-[var(--color-warn)] sm:text-[13.5px]"
-                  : "text-[13px] leading-[1.6] kerning-tight wght-500 text-[var(--color-accent-strong)] sm:text-[13.5px]"
-              }
+              className={`text-[14px] leading-[1.6] wght-450 ${
+                isWarn ? "text-[var(--color-urgent-strong)]" : "text-[var(--color-apple-ink)]"
+              }`}
+              style={{ letterSpacing: "-0.012em" }}
             >
               {b.text}
             </p>
