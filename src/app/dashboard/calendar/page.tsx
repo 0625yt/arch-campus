@@ -715,11 +715,8 @@ export default function CalendarPage() {
                                 clickEvent.stopPropagation();
                                 openEvent(event);
                               }}
-                              className="flex h-[15px] w-full items-center overflow-hidden rounded-[3px] px-[2px] text-left text-[9px] leading-none wght-620"
-                              style={{
-                                backgroundColor: hexToRgba(event.color, 0.22),
-                                color: event.color,
-                              }}
+                              className="flex h-[15px] w-full items-center overflow-hidden rounded-[3px] px-[2px] text-left text-[9px] leading-none wght-620 text-[var(--color-apple-ink)]"
+                              style={{ backgroundColor: hexToRgba(event.color, 0.22) }}
                             >
                               <span className="min-w-0 truncate" style={{ letterSpacing: "-0.04em" }}>
                                 {shortLabel(event.title)}
