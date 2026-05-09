@@ -669,7 +669,7 @@ export default function CalendarPage() {
                       }
                     }}
                     className={cn(
-                      "group relative flex cursor-pointer flex-col items-stretch gap-1 px-1.5 py-1.5 text-left transition-colors outline-none sm:px-2 sm:py-2",
+                      "group relative flex cursor-pointer flex-col items-stretch gap-1 px-0 py-1.5 text-left transition-colors outline-none sm:px-2 sm:py-2",
                       "focus-visible:ring-2 focus-visible:ring-[var(--color-apple-action)] focus-visible:ring-inset",
                       !lastCol && "border-r border-[var(--color-apple-hairline)]",
                       !lastRow && "border-b border-[var(--color-apple-hairline)]",
@@ -680,7 +680,7 @@ export default function CalendarPage() {
                     )}
                   >
                     {/* Day number */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between px-1.5 sm:px-0">
                       <span
                         className={cn(
                           "inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[12px] wght-620 tabular-nums transition-colors",
@@ -706,7 +706,7 @@ export default function CalendarPage() {
                     {/* Events — 모바일: 채워진 막대 (한컴 캘린더 스타일) / sm 이상: 텍스트 라벨 */}
                     {cellEvents.length > 0 && (
                       <>
-                        <div className="mt-1 flex flex-col gap-[2px] sm:hidden">
+                        <div className="mt-1 flex flex-col gap-[2px] px-px sm:hidden">
                           {cellEvents.slice(0, 3).map((event) => (
                             <button
                               key={event.id}
@@ -715,10 +715,13 @@ export default function CalendarPage() {
                                 clickEvent.stopPropagation();
                                 openEvent(event);
                               }}
-                              className="flex h-[15px] items-center overflow-hidden rounded-[3px] px-[3px] text-left text-[9.5px] leading-none wght-620 text-white"
-                              style={{ backgroundColor: event.color }}
+                              className="flex h-[15px] w-full items-center overflow-hidden rounded-[3px] px-[2px] text-left text-[9px] leading-none wght-620"
+                              style={{
+                                backgroundColor: hexToRgba(event.color, 0.22),
+                                color: event.color,
+                              }}
                             >
-                              <span className="min-w-0 truncate" style={{ letterSpacing: "-0.012em" }}>
+                              <span className="min-w-0 truncate" style={{ letterSpacing: "-0.04em" }}>
                                 {shortLabel(event.title)}
                               </span>
                             </button>
