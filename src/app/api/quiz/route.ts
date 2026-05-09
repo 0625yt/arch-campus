@@ -176,7 +176,7 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
       userInput: parsed.sanitizedText.trim().length > 0
         ? parsed.sanitizedText.slice(0, 60_000)
         : `[본문 자동 추출 실패 — 파일명 ${title} · 종류 ${typeField}]`,
-      maxTokens: 4096,
+      maxTokens: 8192,
       temperature: 0.4,
     });
   } catch (e) {

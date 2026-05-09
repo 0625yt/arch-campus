@@ -154,8 +154,22 @@ export function evidenceMatches(materialFullText: string, evidence: string): boo
 }
 
 export function parseModelJson<T>(schema: z.ZodType<T>, raw: string): T {
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  const body = (fenced ? fenced[1] : raw).trim();
+  const body = extractJsonBody(raw);
   const parsed = JSON.parse(body);
   return schema.parse(parsed);
+}
+
+function extractJsonBody(raw: string): string {
+  const trimmed = raw.trim();
+  // case 1: 정상 ```json ... ``` 펜스
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenced) return fenced[1].trim();
+  // case 2: 펜스 시작만 있고 닫힘 누락 (max_tokens 잘림 등) → ```json 이후부터
+  const fencedOpen = trimmed.match(/```(?:json)?\s*([\s\S]*)$/i);
+  if (fencedOpen) return fencedOpen[1].trim();
+  // case 3: 펜스 없이 평문 — 첫 { 부터 마지막 } 까지
+  const first = trimmed.indexOf("{");
+  const last = trimmed.lastIndexOf("}");
+  if (first !== -1 && last > first) return trimmed.slice(first, last + 1);
+  return trimmed;
 }

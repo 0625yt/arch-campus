@@ -110,4 +110,16 @@ describe("parseModelJson", () => {
     const schema = SummarizeOutput.pick({ watermark: true });
     expect(parseModelJson(schema, raw)).toEqual({ watermark: "이 자료는 학습 보조용이며" });
   });
+
+  it("handles fence with no closing (max_tokens truncation case)", () => {
+    const raw = '```json\n{"watermark":"이 자료는 학습 보조용이며"}';
+    const schema = SummarizeOutput.pick({ watermark: true });
+    expect(parseModelJson(schema, raw)).toEqual({ watermark: "이 자료는 학습 보조용이며" });
+  });
+
+  it("handles bare JSON without fence", () => {
+    const raw = '{"watermark":"이 자료는 학습 보조용이며"}';
+    const schema = SummarizeOutput.pick({ watermark: true });
+    expect(parseModelJson(schema, raw)).toEqual({ watermark: "이 자료는 학습 보조용이며" });
+  });
 });
