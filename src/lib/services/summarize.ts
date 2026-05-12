@@ -15,7 +15,7 @@ import { breakdown } from "@/lib/tokens";
  *   - 인증, 입력 파싱, 파일 업로드(파일 케이스), HTTP 응답 매핑
  *
  * 비용 가드:
- *   - maxTokens 2048 (요약 본문 1500자 정도 평균)
+ *   - maxTokens 6144 (skills-v2 풍부도 보강 — blocks 최대 40개·sourceQuote 인용 포함)
  *   - 분류기는 본문 60자 이상일 때만 호출 (메타만이면 스킵)
  *   - 같은 자료에 대해 강제 재요약은 호출자가 결정 (idempotency 안 함)
  */
@@ -92,7 +92,7 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
         input.sanitizedText.trim().length > 0
           ? input.sanitizedText.slice(0, 60_000)
           : `[본문 자동 추출 실패 — 파일명 ${input.title} · 종류 ${input.type}]`,
-      maxTokens: 2048,
+      maxTokens: 6144,
       temperature: 0.3,
     });
   } catch (e) {

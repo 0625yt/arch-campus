@@ -1,25 +1,47 @@
 import { z } from "zod";
 
+/**
+ * 요약 블록 — 모든 type에서 sourcePage·sourceQuote 선택 가능.
+ * 학생이 "이거 자료 몇 쪽에서 나왔지?" 확인할 수 있어야 신뢰됨 (skills-v2 §스킬 3).
+ */
+const SummaryBlockBase = {
+  /** 자료 본문 페이지 번호 — 추출 가능하면 박기 */
+  sourcePage: z.number().int().min(1).max(2000).nullable().optional(),
+  /** 자료 본문 substring 인용 (검증은 서비스 레이어가 권장) */
+  sourceQuote: z.string().max(400).nullable().optional(),
+};
+
 export const SummarizeOutput = z.object({
   leadSentence: z.string().min(10).max(200),
   blocks: z
     .array(
       z.discriminatedUnion("type", [
-        z.object({ type: z.literal("h2"), content: z.string().min(2).max(80) }),
-        z.object({ type: z.literal("para"), content: z.string().min(20).max(800) }),
+        z.object({
+          type: z.literal("h2"),
+          content: z.string().min(2).max(80),
+          ...SummaryBlockBase,
+        }),
+        z.object({
+          type: z.literal("para"),
+          content: z.string().min(20).max(800),
+          ...SummaryBlockBase,
+        }),
         z.object({
           type: z.literal("bullets"),
           items: z.array(z.string().min(2).max(300)).min(1).max(20),
+          ...SummaryBlockBase,
         }),
         z.object({
           type: z.literal("callout"),
           tone: z.enum(["info", "warn", "tip"]),
           content: z.string().min(10).max(600),
+          ...SummaryBlockBase,
         }),
       ]),
     )
-    .min(3)
-    .max(30),
+    // 최소 5 — 너무 짧은 요약이 안 나오게. 자료 짧으면 reviewSpots로 보충.
+    .min(5)
+    .max(40),
   keywords: z.array(z.string().min(1).max(60)).min(3).max(50),
   reviewSpots: z
     .array(

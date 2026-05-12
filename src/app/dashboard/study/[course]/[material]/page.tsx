@@ -265,14 +265,20 @@ function SummaryBlocks({ blocks }: { blocks: SummarizeOutputT["blocks"] }) {
   return (
     <div>
       {blocks.map((b, i) => {
+        const pageHint = "sourcePage" in b && b.sourcePage ? `p.${b.sourcePage}` : null;
         if (b.type === "h2") {
           return (
             <h3
               key={i}
-              className="mt-9 first:mt-0 text-[19px] wght-620 text-[var(--color-apple-ink)] sm:text-[21px]"
+              className="mt-9 flex items-baseline gap-2 first:mt-0 text-[19px] wght-620 text-[var(--color-apple-ink)] sm:text-[21px]"
               style={{ letterSpacing: "-0.012em" }}
             >
-              {b.content}
+              <span>{b.content}</span>
+              {pageHint && (
+                <span className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
+                  {pageHint}
+                </span>
+              )}
             </h3>
           );
         }
@@ -284,6 +290,11 @@ function SummaryBlocks({ blocks }: { blocks: SummarizeOutputT["blocks"] }) {
               style={{ letterSpacing: "-0.012em" }}
             >
               {b.content}
+              {pageHint && (
+                <span className="ml-1.5 text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
+                  ({pageHint})
+                </span>
+              )}
             </p>
           );
         }
@@ -300,7 +311,14 @@ function SummaryBlocks({ blocks }: { blocks: SummarizeOutputT["blocks"] }) {
                     aria-hidden
                     className="mt-[10px] h-1 w-1 shrink-0 select-none rounded-full bg-[var(--color-apple-muted)]"
                   />
-                  <span>{item}</span>
+                  <span>
+                    {item}
+                    {j === 0 && pageHint && (
+                      <span className="ml-1.5 text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
+                        ({pageHint})
+                      </span>
+                    )}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -321,6 +339,11 @@ function SummaryBlocks({ blocks }: { blocks: SummarizeOutputT["blocks"] }) {
               style={{ letterSpacing: "-0.012em" }}
             >
               {b.content}
+              {pageHint && (
+                <span className="ml-1.5 text-[11px] wght-450 tabular-nums opacity-70">
+                  ({pageHint})
+                </span>
+              )}
             </p>
           </aside>
         );
