@@ -19,6 +19,7 @@ export type ToolKind =
   | "wizard-exam"
   | "wizard-cram"
   | "syllabus-extract"
+  | "timetable-extract"
   | "post-mortem";
 
 export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
@@ -28,7 +29,8 @@ export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   "wizard-assignment": MODELS.sonnet,
   "wizard-exam": MODELS.sonnet,
   "wizard-cram": MODELS.haiku,
-  "syllabus-extract": MODELS.sonnet,
+  "syllabus-extract": MODELS.haiku,
+  "timetable-extract": MODELS.haiku,
   "post-mortem": MODELS.haiku,
 };
 

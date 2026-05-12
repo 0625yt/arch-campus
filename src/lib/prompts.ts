@@ -14,7 +14,7 @@ function read(path: string): string {
   return text;
 }
 
-export type PromptName = "summarize" | "quiz" | "presentation";
+export type PromptName = "summarize" | "quiz" | "presentation" | "syllabus" | "timetable";
 
 export function loadPrompt(name: PromptName): string {
   const persona = read(join(SHARED_DIR, "persona-schema.md"));

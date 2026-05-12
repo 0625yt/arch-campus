@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
-import { generate, estimateCost } from "@/lib/claude";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { classifyMaterial, classificationToContext, type Classification } from "@/lib/classify-material";
 import { parseDocument, ParserRejectedError } from "@/lib/parsers";
-import { loadPrompt } from "@/lib/prompts";
-import { parseModelJson, QuizOutput, type QuizOutputT } from "@/lib/schemas";
+import { runQuizGeneration, type Difficulty } from "@/lib/services/quiz";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { storeMaterialFile } from "@/lib/storage";
-import { breakdown } from "@/lib/tokens";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -18,7 +14,6 @@ interface QuizResponseOk {
   materialId: string;
   parser: string;
   pageCount?: number;
-  // 정답·해설은 풀이 끝나기 전엔 안 보냄 (사용자 무결성). hint는 OK.
   questions: Array<{
     id: number;
     difficulty: string;
@@ -35,7 +30,6 @@ interface QuizResponseOk {
     cacheReadTokens: number;
     cacheCreationTokens: number;
     costUsd: number;
-    tokenBudget: ReturnType<typeof breakdown>;
   };
 }
 
@@ -45,6 +39,10 @@ interface QuizResponseErr {
   reason?: string;
 }
 
+/**
+ * 신규 파일 업로드 + 첫 퀴즈. 라우트의 책임은 인증 + 파일 → materials 행까지.
+ * 모델 호출·검증·저장은 lib/services/quiz.ts에 위임.
+ */
 export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | QuizResponseErr>> {
   let ownerId: string;
   try {
@@ -75,8 +73,11 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
   const courseId = (form.get("courseId") ?? "") as string;
   const titleField = (form.get("title") ?? "") as string;
   const typeField = (form.get("type") ?? "lecture") as string;
-  const difficulty = (form.get("difficulty") ?? "보통") as "쉬움" | "보통" | "어려움";
-  const requestedCount = Math.min(Math.max(parseInt(String(form.get("count") ?? "5"), 10) || 5, 1), 10);
+  const difficulty = (form.get("difficulty") ?? "보통") as Difficulty;
+  const requestedCount = Math.min(
+    Math.max(parseInt(String(form.get("count") ?? "5"), 10) || 5, 1),
+    10,
+  );
 
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ ok: false, error: "file 필드가 비어있어요" }, { status: 400 });
@@ -98,7 +99,7 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
     );
   }
 
-  // 2. parse + sanitize (거절도 placeholder)
+  // 2. Parse
   let parsed: Awaited<ReturnType<typeof parseDocument>>;
   try {
     parsed = await parseDocument({
@@ -126,15 +127,18 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
   // 3. materials 행
   const admin = getAdminSupabase();
   const title = titleField || file.name.replace(/\.[^.]+$/, "");
+  const allowedTypes = ["lecture", "assignment", "exam", "team", "syllabus", "notice"] as const;
+  const safeType = (allowedTypes as readonly string[]).includes(typeField)
+    ? (typeField as (typeof allowedTypes)[number])
+    : "lecture";
+
   const { data: material, error: materialErr } = await admin
     .from("materials")
     .insert({
       owner_id: ownerId,
       course_id: courseId || null,
       title,
-      type: (["lecture", "assignment", "exam", "team", "syllabus", "notice"].includes(typeField)
-        ? typeField
-        : "lecture") as "lecture",
+      type: safeType,
       original_filename: uploaded.filename,
       mime_type: uploaded.mimeType,
       storage_path: uploaded.storagePath,
@@ -151,131 +155,35 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
     );
   }
 
-  // 4. 자료 분류 (Haiku 1차 판별)
-  const isMetadataOnly = !parsed.sanitizedText || parsed.sanitizedText.trim().length < 60;
-  let classification: Classification | null = null;
-  if (!isMetadataOnly) {
-    classification = await classifyMaterial({
-      title,
-      type: typeField,
-      fullText: parsed.sanitizedText,
-      pageCount: parsed.pageCount,
-      difficulty,
-    });
-  }
-
-  // 5. Claude 호출 (분류 힌트 주입)
-  const rulePrompt = loadPrompt("quiz");
-  const dynamicContext = buildDynamicContext({
-    title,
-    type: typeField,
-    difficulty,
-    requestedCount,
-    pageCount: parsed.pageCount,
-    isMetadataOnly,
-    parserWarnings: parsed.warnings,
-    classification,
-  });
-  const tokenBudget = breakdown({
-    rule: rulePrompt,
-    dynamic: dynamicContext,
-    user: parsed.sanitizedText,
-  });
-
-  let result: Awaited<ReturnType<typeof generate>>;
-  try {
-    result = await generate({
-      tool: "quiz",
-      rulePrompt,
-      dynamicContext,
-      userInput: parsed.sanitizedText.trim().length > 0
-        ? parsed.sanitizedText.slice(0, 60_000)
-        : `[본문 자동 추출 실패 — 파일명 ${title} · 종류 ${typeField}]`,
-      maxTokens: 8192,
-      temperature: 0.4,
-    });
-  } catch (e) {
-    await logGen({
-      ownerId,
-      materialId: material.id,
-      modelId: "claude-sonnet-4-6",
-      status: "error",
-      errorMessage: e instanceof Error ? e.message : String(e),
-    });
-    return NextResponse.json({ ok: false, error: "AI 호출 실패" }, { status: 502 });
-  }
-
-  // 5. JSON + Zod
-  let parsedQuiz: QuizOutputT;
-  try {
-    parsedQuiz = parseModelJson(QuizOutput, result.text);
-  } catch (e) {
-    await logGen({
-      ownerId,
-      materialId: material.id,
-      modelId: result.modelId,
-      usage: result.usage,
-      cost: estimateCost(result.usage, result.modelId),
-      status: "error",
-      errorMessage: `Zod 검증 실패: ${e instanceof Error ? e.message : String(e)}`,
-      payload: { rawText: result.text.slice(0, 4000) },
-    });
-    return NextResponse.json(
-      { ok: false, error: "AI 출력이 형식에 안 맞아요. 다시 시도해주세요." },
-      { status: 502 },
-    );
-  }
-
-  if (parsedQuiz.rejected) {
-    return NextResponse.json(
-      { ok: false, error: parsedQuiz.reason, reason: "rejected" },
-      { status: 422 },
-    );
-  }
-
-  // 6. quizzes 행 + generations 기록
-  const costUsd = estimateCost(result.usage, result.modelId);
-  const { data: quizRow, error: quizErr } = await admin
-    .from("quizzes")
-    .insert({
-      owner_id: ownerId,
-      material_id: material.id,
-      course_id: courseId || null,
-      title,
-      difficulty,
-      question_count: parsedQuiz.questions.length,
-      questions: parsedQuiz.questions,
-      watermark: parsedQuiz.watermark,
-      model_id: result.modelId,
-    })
-    .select("id")
-    .single();
-
-  if (quizErr || !quizRow) {
-    return NextResponse.json(
-      { ok: false, error: `quizzes 저장 실패: ${quizErr?.message ?? "unknown"}` },
-      { status: 500 },
-    );
-  }
-
-  await logGen({
+  // 4. 서비스 호출
+  const result = await runQuizGeneration({
     ownerId,
     materialId: material.id,
-    modelId: result.modelId,
-    usage: result.usage,
-    cost: costUsd,
-    status: "ok",
-    payload: { quizId: quizRow.id, questionCount: parsedQuiz.questions.length },
+    courseId: courseId || null,
+    title,
+    type: typeField,
+    fullText: parsed.text,
+    sanitizedText: parsed.sanitizedText,
+    pageCount: parsed.pageCount ?? null,
+    parserWarnings: parsed.warnings,
+    difficulty,
+    requestedCount,
   });
+
+  if (!result.ok) {
+    return NextResponse.json(
+      { ok: false, error: result.error, reason: result.status === 422 ? "rejected" : undefined },
+      { status: result.status },
+    );
+  }
 
   return NextResponse.json({
     ok: true,
-    quizId: quizRow.id,
+    quizId: result.quizId,
     materialId: material.id,
     parser: parsed.source,
     pageCount: parsed.pageCount,
-    // 정답·해설·증거는 빼고 보냄 (제출 후 공개). hint는 풀이 중에도 노출.
-    questions: parsedQuiz.questions.map((q) => ({
+    questions: result.quiz.questions.map((q) => ({
       id: q.id,
       difficulty: q.difficulty,
       topic: q.topic,
@@ -283,77 +191,14 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
       choices: q.choices,
       hint: q.hint,
     })),
-    total: parsedQuiz.questions.length,
-    watermark: parsedQuiz.watermark,
+    total: result.quiz.questions.length,
+    watermark: result.quiz.watermark,
     usage: {
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
       cacheReadTokens: result.usage.cacheReadTokens,
       cacheCreationTokens: result.usage.cacheCreationTokens,
-      costUsd,
-      tokenBudget,
+      costUsd: result.costUsd,
     },
   });
-}
-
-function buildDynamicContext(meta: {
-  title: string;
-  type: string;
-  difficulty: string;
-  requestedCount: number;
-  pageCount?: number;
-  isMetadataOnly: boolean;
-  parserWarnings: string[];
-  classification: Classification | null;
-}): string {
-  const lines: string[] = [
-    `자료 메타:`,
-    `- 제목: ${meta.title}`,
-    `- 종류: ${meta.type}`,
-    `- 요청 난이도: ${meta.difficulty}`,
-    `- 요청 문제 개수: ${meta.requestedCount}`,
-  ];
-  if (meta.pageCount) lines.push(`- 분량: ${meta.pageCount}쪽`);
-  if (meta.parserWarnings.length) lines.push(`- 파서 경고: ${meta.parserWarnings.join(", ")}`);
-  if (meta.classification) {
-    lines.push("", classificationToContext(meta.classification));
-  }
-  if (meta.isMetadataOnly) {
-    lines.push(
-      "",
-      "⚠ 본문 텍스트가 충분하지 않아요. 그래도 거절하지 말고:",
-      "- 자료 종류·제목 기준으로 일반적인 학습 점검 문제 만들어주세요",
-      "- evidence는 비울 수 있음 (메타만이라 substring 불가)",
-      "- reason 없이 questions 채워서 응답",
-    );
-  }
-  return lines.join("\n");
-}
-
-async function logGen(opts: {
-  ownerId: string;
-  materialId: string;
-  modelId: string;
-  usage?: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number };
-  cost?: number;
-  status: "ok" | "rejected" | "error";
-  errorMessage?: string;
-  payload?: Record<string, unknown>;
-}): Promise<void> {
-  const admin = getAdminSupabase();
-  const { error } = await admin.from("generations").insert({
-    owner_id: opts.ownerId,
-    material_id: opts.materialId,
-    tool: "quiz",
-    model_id: opts.modelId,
-    input_tokens: opts.usage?.inputTokens ?? 0,
-    output_tokens: opts.usage?.outputTokens ?? 0,
-    cache_read_tokens: opts.usage?.cacheReadTokens ?? 0,
-    cache_creation_tokens: opts.usage?.cacheCreationTokens ?? 0,
-    cost_usd: opts.cost ?? 0,
-    status: opts.status,
-    error_message: opts.errorMessage ?? null,
-    payload: opts.payload ?? {},
-  });
-  if (error) console.error("generations 기록 실패:", error.message);
 }

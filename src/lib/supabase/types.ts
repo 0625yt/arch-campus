@@ -48,6 +48,10 @@ export interface Database {
           target_grade: "A+" | "A" | "B+" | "B" | null;
           color: string | null;
           archived: boolean;
+          schedule: Json | null;
+          location: string | null;
+          term_start: string | null;
+          term_end: string | null;
           created_at: string;
         };
         Insert: {
@@ -58,8 +62,48 @@ export interface Database {
           target_grade?: "A+" | "A" | "B+" | "B" | null;
           color?: string | null;
           archived?: boolean;
+          schedule?: Json | null;
+          location?: string | null;
+          term_start?: string | null;
+          term_end?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["courses"]["Insert"]>;
+        Relationships: [];
+      };
+      events: {
+        Row: {
+          id: string;
+          owner_id: string;
+          course_id: string | null;
+          source_material_id: string | null;
+          kind: "exam" | "assignment" | "presentation" | "class" | "etc";
+          title: string;
+          notes: string | null;
+          starts_at: string;
+          ends_at: string | null;
+          all_day: boolean;
+          weight_percent: number | null;
+          confidence: number | null;
+          confirmed: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          course_id?: string | null;
+          source_material_id?: string | null;
+          kind: Database["public"]["Tables"]["events"]["Row"]["kind"];
+          title: string;
+          notes?: string | null;
+          starts_at: string;
+          ends_at?: string | null;
+          all_day?: boolean;
+          weight_percent?: number | null;
+          confidence?: number | null;
+          confirmed?: boolean;
+        };
+        Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
         Relationships: [];
       };
       materials: {
@@ -75,6 +119,10 @@ export interface Database {
           page_count: number | null;
           full_text: string | null;
           extracted_keywords: string[] | null;
+          summary_payload: Json | null;
+          summary_keywords: string[] | null;
+          summary_model_id: string | null;
+          last_summarized_at: string | null;
           uploaded_at: string;
         };
         Insert: {
@@ -89,6 +137,10 @@ export interface Database {
           page_count?: number | null;
           full_text?: string | null;
           extracted_keywords?: string[] | null;
+          summary_payload?: Json | null;
+          summary_keywords?: string[] | null;
+          summary_model_id?: string | null;
+          last_summarized_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["materials"]["Insert"]>;
         Relationships: [];

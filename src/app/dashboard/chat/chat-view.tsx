@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { COURSE_COLOR, COURSES } from "@/app/dashboard/study/data";
 
 type Role = "user" | "assistant";
 
@@ -22,6 +21,13 @@ type Message = {
   pending?: boolean;
 };
 
+interface ChatCourse {
+  id: string;
+  name: string;
+  color: string | null;
+  materialCount: number;
+}
+
 const COURSE_KEYWORDS: Record<string, string[]> = {
   운영체제: ["운영체제", "os", "프로세스", "스레드", "스케줄", "동기화"],
   자료구조: ["자료구조", "트리", "그래프", "스택", "큐", "해시"],
@@ -39,22 +45,24 @@ const TOOL_KEYWORDS: { match: string[]; href: string; label: string }[] = [
   { match: ["자기소개서", "자소서"], href: "/dashboard/tools", label: "자기소개서 위저드 (전체)" },
 ];
 
-function generateMockReply(input: string): { text: string; suggestions?: Suggestion[] } {
+function generateMockReply(
+  input: string,
+  courses: ChatCourse[],
+): { text: string; suggestions?: Suggestion[] } {
   const q = input.toLowerCase();
 
-  for (const c of COURSES) {
-    const keys = COURSE_KEYWORDS[c.slug] ?? [c.slug.toLowerCase()];
+  for (const c of courses) {
+    const keys = COURSE_KEYWORDS[c.name] ?? [c.name.toLowerCase()];
     if (keys.some((k) => q.includes(k))) {
       return {
-        text: `${c.slug} 관련해서 도와드릴게요. 지금 학기에 업로드된 자료가 ${c.materials.length}개 있어요. 어떤 걸 펼쳐볼까요?`,
+        text: `${c.name} 관련해서 도와드릴게요. 지금 학기에 업로드된 자료가 ${c.materialCount}개 있어요.`,
         suggestions: [
-          ...c.materials.slice(0, 2).map((m) => ({
-            label: m.title,
-            href: `/dashboard/study/${c.slug}/${m.id}`,
-            meta: c.slug,
-            dot: COURSE_COLOR[c.slug],
-          })),
-          { label: `${c.slug} 강의 페이지로`, href: `/dashboard/study/${c.slug}`, meta: "강의" },
+          {
+            label: `${c.name} 강의 페이지로`,
+            href: `/dashboard/study/${encodeURIComponent(c.name)}`,
+            meta: "강의",
+            dot: c.color ?? undefined,
+          },
         ],
       };
     }
@@ -103,10 +111,24 @@ export function ChatView() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [courses, setCourses] = useState<ChatCourse[]>([]);
 
   const listEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const submittedInitial = useRef(false);
+
+  useEffect(() => {
+    let aborted = false;
+    fetch("/api/courses")
+      .then((r) => r.json())
+      .then((j) => {
+        if (!aborted && j?.ok && Array.isArray(j.courses)) setCourses(j.courses);
+      })
+      .catch(() => {});
+    return () => {
+      aborted = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (submittedInitial.current) return;
@@ -143,7 +165,7 @@ export function ChatView() {
       setSubmitting(true);
 
       await new Promise((r) => setTimeout(r, 520));
-      const reply = generateMockReply(trimmed);
+      const reply = generateMockReply(trimmed, courses);
       setMessages((prev) =>
         prev.map((m) =>
           m.id === aid
@@ -153,7 +175,7 @@ export function ChatView() {
       );
       setSubmitting(false);
     },
-    [submitting],
+    [submitting, courses],
   );
 
   const onSubmit = (e: React.FormEvent) => {

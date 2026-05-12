@@ -3,10 +3,24 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ACTIVITIES } from "@/app/dashboard/history/data";
-import { COURSE_COLOR, COURSES } from "@/app/dashboard/study/data";
 import { Kbd } from "@/components/primitives";
 import { cn } from "@/lib/utils";
+
+interface PaletteCourse {
+  id: string;
+  name: string;
+  professor: string | null;
+  color: string | null;
+  materialCount: number;
+}
+
+interface PaletteActivity {
+  id: string;
+  kindLabel: string;
+  title: string;
+  detail: string | null;
+  href: string;
+}
 
 /* ─────────── command types ─────────── */
 
@@ -105,11 +119,30 @@ export function CommandPalette() {
     };
   }, [open]);
 
+  // 강의·최근 활동 fetch — 팔레트 열릴 때만
+  const [courses, setCourses] = useState<PaletteCourse[]>([]);
+  const [recent, setRecent] = useState<PaletteActivity[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    let aborted = false;
+    Promise.all([
+      fetch("/api/courses").then((r) => r.json()).catch(() => null),
+      fetch("/api/activity").then((r) => r.json()).catch(() => null),
+    ]).then(([c, a]) => {
+      if (aborted) return;
+      if (c?.ok && Array.isArray(c.courses)) setCourses(c.courses);
+      if (a?.ok && Array.isArray(a.activities)) setRecent(a.activities);
+    });
+    return () => {
+      aborted = true;
+    };
+  }, [open]);
+
   // 명령 빌드
   const allCommands = useMemo<Command[]>(() => {
     const list: Command[] = [];
 
-    // 페이지 이동
     for (const p of PAGES) {
       list.push({
         id: `page:${p.href}`,
@@ -121,37 +154,19 @@ export function CommandPalette() {
       });
     }
 
-    // 강의 이동
-    for (const c of COURSES) {
+    for (const c of courses) {
       list.push({
-        id: `course:${c.slug}`,
+        id: `course:${c.id}`,
         kind: "이동",
-        label: c.slug,
-        hint: `${c.materials.length}개 자료 · ${c.professor}`,
-        keywords: c.professor,
+        label: c.name,
+        hint: `${c.materialCount}개 자료${c.professor ? ` · ${c.professor}` : ""}`,
+        keywords: c.professor ?? "",
         meta: "강의",
-        dotColor: COURSE_COLOR[c.slug],
-        run: () => router.push(`/dashboard/study/${c.slug}`),
+        dotColor: c.color ?? "#7aa6d6",
+        run: () => router.push(`/dashboard/study/${encodeURIComponent(c.name)}`),
       });
     }
 
-    // 자료 이동
-    for (const c of COURSES) {
-      for (const m of c.materials) {
-        list.push({
-          id: `material:${c.slug}:${m.id}`,
-          kind: "이동",
-          label: m.title,
-          hint: m.oneLine,
-          keywords: `${c.slug} ${m.unit ?? ""}`,
-          meta: c.slug,
-          dotColor: COURSE_COLOR[c.slug],
-          run: () => router.push(`/dashboard/study/${c.slug}/${m.id}`),
-        });
-      }
-    }
-
-    // 액션 — 위저드
     for (const w of WIZARD_ACTIONS) {
       list.push({
         id: `action:${w.label}`,
@@ -163,22 +178,19 @@ export function CommandPalette() {
       });
     }
 
-    // 최근 활동 — 5개
-    for (const a of ACTIVITIES.slice(0, 5)) {
+    for (const a of recent.slice(0, 5)) {
       list.push({
         id: `recent:${a.id}`,
         kind: "최근",
         label: a.title,
-        hint: a.meta,
-        keywords: a.course ?? "",
-        meta: a.kind,
-        dotColor: a.course ? COURSE_COLOR[a.course as keyof typeof COURSE_COLOR] : undefined,
+        hint: a.detail ?? undefined,
+        meta: a.kindLabel,
         run: () => router.push(a.href),
       });
     }
 
     return list;
-  }, [router]);
+  }, [router, courses, recent]);
 
   // 필터링
   const filtered = useMemo(() => {

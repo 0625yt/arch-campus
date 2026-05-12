@@ -70,6 +70,64 @@ export const QuizOutput = z.union([
 ]);
 export type QuizOutputT = z.infer<typeof QuizOutput>;
 
+export const SyllabusEvent = z.object({
+  kind: z.enum(["exam", "assignment", "presentation", "class", "etc"]),
+  title: z.string().min(1).max(120),
+  notes: z.string().max(500).nullable().optional(),
+  // ISO 8601 (예: "2026-06-15" 또는 "2026-06-15T13:00:00+09:00")
+  startsAt: z.string().min(8).max(40),
+  endsAt: z.string().min(8).max(40).nullable().optional(),
+  allDay: z.boolean().default(true),
+  weightPercent: z.number().min(0).max(100).nullable().optional(),
+  // 강의계획서에서 명시도 — 0~1
+  confidence: z.number().min(0).max(1).default(0.7),
+});
+export type SyllabusEventT = z.infer<typeof SyllabusEvent>;
+
+export const SyllabusOutput = z.object({
+  course: z.object({
+    name: z.string().min(1).max(80),
+    professor: z.string().max(40).nullable().optional(),
+    location: z.string().max(80).nullable().optional(),
+    schedule: z.array(z.string().min(2).max(60)).max(7).optional(),
+    termStart: z.string().min(8).max(40).nullable().optional(),
+    termEnd: z.string().min(8).max(40).nullable().optional(),
+  }),
+  events: z.array(SyllabusEvent).min(0).max(60),
+  watermark: z.string().min(10),
+});
+export type SyllabusOutputT = z.infer<typeof SyllabusOutput>;
+
+/**
+ * 시간표 — 한 학기 듣는 모든 강의를 한 표에 모아둔 PDF·이미지.
+ * syllabus와 다름 — 시험·과제 절대 날짜는 거의 없음, 대신 요일·교시·강의실·교수가 핵심.
+ */
+export const TimetableSlot = z.object({
+  // "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"
+  weekday: z.enum(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]),
+  // 24시간 "HH:MM"
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+});
+export type TimetableSlotT = z.infer<typeof TimetableSlot>;
+
+export const TimetableCourse = z.object({
+  name: z.string().min(1).max(80),
+  professor: z.string().max(40).nullable().optional(),
+  location: z.string().max(120).nullable().optional(),
+  slots: z.array(TimetableSlot).min(0).max(10),
+  credits: z.number().min(0).max(10).nullable().optional(),
+});
+export type TimetableCourseT = z.infer<typeof TimetableCourse>;
+
+export const TimetableOutput = z.object({
+  termYear: z.number().int().min(2020).max(2099).nullable().optional(),
+  termLabel: z.string().max(40).nullable().optional(), // "2026 1학기" 등
+  courses: z.array(TimetableCourse).min(0).max(20),
+  watermark: z.string().min(10),
+});
+export type TimetableOutputT = z.infer<typeof TimetableOutput>;
+
 export const PresentationOutput = z.object({
   outline: z
     .array(
