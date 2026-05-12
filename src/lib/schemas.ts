@@ -156,6 +156,65 @@ export const PresentationOutput = z.object({
 });
 export type PresentationOutputT = z.infer<typeof PresentationOutput>;
 
+/**
+ * 시험 벼락치기 — 남은 시간을 단원·시간 블록으로 쪼개주는 위저드.
+ *
+ * 사활: 잘못된 단원 추천 → 시험 망 → 환불 요구. 신뢰도 즉시 붕괴.
+ * 따라서 topic 추천은 반드시 사용자가 업로드한 자료에 근거해야 한다.
+ */
+export const ExamCramTopic = z.object({
+  /** 단원 이름 — 자료의 h2·섹션 그대로 인용 */
+  name: z.string().min(2).max(80),
+  /** 이 단원이 시험에 차지할 비중 추정 0~1 — 자료 분량·강조 표시 기준 */
+  weight: z.number().min(0).max(1),
+  /** 자료 ID 배열 — 어느 자료에서 나온 단원인지 추적 */
+  basedOnMaterialIds: z.array(z.string().min(1)).min(1).max(10),
+  /** 자료 본문에서 substring 인용 — 왜 이 단원을 골랐는지 근거 */
+  evidence: z.string().min(10).max(500),
+  /** 학생이 약점이라 표기했거나 출제 빈도 높은 곳이면 표시 */
+  priority: z.enum(["high", "mid", "low"]),
+  /** 이 단원에서 꼭 봐야 할 개념 3~6개 */
+  mustReview: z.array(z.string().min(2).max(80)).min(3).max(6),
+  /** 자주 헷갈리는 짝 (예: "Peterson vs Dekker") — 있으면 추가 */
+  commonMistakes: z.array(z.string().min(5).max(160)).max(4).optional(),
+});
+export type ExamCramTopicT = z.infer<typeof ExamCramTopic>;
+
+export const ExamCramTimeBlock = z.object({
+  /** 블록 순서 (시작 시점부터 1) */
+  order: z.number().int().positive(),
+  /** 이 블록에 쓸 시간 분 */
+  durationMin: z.number().int().min(5).max(180),
+  /** 다룰 단원 이름 (topics[].name 중 하나) */
+  topicName: z.string().min(2).max(80),
+  /** 이 블록의 학습 모드 */
+  mode: z.enum(["read", "summarize", "quiz", "review-mistakes", "rest"]),
+  /** 이 블록 끝낸 후 학생이 스스로 답할 자기 점검 질문 1줄 */
+  checkpoint: z.string().min(10).max(160),
+});
+export type ExamCramTimeBlockT = z.infer<typeof ExamCramTimeBlock>;
+
+export const ExamCramOutput = z.union([
+  z.object({
+    /** 전체 학습 계획 한 줄 — "3시간 안에 1·3·5장 우선 + 풀이 2회독" 같이 */
+    headline: z.string().min(10).max(200),
+    /** 단원 우선순위 — 비중 높은 순 */
+    topics: z.array(ExamCramTopic).min(1).max(8),
+    /** 시간 블록 — 합계가 input.remainingMin과 ±10% 일치 */
+    schedule: z.array(ExamCramTimeBlock).min(2).max(20),
+    /** 시험 직전·시험 중 행동 팁 (수면·실수 줄이기 등) */
+    finalTips: z.array(z.string().min(10).max(160)).min(2).max(6),
+    rejected: z.literal(false).optional(),
+    watermark: z.string().min(10),
+  }),
+  z.object({
+    rejected: z.literal(true),
+    reason: z.string().min(10).max(400),
+    watermark: z.string().min(10),
+  }),
+]);
+export type ExamCramOutputT = z.infer<typeof ExamCramOutput>;
+
 export const BANNED_WORDS: ReadonlyArray<readonly [RegExp, string]> = [
   [/효과적인/g, "좋은"],
   [/체계적인/g, "차근차근"],

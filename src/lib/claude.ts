@@ -28,7 +28,7 @@ export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   presentation: MODELS.sonnet,
   "wizard-assignment": MODELS.sonnet,
   "wizard-exam": MODELS.sonnet,
-  "wizard-cram": MODELS.haiku,
+  "wizard-cram": MODELS.sonnet,
   "syllabus-extract": MODELS.haiku,
   "timetable-extract": MODELS.haiku,
   "post-mortem": MODELS.haiku,
