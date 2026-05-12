@@ -48,8 +48,8 @@ export default async function CalendarPage() {
 
 function Header() {
   return (
-    <header className="fade-up flex items-baseline justify-between gap-4">
-      <div>
+    <header className="fade-up flex items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">
         <p
           className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.012em" }}
@@ -57,7 +57,7 @@ function Header() {
           캘린더
         </p>
         <h1
-          className="mt-3 text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[44px] md:text-[52px]"
+          className="mt-3 text-[30px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[44px] md:text-[52px]"
           style={{ letterSpacing: "-0.012em" }}
         >
           이번 학기 일정.
@@ -65,10 +65,13 @@ function Header() {
       </div>
       <Link
         href="/dashboard/calendar/import"
-        className="inline-flex h-[40px] items-center rounded-full bg-[var(--color-apple-action)] px-5 text-[13px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)] active:scale-[0.97]"
+        aria-label="학교 자료 등록"
+        className="mt-7 inline-flex h-[40px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full bg-[var(--color-apple-action)] px-3 text-[13px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)] active:scale-[0.97] sm:mt-0 sm:px-5"
         style={{ letterSpacing: "-0.012em" }}
       >
-        + 학교 자료 등록
+        <span aria-hidden>+</span>
+        <span className="hidden sm:inline">학교 자료 등록</span>
+        <span className="sm:hidden">자료</span>
       </Link>
     </header>
   );

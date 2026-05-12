@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { EventView } from "@/lib/data/events";
-import { formatEventLabel } from "@/lib/format-event";
+import { formatEventLabel, formatEventCompact } from "@/lib/format-event";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -174,9 +174,29 @@ function DayCell({
       >
         {cell.date.getDate()}
       </span>
-      <ul className="flex flex-col gap-0.5">
+      {/* 모바일/아이패드: 색점만 (잘림 없음) */}
+      <ul className="flex flex-wrap gap-0.5 sm:hidden">
+        {events.slice(0, 4).map((e) => (
+          <li
+            key={e.id}
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: kindColor(e.kind, e.courseColor) }}
+            title={formatEventLabel(e)}
+            aria-label={formatEventLabel(e)}
+          />
+        ))}
+        {events.length > 4 && (
+          <li className="text-[9px] wght-560 leading-[1.4] text-[var(--color-apple-muted)]">
+            +{events.length - 4}
+          </li>
+        )}
+      </ul>
+
+      {/* 데스크톱: 풀 라벨 칩 */}
+      <ul className="hidden flex-col gap-0.5 sm:flex">
         {events.slice(0, 3).map((e) => {
-          const label = formatEventLabel(e);
+          const fullLabel = formatEventLabel(e);
+          const shortLabel = formatEventCompact(e);
           return (
             <li
               key={e.id}
@@ -185,9 +205,9 @@ function DayCell({
                 backgroundColor: kindColor(e.kind, e.courseColor),
                 letterSpacing: "-0.012em",
               }}
-              title={label}
+              title={fullLabel}
             >
-              {label}
+              {shortLabel}
             </li>
           );
         })}

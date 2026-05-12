@@ -29,6 +29,19 @@ export function formatEventLabel(event: EventView): string {
 }
 
 /**
+ * 캘린더 월 그리드 셀처럼 좁은 공간 전용 — 대괄호·prefix 다 떼고 본문만.
+ * 색상이 kind를 구분하니까 텍스트는 과목명 중심으로 짧게.
+ */
+export function formatEventCompact(event: EventView): string {
+  if (event.kind === "class") {
+    const week = computeWeekNumber(event);
+    const name = event.courseName ?? event.title;
+    return week != null ? `${name} ${week}주` : name;
+  }
+  return formatBody(event);
+}
+
+/**
  * 큰 hero·헤딩에서 쓰는 라벨 — 대괄호 없이 자연스럽게.
  *   - class: "글로컬 영어 N주차"
  *   - exam/assignment/...: "운영체제 중간고사" 또는 title 그대로 (과목명 포함 시)
