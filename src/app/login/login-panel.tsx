@@ -38,21 +38,12 @@ export function LoginPanel({
   }
 
   return (
-    <div className="mt-12">
-      <p
-        className="text-center text-[14px] leading-[1.5] wght-450 text-[var(--color-apple-muted)]"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        {mode === "login"
-          ? "강의자료·강의계획서를 올리면 오늘 해야 할 공부가 자동으로 떠요."
-          : "처음이세요? 학교·전공만 알려주면 바로 시작할 수 있어요."}
-      </p>
-
+    <div className="mt-10">
       <button
         type="button"
         onClick={handleClick}
         disabled={loading}
-        className="mt-7 flex h-[52px] w-full items-center justify-center gap-3 rounded-full bg-white text-[15px] wght-560 text-[var(--color-apple-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.06)] transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.08)] active:scale-[0.98] disabled:opacity-60"
+        className="flex h-[52px] w-full items-center justify-center gap-3 rounded-full bg-white text-[15px] wght-560 text-[var(--color-apple-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_12px_rgba(122,166,214,0.10),0_0_0_1px_rgba(0,0,0,0.06)] transition-all hover:-translate-y-[1px] hover:shadow-[0_2px_4px_rgba(0,0,0,0.04),0_6px_20px_rgba(122,166,214,0.18),0_0_0_1px_rgba(0,0,0,0.08)] active:translate-y-0 active:scale-[0.98] disabled:opacity-60"
       >
         {loading ? (
           <Spinner />
@@ -84,9 +75,9 @@ export function LoginPanel({
       </div>
 
       {mode === "signup" && (
-        <p className="mt-8 text-center text-[12px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
-          계속하면 <a className="underline" href="/terms">이용약관</a>과{" "}
-          <a className="underline" href="/privacy">개인정보처리방침</a>에 동의하는 것으로 간주합니다.
+        <p className="mt-8 text-center text-[11.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
+          계속하면 <a className="underline underline-offset-2" href="/terms">이용약관</a>·
+          <a className="underline underline-offset-2" href="/privacy">개인정보처리방침</a>에 동의해요.
         </p>
       )}
     </div>
