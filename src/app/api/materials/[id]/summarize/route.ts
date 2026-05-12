@@ -1,21 +1,28 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
+import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
 import { runSummarize } from "@/lib/services/summarize";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
- * 이미 업로드된 자료에 대해 (재)요약 생성.
- * /api/summarize는 신규 파일+요약 묶음, 이건 materialId 기반 재실행.
+ * 이미 업로드된 자료의 (재)요약 — 비동기.
  *
- * 사용처: study/[course]/[material] 페이지의 "요약 만들기" 버튼.
+ * 동작:
+ *  1) 자료 owner 검증
+ *  2) jobs에 pending 행 만들기 (같은 자료+tool active 있으면 그걸 재사용)
+ *  3) 즉시 { ok, jobId } 응답
+ *  4) after()로 백그라운드에서 runSummarize → markJobDone/Error
+ *
+ * 클라이언트는 jobId 받자마자 다른 페이지 가도 됨.
+ * 폴링: GET /api/jobs/{jobId}
  */
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
-): Promise<NextResponse<{ ok: true; materialId: string } | { ok: false; error: string }>> {
+): Promise<NextResponse> {
   let ownerId: string;
   try {
     ownerId = await getOwnerId();
@@ -28,7 +35,6 @@ export async function POST(
 
   const { id: materialId } = await params;
 
-  // owner_id 강제 — admin 쓰지만 항상 본인 행만
   const admin = getAdminSupabase();
   const { data: material, error: fetchErr } = await admin
     .from("materials")
@@ -49,20 +55,61 @@ export async function POST(
     );
   }
 
-  const result = await runSummarize({
+  // 작업 큐 등록
+  const { job, isNew } = await enqueueJob({
     ownerId,
     materialId: material.id,
-    title: material.title,
-    type: material.type,
-    fullText,
-    sanitizedText: fullText,
-    pageCount: material.page_count ?? null,
-    parserWarnings: [],
+    tool: "summarize",
+    inputParams: { materialId: material.id, title: material.title, type: material.type },
   });
 
-  if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 502 });
+  // 이미 진행 중인 작업이면 재실행 안 하고 같은 jobId 반환
+  if (!isNew) {
+    return NextResponse.json({
+      ok: true,
+      jobId: job.id,
+      reused: true,
+      status: job.status,
+    });
   }
 
-  return NextResponse.json({ ok: true, materialId: material.id });
+  // 백그라운드 실행 — 응답 보낸 뒤에도 함수 max duration 동안 계속
+  after(async () => {
+    try {
+      await markJobRunning(job.id);
+      const result = await runSummarize({
+        ownerId,
+        materialId: material.id,
+        title: material.title,
+        type: material.type,
+        fullText,
+        sanitizedText: fullText,
+        pageCount: material.page_count ?? null,
+        parserWarnings: [],
+      });
+
+      if (!result.ok) {
+        await markJobError({ jobId: job.id, errorMessage: result.error });
+        return;
+      }
+
+      await markJobDone({
+        jobId: job.id,
+        result: { summary: result.summary },
+        modelId: result.modelId,
+        usage: result.usage,
+        costUsd: result.costUsd,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await markJobError({ jobId: job.id, errorMessage: msg });
+    }
+  });
+
+  return NextResponse.json({
+    ok: true,
+    jobId: job.id,
+    reused: false,
+    status: "pending",
+  });
 }

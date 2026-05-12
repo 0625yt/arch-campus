@@ -180,6 +180,49 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["generations"]["Insert"]>;
         Relationships: [];
       };
+      jobs: {
+        Row: {
+          id: string;
+          owner_id: string;
+          material_id: string | null;
+          tool: string;
+          status: "pending" | "running" | "done" | "error" | "cancelled";
+          input_params: Record<string, unknown>;
+          result: Record<string, unknown> | null;
+          error_message: string | null;
+          model_id: string | null;
+          input_tokens: number;
+          output_tokens: number;
+          cache_read_tokens: number;
+          cache_creation_tokens: number;
+          cost_usd: number;
+          generation_id: string | null;
+          created_at: string;
+          started_at: string | null;
+          finished_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          material_id?: string | null;
+          tool: string;
+          status?: "pending" | "running" | "done" | "error" | "cancelled";
+          input_params?: Record<string, unknown>;
+          result?: Record<string, unknown> | null;
+          error_message?: string | null;
+          model_id?: string | null;
+          input_tokens?: number;
+          output_tokens?: number;
+          cache_read_tokens?: number;
+          cache_creation_tokens?: number;
+          cost_usd?: number;
+          generation_id?: string | null;
+          started_at?: string | null;
+          finished_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["jobs"]["Insert"]>;
+        Relationships: [];
+      };
       quizzes: {
         Row: {
           id: string;

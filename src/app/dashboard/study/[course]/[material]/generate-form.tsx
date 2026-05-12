@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Arrow } from "@/components/primitives";
+import { useJob } from "@/lib/hooks/use-job";
 import { cn } from "@/lib/utils";
 
 type Difficulty = "쉬움" | "보통" | "어려움";
@@ -21,37 +22,50 @@ export function GenerateForm({
   const router = useRouter();
   const [difficulty, setDifficulty] = useState<Difficulty>("보통");
   const [count, setCount] = useState(5);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const { job, error: pollError } = useJob(jobId);
 
   const isReal = UUID_RE.test(materialId);
+  const busy = jobId !== null && job?.status !== "done" && job?.status !== "error";
 
   async function handleGenerate() {
     if (!isReal) {
-      setError("이 자료는 디자인 시연용 mock이라 진짜 문제는 못 만들어요. 자료를 새로 업로드해 주세요.");
+      setSubmitError(
+        "이 자료는 디자인 시연용 mock이라 진짜 문제는 못 만들어요. 자료를 새로 업로드해 주세요.",
+      );
       return;
     }
 
-    setBusy(true);
-    setError(null);
+    setSubmitError(null);
+    setJobId(null);
     try {
       const res = await fetch(`/api/materials/${materialId}/quiz`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ difficulty, count }),
       });
-      const json = (await res.json()) as { ok: boolean; quizId?: string; error?: string };
-      if (!res.ok || !json.ok || !json.quizId) {
-        setError(json.error ?? "문제 생성에 실패했어요.");
+      const json = (await res.json()) as { ok: boolean; jobId?: string; error?: string };
+      if (!res.ok || !json.ok || !json.jobId) {
+        setSubmitError(json.error ?? "문제 생성에 실패했어요.");
         return;
       }
-      router.push(`/dashboard/quiz/${json.quizId}`);
+      setJobId(json.jobId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "네트워크 오류");
-    } finally {
-      setBusy(false);
+      setSubmitError(e instanceof Error ? e.message : "네트워크 오류");
     }
   }
+
+  // 작업 완료되면 새 퀴즈로 자동 이동
+  useEffect(() => {
+    if (job?.status === "done") {
+      const quizId = (job.result as { quizId?: string } | null)?.quizId;
+      if (quizId) router.push(`/dashboard/quiz/${quizId}`);
+    }
+  }, [job?.status, job?.result, router]);
+
+  const errorMsg =
+    submitError ?? pollError ?? (job?.status === "error" ? job.errorMessage : null);
 
   void courseSlug; // future: log course context
 
@@ -105,12 +119,12 @@ export function GenerateForm({
         </ul>
       </FieldGroup>
 
-      {error && (
+      {errorMsg && (
         <p
           className="mt-6 text-[12.5px] wght-450 text-[var(--color-urgent)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          {error}
+          {errorMsg}
         </p>
       )}
 
@@ -126,15 +140,31 @@ export function GenerateForm({
               : "bg-[var(--color-apple-ink)] text-white hover:opacity-90",
           )}
         >
+          {busy && <Spinner />}
           {busy ? "AI가 만들고 있어요…" : `${count}문제 만들기`}
           {!busy && <Arrow className="text-[12px] transition-transform group-hover:translate-x-0.5" />}
         </button>
 
-        <span className="ml-auto hidden items-center gap-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)] sm:inline-flex">
-          평균 <span className="tabular-nums text-[var(--color-apple-ink)]">15초</span> 소요
-        </span>
+        {busy ? (
+          <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)]">
+            <span className="tabular-nums text-[var(--color-apple-ink)]">다른 메뉴 가도</span> 이어집니다
+          </span>
+        ) : (
+          <span className="ml-auto hidden items-center gap-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)] sm:inline-flex">
+            평균 <span className="tabular-nums text-[var(--color-apple-ink)]">15초</span> 소요
+          </span>
+        )}
       </div>
     </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <span
+      aria-label="진행 중"
+      className="inline-block h-3 w-3 animate-spin rounded-full border-[1.5px] border-[var(--color-apple-muted)]/40 border-t-[var(--color-apple-ink)]"
+    />
   );
 }
 

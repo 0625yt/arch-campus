@@ -1,35 +1,33 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
+import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
 import { runQuizGeneration } from "@/lib/services/quiz";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
-export const maxDuration = 90;
+export const maxDuration = 300;
 
 const RequestBody = z.object({
   difficulty: z.enum(["쉬움", "보통", "어려움"]).default("보통"),
   count: z.number().int().min(1).max(10).default(5),
 });
 
-interface OkResponse {
-  ok: true;
-  quizId: string;
-}
-
-interface ErrResponse {
-  ok: false;
-  error: string;
-}
-
 /**
- * 이미 업로드된 자료에 대해 새 퀴즈 생성.
- * 자료 페이지의 "문제 만들기" 버튼이 사용. multipart 안 받음 (파일은 이미 있음).
+ * 자료 기반 퀴즈 생성 — 비동기.
+ *
+ * 동작:
+ *  1) 자료 owner 검증
+ *  2) jobs에 pending 행 등록 (같은 자료+quiz active 있으면 재사용)
+ *  3) 즉시 jobId 응답
+ *  4) after()에서 runQuizGeneration → markJobDone/Error
+ *
+ * 폴링: GET /api/jobs/{jobId}
  */
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
-): Promise<NextResponse<OkResponse | ErrResponse>> {
+): Promise<NextResponse> {
   let ownerId: string;
   try {
     ownerId = await getOwnerId();
@@ -53,7 +51,6 @@ export async function POST(
     );
   }
 
-  // owner_id 강제 — admin 우회하지만 본인 행만
   const admin = getAdminSupabase();
   const { data: material, error: fetchErr } = await admin
     .from("materials")
@@ -68,23 +65,56 @@ export async function POST(
 
   const fullText = material.full_text ?? "";
 
-  const result = await runQuizGeneration({
+  // 작업 큐 등록 (난이도·개수 다른 요청도 같은 자료면 1개만)
+  const { job, isNew } = await enqueueJob({
     ownerId,
     materialId: material.id,
-    courseId: material.course_id ?? null,
-    title: material.title,
-    type: material.type,
-    fullText,
-    sanitizedText: fullText,
-    pageCount: material.page_count ?? null,
-    parserWarnings: [],
-    difficulty: body.difficulty,
-    requestedCount: body.count,
+    tool: "quiz",
+    inputParams: {
+      materialId: material.id,
+      difficulty: body.difficulty,
+      count: body.count,
+    },
   });
 
-  if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
+  if (!isNew) {
+    return NextResponse.json({ ok: true, jobId: job.id, reused: true, status: job.status });
   }
 
-  return NextResponse.json({ ok: true, quizId: result.quizId });
+  after(async () => {
+    try {
+      await markJobRunning(job.id);
+      const result = await runQuizGeneration({
+        ownerId,
+        materialId: material.id,
+        courseId: material.course_id ?? null,
+        title: material.title,
+        type: material.type,
+        fullText,
+        sanitizedText: fullText,
+        pageCount: material.page_count ?? null,
+        parserWarnings: [],
+        difficulty: body.difficulty,
+        requestedCount: body.count,
+      });
+
+      if (!result.ok) {
+        await markJobError({ jobId: job.id, errorMessage: result.error });
+        return;
+      }
+
+      await markJobDone({
+        jobId: job.id,
+        result: { quizId: result.quizId },
+        modelId: result.modelId,
+        usage: result.usage,
+        costUsd: result.costUsd,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await markJobError({ jobId: job.id, errorMessage: msg });
+    }
+  });
+
+  return NextResponse.json({ ok: true, jobId: job.id, reused: false, status: "pending" });
 }
