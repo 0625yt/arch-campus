@@ -164,8 +164,115 @@ dynamicContext — 학기 힌트 (예: "2026 1학기")
 
 ---
 
-## ❌ 안 좋은 예
+## ❌ / ✅ Few-shot 예시 3쌍
 
-- "글로컬 영어 I" 월 1교시·2교시·3교시인데 slots 3개로 분리 (연속이라 1개로 합쳐야 함)
-- "강의시간 미배정 강좌내역" 표의 강의들을 courses에 포함 (요일·시간 없으면 시간표에 못 올림)
-- 같은 강의를 요일별로 별개 course로 만들기 (한 course의 slots[]에 모아야 함)
+### Pair 1 — 연속 교시 분리
+
+#### ❌ 1·2·3교시 따로
+
+```json
+{
+  "name": "글로컬 영어 I",
+  "slots": [
+    { "weekday": "MON", "startTime": "09:00", "endTime": "09:50" },
+    { "weekday": "MON", "startTime": "10:00", "endTime": "10:50" },
+    { "weekday": "MON", "startTime": "11:00", "endTime": "11:50" }
+  ]
+}
+```
+→ 같은 강의 연속 교시는 1개 슬롯으로. 캘린더에 3개 칸 따로 박히면 학생이 "겹쳤나?" 헷갈림.
+
+#### ✅ 1개 슬롯으로 병합
+
+```json
+{
+  "name": "글로컬 영어 I",
+  "professor": "김지훈",
+  "location": "본관 401",
+  "slots": [
+    { "weekday": "MON", "startTime": "09:00", "endTime": "11:50" }
+  ],
+  "credits": 3
+}
+```
+
+---
+
+### Pair 2 — 시간 미배정 강좌 포함
+
+#### ❌ 요일·시간 없는 강의도 courses에 박기
+
+```json
+{
+  "courses": [
+    {
+      "name": "졸업 인증 영어 (시간 미배정)",
+      "slots": []
+    },
+    {
+      "name": "운영체제",
+      "slots": [{ "weekday": "WED", "startTime": "13:00", "endTime": "14:50" }]
+    }
+  ]
+}
+```
+→ slots 비어있으면 시간표에 못 박힘. 캘린더가 "시간 없는 강의" 표시 못 함. 시간 미배정 강좌는 추출 X.
+
+#### ✅ 시간 있는 강의만
+
+```json
+{
+  "termYear": 2026,
+  "termLabel": "2026 1학기",
+  "courses": [
+    {
+      "name": "운영체제",
+      "professor": "박지훈",
+      "location": "공학관 305",
+      "slots": [{ "weekday": "WED", "startTime": "13:00", "endTime": "14:50" }],
+      "credits": 3
+    }
+  ]
+}
+```
+
+---
+
+### Pair 3 — 같은 강의를 요일별로 분리
+
+#### ❌ "운영체제"를 월·수 각각 별개 course
+
+```json
+{
+  "courses": [
+    {
+      "name": "운영체제 (월)",
+      "slots": [{ "weekday": "MON", "startTime": "09:00", "endTime": "10:30" }]
+    },
+    {
+      "name": "운영체제 (수)",
+      "slots": [{ "weekday": "WED", "startTime": "09:00", "endTime": "10:30" }]
+    }
+  ]
+}
+```
+→ 한 강의가 2개로 중복됨. 학생이 강의 2개 듣는 줄 알고 학습 우선순위·자료 매칭 다 꼬임.
+
+#### ✅ 한 course의 slots[]에 모으기
+
+```json
+{
+  "courses": [
+    {
+      "name": "운영체제",
+      "professor": "박지훈",
+      "location": "공학관 305",
+      "slots": [
+        { "weekday": "MON", "startTime": "09:00", "endTime": "10:30" },
+        { "weekday": "WED", "startTime": "09:00", "endTime": "10:30" }
+      ],
+      "credits": 3
+    }
+  ]
+}
+```

@@ -191,22 +191,124 @@
 
 ---
 
-## ❌ 안 좋은 문제 예
+## ❌ / ✅ Few-shot 예시 3쌍
+
+### Pair 1 — CS 자료 (보통 난이도)
+
+#### ❌ 보기 길이 편차·정답 자명·evidence 빈칸
 
 ```json
 {
-  "stem": "프로세스 동기화에 대해 설명하시오.",  // 4지선다 아님
+  "stem": "프로세스 동기화에 대해 설명하시오.",
   "choices": [
-    { "key": "A", "text": "동기화" },           // 너무 짧음, 정답 자명
+    { "key": "A", "text": "동기화" },
     { "key": "B", "text": "비동기화" },
     { "key": "C", "text": "병렬 처리" },
     { "key": "D", "text": "직렬 처리" }
   ],
   "answer": "A",
-  "evidence": ""                                // 비어있음 → 검증 fail
+  "evidence": ""
+}
+```
+→ stem이 4지선다 형식 아님. 보기들이 8글자 안 됨. evidence 빈칸이라 검증 fail.
+
+#### ✅ 위 §출력 임계 구역 예시 (보기 4개 균형 + evidence substring + trapAnalysis)
+
+```json
+{
+  "stem": "다음 중 임계 구역 문제를 해결하는 알고리즘이 만족해야 할 조건이 아닌 것은?",
+  "choices": [
+    { "key": "A", "text": "상호 배제 — 한 번에 하나의 프로세스만 임계 구역에 진입한다" },
+    { "key": "B", "text": "진행 — 임계 구역이 비어있고 진입을 원하는 프로세스가 있으면 결정을 미룰 수 없다" },
+    { "key": "C", "text": "한정 대기 — 진입을 원하는 프로세스는 무한 대기에 빠지지 않는다" },
+    { "key": "D", "text": "최단 경로 — 임계 구역으로 가는 가장 짧은 경로를 보장한다" }
+  ],
+  "answer": "D",
+  "evidence": "임계 구역 문제 해결 조건: 1) 상호 배제 2) 진행 3) 한정 대기",
+  "evidencePage": 5,
+  "explanation": "임계 구역 해결 조건은 상호 배제·진행·한정 대기 세 가지예요. '최단 경로'는 임계 구역과 무관해요.",
+  "trapAnalysis": "D를 그럴듯하게 만든 이유 — '경로'라는 알고리즘 용어가 다른 챕터에서 나와서 헷갈리게 함. 자료에는 없음."
 }
 ```
 
-## ✅ 좋은 문제
+---
 
-위 §출력 §의 임계 구역 예시 참조.
+### Pair 2 — 어학 자료 (쉬움 난이도, 영어 어휘)
+
+#### ❌ 자료 원어를 한국어로 풀어쓴 추상 묶음
+
+```json
+{
+  "stem": "다음 중 Suggestion으로 제시된 행동만 묶인 것은?",
+  "choices": [
+    { "key": "A", "text": "활동적으로 지내기 / 운동하기 / 긴장 풀기" },
+    { "key": "B", "text": "충분히 자기 / 책 읽기 / 영화 보기" },
+    { "key": "C", "text": "TV 시청 / 게임 / 산책" },
+    { "key": "D", "text": "공부하기 / 일하기 / 운전하기" }
+  ],
+  "answer": "A",
+  "evidence": "Suggestion 부분에 stay active, exercise, take a break이 나옴"
+}
+```
+→ 자료는 영어인데 stem·보기 모두 한국어 번역. 어휘 학습이 아니라 해석 시험. evidence도 한국어 의역이라 substring 매칭 fail.
+
+#### ✅ 자료의 영어 정의·예문을 그대로 묻기
+
+```json
+{
+  "stem": "다음 중 'Suggestion(제안)'을 뜻하는 표현은?",
+  "choices": [
+    { "key": "A", "text": "You should try yoga to relieve stress" },
+    { "key": "B", "text": "It is your obligation to attend the class" },
+    { "key": "C", "text": "Please reply immediately" },
+    { "key": "D", "text": "Let's take a break for 5 minutes" }
+  ],
+  "answer": "A",
+  "evidence": "Suggestion: You should try yoga to relieve stress",
+  "evidencePage": 3,
+  "explanation": "A는 자료 3쪽 Suggestion 카테고리의 첫 예문. B는 Obligation, C는 Immediately 카테고리. D는 같은 페이지지만 take a break 표현 학습용.",
+  "hint": "should + 동사원형 패턴이 Suggestion의 핵심이에요."
+}
+```
+
+---
+
+### Pair 3 — 인문 자료 (어려움 난이도, 비교·반례)
+
+#### ❌ 학자 이름만 매칭 (암기 1단계)
+
+```json
+{
+  "stem": "인과를 선험적 범주로 본 학자는?",
+  "choices": [
+    { "key": "A", "text": "흄" },
+    { "key": "B", "text": "칸트" },
+    { "key": "C", "text": "데카르트" },
+    { "key": "D", "text": "라이프니츠" }
+  ],
+  "answer": "B",
+  "evidence": "칸트는 인과를 선험적 범주로 봤다"
+}
+```
+→ 어려움 난이도인데 단순 매칭. 칸트 이름만 알면 풀림. 시험 빈출 패턴 "흄 vs 칸트 차이"를 못 검사.
+
+#### ✅ 두 학자 입장 비교 + 반례
+
+```json
+{
+  "stem": "흄과 칸트의 인과론 차이에 대한 설명으로 옳지 않은 것은?",
+  "choices": [
+    { "key": "A", "text": "흄은 인과를 경험에서 도출되는 심리적 습관으로 본다" },
+    { "key": "B", "text": "칸트는 인과를 경험을 가능케 하는 선험적 범주로 본다" },
+    { "key": "C", "text": "둘 다 인과를 인간 정신과 무관한 형이상학적 실체로 본다" },
+    { "key": "D", "text": "흄의 입장은 회의적, 칸트의 입장은 구성적이라 평가된다" }
+  ],
+  "answer": "C",
+  "evidence": "흄은 인과를 반복 경험에서 생기는 심리적 기대로, 칸트는 경험을 가능케 하는 선험적 범주로 본다",
+  "evidencePage": 47,
+  "explanation": "C는 둘 다 인과를 '인간이 만든 것'이라 본다는 핵심을 뒤집은 함정. 흄은 경험 후의 심리, 칸트는 경험 전의 범주로 메커니즘이 다르지만, 둘 다 인과를 형이상학적 실체로 보지는 않아요.",
+  "trapAnalysis": "C는 '흄·칸트 모두 인과를 부정한다'고 잘못 이해한 학생이 고르기 쉬움. 자료 47쪽 비교표가 답안의 골격.",
+  "hint": "흄도 칸트도 인과를 '인간 정신의 작용'으로 봐요. 차이는 그 작용이 경험 전인지 후인지."
+}
+```
+
