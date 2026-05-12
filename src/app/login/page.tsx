@@ -1,23 +1,23 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { LoginButton } from "./login-button";
+import { LoginPanel } from "./login-panel";
 
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; mode?: string }>;
 }) {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard/today");
 
-  const { next, error } = await searchParams;
+  const { next, error, mode } = await searchParams;
+  const initialMode = mode === "signup" ? "signup" : "login";
 
   return (
     <main className="min-h-screen bg-[var(--color-apple-pearl)]">
       <div className="relative mx-auto flex min-h-screen w-full max-w-[420px] flex-col justify-center px-7 py-16">
-        {/* 옅은 색 글로우 */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[60%]"
@@ -28,9 +28,7 @@ export default async function LoginPage({
         />
 
         <header className="text-center">
-          <p
-            className="text-[12px] wght-560 uppercase tracking-[0.08em] text-[var(--color-apple-muted)]"
-          >
+          <p className="text-[12px] wght-560 uppercase tracking-[0.08em] text-[var(--color-apple-muted)]">
             arch campus
           </p>
           <h1
@@ -39,24 +37,9 @@ export default async function LoginPage({
           >
             한 학기를 5분 안에<br />정리하는 AI.
           </h1>
-          <p className="mt-4 text-[14px] leading-[1.5] wght-450 text-[var(--color-apple-muted)]">
-            강의자료·강의계획서를 올리면<br />오늘 해야 할 공부가 자동으로 떠요.
-          </p>
         </header>
 
-        <div className="mt-12">
-          <LoginButton next={next} />
-          {error && (
-            <p className="mt-4 text-center text-[13px] wght-450 text-[var(--color-urgent)]">
-              {decodeURIComponent(error)}
-            </p>
-          )}
-        </div>
-
-        <p className="mt-10 text-center text-[12px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
-          계속 진행하면 <a className="underline" href="/terms">이용약관</a>과{" "}
-          <a className="underline" href="/privacy">개인정보처리방침</a>에 동의하는 것으로 간주합니다.
-        </p>
+        <LoginPanel initialMode={initialMode} next={next} error={error} />
       </div>
     </main>
   );
