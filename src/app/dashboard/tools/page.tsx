@@ -87,6 +87,7 @@ const WIZARDS: Wizard[] = [
     situation: "시험까지 시간이 거의 없을 때",
     output: "30분·1시간·3시간 학습안",
     minutes: 3,
+    ready: true,
     query: "시험 범위와 남은 시간 기준으로 벼락치기 계획을 짜줘",
   },
   {
@@ -394,5 +395,6 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
 
 function wizardHref(wizard: Wizard) {
   if (wizard.slug === "presentation") return "/dashboard/tools/presentation";
+  if (wizard.slug === "exam-cram") return "/dashboard/tools/exam-cram";
   return `/dashboard/chat?q=${encodeURIComponent(wizard.query)}`;
 }
