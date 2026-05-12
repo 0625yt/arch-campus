@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { CommandPalette } from "@/components/command-palette";
+import { JobsDock } from "@/components/jobs-dock";
 import { MobileTabBar, MobileTopbar } from "@/components/mobile-nav";
 import { Sidebar } from "@/components/sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
@@ -24,6 +25,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <MobileTabBar />
       </div>
       <CommandPalette />
+      <JobsDock />
     </div>
   );
 }
