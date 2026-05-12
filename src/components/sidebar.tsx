@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  COURSE_COLOR,
-  getResumeMaterial,
-  COURSES as STUDY_COURSES,
-} from "@/app/dashboard/study/data";
 import { SearchTrigger } from "@/components/search-trigger";
 import { cn } from "@/lib/utils";
+
+interface SidebarCourse {
+  id: string;
+  name: string;
+  color: string | null;
+  materialCount: number;
+}
 
 /* 학기 정보 mock — 추후 user state로 대체 */
 const SEMESTER = {
@@ -256,29 +258,76 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
       {/* 학기 진행률 — 미세하게 */}
       <SemesterProgress />
 
-      {/* User — 글자 X, 그라데이션 원 */}
-      <div className="border-t border-[var(--color-apple-hairline)] px-3 py-3">
-        <button
-          type="button"
-          className="flex w-full items-center gap-2.5 rounded-[8px] p-1 text-left transition-colors hover:bg-[var(--color-apple-pearl)]"
-        >
-          <Avatar />
-          <div className="min-w-0 flex-1">
-            <div
-              className="truncate text-[12.5px] wght-560 text-[var(--color-apple-ink)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              윤태경
-            </div>
-            <div
-              className="truncate text-[10.5px] wght-450 text-[var(--color-apple-muted)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              컴퓨터공학과 · 3학년
-            </div>
+      <UserCard />
+    </div>
+  );
+}
+
+function UserCard() {
+  const [profile, setProfile] = useState<{
+    displayName: string | null;
+    email: string | null;
+    department: string | null;
+    year: number | null;
+  } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    let aborted = false;
+    fetch("/api/profile")
+      .then((r) => r.json())
+      .then((j) => {
+        if (aborted) return;
+        if (j?.ok && j.profile) setProfile(j.profile);
+      })
+      .catch(() => {});
+    return () => {
+      aborted = true;
+    };
+  }, []);
+
+  const name = profile?.displayName || profile?.email?.split("@")[0] || "사용자";
+  const sub = profile?.department
+    ? `${profile.department}${profile.year ? ` · ${profile.year}학년` : ""}`
+    : profile?.email || "";
+
+  return (
+    <div className="relative border-t border-[var(--color-apple-hairline)] px-3 py-3">
+      <button
+        type="button"
+        onClick={() => setMenuOpen((v) => !v)}
+        className="flex w-full items-center gap-2.5 rounded-[8px] p-1 text-left transition-colors hover:bg-[var(--color-apple-pearl)]"
+      >
+        <Avatar />
+        <div className="min-w-0 flex-1">
+          <div
+            className="truncate text-[12.5px] wght-560 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {name}
           </div>
-        </button>
-      </div>
+          <div
+            className="truncate text-[10.5px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {sub}
+          </div>
+        </div>
+      </button>
+
+      {menuOpen && (
+        <div className="absolute bottom-[58px] left-3 right-3 overflow-hidden rounded-[10px] border border-[var(--color-apple-hairline)] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.06)]">
+          <form action="/auth/signout" method="post">
+            <button
+              type="submit"
+              className="w-full px-3 py-2.5 text-left text-[12.5px] wght-450 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              로그아웃
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
@@ -291,6 +340,26 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+function useSidebarCourses(): SidebarCourse[] {
+  const [courses, setCourses] = useState<SidebarCourse[]>([]);
+  useEffect(() => {
+    let aborted = false;
+    fetch("/api/courses")
+      .then((r) => r.json())
+      .then((j) => {
+        if (aborted) return;
+        if (j?.ok && Array.isArray(j.courses)) setCourses(j.courses);
+      })
+      .catch(() => {
+        // 사이드바는 강의 0개여도 메인 메뉴는 살아있어야 함 — 조용히 실패
+      });
+    return () => {
+      aborted = true;
+    };
+  }, []);
+  return courses;
+}
+
 function StudyNavItem({
   active,
   onNavigate,
@@ -301,6 +370,7 @@ function StudyNavItem({
   pathname: string;
 }) {
   const [open, setOpen] = useState(active);
+  const courses = useSidebarCourses();
 
   useEffect(() => {
     if (active) setOpen(true);
@@ -352,44 +422,52 @@ function StudyNavItem({
       </div>
 
       <ul className={cn("pb-1 pl-[34px] pt-1", open ? "block" : "hidden")}>
-        {STUDY_COURSES.map((course) => {
-          const courseActive =
-            pathname.startsWith(`/dashboard/study/${course.slug}`) ||
-            pathname.startsWith(`/dashboard/study/${encodeURIComponent(course.slug)}`);
-          const href = `/dashboard/study/${course.slug}`;
-          const resume = getResumeMaterial(course.slug);
-          const done = course.materials.reduce((sum, m) => sum + m.problems.done, 0);
-          const total = course.materials.reduce((sum, m) => sum + m.problems.total, 0);
+        {courses.length === 0 ? (
+          <li>
+            <span
+              className="block px-1.5 py-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              아직 강의가 없어요
+            </span>
+          </li>
+        ) : (
+          courses.map((course) => {
+            const slug = encodeURIComponent(course.name);
+            const courseActive =
+              pathname.startsWith(`/dashboard/study/${course.name}`) ||
+              pathname.startsWith(`/dashboard/study/${slug}`);
+            const href = `/dashboard/study/${slug}`;
 
-          return (
-            <li key={course.slug}>
-              <Link
-                href={href}
-                onClick={onNavigate}
-                title={resume ? `최근 자료: ${resume.title}` : undefined}
-                className={cn(
-                  "flex items-center gap-2 rounded-[6px] py-1.5 pl-1.5 pr-2 text-[12px] transition-colors",
-                  courseActive
-                    ? "wght-620 bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)]"
-                    : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
-                )}
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                <span
-                  className="h-1.5 w-1.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: COURSE_COLOR[course.slug] }}
-                  aria-hidden
-                />
-                <span className="min-w-0 flex-1 truncate">{course.slug}</span>
-                {total > 0 && (
-                  <span className="shrink-0 text-[10px] wght-560 tabular-nums text-[var(--color-apple-muted)]">
-                    {done}/{total}
-                  </span>
-                )}
-              </Link>
-            </li>
-          );
-        })}
+            return (
+              <li key={course.id}>
+                <Link
+                  href={href}
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex items-center gap-2 rounded-[6px] py-1.5 pl-1.5 pr-2 text-[12px] transition-colors",
+                    courseActive
+                      ? "wght-620 bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)]"
+                      : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
+                  )}
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: course.color ?? "#7aa6d6" }}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate">{course.name}</span>
+                  {course.materialCount > 0 && (
+                    <span className="shrink-0 text-[10px] wght-560 tabular-nums text-[var(--color-apple-muted)]">
+                      {course.materialCount}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            );
+          })
+        )}
       </ul>
     </li>
   );
