@@ -111,10 +111,19 @@ function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
 
   const topLine = wrongStats.byMaterial[0];
   return (
-    <article className="rounded-[18px] bg-white p-6">
+    <article
+      className="relative overflow-hidden rounded-[18px] p-6"
+      style={{
+        // 카드 자체는 흰 바탕에 코랄을 살짝만 — Apple Reminders 빨강 폴더 톤
+        background:
+          "linear-gradient(135deg, var(--color-tint-exam) 0%, #ffffff 55%)",
+      }}
+    >
       <p
-        className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]"
+        className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-2 py-0.5 text-[11px] wght-700 uppercase tracking-[0.06em]"
+        style={{ color: "var(--color-tint-exam-ink)" }}
       >
+        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-urgent)]" />
         오답 {wrongStats.totalWrong}문제
       </p>
       <h2
@@ -155,10 +164,18 @@ function ResumeAttemptCard({ attempt }: { attempt: RecentAttempt }) {
         : `${Math.floor(hoursAgo / 24)}일 전`;
 
   return (
-    <article className="rounded-[18px] bg-white p-6">
+    <article
+      className="relative overflow-hidden rounded-[18px] p-6"
+      style={{
+        background:
+          "linear-gradient(135deg, var(--color-tint-prez) 0%, #ffffff 55%)",
+      }}
+    >
       <p
-        className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]"
+        className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-2 py-0.5 text-[11px] wght-700 uppercase tracking-[0.06em]"
+        style={{ color: "var(--color-tint-prez-ink)" }}
       >
+        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-apple-action)]" />
         직전 풀이 · {ago}
       </p>
       <h2
@@ -297,20 +314,22 @@ function UpcomingCard({
   const days = Math.round((date.getTime() - today.getTime()) / 86400000);
   const dDayLabel = days === 0 ? "오늘" : `D-${days}`;
   const tone = days <= 1 ? "urgent" : days <= 3 ? "warn" : "muted";
+  const tint = upcomingTint(event.kind);
 
   return (
-    <article className="rounded-[12px] bg-white p-5 sm:p-6">
-      <div className="flex items-baseline justify-between gap-3">
+    <article
+      className="relative overflow-hidden rounded-[12px] bg-white p-5 sm:p-6"
+    >
+      {/* 좌측 4px 컬러 바 — Apple Calendar 행 시그니처. 평소엔 보일 듯 말 듯, hover에서 진해짐. */}
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-[3px]"
+        style={{ backgroundColor: tint.bar }}
+      />
+      <div className="flex items-baseline justify-between gap-3 pl-1">
         <span
-          className="text-[10.5px] wght-700 uppercase tracking-[0.06em]"
-          style={{
-            color:
-              event.kind === "exam"
-                ? "var(--color-urgent)"
-                : event.kind === "assignment"
-                  ? "var(--color-apple-action)"
-                  : "var(--color-apple-muted)",
-          }}
+          className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10.5px] wght-700 uppercase tracking-[0.06em]"
+          style={{ backgroundColor: tint.chipBg, color: tint.chipFg }}
         >
           {kindLabel[event.kind]}
           {event.weightPercent != null && ` · ${event.weightPercent}%`}
@@ -328,22 +347,59 @@ function UpcomingCard({
         </span>
       </div>
       <p
-        className="mt-3 text-[16px] leading-[1.3] wght-560 text-[var(--color-apple-ink)]"
+        className="mt-3 pl-1 text-[16px] leading-[1.3] wght-560 text-[var(--color-apple-ink)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         {formatEventLabel(event)}
       </p>
-      {event.courseColor && (
-        <p className="mt-1.5 flex items-center gap-2 text-[12px] wght-450 text-[var(--color-apple-muted)]">
-          <span
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: event.courseColor ?? "#7aa6d6" }}
-          />
-          {formatEventTime(event)}
-        </p>
-      )}
+      <p className="mt-1.5 flex items-center gap-2 pl-1 text-[12px] wght-450 text-[var(--color-apple-muted)]">
+        <span
+          className="inline-block h-1.5 w-1.5 rounded-full"
+          style={{ backgroundColor: event.courseColor ?? tint.bar }}
+        />
+        {formatEventTime(event)}
+      </p>
     </article>
   );
+}
+
+function upcomingTint(kind: EventView["kind"]): {
+  bar: string;
+  chipBg: string;
+  chipFg: string;
+} {
+  switch (kind) {
+    case "exam":
+      return {
+        bar: "var(--color-urgent)",
+        chipBg: "var(--color-tint-exam)",
+        chipFg: "var(--color-tint-exam-ink)",
+      };
+    case "assignment":
+      return {
+        bar: "#cca06b",
+        chipBg: "var(--color-tint-assign)",
+        chipFg: "var(--color-tint-assign-ink)",
+      };
+    case "presentation":
+      return {
+        bar: "var(--color-apple-action)",
+        chipBg: "var(--color-tint-prez)",
+        chipFg: "var(--color-tint-prez-ink)",
+      };
+    case "class":
+      return {
+        bar: "#7fb38c",
+        chipBg: "var(--color-tint-class)",
+        chipFg: "var(--color-tint-class-ink)",
+      };
+    default:
+      return {
+        bar: "#a08bc4",
+        chipBg: "var(--color-tint-etc)",
+        chipFg: "var(--color-tint-etc-ink)",
+      };
+  }
 }
 
 function formatEventTime(event: EventView): string {

@@ -41,20 +41,29 @@ export function TodayHero({
   const within24h = diffSec > 0 && diffSec < 24 * 3600;
   const isUrgent = diffSec < 6 * 3600;
 
+  const kindStyle = kindHeroStyle(focus.kind);
+
   return (
     <section className={className}>
-      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
         <span
-          className="text-[13px] wght-560 uppercase tracking-[0.04em] text-[var(--color-urgent)]"
-          style={{ letterSpacing: "0.04em" }}
+          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11.5px] wght-700 uppercase tracking-[0.06em]"
+          style={{
+            backgroundColor: kindStyle.tintBg,
+            color: kindStyle.tintInk,
+          }}
         >
+          <span
+            aria-hidden
+            className="inline-block h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: kindStyle.dot }}
+          />
           {kindLabel[focus.kind]}
           {focus.weightPercent != null && ` · ${focus.weightPercent}%`}
         </span>
         <div
-          className={`flex items-baseline gap-2 ${
-            isUrgent ? "text-[var(--color-urgent)]" : "text-[var(--color-apple-ink)]"
-          }`}
+          className="flex items-baseline gap-2"
+          style={{ color: isUrgent ? "var(--color-urgent)" : "var(--color-apple-ink)" }}
         >
           {within24h ? (
             <>
@@ -99,6 +108,47 @@ export function TodayHero({
       </div>
     </section>
   );
+}
+
+interface KindHeroStyle {
+  tintBg: string;
+  tintInk: string;
+  dot: string;
+}
+
+function kindHeroStyle(kind: EventView["kind"]): KindHeroStyle {
+  switch (kind) {
+    case "exam":
+      return {
+        tintBg: "var(--color-tint-exam)",
+        tintInk: "var(--color-tint-exam-ink)",
+        dot: "var(--color-urgent)",
+      };
+    case "assignment":
+      return {
+        tintBg: "var(--color-tint-assign)",
+        tintInk: "var(--color-tint-assign-ink)",
+        dot: "#cca06b",
+      };
+    case "presentation":
+      return {
+        tintBg: "var(--color-tint-prez)",
+        tintInk: "var(--color-tint-prez-ink)",
+        dot: "var(--color-apple-action)",
+      };
+    case "class":
+      return {
+        tintBg: "var(--color-tint-class)",
+        tintInk: "var(--color-tint-class-ink)",
+        dot: "#7fb38c",
+      };
+    default:
+      return {
+        tintBg: "var(--color-tint-etc)",
+        tintInk: "var(--color-tint-etc-ink)",
+        dot: "#a08bc4",
+      };
+  }
 }
 
 function ClockCell({ value, unit }: { value: number; unit: string }) {

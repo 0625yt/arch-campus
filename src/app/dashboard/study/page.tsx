@@ -242,19 +242,42 @@ function PersonalEmpty({ className }: { className?: string }) {
 
 function CourseCard({ course }: { course: CourseListItem }) {
   const dotColor = course.color ?? "#7aa6d6";
+  // 정규 강의는 코발트 톤, 개인 공부는 보라 톤 — 카드 hover 시에만 발색.
+  // 평소엔 흰 카드 + 좌측 3px 컬러 바로 카테고리 식별.
+  const isPersonal = course.category === "personal";
+  const ribbon = isPersonal ? dotColor : dotColor;
+  const hoverTint = isPersonal
+    ? "var(--color-tint-etc)"
+    : "var(--color-tint-prez)";
+
   return (
     <Link
       href={`/dashboard/study/${encodeURIComponent(course.name)}`}
-      className="group flex min-h-[200px] flex-col justify-between rounded-[18px] bg-white p-7 transition-transform duration-300 hover:-translate-y-0.5 sm:p-8"
+      className="group relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-[18px] bg-white p-7 transition-all duration-300 hover:-translate-y-0.5 sm:p-8"
     >
-      <div>
+      {/* 좌측 컬러 리본 — 카드 정체성. hover 시 4px로 살짝 굵어짐. */}
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-[3px] transition-all group-hover:w-[4px]"
+        style={{ backgroundColor: ribbon }}
+      />
+      {/* hover 시 우상단에 미세한 컬러 워시 — Apple Mail/Notes 컬러 폴더 호버 톤 */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{
+          background: `radial-gradient(180px at 100% 0%, ${hoverTint} 0%, transparent 70%)`,
+        }}
+      />
+
+      <div className="relative">
         <div className="flex items-center gap-2.5">
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dotColor }} />
           <span
             className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            {course.professor ?? "교수 미정"}
+            {isPersonal ? "개인 공부" : (course.professor ?? "교수 미정")}
           </span>
         </div>
         <h3
@@ -265,7 +288,7 @@ function CourseCard({ course }: { course: CourseListItem }) {
         </h3>
       </div>
 
-      <div className="mt-6 flex items-baseline justify-between">
+      <div className="relative mt-6 flex items-baseline justify-between">
         <span
           className="text-[13px] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.012em" }}

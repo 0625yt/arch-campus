@@ -297,6 +297,7 @@ function Filters({
           const isActive = f === active;
           const count =
             f === "전체" ? WIZARDS.length : WIZARDS.filter((w) => w.category === f).length;
+          const dotColor = f === "전체" ? null : CATEGORY[f as Category];
           return (
             <li key={f}>
               <button
@@ -310,6 +311,13 @@ function Filters({
                 }
                 style={{ letterSpacing: "-0.012em" }}
               >
+                {dotColor && (
+                  <span
+                    aria-hidden
+                    className="inline-block h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: dotColor }}
+                  />
+                )}
                 {f}
                 <span
                   className={
@@ -345,17 +353,38 @@ function ToolList({ className, wizards }: { className?: string; wizards: Wizard[
 
 function ToolCard({ wizard }: { wizard: Wizard }) {
   const dotColor = CATEGORY[wizard.category];
+  const tint = categoryTint(wizard.category);
 
   return (
     <Link
       href={wizardHref(wizard)}
-      className="group flex h-full flex-col rounded-[12px] bg-white p-5 transition-transform duration-200 hover:-translate-y-0.5 sm:p-6"
+      className="group relative flex h-full flex-col overflow-hidden rounded-[12px] bg-white p-5 transition-transform duration-200 hover:-translate-y-0.5 sm:p-6"
     >
-      <div className="flex items-center justify-between gap-2">
+      {/* 좌측 카테고리 리본 — 평소 거의 안 보이다가 hover에 살짝 더 진해짐 */}
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-[2.5px] opacity-50 transition-all group-hover:opacity-100"
+        style={{ backgroundColor: dotColor }}
+      />
+      {/* hover 시 우상단 미세한 컬러 워시 */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{
+          background: `radial-gradient(140px at 100% 0%, ${tint} 0%, transparent 70%)`,
+        }}
+      />
+
+      <div className="relative flex items-center justify-between gap-2">
         <span
-          className="text-[11px] wght-560 uppercase tracking-[0.06em]"
-          style={{ color: dotColor }}
+          className="inline-flex items-center gap-1.5 text-[11px] wght-700 uppercase tracking-[0.06em]"
+          style={{ color: dotColor, letterSpacing: "0.06em" }}
         >
+          <span
+            aria-hidden
+            className="inline-block h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: dotColor }}
+          />
           {wizard.category}
         </span>
         <span
@@ -367,19 +396,19 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
       </div>
 
       <h4
-        className="mt-3 text-[16px] leading-[1.3] wght-560 text-[var(--color-apple-ink)]"
+        className="relative mt-3 text-[16px] leading-[1.3] wght-560 text-[var(--color-apple-ink)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         {wizard.title}
       </h4>
       <p
-        className="mt-1.5 text-[13px] leading-[1.5] wght-450 text-[var(--color-apple-muted)]"
+        className="relative mt-1.5 text-[13px] leading-[1.5] wght-450 text-[var(--color-apple-muted)]"
         style={{ letterSpacing: "-0.022em" }}
       >
         {wizard.situation}
       </p>
 
-      <div className="mt-auto flex items-center justify-between pt-5">
+      <div className="relative mt-auto flex items-center justify-between pt-5">
         <span
           className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.012em" }}
@@ -392,6 +421,21 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
       </div>
     </Link>
   );
+}
+
+function categoryTint(category: Category): string {
+  switch (category) {
+    case "발표":
+      return "var(--color-tint-prez)";
+    case "과제":
+      return "var(--color-tint-assign)";
+    case "시험":
+      return "var(--color-tint-exam)";
+    case "팀플":
+      return "var(--color-tint-class)";
+    case "진로":
+      return "var(--color-tint-etc)";
+  }
 }
 
 function wizardHref(wizard: Wizard) {

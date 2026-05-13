@@ -249,9 +249,13 @@ function DayCell({
 }) {
   return (
     <div
-      className={`flex min-h-[88px] flex-col gap-1 bg-white p-1.5 sm:min-h-[110px] sm:p-2 ${
+      className={`flex min-h-[88px] flex-col gap-1 p-1.5 transition-colors sm:min-h-[110px] sm:p-2 ${
         cell.inMonth ? "" : "opacity-40"
       }`}
+      style={{
+        // 오늘 셀은 종이 위에 살짝 따뜻한 톤. 다른 날은 흰색.
+        backgroundColor: cell.isToday ? "var(--color-surface-cream)" : "#ffffff",
+      }}
     >
       <span
         className={`self-end text-[11px] wght-450 tabular-nums ${
@@ -280,22 +284,29 @@ function DayCell({
         )}
       </ul>
 
-      {/* 데스크톱: 풀 라벨 칩 */}
+      {/* 데스크톱: 풀 라벨 칩 — 파스텔 배경 + 컬러 텍스트 (Apple Calendar 톤) */}
       <ul className="hidden flex-col gap-0.5 sm:flex">
         {events.slice(0, 3).map((e) => {
           const fullLabel = formatEventLabel(e);
           const shortLabel = formatEventCompact(e);
+          const tint = kindTint(e.kind);
           return (
             <li
               key={e.id}
-              className="truncate rounded-[3px] px-1.5 py-0.5 text-[10.5px] wght-560 leading-[1.4] text-white"
+              className="flex items-center gap-1 truncate rounded-[4px] px-1.5 py-0.5 text-[10.5px] wght-560 leading-[1.4]"
               style={{
-                backgroundColor: kindColor(e.kind, e.courseColor),
+                backgroundColor: tint.bg,
+                color: tint.fg,
                 letterSpacing: "-0.012em",
               }}
               title={fullLabel}
             >
-              {shortLabel}
+              <span
+                aria-hidden
+                className="inline-block h-1 w-1 shrink-0 rounded-full"
+                style={{ backgroundColor: kindColor(e.kind, e.courseColor) }}
+              />
+              <span className="truncate">{shortLabel}</span>
             </li>
           );
         })}
@@ -413,15 +424,40 @@ function formatDate(d: Date, allDay: boolean): string {
   return `${m}/${day} ${hh}:${mm}`;
 }
 
+/**
+ * 색 점·코스 컬러 fallback — courseColor가 우선, 없으면 kind 기준 채도 낮은 컬러.
+ * (칩 배경은 따로 kindTint에서 파스텔로 처리)
+ */
 const KIND_FALLBACK_COLOR: Record<EventView["kind"], string> = {
-  exam: "#ff6b7d",
-  assignment: "#3b82ff",
-  presentation: "#a08bc4",
-  class: "#7aa6d6",
-  etc: "#7fb38c",
+  exam: "#e0445e",       // coral
+  assignment: "#cca06b", // mustard
+  presentation: "#7aa6d6", // cobalt
+  class: "#7fb38c",      // sage
+  etc: "#a08bc4",        // mauve
 };
 
 function kindColor(kind: EventView["kind"], courseColor: string | null): string {
   if (courseColor) return courseColor;
   return KIND_FALLBACK_COLOR[kind];
+}
+
+/**
+ * 캘린더 칩·뱃지용 파스텔 배경 + 컬러 텍스트.
+ * Apple Calendar 톤: 진한 면 X, 종이 위 연한 칩 + 같은 hue 텍스트.
+ */
+interface KindTint {
+  bg: string;
+  fg: string;
+}
+
+const KIND_TINT: Record<EventView["kind"], KindTint> = {
+  exam: { bg: "var(--color-tint-exam)", fg: "var(--color-tint-exam-ink)" },
+  assignment: { bg: "var(--color-tint-assign)", fg: "var(--color-tint-assign-ink)" },
+  presentation: { bg: "var(--color-tint-prez)", fg: "var(--color-tint-prez-ink)" },
+  class: { bg: "var(--color-tint-class)", fg: "var(--color-tint-class-ink)" },
+  etc: { bg: "var(--color-tint-etc)", fg: "var(--color-tint-etc-ink)" },
+};
+
+function kindTint(kind: EventView["kind"]): KindTint {
+  return KIND_TINT[kind];
 }

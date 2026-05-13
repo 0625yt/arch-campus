@@ -546,9 +546,15 @@ function Logo() {
   return (
     <div
       aria-hidden
-      className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-[7px] bg-[var(--color-apple-action)]"
+      className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-[7px]"
+      style={{
+        // 코발트→라일락 미세 그라데이션. 로그인 카피의 색감을 사이드바에도 끌어들임.
+        background:
+          "linear-gradient(135deg, #0071e3 0%, #4f7be8 55%, #8e7ee0 100%)",
+        boxShadow: "0 1px 2px rgba(0, 113, 227, 0.18)",
+      }}
     >
-      <div className="absolute inset-x-1 top-1 h-px rounded-full bg-white/45" />
+      <div className="absolute inset-x-1 top-1 h-px rounded-full bg-white/55" />
       <span className="relative text-[10px] wght-620 text-white">a</span>
     </div>
   );

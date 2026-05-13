@@ -57,6 +57,43 @@
   --color-apple-cobalt: #7aa6d6;
   --color-apple-action-soft: #f0f7ff;
 
+  /*
+   * Kind 파스텔 — Apple Calendar 톤. saturation 8~12% / lightness 96~98%.
+   * 평소엔 종이 위에 카드 좌측 바·작은 칩으로만 노출.
+   * strong은 hover·"오늘" 같이 잠깐 강조될 때만.
+   * Light 모드 기준. 어둡고 칙칙하다는 피드백 해결용으로 ink-strong 추가.
+   */
+  --color-tint-exam: #fde7eb;       /* 코랄 파스텔 */
+  --color-tint-exam-strong: #f9c5cd;
+  --color-tint-exam-ink: #b6263b;
+
+  --color-tint-assign: #ffeed4;     /* 살구 파스텔 */
+  --color-tint-assign-strong: #ffd9a3;
+  --color-tint-assign-ink: #a85f17;
+
+  --color-tint-prez: #e1ecff;       /* 라벤더 블루 파스텔 */
+  --color-tint-prez-strong: #c2d6ff;
+  --color-tint-prez-ink: #2e58c9;
+
+  --color-tint-class: #e6f4ec;      /* 민트 파스텔 (수업 = 평온) */
+  --color-tint-class-strong: #cbe5d4;
+  --color-tint-class-ink: #2f7a4f;
+
+  --color-tint-etc: #ece6f5;        /* 모브 파스텔 */
+  --color-tint-etc-strong: #d6cbe7;
+  --color-tint-etc-ink: #604a8a;
+
+  /* Streak·복습 톤 — 오답이 누적되었을 때 카드가 살짝 따뜻해짐 */
+  --color-tint-streak: #fff3df;
+  --color-tint-streak-ink: #b66a14;
+
+  /*
+   * 표면 톤 — 흰색 일변 도화지에 미세한 호흡 한 겹.
+   * apple-pearl(#f5f5f7)은 그대로, 그 위에 더 따뜻한 surface-warm 추가.
+   */
+  --color-surface-cream: #fbfaf7;     /* 종이에 미세하게 따뜻한 톤 */
+  --color-surface-mist: #f4f6fb;      /* 종이에 미세하게 차가운 톤 */
+
   /* 그림자 — 거의 보이지 않게 */
   --shadow-soft: 0 1px 2px rgba(20, 20, 20, 0.04);
   --shadow-lift: 0 1px 2px rgba(20, 20, 20, 0.04),
@@ -83,6 +120,26 @@
   --color-apple-coral-soft: #fff0f3;
   --color-apple-cobalt: #7aa6d6;
   --color-apple-action-soft: #f0f7ff;
+
+  --color-tint-exam: #fde7eb;
+  --color-tint-exam-strong: #f9c5cd;
+  --color-tint-exam-ink: #b6263b;
+  --color-tint-assign: #ffeed4;
+  --color-tint-assign-strong: #ffd9a3;
+  --color-tint-assign-ink: #a85f17;
+  --color-tint-prez: #e1ecff;
+  --color-tint-prez-strong: #c2d6ff;
+  --color-tint-prez-ink: #2e58c9;
+  --color-tint-class: #e6f4ec;
+  --color-tint-class-strong: #cbe5d4;
+  --color-tint-class-ink: #2f7a4f;
+  --color-tint-etc: #ece6f5;
+  --color-tint-etc-strong: #d6cbe7;
+  --color-tint-etc-ink: #604a8a;
+  --color-tint-streak: #fff3df;
+  --color-tint-streak-ink: #b66a14;
+  --color-surface-cream: #fbfaf7;
+  --color-surface-mist: #f4f6fb;
 }
 
 html,
