@@ -115,14 +115,14 @@
 
   /*
    * surface-canvas — /dashboard 모든 페이지 공통 배경.
-   * 로그인 화면의 4-blob radial을 8% 강도로 축소. 사용자가 "컬러"라고
-   * 의식하기 직전 단계 — 카메라로 찍어 비교해야 보이는 미세한 차이.
-   * 회색 단색 #f5f5f7 대비 "살아있는" 종이가 됨.
+   *
+   * Apple MacBook Air 페이지(2026-05) 톤 — 위쪽 옅은 sky-blue 한 색이
+   * 아래로 흰색으로 풀려나가는 단일 hue, 단일 방향 그라데이션.
+   * 우리가 그동안 깔던 4-blob radial은 "그라데이션이 보인다"는 시각적
+   * 잡음을 만들었음. Apple은 한 hue, 한 방향, 30% → 0%.
    */
   --surface-canvas-blob:
-    radial-gradient(ellipse 80% 50% at 0% 0%, rgba(122, 166, 214, 0.08), transparent 60%),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(176, 156, 200, 0.06), transparent 65%),
-    radial-gradient(ellipse 40% 30% at 100% 0%, rgba(243, 207, 138, 0.05), transparent 70%);
+    linear-gradient(180deg, rgba(180, 207, 226, 0.30) 0%, rgba(180, 207, 226, 0.08) 45%, transparent 85%);
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-fast: 140ms;
@@ -173,9 +173,7 @@
     0 24px 56px -12px rgba(20, 20, 20, 0.18);
 
   --surface-canvas-blob:
-    radial-gradient(ellipse 80% 50% at 0% 0%, rgba(122, 166, 214, 0.08), transparent 60%),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(176, 156, 200, 0.06), transparent 65%),
-    radial-gradient(ellipse 40% 30% at 100% 0%, rgba(243, 207, 138, 0.05), transparent 70%);
+    linear-gradient(180deg, rgba(180, 207, 226, 0.30) 0%, rgba(180, 207, 226, 0.08) 45%, transparent 85%);
 }
 
 /*
@@ -184,7 +182,8 @@
  * /dashboard/* 모든 페이지의 .dashboard-canvas 래퍼에 적용.
  */
 .dashboard-canvas {
-  background-color: var(--color-apple-pearl);
+  /* Apple MacBook Air 톤 — 흰 캔버스 위에 위→아래 sky-blue 그라데이션 한 줄 */
+  background-color: #ffffff;
   background-image: var(--surface-canvas-blob);
   background-attachment: fixed;
 }

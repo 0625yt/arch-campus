@@ -274,16 +274,25 @@ function UpcomingList({
 
   return (
     <section className={className}>
-      <div className="flex items-baseline justify-between gap-3">
-        <h2
-          className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          다가오는 일정.
-        </h2>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p
+            className="text-[13px] wght-560 text-[var(--color-apple-muted)] sm:text-[14px]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            이번 주
+          </p>
+          <h2
+            className="mt-2 text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[44px]"
+            style={{ letterSpacing: "-0.022em" }}
+          >
+            한눈에 들어오게.
+          </h2>
+        </div>
         <Link
           href="/dashboard/calendar"
-          className="group inline-flex items-baseline text-[14px] wght-450 text-[var(--color-apple-action)]"
+          className="group inline-flex shrink-0 items-baseline text-[14px] wght-450 text-[var(--color-apple-action)]"
+          style={{ letterSpacing: "-0.012em" }}
         >
           <span className="border-b border-transparent group-hover:border-[var(--color-apple-action)]">
             전체 캘린더
@@ -412,11 +421,17 @@ function RecentSection({ activities, className }: { activities: Activity[]; clas
   if (activities.length === 0) return null;
   return (
     <section className={className}>
-      <h2
-        className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
+      <p
+        className="text-[13px] wght-560 text-[var(--color-apple-muted)] sm:text-[14px]"
         style={{ letterSpacing: "-0.012em" }}
       >
-        최근 활동.
+        최근 활동
+      </p>
+      <h2
+        className="mt-2 text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[44px]"
+        style={{ letterSpacing: "-0.022em" }}
+      >
+        흐름이 보인다.
       </h2>
       <ul className="elev-1 mt-6 overflow-hidden rounded-[12px] bg-white">
         {activities.map((a, idx) => (

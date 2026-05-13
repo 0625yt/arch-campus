@@ -43,20 +43,53 @@ export function TodayHero({
 
   const kindStyle = kindHeroStyle(focus.kind);
 
+  // Apple "MacBook Air" 카피 패턴 — 작은 라벨(eyebrow) → 큰 두 문장 헤드 → 코랄 한 줄 부제.
+  // 카운트다운/CTA 같은 인터랙션은 헤드라인 아래로 옮겨 카피가 호흡할 공간을 만든다.
+  const eyebrow = kindLabel[focus.kind];
+  const headlineA = focus.courseName ?? formatEventHeading(focus);
+  const headlineB = headlineCallout(focus.kind, isUrgent, within24h);
+  const coralLine = focus.notes ?? formatEventHeading(focus);
+
   return (
     <section className={className}>
-      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
-        <span
-          className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] wght-620"
+      {/* 1. eyebrow — Apple "MacBook Air" 자리 */}
+      <p
+        className="text-[14px] wght-560 text-[var(--color-apple-muted)] sm:text-[15px]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        {eyebrow}
+        {focus.weightPercent != null && (
+          <span className="ml-2 text-[var(--color-apple-hairline)]">·</span>
+        )}
+        {focus.weightPercent != null && (
+          <span className="ml-2">{focus.weightPercent}%</span>
+        )}
+      </p>
+
+      {/* 2. 큰 두 문장 헤드 — "강력하게. 비상하다." 자리 */}
+      <h1
+        className="mt-4 text-[40px] leading-[1.04] wght-700 text-[var(--color-apple-ink)] sm:text-[56px] md:text-[68px]"
+        style={{ letterSpacing: "-0.022em" }}
+      >
+        {headlineA}.{" "}
+        <span style={{ color: kindStyle.tintInk }}>{headlineB}</span>
+      </h1>
+
+      {/* 3. 코랄 한 줄 부제 — "이제 막강한 성능의 M5 탑재." 자리 */}
+      {coralLine && coralLine !== headlineA && (
+        <p
+          className="mt-5 text-[15px] wght-620 sm:text-[17px]"
           style={{
-            backgroundColor: kindStyle.tintBg,
-            color: kindStyle.tintInk,
+            color: "var(--color-urgent)",
             letterSpacing: "-0.012em",
           }}
         >
-          {kindLabel[focus.kind]}
-          {focus.weightPercent != null && ` · ${focus.weightPercent}%`}
-        </span>
+          {coralLine}.
+        </p>
+      )}
+
+      {/* 4. 카운트다운 + CTA — Apple 가격 + 구입하기 자리 */}
+      <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-4 sm:mt-14">
         <div
           className="flex items-baseline gap-2"
           style={{ color: isUrgent ? "var(--color-urgent)" : "var(--color-apple-ink)" }}
@@ -71,37 +104,37 @@ export function TodayHero({
             <ClockCell value={Math.max(0, days)} unit="d" />
           )}
         </div>
-      </div>
-
-      <h1
-        className="mt-6 text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[48px] md:text-[56px]"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        {formatEventHeading(focus)}.
-      </h1>
-      {focus.courseName && (
-        <p
-          className="mt-3 text-[14px] wght-450 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {focus.courseName}
-          {focus.notes && (
-            <span className="mx-2 text-[var(--color-apple-hairline)]">·</span>
-          )}
-          {focus.notes}
-        </p>
-      )}
-
-      <div className="mt-7 flex flex-wrap gap-3">
         <Link
           href="/dashboard/calendar"
-          className="inline-flex h-[44px] items-center rounded-full bg-[var(--color-apple-ink)] px-6 text-[14px] wght-560 text-white transition-all hover:opacity-90 active:scale-[0.97]"
+          className="inline-flex h-[44px] items-center rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)] active:scale-[0.97]"
+          style={{ letterSpacing: "-0.012em" }}
         >
-          캘린더에서 보기 →
+          캘린더에서 보기
         </Link>
       </div>
     </section>
   );
+}
+
+/**
+ * 두 번째 문장 — Apple "비상하다" 자리.
+ * 임박도에 따라 톤이 바뀜. 카운트다운이 따로 있어 정보 중복 아닌, 감정 강조.
+ */
+function headlineCallout(kind: EventView["kind"], isUrgent: boolean, within24h: boolean): string {
+  if (isUrgent) return "지금부터 진심";
+  if (within24h) return "오늘 안에 끝내자";
+  switch (kind) {
+    case "exam":
+      return "준비할 시간이 있다";
+    case "assignment":
+      return "차근차근 끝내자";
+    case "presentation":
+      return "리허설할 차례";
+    case "class":
+      return "한 주가 시작된다";
+    default:
+      return "한 걸음씩";
+  }
 }
 
 interface KindHeroStyle {
