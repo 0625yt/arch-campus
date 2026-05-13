@@ -111,29 +111,28 @@ function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
 
   const topLine = wrongStats.byMaterial[0];
   return (
-    <article
-      className="elev-hover-2 relative overflow-hidden rounded-[18px] p-6"
-      style={{
-        // 카드 자체는 흰 바탕에 코랄을 살짝만 — Apple Reminders 빨강 폴더 톤
-        background:
-          "linear-gradient(135deg, var(--color-tint-exam) 0%, #ffffff 55%)",
-      }}
-    >
-      <p
-        className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-2 py-0.5 text-[11px] wght-700 uppercase tracking-[0.06em]"
-        style={{ color: "var(--color-tint-exam-ink)" }}
+    <article className="elev-hover-2 rounded-[18px] bg-white p-6">
+      <span
+        className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] wght-620"
+        style={{
+          backgroundColor: "var(--color-tint-exam)",
+          color: "var(--color-tint-exam-ink)",
+          letterSpacing: "-0.012em",
+        }}
       >
-        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-urgent)]" />
         오답 {wrongStats.totalWrong}문제
-      </p>
+      </span>
       <h2
-        className="mt-3 text-[17px] leading-[1.35] wght-620 text-[var(--color-apple-ink)]"
+        className="mt-4 text-[18px] leading-[1.3] wght-620 text-[var(--color-apple-ink)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         {topLine ? `${topLine.quizTitle}부터 다시.` : "오답을 다시 풀어요."}
       </h2>
       {wrongStats.byMaterial.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-1 text-[12.5px] wght-450 text-[var(--color-apple-muted)]">
+        <ul
+          className="mt-4 flex flex-col gap-1.5 text-[13px] wght-450 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
           {wrongStats.byMaterial.slice(0, 3).map((m) => (
             <li key={m.materialId ?? m.quizTitle} className="flex justify-between gap-3">
               <span className="truncate">{m.quizTitle}</span>
@@ -144,7 +143,8 @@ function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
       )}
       <Link
         href="/dashboard/review"
-        className="mt-6 inline-flex h-[40px] items-center rounded-full bg-[var(--color-urgent)] px-4 text-[13px] wght-560 text-white transition-all hover:opacity-90"
+        className="mt-7 inline-flex h-[40px] items-center rounded-full bg-[var(--color-apple-ink)] px-5 text-[13px] wght-560 text-white transition-all hover:opacity-90"
+        style={{ letterSpacing: "-0.012em" }}
       >
         오답 복습 시작 →
       </Link>
@@ -164,39 +164,41 @@ function ResumeAttemptCard({ attempt }: { attempt: RecentAttempt }) {
         : `${Math.floor(hoursAgo / 24)}일 전`;
 
   return (
-    <article
-      className="elev-hover-2 relative overflow-hidden rounded-[18px] p-6"
-      style={{
-        background:
-          "linear-gradient(135deg, var(--color-tint-prez) 0%, #ffffff 55%)",
-      }}
-    >
-      <p
-        className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-2 py-0.5 text-[11px] wght-700 uppercase tracking-[0.06em]"
-        style={{ color: "var(--color-tint-prez-ink)" }}
+    <article className="elev-hover-2 rounded-[18px] bg-white p-6">
+      <span
+        className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] wght-620"
+        style={{
+          backgroundColor: "var(--color-tint-prez)",
+          color: "var(--color-tint-prez-ink)",
+          letterSpacing: "-0.012em",
+        }}
       >
-        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-apple-action)]" />
         직전 풀이 · {ago}
-      </p>
+      </span>
       <h2
-        className="mt-3 text-[17px] leading-[1.35] wght-620 text-[var(--color-apple-ink)]"
+        className="mt-4 text-[18px] leading-[1.3] wght-620 text-[var(--color-apple-ink)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         {attempt.quizTitle}
       </h2>
-      <p className="mt-2 text-[13px] wght-450 text-[var(--color-apple-muted)]">
+      <p
+        className="mt-2 text-[13px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
         정답률 {ratio}% · {attempt.score}/{attempt.total}
       </p>
-      <div className="mt-6 flex gap-2">
+      <div className="mt-7 flex gap-2">
         <Link
           href={`/dashboard/quiz/${attempt.quizId}/result/${attempt.attemptId}`}
           className="inline-flex h-[40px] flex-1 items-center justify-center rounded-full bg-[var(--color-apple-ink)] px-4 text-[13px] wght-560 text-white transition-all hover:opacity-90"
+          style={{ letterSpacing: "-0.012em" }}
         >
           다시보기
         </Link>
         <Link
           href={`/dashboard/quiz/${attempt.quizId}/wrong`}
-          className="inline-flex h-[40px] items-center justify-center rounded-full border border-[var(--color-apple-hairline)] px-4 text-[12px] wght-450 text-[var(--color-apple-muted)] transition-all hover:border-[var(--color-apple-ink)] hover:text-[var(--color-apple-ink)]"
+          className="inline-flex h-[40px] items-center justify-center rounded-full bg-[var(--color-apple-pearl)] px-4 text-[12px] wght-560 text-[var(--color-apple-muted)] transition-all hover:bg-[var(--color-apple-hairline)] hover:text-[var(--color-apple-ink)]"
+          style={{ letterSpacing: "-0.012em" }}
         >
           오답만
         </Link>
@@ -316,19 +318,13 @@ function UpcomingCard({
   const tone = days <= 1 ? "urgent" : days <= 3 ? "warn" : "muted";
   const tint = upcomingTint(event.kind);
 
+  // Apple 톤: 컬러 정보는 좌상단 칩 한 군데만. 좌측 바·메타 동그라미 같은
+  // 보조 장식은 같은 정보를 두 번 반복하므로 모두 제거.
   return (
-    <article
-      className="elev-hover-2 relative overflow-hidden rounded-[12px] bg-white p-5 sm:p-6"
-    >
-      {/* 좌측 4px 컬러 바 — Apple Calendar 행 시그니처. 평소엔 보일 듯 말 듯, hover에서 진해짐. */}
-      <span
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-[3px]"
-        style={{ backgroundColor: tint.bar }}
-      />
-      <div className="flex items-baseline justify-between gap-3 pl-1">
+    <article className="elev-hover-2 rounded-[14px] bg-white p-5 sm:p-6">
+      <div className="flex items-center justify-between gap-3">
         <span
-          className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10.5px] wght-700 uppercase tracking-[0.06em]"
+          className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] wght-620 tracking-[-0.012em]"
           style={{ backgroundColor: tint.chipBg, color: tint.chipFg }}
         >
           {kindLabel[event.kind]}
@@ -347,16 +343,15 @@ function UpcomingCard({
         </span>
       </div>
       <p
-        className="mt-3 pl-1 text-[16px] leading-[1.3] wght-560 text-[var(--color-apple-ink)]"
+        className="mt-4 text-[16px] leading-[1.35] wght-560 text-[var(--color-apple-ink)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         {formatEventLabel(event)}
       </p>
-      <p className="mt-1.5 flex items-center gap-2 pl-1 text-[12px] wght-450 text-[var(--color-apple-muted)]">
-        <span
-          className="inline-block h-1.5 w-1.5 rounded-full"
-          style={{ backgroundColor: event.courseColor ?? tint.bar }}
-        />
+      <p
+        className="mt-1.5 text-[12px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
         {formatEventTime(event)}
       </p>
     </article>

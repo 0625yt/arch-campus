@@ -47,17 +47,13 @@ export function TodayHero({
     <section className={className}>
       <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
         <span
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11.5px] wght-700 uppercase tracking-[0.06em]"
+          className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] wght-620"
           style={{
             backgroundColor: kindStyle.tintBg,
             color: kindStyle.tintInk,
+            letterSpacing: "-0.012em",
           }}
         >
-          <span
-            aria-hidden
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: kindStyle.dot }}
-          />
           {kindLabel[focus.kind]}
           {focus.weightPercent != null && ` · ${focus.weightPercent}%`}
         </span>
@@ -85,16 +81,14 @@ export function TodayHero({
       </h1>
       {focus.courseName && (
         <p
-          className="mt-3 flex items-center gap-2 text-[14px] wght-450 text-[var(--color-apple-muted)]"
+          className="mt-3 text-[14px] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          <span
-            className="inline-block h-2 w-2 rounded-full"
-            style={{ backgroundColor: focus.courseColor ?? "#7aa6d6" }}
-          />
           {focus.courseName}
-          {focus.notes && <span className="text-[var(--color-apple-hairline)]">·</span>}
-          {focus.notes && <span>{focus.notes}</span>}
+          {focus.notes && (
+            <span className="mx-2 text-[var(--color-apple-hairline)]">·</span>
+          )}
+          {focus.notes}
         </p>
       )}
 
