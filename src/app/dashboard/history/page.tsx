@@ -12,7 +12,7 @@ export default async function HistoryPage() {
   const activities = await getRecentActivities({ ownerId, limit: 50 });
 
   return (
-    <div className="bg-[var(--color-apple-pearl)]">
+    <div>
       <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
         <Header />
         {activities.length === 0 ? (

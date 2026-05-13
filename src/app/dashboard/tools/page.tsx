@@ -151,7 +151,7 @@ export default function ToolsPage() {
   );
 
   return (
-    <div className="bg-[var(--color-apple-pearl)]">
+    <div>
       <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
         {/* Top bar */}
         <header className="fade-up flex items-baseline justify-between gap-3">
@@ -241,7 +241,7 @@ function UrgentCard({ wizard }: { wizard: Wizard }) {
   return (
     <Link
       href={wizardHref(wizard)}
-      className="group flex min-h-[200px] flex-col justify-between rounded-[18px] bg-white p-7 transition-transform duration-300 hover:-translate-y-0.5"
+      className="group elev-hover-2 flex min-h-[200px] flex-col justify-between rounded-[18px] bg-white p-7"
     >
       <div>
         <span
@@ -358,7 +358,7 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
   return (
     <Link
       href={wizardHref(wizard)}
-      className="group relative flex h-full flex-col overflow-hidden rounded-[12px] bg-white p-5 transition-transform duration-200 hover:-translate-y-0.5 sm:p-6"
+      className="group elev-hover-2 relative flex h-full flex-col overflow-hidden rounded-[12px] bg-white p-5 sm:p-6"
     >
       {/* 좌측 카테고리 리본 — 평소 거의 안 보이다가 hover에 살짝 더 진해짐 */}
       <span

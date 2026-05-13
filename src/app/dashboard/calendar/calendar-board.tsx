@@ -90,7 +90,7 @@ export function CalendarBoard({
 
   return (
     <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px] fade-up fade-up-1">
-      <section className="rounded-[18px] bg-white p-5 sm:p-7">
+      <section className="elev-1 rounded-[18px] bg-white p-5 sm:p-7">
         <div className="flex items-baseline justify-between gap-3">
           <h2
             className="text-[20px] wght-620 text-[var(--color-apple-ink)] sm:text-[22px]"
@@ -136,7 +136,7 @@ export function CalendarBoard({
       </section>
 
       <aside className="flex flex-col gap-4">
-        <section className="rounded-[14px] bg-white p-5">
+        <section className="elev-1 rounded-[14px] bg-white p-5">
           <h3 className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
             {mode === "timetable"
               ? "이번 주 수업"
@@ -366,7 +366,7 @@ function UpcomingRow({ event }: { event: EventView }) {
 
 function EmptyState() {
   return (
-    <div className="mt-12 rounded-[18px] bg-white px-7 py-16 text-center fade-up fade-up-1 sm:py-20">
+    <div className="elev-1 mt-12 rounded-[18px] bg-white px-7 py-16 text-center fade-up fade-up-1 sm:py-20">
       <p
         className="text-[20px] wght-620 text-[var(--color-apple-ink)]"
         style={{ letterSpacing: "-0.012em" }}

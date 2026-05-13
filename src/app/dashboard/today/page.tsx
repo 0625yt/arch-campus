@@ -37,7 +37,7 @@ export default async function TodayPage() {
   const showStudyRow = wrongStats.totalWrong > 0 || recentAttempts.length > 0;
 
   return (
-    <div className="bg-[var(--color-apple-pearl)]">
+    <div>
       <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
         <TopBar />
 
@@ -90,7 +90,7 @@ function StudyRow({
 function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
   if (wrongStats.totalWrong === 0) {
     return (
-      <article className="rounded-[18px] border border-[var(--color-apple-hairline)] bg-white p-6">
+      <article className="elev-1 rounded-[18px] bg-white p-6">
         <p
           className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]"
         >
@@ -112,7 +112,7 @@ function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
   const topLine = wrongStats.byMaterial[0];
   return (
     <article
-      className="relative overflow-hidden rounded-[18px] p-6"
+      className="elev-hover-2 relative overflow-hidden rounded-[18px] p-6"
       style={{
         // 카드 자체는 흰 바탕에 코랄을 살짝만 — Apple Reminders 빨강 폴더 톤
         background:
@@ -165,7 +165,7 @@ function ResumeAttemptCard({ attempt }: { attempt: RecentAttempt }) {
 
   return (
     <article
-      className="relative overflow-hidden rounded-[18px] p-6"
+      className="elev-hover-2 relative overflow-hidden rounded-[18px] p-6"
       style={{
         background:
           "linear-gradient(135deg, var(--color-tint-prez) 0%, #ffffff 55%)",
@@ -235,7 +235,7 @@ function TopBar() {
 function NoFocus({ className }: { className?: string }) {
   return (
     <section className={className}>
-      <div className="rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
+      <div className="elev-1 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
         <p
           className="text-[20px] wght-620 text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
@@ -318,7 +318,7 @@ function UpcomingCard({
 
   return (
     <article
-      className="relative overflow-hidden rounded-[12px] bg-white p-5 sm:p-6"
+      className="elev-hover-2 relative overflow-hidden rounded-[12px] bg-white p-5 sm:p-6"
     >
       {/* 좌측 4px 컬러 바 — Apple Calendar 행 시그니처. 평소엔 보일 듯 말 듯, hover에서 진해짐. */}
       <span
@@ -423,7 +423,7 @@ function RecentSection({ activities, className }: { activities: Activity[]; clas
       >
         최근 활동.
       </h2>
-      <ul className="mt-6 overflow-hidden rounded-[12px] border border-[var(--color-apple-hairline)] bg-white">
+      <ul className="elev-1 mt-6 overflow-hidden rounded-[12px] bg-white">
         {activities.map((a, idx) => (
           <li
             key={a.id}

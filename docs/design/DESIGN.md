@@ -8,6 +8,110 @@
 
 ---
 
+## §A. Apple HIG 적용 (2026-05-13 추가) ★★★
+
+> developer.apple.com/kr/design + developer.apple.com/design/human-interface-guidelines 정독 후 우리 사이트에 적용한 원칙.
+>
+> **트리거 한 줄**: "로그인은 좋은데 안에 들어가면 칙칙하다" — Apple은 종이 위에 **빛**을 깐다. 우리는 그동안 종이 위에 **회색 카드**만 깔고 있었다.
+
+### A-1. Apple Foundations 핵심 5개
+
+| 원칙 (HIG) | 우리에게 적용 |
+|---|---|
+| **Materials** — 표면은 단일 솔리드 X. 빛·반투명·미세 그라데이션으로 깊이. | 페이지 배경에 4-blob radial gradient + 카드는 흰색 그대로. |
+| **Color** — 시맨틱·미니멈. 의미 있는 곳에만, 면적은 최소. | kind tint(파스텔)만 액센트. 큰 면을 색으로 채우는 것 금지. |
+| **Typography** — SF Pro / 강한 점프 위계. | hero 48~56px → section 22~28px → body 14~15px → meta 11~12px. 그 사이 잘게 X. |
+| **Layout** — 호흡. 한 화면에 정보 욱여넣지 않음. | 페이지 상단 padding `pt-12`로 통일, hero 아래 큰 여백, 카드 grid 12~16px gap. |
+| **Motion** — 작고 빠른 ease-out, 200~300ms. | hover translate -1px + opacity, 200ms cubic-bezier(0.22, 1, 0.36, 1). |
+
+### A-2. 로그인 화면이 잘 되는 이유 (우리가 살린 패턴)
+
+분석: [src/app/login/page.tsx](../../src/app/login/page.tsx)
+
+1. **배경 = 다층 radial blob**. 흰 종이 위에 cobalt 45%, 머스타드 40%, mauve 42%, cobalt-tail 20% — 사용자가 "컬러"라고 의식하기 전 단계의 미세 그라데이션.
+2. **카드 X. 종이 위에 떠 있는 버튼 한 개**. 다층 그림자(`1px shadow + 12px soft glow + 1px ring`)로 표면감.
+3. **타이포 점프 강함**. 38px hero → 14px sub → 13px meta. 14·15·16px 잡다 X.
+4. **여백이 광활**. 좁은 max-w(420px) + 큰 vertical padding(py-16).
+5. **인터랙션 마이크로**. hover에 1px 떠오름 + glow 강화, active에서 1px 누름 + 0.98 scale.
+
+### A-3. 대시보드가 칙칙한 이유 (이번에 고치는 것)
+
+1. ❌ 모든 페이지 배경이 단색 `#f5f5f7` 한 색.
+2. ❌ 카드가 흰색 + 그림자 거의 X → 평평.
+3. ❌ hero가 본문과 같은 면에 있음 → "올라온" 느낌 없음.
+4. ❌ 카드 hover에 변화 없음 → 죽어있음.
+5. ❌ 타이포 사이즈가 점프하지 않고 12·13·14·15·16·17 다 등장 → 위계 무너짐.
+
+### A-4. 적용 명세 (이번 PR이 박는 것)
+
+**(1) 페이지 표면 (Surface)**
+
+```css
+/* 토큰 — surface-canvas는 로그인 그라데이션의 "안쪽 화면" 버전 */
+--surface-canvas: radial-gradient(
+    ellipse 80% 50% at 0% 0%,
+    rgba(122, 166, 214, 0.06),
+    transparent 60%
+  ),
+  radial-gradient(
+    ellipse 60% 40% at 100% 100%,
+    rgba(176, 156, 200, 0.05),
+    transparent 65%
+  ),
+  #fafafa;
+```
+
+`/dashboard/*` 모든 페이지 배경을 이걸로. **사용자가 보면 그냥 회색 같지만, 카메라로 찍어 비교하면 살아 있는 종이**.
+
+**(2) 카드 elevation 3단계**
+
+| Level | 용도 | 그림자 |
+|---|---|---|
+| `elev-1` | 기본 카드 (이번 주, 자료 카드) | `0 1px 2px rgba(0,0,0,0.04)` |
+| `elev-2` | hero·focus 카드 (Today 큰 카드, 강의 카드) | `0 1px 2px rgba(0,0,0,0.04), 0 8px 24px -12px rgba(0,0,0,0.08)` |
+| `elev-3` | floating·modal | `0 4px 12px rgba(0,0,0,0.06), 0 24px 56px -12px rgba(0,0,0,0.16)` |
+
+**평소엔 elev-1. hover에 elev-2.** 그래야 "올라온다"가 느껴짐.
+
+**(3) 타이포 점프 고정**
+
+```
+페이지 타이틀  56 / 48 / 34px  wght-620  letter-spacing -0.024em
+섹션 타이틀   28 / 22px        wght-620  -0.012em
+카드 타이틀   17~20px          wght-620  -0.012em
+본문        14~15px           wght-450  -0.012em
+메타        11~12px           wght-560  uppercase 0.06em
+```
+
+**중간 사이즈(16, 18) 쓸 거면 카드 타이틀이나 본문 어디에 속하는지 다시 판단**. 16px hero는 X.
+
+**(4) 인터랙션**
+
+- hover: `translate-y: -1px` + elev-1→elev-2 + 색 변화 1단계
+- active: `scale: 0.98` 또는 `translate-y: 0`
+- 모든 트랜지션 `200ms cubic-bezier(0.22, 1, 0.36, 1)` (`--ease-out`)
+- 페이지 진입 fade-up은 이미 잘 됨 (0.3~0.4s stagger 100ms)
+
+**(5) 헤더 영역의 "spacious" 룰**
+
+페이지 진입 후 hero까지 `pt-12 sm:pt-16 md:pt-20`. 그 위는 topbar(breadcrumb·date) `12px` 라인 하나만. 이게 Apple 사이트 모든 페이지의 공통 호흡.
+
+### A-5. 금지 — 이 PR 이후 다시 등장하면 안 되는 패턴
+
+- 페이지 배경 단색 (`bg-[#f5f5f7]` 단독)
+- 카드 hover 변화 없음
+- 같은 페이지 안에 14·15·16·17 모두 등장
+- hero와 카드가 동일한 표면 위 (hero가 안 떠 있음)
+- 큰 면을 컬러로 채움 (예: 카드 전체 배경 코랄)
+
+### A-6. 참고 페이지
+
+- [https://developer.apple.com/kr/design/](https://developer.apple.com/kr/design/) — 메인 디자인 허브 (Liquid Glass, 몰입형 경험)
+- [https://developer.apple.com/design/human-interface-guidelines/](https://developer.apple.com/design/human-interface-guidelines/) — Foundations 전체
+- 우리 로그인 화면 [src/app/login/page.tsx](../../src/app/login/page.tsx) — Apple 톤 우리 사이트 내 유일 reference
+
+---
+
 ## 0. 톤 한 줄
 
 > **"AI가 만들었구나"가 아니라 "사람이 신경 써서 만들었네"로 읽혀야 한다.**

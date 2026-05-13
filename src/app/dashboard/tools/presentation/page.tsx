@@ -3,7 +3,7 @@ import { Wizard } from "./wizard";
 
 export default function PresentationWizardPage() {
   return (
-    <div className="bg-[var(--color-apple-pearl)]">
+    <div>
       <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
         {/* Top bar */}
         <header className="fade-up flex items-baseline justify-between gap-3">

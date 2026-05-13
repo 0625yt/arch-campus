@@ -21,7 +21,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopbar />
-        <main className="flex-1 overflow-y-auto overscroll-contain">{children}</main>
+        <main className="dashboard-canvas flex-1 overflow-y-auto overscroll-contain">
+          {children}
+        </main>
         <MobileTabBar />
       </div>
       <CommandPalette />

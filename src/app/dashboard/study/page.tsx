@@ -21,7 +21,7 @@ export default async function StudyIndexPage() {
     grouped.personal.reduce((a, c) => a + c.materialCount, 0);
 
   return (
-    <div className="bg-[var(--color-apple-pearl)]">
+    <div>
       <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
         <header className="fade-up flex items-baseline justify-between gap-3">
           <p
@@ -89,7 +89,7 @@ function Hero({ courseCount, totalMaterials }: { courseCount: number; totalMater
 function EmptyCourses({ className }: { className?: string }) {
   return (
     <section className={className}>
-      <div className="rounded-[18px] bg-white px-7 py-16 text-center sm:py-20">
+      <div className="elev-1 rounded-[18px] bg-white px-7 py-16 text-center sm:py-20">
         <p
           className="text-[24px] wght-620 text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
@@ -253,7 +253,7 @@ function CourseCard({ course }: { course: CourseListItem }) {
   return (
     <Link
       href={`/dashboard/study/${encodeURIComponent(course.name)}`}
-      className="group relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-[18px] bg-white p-7 transition-all duration-300 hover:-translate-y-0.5 sm:p-8"
+      className="group elev-hover-2 relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-[18px] bg-white p-7 sm:p-8"
     >
       {/* 좌측 컬러 리본 — 카드 정체성. hover 시 4px로 살짝 굵어짐. */}
       <span

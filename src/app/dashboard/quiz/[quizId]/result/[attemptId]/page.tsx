@@ -42,7 +42,7 @@ export default async function AttemptReviewPage({
   const attemptedAt = new Date(summary.attemptedAt);
 
   return (
-    <div className="bg-[var(--color-apple-pearl)]">
+    <div>
       <div className="mx-auto w-full max-w-[760px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12">
         <header className="mb-6 flex items-baseline justify-between gap-3 fade-up">
           <Link

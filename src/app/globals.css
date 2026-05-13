@@ -99,6 +99,31 @@
   --shadow-lift: 0 1px 2px rgba(20, 20, 20, 0.04),
     0 8px 24px -8px rgba(20, 20, 20, 0.08);
 
+  /*
+   * Apple HIG Materials — 3단계 elevation (DESIGN.md §A-4).
+   * elev-1: 기본 카드. 가만히 있는 종이.
+   * elev-2: hover된 카드, hero 카드. "올라온다" 가 보임.
+   * elev-3: modal, floating sheet.
+   *
+   * 그림자 톤은 검정 X — 코발트 그늘로 미세하게 컬러 잡음.
+   */
+  --elev-1: 0 1px 2px rgba(20, 20, 20, 0.04);
+  --elev-2: 0 1px 2px rgba(20, 20, 20, 0.04),
+    0 8px 24px -12px rgba(20, 20, 20, 0.10);
+  --elev-3: 0 4px 12px rgba(20, 20, 20, 0.06),
+    0 24px 56px -12px rgba(20, 20, 20, 0.18);
+
+  /*
+   * surface-canvas — /dashboard 모든 페이지 공통 배경.
+   * 로그인 화면의 4-blob radial을 8% 강도로 축소. 사용자가 "컬러"라고
+   * 의식하기 직전 단계 — 카메라로 찍어 비교해야 보이는 미세한 차이.
+   * 회색 단색 #f5f5f7 대비 "살아있는" 종이가 됨.
+   */
+  --surface-canvas-blob:
+    radial-gradient(ellipse 80% 50% at 0% 0%, rgba(122, 166, 214, 0.08), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(176, 156, 200, 0.06), transparent 65%),
+    radial-gradient(ellipse 40% 30% at 100% 0%, rgba(243, 207, 138, 0.05), transparent 70%);
+
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-fast: 140ms;
   --duration-base: 220ms;
@@ -140,6 +165,50 @@
   --color-tint-streak-ink: #b66a14;
   --color-surface-cream: #fbfaf7;
   --color-surface-mist: #f4f6fb;
+
+  --elev-1: 0 1px 2px rgba(20, 20, 20, 0.04);
+  --elev-2: 0 1px 2px rgba(20, 20, 20, 0.04),
+    0 8px 24px -12px rgba(20, 20, 20, 0.10);
+  --elev-3: 0 4px 12px rgba(20, 20, 20, 0.06),
+    0 24px 56px -12px rgba(20, 20, 20, 0.18);
+
+  --surface-canvas-blob:
+    radial-gradient(ellipse 80% 50% at 0% 0%, rgba(122, 166, 214, 0.08), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(176, 156, 200, 0.06), transparent 65%),
+    radial-gradient(ellipse 40% 30% at 100% 0%, rgba(243, 207, 138, 0.05), transparent 70%);
+}
+
+/*
+ * Dashboard 공통 캔버스 — Apple HIG Materials.
+ * pearl(#f5f5f7) 위에 4-blob radial. 카메라로 찍어 비교해야 보이는 정도.
+ * /dashboard/* 모든 페이지의 .dashboard-canvas 래퍼에 적용.
+ */
+.dashboard-canvas {
+  background-color: var(--color-apple-pearl);
+  background-image: var(--surface-canvas-blob);
+  background-attachment: fixed;
+}
+
+/*
+ * 카드 elevation 유틸리티 — Tailwind v4에서 임의값 대신 명시 클래스로.
+ */
+.elev-1 {
+  box-shadow: var(--elev-1);
+}
+.elev-2 {
+  box-shadow: var(--elev-2);
+}
+.elev-3 {
+  box-shadow: var(--elev-3);
+}
+.elev-hover-2 {
+  box-shadow: var(--elev-1);
+  transition: box-shadow var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
+}
+.elev-hover-2:hover {
+  box-shadow: var(--elev-2);
+  transform: translateY(-1px);
 }
 
 html,

@@ -26,7 +26,7 @@ export default async function ReviewPage() {
   const uniqueQuestions = new Set(items.map((i) => `${i.quizId}:${i.questionId}`)).size;
 
   return (
-    <div className="bg-[var(--color-apple-pearl)]">
+    <div>
       <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
         <header className="fade-up flex items-baseline justify-between gap-3">
           <p
@@ -84,7 +84,7 @@ export default async function ReviewPage() {
 
 function EmptyState() {
   return (
-    <section className="mt-16 rounded-[18px] bg-white p-12 text-center fade-up fade-up-2">
+    <section className="elev-1 mt-16 rounded-[18px] bg-white p-12 text-center fade-up fade-up-2">
       <p
         className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]"
       >
@@ -146,7 +146,7 @@ function groupByQuiz(items: WrongItem[]): QuizGroup[] {
 function ReviewCard({ group }: { group: QuizGroup }) {
   const days = daysSince(group.lastAttemptedAt);
   return (
-    <article className="rounded-[18px] bg-white p-6 transition-all hover:shadow-[0_2px_24px_-12px_rgba(0,0,0,0.12)]">
+    <article className="elev-hover-2 rounded-[18px] bg-white p-6">
       <div className="flex items-baseline justify-between gap-3">
         <p
           className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]"

@@ -30,7 +30,7 @@ export default async function MaterialDetailPage({
   const dotColor = detail.course?.color ?? "var(--color-apple-action)";
 
   return (
-    <div className="bg-[var(--color-apple-pearl)]">
+    <div>
       <div className="mx-auto w-full max-w-[920px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
         <Breadcrumb courseLabel={courseLabel} dotColor={dotColor} />
         <Hero detail={detail} />
@@ -137,7 +137,7 @@ function Keywords({ keywords, className }: { keywords: string[]; className?: str
 function EmptySummary({ materialId, className }: { materialId: string; className?: string }) {
   return (
     <section className={className}>
-      <div className="rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
+      <div className="elev-1 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
         <p
           className="text-[18px] wght-620 text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
@@ -169,7 +169,7 @@ function CtaCard({
 }) {
   return (
     <section className="mt-14 fade-up fade-up-4 sm:mt-20">
-      <div className="rounded-[18px] bg-white px-7 py-9 sm:px-12 sm:py-12">
+      <div className="elev-1 rounded-[18px] bg-white px-7 py-9 sm:px-12 sm:py-12">
         <p
           className="text-[12px] wght-560 uppercase tracking-[0.06em]"
           style={{ color: dotColor, letterSpacing: "0.06em" }}
@@ -213,7 +213,7 @@ function SummaryArticle({
 }) {
   return (
     <section className={className}>
-      <article className="rounded-[18px] bg-white px-7 py-9 sm:px-10 sm:py-12">
+      <article className="elev-1 rounded-[18px] bg-white px-7 py-9 sm:px-10 sm:py-12">
         <p
           className="text-[15px] leading-[1.65] wght-560 text-[var(--color-apple-ink)] sm:text-[16px]"
           style={{ letterSpacing: "-0.012em" }}

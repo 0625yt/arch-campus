@@ -16,7 +16,7 @@ export default async function QuizSolvePage({
   if (!quiz) notFound();
 
   return (
-    <div className="bg-[var(--color-apple-pearl)]">
+    <div>
       <div className="mx-auto w-full max-w-[760px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12">
         <QuizSolver quiz={quiz} />
       </div>

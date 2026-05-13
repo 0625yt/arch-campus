@@ -32,7 +32,7 @@ export default async function CourseDetailPage({
   const dotColor = course.color ?? "#7aa6d6";
 
   return (
-    <div className="bg-[var(--color-apple-pearl)]">
+    <div>
       <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
         <Breadcrumb courseName={course.name} dotColor={dotColor} />
         <Hero course={course} dotColor={dotColor} />
@@ -151,7 +151,7 @@ function Materials({
       </div>
 
       {course.materials.length === 0 ? (
-        <div className="mt-6 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
+        <div className="elev-1 mt-6 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
           <p
             className="text-[16px] wght-560 text-[var(--color-apple-ink)]"
             style={{ letterSpacing: "-0.012em" }}

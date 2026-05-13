@@ -35,7 +35,7 @@ export default async function QuizWrongOnlyPage({
     const exists = await getQuizForSolving({ ownerId, quizId });
     if (!exists) notFound();
     return (
-      <div className="bg-[var(--color-apple-pearl)]">
+      <div>
         <div className="mx-auto w-full max-w-[760px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12">
           <EmptyWrong quizTitle={exists.title} materialId={exists.materialId} />
         </div>
@@ -47,7 +47,7 @@ export default async function QuizWrongOnlyPage({
   if (!quiz || quiz.questions.length === 0) notFound();
 
   return (
-    <div className="bg-[var(--color-apple-pearl)]">
+    <div>
       <div className="mx-auto w-full max-w-[760px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12">
         <header className="mb-6 flex items-baseline justify-between gap-3 fade-up">
           <Link
