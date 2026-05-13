@@ -11,6 +11,7 @@ interface SidebarCourse {
   name: string;
   color: string | null;
   materialCount: number;
+  category?: "semester" | "personal";
 }
 
 /* 학기 정보 mock — 추후 user state로 대체 */
@@ -437,24 +438,76 @@ function StudyNavItem({
         </button>
       </div>
 
-      <ul className={cn("pb-1 pl-[34px] pt-1", open ? "block" : "hidden")}>
-        {courses.length === 0 ? (
-          <li>
-            <span
-              className="block px-1.5 py-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              아직 강의가 없어요
-            </span>
-          </li>
-        ) : (
-          courses.map((course) => {
+      <div className={cn("pb-1 pl-[34px] pt-1", open ? "block" : "hidden")}>
+        <CourseGroup
+          label="정규 강의"
+          courses={courses.filter((c) => (c.category ?? "semester") === "semester")}
+          pathname={pathname}
+          onNavigate={onNavigate}
+          emptyText="시간표 등록 시 자동 채워져요"
+          emptyHref="/dashboard/calendar/import"
+          emptyHrefLabel="시간표 등록 →"
+        />
+        <CourseGroup
+          label="개인 공부"
+          courses={courses.filter((c) => c.category === "personal")}
+          pathname={pathname}
+          onNavigate={onNavigate}
+          className="mt-2"
+          emptyText="자격증·시험·개인 공부"
+          emptyHref="/dashboard/study"
+          emptyHrefLabel="공부 탭에서 추가 →"
+        />
+      </div>
+    </li>
+  );
+}
+
+function CourseGroup({
+  label,
+  courses,
+  pathname,
+  onNavigate,
+  className,
+  emptyText,
+  emptyHref,
+  emptyHrefLabel,
+}: {
+  label: string;
+  courses: SidebarCourse[];
+  pathname: string;
+  onNavigate?: () => void;
+  className?: string;
+  emptyText: string;
+  emptyHref: string;
+  emptyHrefLabel: string;
+}) {
+  return (
+    <div className={className}>
+      <div
+        className="px-1.5 pb-1 pt-0.5 text-[9.5px] wght-560 uppercase tracking-[0.08em] text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "0.08em" }}
+      >
+        {label}
+      </div>
+      {courses.length === 0 ? (
+        <Link
+          href={emptyHref}
+          onClick={onNavigate}
+          className="flex flex-col gap-0.5 rounded-[6px] border border-dashed border-[var(--color-apple-hairline)] px-2 py-1.5 text-[10.5px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-ink)] hover:text-[var(--color-apple-ink)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          <span>{emptyText}</span>
+          <span className="text-[var(--color-apple-action)]">{emptyHrefLabel}</span>
+        </Link>
+      ) : (
+        <ul>
+          {courses.map((course) => {
             const slug = encodeURIComponent(course.name);
             const courseActive =
               pathname.startsWith(`/dashboard/study/${course.name}`) ||
               pathname.startsWith(`/dashboard/study/${slug}`);
             const href = `/dashboard/study/${slug}`;
-
             return (
               <li key={course.id}>
                 <Link
@@ -482,10 +535,10 @@ function StudyNavItem({
                 </Link>
               </li>
             );
-          })
-        )}
-      </ul>
-    </li>
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 

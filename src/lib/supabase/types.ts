@@ -98,6 +98,8 @@ export interface Database {
           location: string | null;
           term_start: string | null;
           term_end: string | null;
+          /** 0010: semester=정규 강의, personal=자격증·개인 공부 */
+          category: "semester" | "personal";
           created_at: string;
         };
         Insert: {
@@ -112,6 +114,7 @@ export interface Database {
           location?: string | null;
           term_start?: string | null;
           term_end?: string | null;
+          category?: "semester" | "personal";
         };
         Update: Partial<Database["public"]["Tables"]["courses"]["Insert"]>;
         Relationships: [];

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
-import { listCoursesWithMaterialCount, type CourseListItem } from "@/lib/data/materials";
+import { listCoursesGrouped, type CourseListItem } from "@/lib/data/materials";
 import { getRecentActivities, type Activity } from "@/lib/data/activity";
+import { AddPersonalButton } from "./add-personal-button";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +11,14 @@ export default async function StudyIndexPage() {
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
 
-  const [courses, recent] = await Promise.all([
-    listCoursesWithMaterialCount({ ownerId }),
+  const [grouped, recent] = await Promise.all([
+    listCoursesGrouped({ ownerId }),
     getRecentActivities({ ownerId, limit: 6 }),
   ]);
-
-  const totalMaterials = courses.reduce((acc, c) => acc + c.materialCount, 0);
+  const totalCount = grouped.semester.length + grouped.personal.length;
+  const totalMaterials =
+    grouped.semester.reduce((a, c) => a + c.materialCount, 0) +
+    grouped.personal.reduce((a, c) => a + c.materialCount, 0);
 
   return (
     <div className="bg-[var(--color-apple-pearl)]">
@@ -38,17 +41,26 @@ export default async function StudyIndexPage() {
           </Link>
         </header>
 
-        {courses.length === 0 ? (
+        {totalCount === 0 ? (
           <EmptyCourses className="mt-10 fade-up fade-up-1 sm:mt-14" />
         ) : (
           <>
-            <Hero courseCount={courses.length} totalMaterials={totalMaterials} />
-            <CourseBento courses={courses} className="mt-10 fade-up fade-up-2 sm:mt-12" />
+            <Hero courseCount={totalCount} totalMaterials={totalMaterials} />
+
+            <SemesterSection
+              courses={grouped.semester}
+              className="mt-10 fade-up fade-up-2 sm:mt-12"
+            />
+
+            <PersonalSection
+              courses={grouped.personal}
+              className="mt-14 fade-up fade-up-3 sm:mt-16"
+            />
           </>
         )}
 
         {recent.length > 0 && (
-          <RecentActivity activities={recent} className="mt-14 fade-up fade-up-3 sm:mt-16" />
+          <RecentActivity activities={recent} className="mt-14 fade-up fade-up-4 sm:mt-16" />
         )}
       </div>
     </div>
@@ -82,23 +94,27 @@ function EmptyCourses({ className }: { className?: string }) {
           className="text-[24px] wght-620 text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          아직 강의가 없어요
+          아직 공부 주제가 없어요
         </p>
-        <p className="mx-auto mt-3 max-w-[440px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
-          시간표 한 장이면 한 학기 강의가 한 번에 등록돼요. 강의계획서로 시험·과제 일정도 추가할 수 있어요.
+        <p className="mx-auto mt-3 max-w-[460px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
+          시간표 한 장이면 한 학기 정규 강의가 한 번에 등록돼요. 자격증·시험 같은 개인 공부는 따로
+          주제를 만들어 같은 방식으로 학습 루프를 돌릴 수 있어요.
         </p>
-        <Link
-          href="/dashboard/calendar/import"
-          className="mt-7 inline-flex h-[44px] items-center rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)]"
-        >
-          시간표 등록 →
-        </Link>
+        <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link
+            href="/dashboard/calendar/import"
+            className="inline-flex h-[44px] items-center rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)]"
+          >
+            시간표 등록 →
+          </Link>
+          <AddPersonalButton variant="ghost" />
+        </div>
       </div>
     </section>
   );
 }
 
-function CourseBento({
+function SemesterSection({
   courses,
   className,
 }: {
@@ -107,12 +123,120 @@ function CourseBento({
 }) {
   return (
     <section className={className}>
-      <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
-        {courses.map((c) => (
-          <CourseCard key={c.id} course={c} />
-        ))}
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <p
+            className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            이번 학기 정규 강의 {courses.length > 0 && `· ${courses.length}`}
+          </p>
+          <h2
+            className="mt-2 text-[22px] leading-[1.15] wght-620 text-[var(--color-apple-ink)] sm:text-[26px]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            과목 폴더.
+          </h2>
+        </div>
+        <Link
+          href="/dashboard/calendar/import"
+          className="text-[12px] wght-450 text-[var(--color-apple-action)] hover:underline"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          시간표 다시 올리기 ›
+        </Link>
       </div>
+
+      {courses.length === 0 ? (
+        <SemesterEmpty className="mt-5" />
+      ) : (
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 sm:gap-5">
+          {courses.map((c) => (
+            <CourseCard key={c.id} course={c} />
+          ))}
+        </div>
+      )}
     </section>
+  );
+}
+
+function SemesterEmpty({ className }: { className?: string }) {
+  return (
+    <div
+      className={`rounded-[18px] border border-dashed border-[var(--color-apple-hairline)] bg-white px-6 py-8 text-center ${className ?? ""}`}
+    >
+      <p className="text-[14px] wght-560 text-[var(--color-apple-ink)]">
+        이번 학기 강의가 비어있어요
+      </p>
+      <p className="mx-auto mt-2 max-w-[400px] text-[12.5px] wght-450 leading-[1.6] text-[var(--color-apple-muted)]">
+        시간표 한 장 올리면 강의가 자동으로 들어가요.
+      </p>
+      <Link
+        href="/dashboard/calendar/import"
+        className="mt-5 inline-flex h-[36px] items-center rounded-full bg-[var(--color-apple-ink)] px-4 text-[12.5px] wght-560 text-white hover:opacity-90"
+      >
+        시간표 등록 →
+      </Link>
+    </div>
+  );
+}
+
+function PersonalSection({
+  courses,
+  className,
+}: {
+  courses: CourseListItem[];
+  className?: string;
+}) {
+  return (
+    <section className={className}>
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <p
+            className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            개인 공부 {courses.length > 0 && `· ${courses.length}`}
+          </p>
+          <h2
+            className="mt-2 text-[22px] leading-[1.15] wght-620 text-[var(--color-apple-ink)] sm:text-[26px]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            자격증·시험·개인 공부.
+          </h2>
+        </div>
+        <AddPersonalButton variant="ghost" />
+      </div>
+
+      {courses.length === 0 ? (
+        <PersonalEmpty className="mt-5" />
+      ) : (
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 sm:gap-5">
+          {courses.map((c) => (
+            <CourseCard key={c.id} course={c} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PersonalEmpty({ className }: { className?: string }) {
+  return (
+    <div
+      className={`rounded-[18px] border border-dashed border-[var(--color-apple-hairline)] bg-white px-6 py-8 text-center ${className ?? ""}`}
+    >
+      <p className="text-[14px] wght-560 text-[var(--color-apple-ink)]">
+        시간표에 없는 공부를 따로 관리해요
+      </p>
+      <p className="mx-auto mt-2 max-w-[420px] text-[12.5px] wght-450 leading-[1.6] text-[var(--color-apple-muted)]">
+        정보처리기사·TOEIC·공무원·개인 프로젝트 — 무엇이든 주제로 만들면 자료 업로드·문제·복습이 같은
+        방식으로 동작해요.
+      </p>
+      <div className="mt-5 inline-block">
+        <AddPersonalButton />
+      </div>
+    </div>
   );
 }
 

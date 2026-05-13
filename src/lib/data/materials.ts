@@ -40,12 +40,16 @@ export interface MaterialListItem {
   courseId: string | null;
 }
 
+export type CourseCategory = "semester" | "personal";
+
 export interface CourseListItem {
   id: string;
   name: string;
   professor: string | null;
   color: string | null;
   materialCount: number;
+  /** 0010: 정규 강의 vs 개인 공부 (자격증·시험) */
+  category: CourseCategory;
 }
 
 interface MaterialDetailRaw {
@@ -167,7 +171,7 @@ export async function listCoursesWithMaterialCount(opts: {
   const admin = getAdminSupabase();
   const { data: courses, error } = await admin
     .from("courses")
-    .select("id, name, professor, color")
+    .select("id, name, professor, color, category")
     .eq("owner_id", opts.ownerId)
     .eq("archived", false)
     .order("created_at", { ascending: true });
@@ -175,7 +179,16 @@ export async function listCoursesWithMaterialCount(opts: {
   if (error || !courses) return [];
 
   const ids = courses.map((c) => c.id);
-  if (ids.length === 0) return courses.map((c) => ({ ...c, materialCount: 0 }));
+  if (ids.length === 0) {
+    return courses.map((c) => ({
+      id: c.id,
+      name: c.name,
+      professor: c.professor,
+      color: c.color,
+      materialCount: 0,
+      category: (c.category ?? "semester") as CourseCategory,
+    }));
+  }
 
   // 과목별 자료 개수 한번에
   const { data: counts } = await admin
@@ -196,7 +209,26 @@ export async function listCoursesWithMaterialCount(opts: {
     professor: c.professor,
     color: c.color,
     materialCount: tally.get(c.id) ?? 0,
+    category: (c.category ?? "semester") as CourseCategory,
   }));
+}
+
+/**
+ * 공부 탭 그룹화 결과 — 정규 강의와 개인 공부를 분리해 다른 섹션으로 그릴 때.
+ */
+export interface CoursesGrouped {
+  semester: CourseListItem[];
+  personal: CourseListItem[];
+}
+
+export async function listCoursesGrouped(opts: {
+  ownerId: string;
+}): Promise<CoursesGrouped> {
+  const all = await listCoursesWithMaterialCount(opts);
+  return {
+    semester: all.filter((c) => c.category === "semester"),
+    personal: all.filter((c) => c.category === "personal"),
+  };
 }
 
 // ─── 내부 헬퍼 ─────────────────────────

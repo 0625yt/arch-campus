@@ -13,6 +13,19 @@ interface MonthCell {
   isToday: boolean;
 }
 
+/** 듀얼 뷰 모드 — 시간표(주간 반복 수업)만 보거나, 내 일정(시험·과제·발표·기타)만 보거나, 전체 */
+type ViewMode = "all" | "timetable" | "events";
+
+function isClass(e: EventView): boolean {
+  return e.kind === "class";
+}
+
+function filterByMode(events: EventView[], mode: ViewMode): EventView[] {
+  if (mode === "all") return events;
+  if (mode === "timetable") return events.filter(isClass);
+  return events.filter((e) => !isClass(e));
+}
+
 export function CalendarBoard({
   monthEvents,
   upcoming,
@@ -26,21 +39,36 @@ export function CalendarBoard({
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
+  const [mode, setMode] = useState<ViewMode>("all");
 
   const cells = useMemo(() => buildMonthCells(view.year, view.month), [view]);
   const monthLabel = `${view.year}년 ${view.month + 1}월`;
 
-  // 날짜 → 이벤트 그룹
+  // 카운트는 토글 라벨에 박을 거라 mode 적용 전 원본으로 계산
+  const counts = useMemo(() => {
+    let cls = 0;
+    let ev = 0;
+    for (const e of monthEvents) {
+      if (isClass(e)) cls++;
+      else ev++;
+    }
+    return { all: monthEvents.length, timetable: cls, events: ev };
+  }, [monthEvents]);
+
+  const filteredMonth = useMemo(() => filterByMode(monthEvents, mode), [monthEvents, mode]);
+  const filteredUpcoming = useMemo(() => filterByMode(upcoming, mode), [upcoming, mode]);
+
+  // 날짜 → 이벤트 그룹 (mode 적용된 것)
   const byDate = useMemo(() => {
     const map = new Map<string, EventView[]>();
-    for (const e of monthEvents) {
+    for (const e of filteredMonth) {
       const key = e.startsAt.slice(0, 10);
       const list = map.get(key) ?? [];
       list.push(e);
       map.set(key, list);
     }
     return map;
-  }, [monthEvents]);
+  }, [filteredMonth]);
 
   function navigate(delta: number) {
     setView((prev) => {
@@ -87,6 +115,8 @@ export function CalendarBoard({
           </div>
         </div>
 
+        <ViewModeToggle mode={mode} onChange={setMode} counts={counts} className="mt-4" />
+
         <ul className="mt-4 grid grid-cols-7 gap-px text-center text-[10.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
           {WEEKDAYS.map((d) => (
             <li key={d} className="py-1.5">
@@ -108,15 +138,21 @@ export function CalendarBoard({
       <aside className="flex flex-col gap-4">
         <section className="rounded-[14px] bg-white p-5">
           <h3 className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-            다가오는 일정
+            {mode === "timetable"
+              ? "이번 주 수업"
+              : mode === "events"
+                ? "다가오는 일정"
+                : "다가오는 일정"}
           </h3>
-          {upcoming.length === 0 ? (
+          {filteredUpcoming.length === 0 ? (
             <p className="mt-3 text-[13px] wght-450 text-[var(--color-apple-muted)]">
-              예정된 일정이 없어요.
+              {mode === "timetable"
+                ? "등록된 수업이 없어요. 시간표를 올려주세요."
+                : "예정된 일정이 없어요."}
             </p>
           ) : (
             <ul className="mt-3 flex flex-col gap-3">
-              {upcoming.map((e) => (
+              {filteredUpcoming.map((e) => (
                 <li key={e.id}>
                   <UpcomingRow event={e} />
                 </li>
@@ -125,6 +161,58 @@ export function CalendarBoard({
           )}
         </section>
       </aside>
+    </div>
+  );
+}
+
+function ViewModeToggle({
+  mode,
+  onChange,
+  counts,
+  className,
+}: {
+  mode: ViewMode;
+  onChange: (m: ViewMode) => void;
+  counts: { all: number; timetable: number; events: number };
+  className?: string;
+}) {
+  const items: { id: ViewMode; label: string; count: number; hint: string }[] = [
+    { id: "all", label: "전체", count: counts.all, hint: "수업 + 시험·과제 다 보기" },
+    { id: "timetable", label: "시간표", count: counts.timetable, hint: "주간 반복 수업만" },
+    { id: "events", label: "내 일정", count: counts.events, hint: "시험·과제·발표·기타" },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label="캘린더 보기 모드"
+      className={`inline-flex items-center gap-1 rounded-full bg-[var(--color-apple-pearl)] p-1 ${className ?? ""}`}
+    >
+      {items.map((it) => {
+        const active = mode === it.id;
+        return (
+          <button
+            key={it.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            title={it.hint}
+            onClick={() => onChange(it.id)}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] transition-all ${
+              active
+                ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+                : "wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
+            }`}
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            <span>{it.label}</span>
+            <span
+              className={`text-[10.5px] tabular-nums ${active ? "text-[var(--color-apple-muted)]" : "text-[var(--color-apple-muted)]"}`}
+            >
+              {it.count}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -185,6 +185,7 @@ async function upsertCourse(opts: {
       schedule: opts.schedule,
       term_start: opts.termStart,
       term_end: opts.termEnd,
+      category: "semester",
     })
     .select("id")
     .single();
