@@ -237,6 +237,53 @@ export const ExamCramOutput = z.union([
 ]);
 export type ExamCramOutputT = z.infer<typeof ExamCramOutput>;
 
+/**
+ * 과제 요구사항 체크리스트 — 교수 공지를 분석해 "감점 슈팅 체크리스트"를 만든다.
+ *
+ * 사활: 우리는 리포트 본문을 대신 써주지 않는다 (CLAUDE.md §4).
+ * 그래서 출력은 "확인할 항목" + "본인이 답할 질문"만 — 본문 초안 X.
+ *
+ * 검증:
+ *  - requirements[].quote는 노출된 공지 텍스트의 substring (사후 검증)
+ *  - selfQuestions가 학생이 직접 답해야 할 형태 ("내 답:" 포함 권장)
+ */
+export const ChecklistRequirement = z.object({
+  /** 공지에서 뽑은 요구사항 한 줄 — 학생 언어로 정리 */
+  title: z.string().min(2).max(120),
+  /** 어떤 카테고리인가 — UI 그루핑·우선순위 */
+  category: z.enum(["분량", "형식", "내용", "참고문헌", "마감", "제출방식", "평가기준", "기타"]),
+  /** 채점 영향 — high면 "감점 직결" 톤으로 */
+  weight: z.enum(["high", "mid", "low"]),
+  /** 공지에서의 substring 인용 (사후 검증으로 일치 확인) */
+  quote: z.string().min(2).max(400),
+  /** 왜 중요한가 한 줄 + 어떻게 확인할지 */
+  why: z.string().min(10).max(300),
+});
+export type ChecklistRequirementT = z.infer<typeof ChecklistRequirement>;
+
+export const ChecklistOutput = z.union([
+  z.object({
+    /** 과제 한 줄 요약 — "OO 분석 리포트, 4쪽, 5/20 마감" */
+    headline: z.string().min(10).max(200),
+    /** 가장 먼저 챙겨야 할 3개 — high weight 우선 */
+    topRisks: z.array(z.string().min(5).max(160)).min(2).max(5),
+    /** 요구사항 전체 — high·mid 섞임. UI에서 weight로 그룹 */
+    requirements: z.array(ChecklistRequirement).min(3).max(20),
+    /** 학생이 글 쓰기 전에 스스로 답해야 할 질문들 — 본문 초안 X, 질문만. */
+    selfQuestions: z.array(z.string().min(10).max(200)).min(3).max(8),
+    /** 명시 안 된 항목·교수에게 물어봐야 할 항목 (있으면) */
+    openQuestions: z.array(z.string().min(10).max(200)).max(5).optional(),
+    rejected: z.literal(false).optional(),
+    watermark: z.string().min(10),
+  }),
+  z.object({
+    rejected: z.literal(true),
+    reason: z.string().min(10).max(400),
+    watermark: z.string().min(10),
+  }),
+]);
+export type ChecklistOutputT = z.infer<typeof ChecklistOutput>;
+
 export const BANNED_WORDS: ReadonlyArray<readonly [RegExp, string]> = [
   [/효과적인/g, "좋은"],
   [/체계적인/g, "차근차근"],

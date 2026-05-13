@@ -60,6 +60,7 @@ const WIZARDS: Wizard[] = [
     situation: "공지사항은 긴데 뭘 챙겨야 할지 모르겠을 때",
     output: "감점 방지 체크리스트",
     minutes: 2,
+    ready: true,
     query: "과제 공지에서 요구사항과 감점 위험을 체크리스트로 정리해줘",
   },
   {
@@ -396,5 +397,6 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
 function wizardHref(wizard: Wizard) {
   if (wizard.slug === "presentation") return "/dashboard/tools/presentation";
   if (wizard.slug === "exam-cram") return "/dashboard/tools/exam-cram";
+  if (wizard.slug === "report-checklist") return "/dashboard/tools/report-checklist";
   return `/dashboard/chat?q=${encodeURIComponent(wizard.query)}`;
 }

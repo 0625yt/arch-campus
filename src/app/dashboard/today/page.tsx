@@ -3,6 +3,12 @@ import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listUpcomingEvents, type EventView } from "@/lib/data/events";
 import { getRecentActivities, type Activity } from "@/lib/data/activity";
+import {
+  getWrongStats,
+  listRecentAttempts,
+  type RecentAttempt,
+  type WrongStats,
+} from "@/lib/data/attempts";
 import { formatEventLabel } from "@/lib/format-event";
 import { TodayHero } from "./today-hero";
 
@@ -20,12 +26,15 @@ export default async function TodayPage() {
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
 
-  const [upcoming, recent] = await Promise.all([
+  const [upcoming, recent, wrongStats, recentAttempts] = await Promise.all([
     listUpcomingEvents({ ownerId, limit: 12 }),
     getRecentActivities({ ownerId, limit: 6 }),
+    getWrongStats({ ownerId, sinceDays: 14 }),
+    listRecentAttempts({ ownerId, limit: 3 }),
   ]);
 
   const focus = pickFocus(upcoming);
+  const showStudyRow = wrongStats.totalWrong > 0 || recentAttempts.length > 0;
 
   return (
     <div className="bg-[var(--color-apple-pearl)]">
@@ -38,6 +47,14 @@ export default async function TodayPage() {
           <NoFocus className="mt-10 fade-up fade-up-1 sm:mt-14" />
         )}
 
+        {showStudyRow && (
+          <StudyRow
+            wrongStats={wrongStats}
+            recentAttempts={recentAttempts}
+            className="mt-12 fade-up fade-up-2 sm:mt-14"
+          />
+        )}
+
         <UpcomingList
           events={upcoming}
           kindLabel={KIND_LABEL}
@@ -47,6 +64,127 @@ export default async function TodayPage() {
         <RecentSection activities={recent} className="mt-14 fade-up fade-up-3 sm:mt-16" />
       </div>
     </div>
+  );
+}
+
+function StudyRow({
+  wrongStats,
+  recentAttempts,
+  className,
+}: {
+  wrongStats: WrongStats;
+  recentAttempts: RecentAttempt[];
+  className?: string;
+}) {
+  const lastAttempt = recentAttempts[0] ?? null;
+  return (
+    <section className={className}>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <ReviewQueueCard wrongStats={wrongStats} />
+        {lastAttempt && <ResumeAttemptCard attempt={lastAttempt} />}
+      </div>
+    </section>
+  );
+}
+
+function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
+  if (wrongStats.totalWrong === 0) {
+    return (
+      <article className="rounded-[18px] border border-[var(--color-apple-hairline)] bg-white p-6">
+        <p
+          className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]"
+        >
+          오답 없음
+        </p>
+        <h2
+          className="mt-3 text-[17px] leading-[1.35] wght-620 text-[var(--color-apple-ink)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          최근 14일 동안 풀이 오답이 없어요.
+        </h2>
+        <p className="mt-2 text-[13px] wght-450 leading-[1.55] text-[var(--color-apple-muted)]">
+          새 자료에서 문제를 만들면 여기서 복습 큐가 잡혀요.
+        </p>
+      </article>
+    );
+  }
+
+  const topLine = wrongStats.byMaterial[0];
+  return (
+    <article className="rounded-[18px] bg-white p-6">
+      <p
+        className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]"
+      >
+        오답 {wrongStats.totalWrong}문제
+      </p>
+      <h2
+        className="mt-3 text-[17px] leading-[1.35] wght-620 text-[var(--color-apple-ink)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        {topLine ? `${topLine.quizTitle}부터 다시.` : "오답을 다시 풀어요."}
+      </h2>
+      {wrongStats.byMaterial.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-1 text-[12.5px] wght-450 text-[var(--color-apple-muted)]">
+          {wrongStats.byMaterial.slice(0, 3).map((m) => (
+            <li key={m.materialId ?? m.quizTitle} className="flex justify-between gap-3">
+              <span className="truncate">{m.quizTitle}</span>
+              <span className="shrink-0 tabular-nums">{m.count}문제</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Link
+        href="/dashboard/review"
+        className="mt-6 inline-flex h-[40px] items-center rounded-full bg-[var(--color-urgent)] px-4 text-[13px] wght-560 text-white transition-all hover:opacity-90"
+      >
+        오답 복습 시작 →
+      </Link>
+    </article>
+  );
+}
+
+function ResumeAttemptCard({ attempt }: { attempt: RecentAttempt }) {
+  const ratio = attempt.total > 0 ? Math.round((attempt.score / attempt.total) * 100) : 0;
+  const minutesAgo = Math.max(0, Math.floor((Date.now() - new Date(attempt.attemptedAt).getTime()) / 60000));
+  const hoursAgo = Math.floor(minutesAgo / 60);
+  const ago =
+    minutesAgo < 60
+      ? `${minutesAgo}분 전`
+      : hoursAgo < 24
+        ? `${hoursAgo}시간 전`
+        : `${Math.floor(hoursAgo / 24)}일 전`;
+
+  return (
+    <article className="rounded-[18px] bg-white p-6">
+      <p
+        className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]"
+      >
+        직전 풀이 · {ago}
+      </p>
+      <h2
+        className="mt-3 text-[17px] leading-[1.35] wght-620 text-[var(--color-apple-ink)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        {attempt.quizTitle}
+      </h2>
+      <p className="mt-2 text-[13px] wght-450 text-[var(--color-apple-muted)]">
+        정답률 {ratio}% · {attempt.score}/{attempt.total}
+      </p>
+      <div className="mt-6 flex gap-2">
+        <Link
+          href={`/dashboard/quiz/${attempt.quizId}/result/${attempt.attemptId}`}
+          className="inline-flex h-[40px] flex-1 items-center justify-center rounded-full bg-[var(--color-apple-ink)] px-4 text-[13px] wght-560 text-white transition-all hover:opacity-90"
+        >
+          다시보기
+        </Link>
+        <Link
+          href={`/dashboard/quiz/${attempt.quizId}/wrong`}
+          className="inline-flex h-[40px] items-center justify-center rounded-full border border-[var(--color-apple-hairline)] px-4 text-[12px] wght-450 text-[var(--color-apple-muted)] transition-all hover:border-[var(--color-apple-ink)] hover:text-[var(--color-apple-ink)]"
+        >
+          오답만
+        </Link>
+      </div>
+    </article>
   );
 }
 

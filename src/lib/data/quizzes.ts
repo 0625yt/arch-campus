@@ -32,6 +32,8 @@ export interface QuizSolveView {
 export async function getQuizForSolving(opts: {
   ownerId: string;
   quizId: string;
+  /** 주어지면 그 question_id만 추려서 반환. 오답 다시 풀기에서 사용. */
+  onlyQuestionIds?: number[];
 }): Promise<QuizSolveView | null> {
   const admin = getAdminSupabase();
   const { data, error } = await admin
@@ -50,6 +52,11 @@ export async function getQuizForSolving(opts: {
     return null;
   }
 
+  const filterSet = opts.onlyQuestionIds ? new Set(opts.onlyQuestionIds) : null;
+  const filtered = filterSet
+    ? parsed.data.filter((q) => filterSet.has(q.id))
+    : parsed.data;
+
   return {
     id: data.id,
     materialId: data.material_id,
@@ -57,7 +64,7 @@ export async function getQuizForSolving(opts: {
     title: data.title,
     difficulty: data.difficulty,
     watermark: data.watermark,
-    questions: parsed.data.map((q) => ({
+    questions: filtered.map((q) => ({
       id: q.id,
       difficulty: q.difficulty,
       topic: q.topic,
@@ -65,6 +72,6 @@ export async function getQuizForSolving(opts: {
       choices: q.choices,
       hint: q.hint,
     })),
-    total: parsed.data.length,
+    total: filtered.length,
   };
 }

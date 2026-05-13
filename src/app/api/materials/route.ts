@@ -1,0 +1,338 @@
+import { after, NextResponse } from "next/server";
+import { z } from "zod";
+import { getOwnerId, UnauthorizedError } from "@/lib/auth";
+import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import { parseDocument, ParserRejectedError } from "@/lib/parsers";
+import { runQuizGeneration, type Difficulty } from "@/lib/services/quiz";
+import { runSummarize } from "@/lib/services/summarize";
+import { storeMaterialFile } from "@/lib/storage";
+import { getAdminSupabase } from "@/lib/supabase/admin";
+
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
+interface PipelineOk {
+  ok: true;
+  materialId: string;
+  parser: string;
+  pageCount: number | null;
+  jobs: {
+    summarize: { id: string; status: "pending" | "running" | "done" | "error" | "cancelled" };
+    quiz: { id: string; status: "pending" | "running" | "done" | "error" | "cancelled" };
+  };
+}
+
+interface PipelineErr {
+  ok: false;
+  error: string;
+  reason?: string;
+}
+
+const ALLOWED_TYPES = ["lecture", "assignment", "exam", "team", "syllabus", "notice"] as const;
+type MaterialType = (typeof ALLOWED_TYPES)[number];
+
+const MetaSchema = z.object({
+  courseId: z.string().optional(),
+  title: z.string().max(200).optional(),
+  type: z.enum(ALLOWED_TYPES).optional(),
+  difficulty: z.enum(["쉬움", "보통", "어려움"]).optional(),
+  count: z.coerce.number().int().min(1).max(10).optional(),
+});
+
+/**
+ * 자료 업로드 단일 진입점 — 한 번의 multipart로 다음을 일괄 처리:
+ *
+ *   1) Storage 저장
+ *   2) 파일 파싱 (실패해도 placeholder로 진행)
+ *   3) materials 행 INSERT
+ *   4) summarize · quiz 잡 두 개 동시 큐잉 (병렬)
+ *   5) materialId + jobIds 즉시 반환
+ *
+ * 클라이언트는 두 jobId를 useJob으로 동시 폴링 → 끝나는 대로 화면에 흘려준다.
+ * 학생이 한 번 업로드만 하면 60초 안에 요약과 10문제가 양쪽에서 도착.
+ *
+ * 비용:
+ *   - summarize: Sonnet 4.6 ~ $0.02/회
+ *   - quiz: Sonnet 4.6 ~ $0.03/회 (5~10문제)
+ *   - 분류기 Haiku ~ $0.0001 × 2
+ *   합계 ~ $0.05/업로드.
+ *
+ * 기존 /api/summarize·/api/quiz는 single-purpose 호출이 필요한 케이스를 위해 유지.
+ * 새 업로드 동선은 이 라우트 하나로 통일.
+ */
+export async function POST(req: Request): Promise<NextResponse<PipelineOk | PipelineErr>> {
+  let ownerId: string;
+  try {
+    ownerId = await getOwnerId();
+  } catch (e) {
+    if (e instanceof UnauthorizedError) {
+      return NextResponse.json({ ok: false, error: e.message }, { status: 401 });
+    }
+    throw e;
+  }
+
+  let form: FormData;
+  try {
+    form = await req.formData();
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    return NextResponse.json(
+      { ok: false, error: `form-data 파싱 실패: ${detail}` },
+      { status: 400 },
+    );
+  }
+
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return NextResponse.json({ ok: false, error: "file 필드가 비어있어요" }, { status: 400 });
+  }
+
+  let meta: z.infer<typeof MetaSchema>;
+  try {
+    meta = MetaSchema.parse({
+      courseId: emptyToUndef(form.get("courseId")),
+      title: emptyToUndef(form.get("title")),
+      type: emptyToUndef(form.get("type")),
+      difficulty: emptyToUndef(form.get("difficulty")),
+      count: emptyToUndef(form.get("count")),
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { ok: false, error: `메타 입력 검증 실패: ${e instanceof Error ? e.message : "unknown"}` },
+      { status: 400 },
+    );
+  }
+
+  // 1) Storage
+  let uploaded: Awaited<ReturnType<typeof storeMaterialFile>>;
+  try {
+    uploaded = await storeMaterialFile({
+      ownerId,
+      file,
+      filename: file.name,
+      mimeType: file.type,
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : "업로드 실패" },
+      { status: 500 },
+    );
+  }
+
+  // 2) Parse — rejected는 placeholder로
+  let parsed: Awaited<ReturnType<typeof parseDocument>>;
+  try {
+    parsed = await parseDocument({
+      bytes: uploaded.bytes,
+      filename: uploaded.filename,
+      mimeType: uploaded.mimeType,
+    });
+  } catch (e) {
+    if (e instanceof ParserRejectedError) {
+      const message = e.message;
+      parsed = {
+        text: `[자동 추출 실패]\n파일명: ${uploaded.filename}\n사유: ${message}`,
+        sanitizedText: `[자동 추출 실패]\n파일명: ${uploaded.filename}\n사유: ${message}`,
+        mimeType: uploaded.mimeType,
+        source: "rejected",
+        warnings: [message],
+      };
+    } else {
+      return NextResponse.json(
+        { ok: false, error: e instanceof Error ? e.message : "파싱 실패" },
+        { status: 500 },
+      );
+    }
+  }
+
+  // 3) materials 행
+  const admin = getAdminSupabase();
+  const title = (meta.title ?? "").trim() || stripExt(file.name);
+  const type: MaterialType = meta.type ?? "lecture";
+
+  const { data: material, error: materialErr } = await admin
+    .from("materials")
+    .insert({
+      owner_id: ownerId,
+      course_id: meta.courseId ?? null,
+      title,
+      type,
+      original_filename: uploaded.filename,
+      mime_type: uploaded.mimeType,
+      storage_path: uploaded.storagePath,
+      page_count: parsed.pageCount ?? null,
+      full_text: parsed.sanitizedText.slice(0, 200_000),
+    })
+    .select("id")
+    .single();
+
+  if (materialErr || !material) {
+    return NextResponse.json(
+      { ok: false, error: `materials 저장 실패: ${materialErr?.message ?? "unknown"}` },
+      { status: 500 },
+    );
+  }
+
+  // 4) 두 잡 큐잉 (병렬). enqueueJob의 active dedupe 덕에 race-safe.
+  const [summarizeEnqueue, quizEnqueue] = await Promise.all([
+    enqueueJob({
+      ownerId,
+      materialId: material.id,
+      tool: "summarize",
+      inputParams: { materialId: material.id, title, type },
+    }),
+    enqueueJob({
+      ownerId,
+      materialId: material.id,
+      tool: "quiz",
+      inputParams: {
+        materialId: material.id,
+        difficulty: meta.difficulty ?? "보통",
+        count: meta.count ?? 10,
+      },
+    }),
+  ]);
+
+  // 5) 백그라운드 실행 — 두 잡이 동시에 돈다. 각 잡은 자기 markRunning/Done/Error.
+  after(async () => {
+    await Promise.all([
+      runSummarizeJob({
+        jobId: summarizeEnqueue.job.id,
+        ownerId,
+        materialId: material.id,
+        title,
+        type,
+        fullText: parsed.text,
+        sanitizedText: parsed.sanitizedText,
+        pageCount: parsed.pageCount ?? null,
+        parserWarnings: parsed.warnings,
+      }),
+      runQuizJob({
+        jobId: quizEnqueue.job.id,
+        ownerId,
+        materialId: material.id,
+        courseId: meta.courseId ?? null,
+        title,
+        type,
+        fullText: parsed.text,
+        sanitizedText: parsed.sanitizedText,
+        pageCount: parsed.pageCount ?? null,
+        parserWarnings: parsed.warnings,
+        difficulty: (meta.difficulty ?? "보통") as Difficulty,
+        requestedCount: meta.count ?? 10,
+      }),
+    ]);
+  });
+
+  return NextResponse.json({
+    ok: true,
+    materialId: material.id,
+    parser: parsed.source,
+    pageCount: parsed.pageCount ?? null,
+    jobs: {
+      summarize: { id: summarizeEnqueue.job.id, status: summarizeEnqueue.job.status },
+      quiz: { id: quizEnqueue.job.id, status: quizEnqueue.job.status },
+    },
+  });
+}
+
+async function runSummarizeJob(opts: {
+  jobId: string;
+  ownerId: string;
+  materialId: string;
+  title: string;
+  type: string;
+  fullText: string;
+  sanitizedText: string;
+  pageCount: number | null;
+  parserWarnings: string[];
+}): Promise<void> {
+  try {
+    await markJobRunning(opts.jobId);
+    const result = await runSummarize({
+      ownerId: opts.ownerId,
+      materialId: opts.materialId,
+      title: opts.title,
+      type: opts.type,
+      fullText: opts.fullText,
+      sanitizedText: opts.sanitizedText,
+      pageCount: opts.pageCount,
+      parserWarnings: opts.parserWarnings,
+    });
+    if (!result.ok) {
+      await markJobError({ jobId: opts.jobId, errorMessage: result.error });
+      return;
+    }
+    await markJobDone({
+      jobId: opts.jobId,
+      result: { summary: result.summary },
+      modelId: result.modelId,
+      usage: result.usage,
+      costUsd: result.costUsd,
+    });
+  } catch (e) {
+    await markJobError({
+      jobId: opts.jobId,
+      errorMessage: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
+async function runQuizJob(opts: {
+  jobId: string;
+  ownerId: string;
+  materialId: string;
+  courseId: string | null;
+  title: string;
+  type: string;
+  fullText: string;
+  sanitizedText: string;
+  pageCount: number | null;
+  parserWarnings: string[];
+  difficulty: Difficulty;
+  requestedCount: number;
+}): Promise<void> {
+  try {
+    await markJobRunning(opts.jobId);
+    const result = await runQuizGeneration({
+      ownerId: opts.ownerId,
+      materialId: opts.materialId,
+      courseId: opts.courseId,
+      title: opts.title,
+      type: opts.type,
+      fullText: opts.fullText,
+      sanitizedText: opts.sanitizedText,
+      pageCount: opts.pageCount,
+      parserWarnings: opts.parserWarnings,
+      difficulty: opts.difficulty,
+      requestedCount: opts.requestedCount,
+    });
+    if (!result.ok) {
+      await markJobError({ jobId: opts.jobId, errorMessage: result.error });
+      return;
+    }
+    await markJobDone({
+      jobId: opts.jobId,
+      result: { quizId: result.quizId },
+      modelId: result.modelId,
+      usage: result.usage,
+      costUsd: result.costUsd,
+    });
+  } catch (e) {
+    await markJobError({
+      jobId: opts.jobId,
+      errorMessage: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
+function emptyToUndef(v: FormDataEntryValue | null): string | undefined {
+  if (v === null) return undefined;
+  if (typeof v !== "string") return undefined;
+  const t = v.trim();
+  return t.length === 0 ? undefined : t;
+}
+
+function stripExt(name: string): string {
+  return name.replace(/\.[^.]+$/, "");
+}

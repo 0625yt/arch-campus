@@ -1,8 +1,9 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
+import { listWrongItems } from "@/lib/data/attempts";
 import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
-import { runExamCram } from "@/lib/services/exam-cram";
+import { runExamCram, type ExamCramWrongHint } from "@/lib/services/exam-cram";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -82,6 +83,15 @@ export async function POST(req: Request): Promise<NextResponse> {
   after(async () => {
     try {
       await markJobRunning(job.id);
+
+      // 선택한 자료와 연결된 오답을 끌어와 모델에 priority 신호로 전달.
+      const allWrong = await listWrongItems({ ownerId, sinceDays: 60, limit: 200 });
+      const selectedMaterialIds = new Set(materials.map((m) => m.id));
+      const matchedWrong = allWrong.filter(
+        (w) => w.materialId !== null && selectedMaterialIds.has(w.materialId),
+      );
+      const wrongHints = aggregateWrongHints(matchedWrong);
+
       const result = await runExamCram({
         ownerId,
         subject: body.subject,
@@ -94,6 +104,7 @@ export async function POST(req: Request): Promise<NextResponse> {
           fullText: m.full_text ?? "",
           extractedKeywords: m.summary_keywords,
         })),
+        wrongHints,
       });
 
       if (!result.ok) {
@@ -115,4 +126,44 @@ export async function POST(req: Request): Promise<NextResponse> {
   });
 
   return NextResponse.json({ ok: true, jobId: job.id, status: "pending" });
+}
+
+/**
+ * 오답 row를 (자료·퀴즈) 단위로 묶어 priority 힌트로 변환.
+ *
+ * - 같은 문제를 여러 번 틀렸으면 그 questionId만 한 번 카운트 (uniqueWrongCount).
+ * - explanation의 첫 80자를 topicSamples에 모은다 — 단원명 추출 보조.
+ */
+function aggregateWrongHints(items: ReadonlyArray<{
+  materialId: string | null;
+  quizTitle: string;
+  questionId: number;
+  explanation: string;
+}>): ExamCramWrongHint[] {
+  const map = new Map<string, ExamCramWrongHint & { seen: Set<number> }>();
+  for (const it of items) {
+    const key = `${it.materialId ?? "none"}:${it.quizTitle}`;
+    const cur = map.get(key);
+    if (cur) {
+      if (!cur.seen.has(it.questionId)) {
+        cur.seen.add(it.questionId);
+        cur.wrongCount++;
+      }
+      const sample = it.explanation.slice(0, 80);
+      if (sample && cur.topicSamples.length < 5 && !cur.topicSamples.includes(sample)) {
+        cur.topicSamples.push(sample);
+      }
+    } else {
+      map.set(key, {
+        materialId: it.materialId,
+        quizTitle: it.quizTitle,
+        wrongCount: 1,
+        topicSamples: [it.explanation.slice(0, 80)].filter(Boolean),
+        seen: new Set([it.questionId]),
+      });
+    }
+  }
+  return Array.from(map.values())
+    .map(({ seen: _seen, ...rest }) => rest)
+    .sort((a, b) => b.wrongCount - a.wrongCount);
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { QuizSolveView } from "@/lib/data/quizzes";
+import { QuizResultView, type ResultQuestion } from "./quiz-result-view";
 
 type Choice = "A" | "B" | "C" | "D";
 
@@ -11,7 +12,7 @@ interface SubmitResult {
   questionId: number;
   correct: boolean;
   answer: Choice;
-  submitted: Choice;
+  submitted: Choice | null;
   explanation: string;
   evidence?: string;
   evidencePage?: number | null;
@@ -229,120 +230,37 @@ function SolveSection({
   );
 }
 
-function ResultSection({ quiz, result }: { quiz: QuizSolveView; result: SubmitOk }) {
-  return (
-    <section className="flex flex-col gap-6 fade-up">
-      <div className="rounded-[14px] bg-white p-8 text-center">
-        <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-          점수
-        </p>
-        <p
-          className="mt-3 text-[64px] wght-620 tabular-nums leading-none text-[var(--color-apple-ink)]"
-          style={{ letterSpacing: "-0.024em" }}
-        >
-          {result.score}
-          <span className="text-[var(--color-apple-muted)]">/{result.total}</span>
-        </p>
-        <p className="mt-2 text-[14px] wght-450 text-[var(--color-apple-muted)]">
-          정답률 {Math.round((result.score / result.total) * 100)}%
-        </p>
-      </div>
-
-      {quiz.questions.map((q, idx) => {
-        const r = result.results.find((x) => x.questionId === q.id);
-        if (!r) return null;
-        return (
-          <article
-            key={q.id}
-            className={`rounded-[14px] bg-white p-6 ${
-              r.correct ? "" : "ring-1 ring-[var(--color-urgent-soft)]"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-                {idx + 1} · {q.topic}
-              </p>
-              <span
-                className={`text-[12px] wght-620 ${
-                  r.correct ? "text-[var(--color-apple-success)]" : "text-[var(--color-urgent)]"
-                }`}
-              >
-                {r.correct ? "정답" : "오답"}
-              </span>
-            </div>
-            <p className="mt-3 text-[15px] leading-[1.55] wght-560 text-[var(--color-apple-ink)]">
-              {q.stem}
-            </p>
-            <div className="mt-4 flex flex-col gap-2">
-              {q.choices.map((c) => {
-                const isAnswer = c.key === r.answer;
-                const isSubmitted = c.key === r.submitted;
-                const wrongPick = isSubmitted && !r.correct;
-                return (
-                  <div
-                    key={c.key}
-                    className={`flex items-start gap-3 rounded-[10px] px-4 py-3 text-[14px] leading-[1.5] ${
-                      isAnswer
-                        ? "bg-[color:rgba(52,199,89,0.12)] text-[var(--color-apple-ink)]"
-                        : wrongPick
-                          ? "bg-[var(--color-urgent-soft)] text-[var(--color-urgent)]"
-                          : "bg-[var(--color-apple-pearl)] text-[var(--color-apple-muted)]"
-                    }`}
-                  >
-                    <span className="wght-620">{c.key}.</span>
-                    <span className="flex-1">{c.text}</span>
-                    {isAnswer && (
-                      <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]">
-                        정답
-                      </span>
-                    )}
-                    {wrongPick && (
-                      <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]">
-                        내 답
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-4 rounded-[10px] bg-[var(--color-apple-pearl)] p-4">
-              <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-                풀이
-              </p>
-              <p className="mt-2 text-[13px] leading-[1.6] text-[var(--color-apple-ink)]">
-                {r.explanation}
-              </p>
-              {r.evidence && (
-                <p className="mt-3 border-t border-[var(--color-apple-hairline)] pt-3 text-[12px] wght-450 italic leading-[1.5] text-[var(--color-apple-muted)]">
-                  자료 인용: "{r.evidence}"
-                  {r.evidencePage ? ` · ${r.evidencePage}쪽` : ""}
-                </p>
-              )}
-            </div>
-          </article>
-        );
-      })}
-
-      <p className="text-[11px] wght-450 italic text-[var(--color-apple-muted)]">{result.watermark}</p>
-
-      <div className="flex gap-3">
-        {quiz.materialId && (
-          <Link
-            href={getMaterialPath(quiz)}
-            className="inline-flex h-[44px] flex-1 items-center justify-center rounded-full bg-[var(--color-apple-action)] px-6 text-[15px] wght-560 text-white transition-all duration-150 hover:bg-[var(--color-apple-action-hover)]"
-          >
-            자료로 돌아가기
-          </Link>
-        )}
-      </div>
-    </section>
-  );
-}
-
 function getMaterialPath(quiz: QuizSolveView): string {
   if (!quiz.materialId) return "/dashboard/study";
-  // courseId 없으면 임시로 자료 ID로 라우팅 (course breadcrumb는 detail 페이지에서 잡음)
-  const courseSegment = encodeURIComponent("자료");
-  return `/dashboard/study/${courseSegment}/${quiz.materialId}`;
+  return `/dashboard/study/${encodeURIComponent("자료")}/${quiz.materialId}`;
+}
+
+function ResultSection({ quiz, result }: { quiz: QuizSolveView; result: SubmitOk }) {
+  const merged: ResultQuestion[] = quiz.questions.flatMap((q) => {
+    const r = result.results.find((x) => x.questionId === q.id);
+    if (!r) return [];
+    return [{
+      id: q.id,
+      topic: q.topic,
+      stem: q.stem,
+      choices: q.choices,
+      answer: r.answer,
+      submitted: r.submitted,
+      correct: r.correct,
+      explanation: r.explanation,
+      evidence: r.evidence ?? "",
+      evidencePage: r.evidencePage ?? null,
+    }];
+  });
+  return (
+    <QuizResultView
+      title={`점수 · ${quiz.title}`}
+      score={result.score}
+      total={result.total}
+      questions={merged}
+      watermark={result.watermark}
+      materialId={quiz.materialId}
+      quizId={quiz.id}
+    />
+  );
 }

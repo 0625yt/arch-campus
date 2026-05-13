@@ -2,7 +2,53 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 export interface Database {
   public: {
-    Views: Record<string, never>;
+    Views: {
+      /** 0009: 채점 결과를 펼친 오답 단건 view. RLS는 quiz_attempts에서 상속. */
+      wrong_items_v: {
+        Row: {
+          attempt_id: string;
+          owner_id: string;
+          quiz_id: string;
+          attempted_at: string;
+          material_id: string | null;
+          course_id: string | null;
+          quiz_title: string;
+          quiz_difficulty: "쉬움" | "보통" | "어려움";
+          question_id: number;
+          submitted: string | null;
+          correct_answer: string;
+          explanation: string;
+          evidence: string | null;
+          evidence_page: number | null;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      /** 0009: attempt + quiz 한 줄 join view — 다시보기 페이지 단일 select. */
+      attempt_summary_v: {
+        Row: {
+          attempt_id: string;
+          owner_id: string;
+          quiz_id: string;
+          score: number;
+          total: number;
+          duration_ms: number | null;
+          attempted_at: string;
+          results: Json;
+          answers: Json;
+          material_id: string | null;
+          course_id: string | null;
+          quiz_title: string;
+          quiz_difficulty: "쉬움" | "보통" | "어려움";
+          questions: Json;
+          watermark: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+    };
     Functions: Record<string, never>;
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -260,6 +306,8 @@ export interface Database {
           owner_id: string;
           quiz_id: string;
           answers: Json;
+          /** 채점 결과 (0009 마이그레이션부터). 그 이전 attempt는 빈 배열. */
+          results: Json;
           score: number;
           total: number;
           duration_ms: number | null;
@@ -271,6 +319,7 @@ export interface Database {
           owner_id: string;
           quiz_id: string;
           answers: Json;
+          results?: Json;
           score: number;
           total: number;
           duration_ms?: number | null;

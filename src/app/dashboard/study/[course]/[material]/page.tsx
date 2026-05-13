@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { WizardWatermark } from "@/components/wizard-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getMaterialDetail, type MaterialDetail } from "@/lib/data/materials";
 import type { SummarizeOutputT } from "@/lib/schemas";
@@ -249,14 +250,9 @@ function SummaryArticle({
         )}
       </article>
 
-      {summary.watermark && (
-        <p
-          className="mt-4 px-2 text-[11px] wght-450 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {summary.watermark}
-        </p>
-      )}
+      <div className="mt-4 px-2">
+        <WizardWatermark modelText={summary.watermark} />
+      </div>
     </section>
   );
 }

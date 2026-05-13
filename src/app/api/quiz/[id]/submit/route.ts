@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { QuizQuestion } from "@/lib/schemas";
+import { gradeQuiz, type Choice } from "@/lib/services/grade-quiz";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -27,8 +28,8 @@ interface SubmitOk {
   results: Array<{
     questionId: number;
     correct: boolean;
-    answer: "A" | "B" | "C" | "D";
-    submitted: "A" | "B" | "C" | "D";
+    answer: Choice;
+    submitted: Choice | null;
     explanation: string;
     evidence?: string;
     evidencePage?: number | null;
@@ -36,6 +37,13 @@ interface SubmitOk {
   watermark: string;
 }
 
+/**
+ * Quiz 제출 — 라우트는 인증 + 입력검증 + DB만 책임.
+ * 채점 로직은 lib/services/grade-quiz.ts (순수 함수, 단위 테스트 가능).
+ *
+ * 0009 마이그레이션부터 results 컬럼에도 채점 결과를 영구 보관 →
+ * Today·복습 큐·다시보기 페이지가 attempt 단건 select 한 번으로 결과를 복원.
+ */
 export async function POST(
   req: Request,
   context: { params: Promise<{ id: string }> },
@@ -63,7 +71,6 @@ export async function POST(
     );
   }
 
-  // quiz 조회 (RLS: owner_id 본인만)
   const admin = getAdminSupabase();
   const { data: quiz, error: quizErr } = await admin
     .from("quizzes")
@@ -79,32 +86,21 @@ export async function POST(
   }
 
   const questions = z.array(QuizQuestion).parse(quiz.questions);
-  const submittedMap = new Map(body.answers.map((a) => [a.questionId, a.choice]));
+  const graded = gradeQuiz(questions, body.answers);
 
-  let score = 0;
-  const results = questions.map((q) => {
-    const submitted = submittedMap.get(q.id) ?? "A";
-    const correct = submitted === q.answer;
-    if (correct) score++;
-    return {
-      questionId: q.id,
-      correct,
-      answer: q.answer,
-      submitted,
-      explanation: q.explanation,
-      evidence: q.evidence,
-      evidencePage: q.evidencePage ?? null,
-    };
-  });
+  // GradedResult는 plain object 배열이라 직렬화 안전 — JSON 캐스트로 supabase 타입에 맞춤.
+  const resultsJson = JSON.parse(JSON.stringify(graded.results));
+  const answersJson = JSON.parse(JSON.stringify(body.answers));
 
   const { data: attempt, error: attemptErr } = await admin
     .from("quiz_attempts")
     .insert({
       owner_id: ownerId,
       quiz_id: quizId,
-      answers: body.answers,
-      score,
-      total: questions.length,
+      answers: answersJson,
+      results: resultsJson,
+      score: graded.score,
+      total: graded.total,
       duration_ms: body.durationMs ?? null,
       status: "completed",
     })
@@ -121,9 +117,17 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     attemptId: attempt.id,
-    score,
-    total: questions.length,
-    results,
+    score: graded.score,
+    total: graded.total,
+    results: graded.results.map((r) => ({
+      questionId: r.questionId,
+      correct: r.correct,
+      answer: r.answer,
+      submitted: r.submitted,
+      explanation: r.explanation,
+      evidence: r.evidence,
+      evidencePage: r.evidencePage,
+    })),
     watermark: quiz.watermark,
   });
 }

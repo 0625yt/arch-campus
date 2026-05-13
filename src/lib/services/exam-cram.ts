@@ -29,12 +29,29 @@ export interface ExamCramMaterialInput {
   extractedKeywords?: string[] | null;
 }
 
+/**
+ * 사용자가 실제로 틀렸던 문제의 단원·해설 — 자료 텍스트보다 강한 신호.
+ * Topic priority·schedule mode가 weak-spot 우선이 되도록 프롬프트에 직접 박힌다.
+ */
+export interface ExamCramWrongHint {
+  /** 어느 자료에서 나온 오답인지 — basedOnMaterialIds 추론 보조 */
+  materialId: string | null;
+  /** 퀴즈 제목 = 보통 자료 제목과 비슷 */
+  quizTitle: string;
+  /** 사용자가 자주 틀린 문제 수 */
+  wrongCount: number;
+  /** 오답 해설 — 단원 명을 끌어오는 데 좋음 */
+  topicSamples: string[];
+}
+
 export interface ExamCramInput {
   ownerId: string;
   subject: string;
   remainingMin: number;
   weakSpots?: string;
   materials: ExamCramMaterialInput[];
+  /** 비어 있어도 됨 — 있으면 priority 가중치가 weak-spot 단원으로 쏠림 */
+  wrongHints?: ExamCramWrongHint[];
 }
 
 export type ExamCramResult =
@@ -191,6 +208,22 @@ function buildDynamicContext(input: ExamCramInput): string {
   if (input.weakSpots && input.weakSpots.trim()) {
     lines.push(`- 약점·요청: ${input.weakSpots.trim().slice(0, 400)}`);
   }
+
+  // 사용자 실제 오답 — 자료의 어디를 우선해야 하는지 가장 강한 신호.
+  // priority=high·schedule mode=review-mistakes로 가야 하는 단원 후보.
+  const hints = (input.wrongHints ?? []).filter((h) => h.wrongCount > 0);
+  if (hints.length > 0) {
+    lines.push("", `최근 60일 오답 통계 (priority high 후보):`);
+    for (const h of hints.slice(0, 6)) {
+      const matIdHint = h.materialId ? ` (자료 id=${h.materialId})` : "";
+      lines.push(`- ${h.quizTitle} · 오답 ${h.wrongCount}문제${matIdHint}`);
+      const samples = h.topicSamples.filter(Boolean).slice(0, 3);
+      if (samples.length > 0) {
+        lines.push(`  자주 틀린 포인트: ${samples.join(" / ").slice(0, 200)}`);
+      }
+    }
+  }
+
   lines.push("", `업로드된 자료 ${input.materials.length}건:`);
   for (const m of input.materials) {
     lines.push(`- id=${m.id} · ${m.title}${m.pages ? ` (${m.pages}쪽)` : ""}`);

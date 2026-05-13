@@ -101,6 +101,21 @@ function IconNewChat() {
     </svg>
   );
 }
+function IconReview() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path
+        d="M3 3.5h6.5c.8 0 1.5.7 1.5 1.5v5.5L7.5 8H3V3.5z"
+        stroke="currentColor"
+        strokeWidth={1.2}
+        strokeLinejoin="round"
+      />
+      <circle cx="7" cy="6" r=".7" fill="currentColor" />
+      <circle cx="9.2" cy="6" r=".7" fill="currentColor" />
+      <circle cx="4.8" cy="6" r=".7" fill="currentColor" />
+    </svg>
+  );
+}
 function IconHistory() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
@@ -131,6 +146,7 @@ function IconHistory() {
 const NAV = [
   { href: "/dashboard/today", label: "지금", Icon: IconToday },
   { href: "/dashboard/study", label: "공부", Icon: IconStudy },
+  { href: "/dashboard/review", label: "복습", Icon: IconReview },
   { href: "/dashboard/calendar", label: "일정", Icon: IconCalendar },
   { href: "/dashboard/tools", label: "도구", Icon: IconTools },
   { href: "/dashboard/history", label: "기록", Icon: IconHistory },

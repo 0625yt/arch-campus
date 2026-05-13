@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { WizardWatermark } from "@/components/wizard-shell";
 import { useJob } from "@/lib/hooks/use-job";
 import type { ExamCramOutputT } from "@/lib/schemas";
 
@@ -668,12 +669,9 @@ function ResultCard({
 
       {/* Watermark + 다시 */}
       <div className="flex items-center justify-between gap-3">
-        <p
-          className="flex-1 text-[11px] wght-450 leading-[1.55] text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {output.watermark}
-        </p>
+        <div className="flex-1">
+          <WizardWatermark modelText={output.watermark} />
+        </div>
         <SecondaryButton onClick={onRestart}>다시 짜기</SecondaryButton>
       </div>
     </div>

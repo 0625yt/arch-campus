@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ChecklistOutput,
   evidenceMatches,
   findBannedWords,
   hasWatermark,
@@ -71,6 +72,16 @@ describe("SummarizeOutput schema", () => {
           type: "bullets",
           items: ["상호 배제", "진행 조건", "한정 대기"],
         },
+        {
+          type: "callout",
+          tone: "warn",
+          content: "임계 구역 진입 전 락을 풀어두면 데드락이 나오니 순서를 꼭 지켜주세요.",
+        },
+        {
+          type: "para",
+          content:
+            "Peterson 알고리즘은 두 프로세스만 가정한 풀이라 N개 환경에서는 베이커리 같은 일반화 알고리즘이 필요해요.",
+        },
       ],
       keywords: ["임계 구역", "상호 배제", "Peterson", "test-and-set", "세마포어"],
       reviewSpots: [{ title: "Peterson", why: "조건 3개 중 2개만 외우는 학생이 많아요." }],
@@ -101,6 +112,61 @@ describe("QuizOutput rejected branch", () => {
       watermark: "이 자료는 학습 보조용이며",
     };
     expect(QuizOutput.parse(rejected)).toBeTruthy();
+  });
+});
+
+describe("ChecklistOutput schema", () => {
+  const validRequirement = {
+    title: "본문 4쪽 ±0.5쪽 (제목·참고문헌 제외)",
+    category: "분량" as const,
+    weight: "high" as const,
+    quote: "본문 4쪽 내외 (제목·참고문헌 제외)",
+    why: "분량 초과·미달은 즉시 감점. 글자 크기·줄간격까지 같이 확인.",
+  };
+
+  it("accepts valid output", () => {
+    const output = {
+      headline: "운영체제 1차 리포트 — 4쪽 내외, 5/22 23:59 LMS PDF",
+      topRisks: ["분량 4쪽 ±0.5쪽", "LMS PDF 한정", "5/22 23:59 마감"],
+      requirements: [
+        validRequirement,
+        { ...validRequirement, title: "Chicago 인용 5개 이상", category: "참고문헌" as const },
+        { ...validRequirement, title: "LMS PDF 업로드", category: "제출방식" as const },
+      ],
+      selfQuestions: [
+        "내가 고른 동기화 알고리즘은 무엇인가요?",
+        "참고문헌 5개를 본문에서 인용했나요?",
+        "PDF로 변환한 뒤 글자 깨짐을 확인했나요?",
+      ],
+      watermark: "이 자료는 학습 보조용이며 본인이 공지 원문을 확인해야 해요",
+    };
+    expect(ChecklistOutput.parse(output)).toBeTruthy();
+  });
+
+  it("rejects requirements under min count", () => {
+    expect(() =>
+      ChecklistOutput.parse({
+        headline: "헤드라인이 충분히 길게 적혀있어요",
+        topRisks: ["risk a 충분히 길게", "risk b 충분히 길게"],
+        requirements: [validRequirement],
+        selfQuestions: [
+          "질문 1 충분히 길게 적혀있어요",
+          "질문 2 충분히 길게 적혀있어요",
+          "질문 3 충분히 길게 적혀있어요",
+        ],
+        watermark: "이 자료는 학습 보조용이며",
+      }),
+    ).toThrow();
+  });
+
+  it("accepts rejected branch", () => {
+    expect(
+      ChecklistOutput.parse({
+        rejected: true,
+        reason: "공지 본문이 비어있어 요구사항을 추출할 수 없어요. 다시 붙여주세요.",
+        watermark: "이 자료는 학습 보조용이며",
+      }),
+    ).toBeTruthy();
   });
 });
 
