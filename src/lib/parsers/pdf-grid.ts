@@ -87,24 +87,29 @@ export async function extractTimetableGrid(
   // 3) 헤더 아래쪽 (y < headerY) 아이템만 본다 — 위쪽은 학번·학기 메타
   const body = items.filter((it) => it.y < header.y - 2);
 
-  // 4) "1교시"·"2교시" 같은 period anchor를 첫 컬럼(왼쪽 끝)에서 찾고
-  //    같은 y 근처의 시간 라벨([HH:MM~HH:MM])을 짝지운다.
+  // 4) "1교시"·"2교시" period anchor + "[HH:MM~HH:MM]" 시간 라벨 모두 수집.
+  //    행 경계는 **시간 라벨의 y**로 잡는다 (period 라벨은 셀 중앙에 가까워
+  //    셀 안의 마지막 줄(강의명)이 다음 행으로 새는 사례가 잦음).
   const periods = extractPeriods(body, columns[0].left);
   if (periods.length === 0) {
     return { ok: false, reason: "no-rows", message: "교시 anchor를 못 찾음" };
   }
 
-  // 5) 각 period의 y 범위 안에 있는 데이터 셀을 컬럼별로 모은다
+  // 5) 각 period의 y 범위 안에 있는 데이터 셀을 컬럼별로 모은다.
+  //    yTop = 시간 라벨 y (행의 진짜 윗변), yBottom = 다음 행의 시간 라벨 y.
+  //    시간 라벨이 없는 row(쿼리 헤더 X)는 period y - 22로 폴백.
   const rows = periods
     .map((p, idx) => {
-      const yTop = p.y + 4; // period 라벨보다 약간 위까지
-      const yBottom = idx + 1 < periods.length ? periods[idx + 1].y + 4 : -Infinity;
+      const yTop = p.timeY ?? p.y + 22;
+      const next = periods[idx + 1];
+      const yBottom = next ? (next.timeY ?? next.y + 22) : -Infinity;
       const cells: Record<string, string[]> = {};
       for (const col of columns) {
         cells[col.weekday] = [];
       }
       for (const it of body) {
-        if (it.y > yTop || it.y <= yBottom) continue;
+        // [yBottom, yTop) 반열린 구간 — 다음 행의 시간 라벨 자체는 다음 행 소속
+        if (it.y >= yTop || it.y < yBottom) continue;
         // period anchor 자신 + 그 옆의 시간 라벨은 셀로 안 셈
         if (it.x < columns[0].left - 5) continue;
         const col = columnForX(it.x, columns);
@@ -117,8 +122,17 @@ export async function extractTimetableGrid(
         cells,
       };
     })
-    // 모든 셀이 비어있는 행은 제외
-    .filter((r) => Object.values(r.cells).some((lines) => lines.length > 0));
+    // 모든 셀이 비어있는 행 제외 + 표 아래 메타("교과목명","학점","교양영역","교수명","강의실"
+    // 같은 footer 헤더가 데이터 셀에 잡힌 것)는 noise이므로 제외.
+    .filter((r) => {
+      const allCells = Object.values(r.cells).flat();
+      if (allCells.length === 0) return false;
+      const META = ["교과목명", "학점", "교양영역", "교수명", "강의실", "강좌", "번호", "이수", "구분"];
+      const metaHits = allCells.filter((s) => META.some((m) => s.includes(m))).length;
+      // 셀 안 절반 이상이 메타 헤더면 표 footer로 판단
+      if (metaHits >= Math.max(2, Math.floor(allCells.length * 0.5))) return false;
+      return true;
+    });
 
   if (rows.length === 0) {
     return { ok: false, reason: "no-rows", message: "데이터 셀이 모두 비어있음" };
@@ -209,7 +223,10 @@ function columnForX(x: number, cols: TimetableGrid["columns"]): TimetableGrid["c
 interface PeriodAnchor {
   period: string;
   time: string;
+  /** period 라벨 ("N교시")의 y */
   y: number;
+  /** 시간 라벨 ("[HH:MM~HH:MM]")의 y — 행의 진짜 윗변. 없으면 null */
+  timeY: number | null;
 }
 
 function extractPeriods(body: RawItem[], firstColLeft: number): PeriodAnchor[] {
@@ -223,14 +240,18 @@ function extractPeriods(body: RawItem[], firstColLeft: number): PeriodAnchor[] {
   for (const it of periodCandidates.sort((a, b) => b.y - a.y)) {
     if (seen.has(it.str)) continue;
     seen.add(it.str);
-    // 같은 period의 시간 라벨 — 비슷한 y에 위치, "[HH:MM~HH:MM]" 형태
-    const time = body.find(
-      (t2) => Math.abs(t2.y - it.y) < 18 && t2.x < firstColLeft - 5 && TIME_RE.test(t2.str),
-    );
+    // 같은 period의 시간 라벨 — period y보다 약간 아래(같은 셀 안)에 있다.
+    // 보통 [HH:MM~HH:MM]은 period y에서 -10~-20 정도 (PDF 좌표는 위로 갈수록 y 큼).
+    const time = body
+      .filter(
+        (t2) => t2.x < firstColLeft - 5 && TIME_RE.test(t2.str) && Math.abs(t2.y - it.y) < 36,
+      )
+      .sort((a, b) => Math.abs(a.y - it.y) - Math.abs(b.y - it.y))[0];
     periods.push({
       period: it.str,
       time: time ? time.str : "",
       y: it.y,
+      timeY: time ? time.y : null,
     });
   }
   return periods.sort((a, b) => b.y - a.y); // 위→아래 (y 큰 게 위)
