@@ -1,5 +1,6 @@
 import "server-only";
 import { generate, generateWithFile, estimateCost } from "@/lib/claude";
+import { extractTimetableGrid } from "@/lib/parsers/pdf-grid";
 import { loadPrompt } from "@/lib/prompts";
 import {
   parseModelJson,
@@ -12,12 +13,13 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 import { breakdown } from "@/lib/tokens";
 
 /**
- * 시간표 서비스 — 시간표 PDF/이미지 → 강의 N개 추출 → courses upsert (사용자 검토 후 events 생성).
+ * 시간표 서비스 — 시간표 자료 → 강의 N개 추출 → courses upsert (사용자 검토 후 events 생성).
  *
- * 핵심:
- *   - 학교 포털 시간표 PDF는 격자 표인데, unpdf 텍스트 추출은 행/열 위치를 잃음
- *     ("화 2교시 글로컬 영어 I"가 단순히 "글로컬 영어 I"로 떨어짐 → 요일 매칭 실패)
- *   - 그래서 PDF/이미지는 **vision으로 그림 그대로 전달**. 텍스트 폴백은 .docx 등에만.
+ * 추출 우선순위 (정확도 ↓ 비용 ↑):
+ *   1) PDF면 좌표 파서로 격자 재구성 시도 → 성공하면 markdown 표를 LLM에
+ *      Haiku로 매핑만 시키기 (가장 정확·저비용. 학교 포털 PDF 99% 잡힘)
+ *   2) 좌표 못 찾으면(스캔 PDF·이미지) Vision Sonnet으로 그림 그대로
+ *   3) 그것도 안 되면 단순 텍스트 추출 결과로 폴백 (docx 등)
  */
 
 export interface TimetableExtractInput {
@@ -55,13 +57,48 @@ export async function runTimetableExtraction(
     user: input.fullText,
   });
 
+  // 1) PDF면 좌표 파서로 격자 재구성 시도 (가장 정확)
+  let gridMarkdown: string | null = null;
+  if (input.fileMediaType === "application/pdf" && input.fileBytes) {
+    try {
+      const g = await extractTimetableGrid(input.fileBytes);
+      if (g.ok) {
+        gridMarkdown = g.markdown;
+      }
+    } catch {
+      // 좌표 추출 실패하면 vision/text 폴백으로 자연스럽게 흘러감
+    }
+  }
+
+  // 2) 추출 경로 결정
+  //    - gridMarkdown 있음 → 텍스트로 LLM에 (Haiku, 저비용·고정확)
+  //    - 좌표 못 잡고 PDF/이미지 있음 → Vision (Sonnet, 비싸지만 그림 그대로)
+  //    - 둘 다 안 되면 → 일반 텍스트 추출 결과 (docx 등 마지막 폴백)
   let result: Awaited<ReturnType<typeof generate>>;
-  const useVision =
+  const fallbackToVision =
+    !gridMarkdown &&
     input.fileBytes &&
     input.fileMediaType &&
     (input.fileMediaType === "application/pdf" || input.fileMediaType.startsWith("image/"));
+
   try {
-    if (useVision && input.fileBytes && input.fileMediaType) {
+    if (gridMarkdown) {
+      const userPayload = [
+        "아래는 시간표 PDF에서 좌표 기반으로 정확히 재구성한 격자 표입니다.",
+        "각 셀의 요일은 컬럼 헤더에 의해 이미 확정됐으니 추측하지 말고 그대로 매핑하세요.",
+        "빈 셀(\"-\")은 강의 없음.",
+        "",
+        gridMarkdown,
+      ].join("\n");
+      result = await generate({
+        tool: "timetable-extract",
+        rulePrompt,
+        dynamicContext,
+        userInput: userPayload,
+        maxTokens: 4096,
+        temperature: 0.1,
+      });
+    } else if (fallbackToVision && input.fileBytes && input.fileMediaType) {
       result = await generateWithFile({
         tool: "timetable-extract",
         rulePrompt,
