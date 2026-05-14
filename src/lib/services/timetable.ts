@@ -1,6 +1,7 @@
 import "server-only";
 import { generate, generateWithFile, estimateCost } from "@/lib/claude";
 import { extractTimetableGrid } from "@/lib/parsers/pdf-grid";
+import { extractTimetableGridFromXlsx } from "@/lib/parsers/xlsx-grid";
 import { loadPrompt } from "@/lib/prompts";
 import {
   parseModelJson,
@@ -57,16 +58,41 @@ export async function runTimetableExtraction(
     user: input.fullText,
   });
 
-  // 1) PDF면 좌표 파서로 격자 재구성 시도 (가장 정확)
+  // 1) 좌표 기반 그리드 재구성 — PDF/Excel은 좌표가 사실로 박혀있어 99% 정확.
   let gridMarkdown: string | null = null;
-  if (input.fileMediaType === "application/pdf" && input.fileBytes) {
+  let gridSource: "pdf" | "xlsx" | null = null;
+  const isPdf = input.fileMediaType === "application/pdf";
+  const isXlsx =
+    input.fileMediaType ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    input.fileMediaType === "application/vnd.ms-excel" ||
+    /\.xlsx?$/i.test(input.title);
+  const HEADER_KEYWORDS = ["일", "월", "화", "수", "목", "금", "토"] as const;
+  if (isPdf && input.fileBytes) {
     try {
       const g = await extractTimetableGrid(input.fileBytes);
       if (g.ok) {
         gridMarkdown = g.markdown;
+        gridSource = "pdf";
       }
     } catch {
-      // 좌표 추출 실패하면 vision/text 폴백으로 자연스럽게 흘러감
+      // pdf 좌표 실패 → vision 폴백으로 자연스럽게
+    }
+  }
+  if (!gridMarkdown && isXlsx && input.fileBytes) {
+    try {
+      const g = await extractTimetableGridFromXlsx(input.fileBytes, {
+        headerKeywords: HEADER_KEYWORDS,
+        minMatches: 4,
+      });
+      if (g.ok && g.grids.length > 0) {
+        // 가장 row 많은 시트를 메인으로 (보통 한 시트에 한 학기)
+        const main = g.grids.sort((a, b) => b.rows.length - a.rows.length)[0];
+        gridMarkdown = `시트: ${main.sheetName}\n\n${main.markdown}`;
+        gridSource = "xlsx";
+      }
+    } catch {
+      // xlsx 좌표 실패 → 일반 텍스트 폴백
     }
   }
 
@@ -83,8 +109,9 @@ export async function runTimetableExtraction(
 
   try {
     if (gridMarkdown) {
+      const sourceLabel = gridSource === "xlsx" ? "Excel 셀 좌표" : "PDF 텍스트 좌표";
       const userPayload = [
-        "아래는 시간표 PDF에서 좌표 기반으로 정확히 재구성한 격자 표입니다.",
+        `아래는 시간표 자료에서 ${sourceLabel} 기반으로 정확히 재구성한 격자 표입니다.`,
         "각 셀의 요일은 컬럼 헤더에 의해 이미 확정됐으니 추측하지 말고 그대로 매핑하세요.",
         "빈 셀(\"-\")은 강의 없음.",
         "",

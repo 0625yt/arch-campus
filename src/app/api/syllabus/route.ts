@@ -129,13 +129,17 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     );
   }
 
-  // 4. AI 추출
+  // 4. AI 추출 — PDF/이미지면 vision 경로(서비스가 알아서 분기)
+  const visionEligible =
+    uploaded.mimeType === "application/pdf" || uploaded.mimeType.startsWith("image/");
   const result = await runSyllabusExtraction({
     ownerId,
     materialId: material.id,
     title,
     fullText: parsed.sanitizedText,
     semesterHint,
+    fileBytes: visionEligible ? uploaded.bytes : undefined,
+    fileMediaType: visionEligible ? uploaded.mimeType : undefined,
   });
 
   if (!result.ok) {

@@ -1,5 +1,6 @@
 import "server-only";
-import { generate, estimateCost } from "@/lib/claude";
+import { generate, generateWithFile, estimateCost } from "@/lib/claude";
+import { extractPdfTablesByHeader } from "@/lib/parsers/pdf-grid";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, SyllabusOutput, type SyllabusOutputT } from "@/lib/schemas";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -25,6 +26,9 @@ export interface SyllabusExtractInput {
   title: string;
   fullText: string;
   semesterHint?: string; // 예: "2026 봄학기"
+  /** PDF/이미지 원본. 표가 본문에 많이 포함된 강의계획서를 정확히 읽기 위함 */
+  fileBytes?: Uint8Array;
+  fileMediaType?: string;
 }
 
 export type SyllabusExtractResult =
@@ -53,16 +57,70 @@ export async function runSyllabusExtraction(
     user: input.fullText,
   });
 
+  // 1) PDF면 본문 안의 주차표·평가표를 좌표 기반으로 미리 뽑아 부록처럼 붙임.
+  //    LLM이 표를 정확히 보게 됨 (본문 텍스트만으론 합쳐서 의미 깨짐).
+  let extractedTablesNote = "";
+  if (input.fileBytes && input.fileMediaType === "application/pdf") {
+    try {
+      // 흔한 강의계획서 표 헤더들. 한쪽이라도 매칭되면 표로 변환.
+      const candidates: ReadonlyArray<readonly string[]> = [
+        ["주차", "강의주제", "과제", "비고"],
+        ["주차", "주제", "과제"],
+        ["평가항목", "비중", "방법"],
+        ["주", "내용"],
+      ];
+      const tables: string[] = [];
+      for (const headers of candidates) {
+        const r = await extractPdfTablesByHeader(input.fileBytes, {
+          headerKeywords: headers,
+          minMatches: Math.max(2, Math.floor(headers.length * 0.6)),
+        });
+        if (r.ok) {
+          for (const t of r.tables) tables.push(t.markdown);
+        }
+      }
+      if (tables.length > 0) {
+        extractedTablesNote = [
+          "",
+          "[부록 — 본문에서 좌표 기반으로 정확히 재구성한 표]",
+          ...tables,
+        ].join("\n\n");
+      }
+    } catch {
+      // 표 추출 실패는 본문만으로 진행
+    }
+  }
+
   let result: Awaited<ReturnType<typeof generate>>;
+  const useVision =
+    input.fileBytes &&
+    input.fileMediaType &&
+    (input.fileMediaType === "application/pdf" || input.fileMediaType.startsWith("image/"));
   try {
-    result = await generate({
-      tool: "syllabus-extract",
-      rulePrompt,
-      dynamicContext,
-      userInput: input.fullText.slice(0, 80_000),
-      maxTokens: 4096,
-      temperature: 0.1,
-    });
+    if (useVision && input.fileBytes && input.fileMediaType) {
+      // 강의계획서가 PDF/이미지로 들어오면 vision으로 그림 그대로 보기.
+      // 본문 텍스트는 dynamicContext에 함께 넣어 모델이 양쪽 다 활용.
+      result = await generateWithFile({
+        tool: "syllabus-extract",
+        rulePrompt,
+        dynamicContext: dynamicContext + extractedTablesNote,
+        fileBytes: input.fileBytes,
+        mediaType: input.fileMediaType,
+        userText:
+          "위 강의계획서를 읽고 시험·과제·발표 일정과 과목 메타를 JSON으로 답하세요. 표가 있으면 시각적으로 정확히 매핑.",
+        maxTokens: 4096,
+        temperature: 0.1,
+      });
+    } else {
+      result = await generate({
+        tool: "syllabus-extract",
+        rulePrompt,
+        dynamicContext: dynamicContext + extractedTablesNote,
+        userInput: input.fullText.slice(0, 80_000),
+        maxTokens: 4096,
+        temperature: 0.1,
+      });
+    }
   } catch (e) {
     await logGeneration({
       ownerId: input.ownerId,

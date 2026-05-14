@@ -255,3 +255,217 @@ function gridToMarkdown(grid: TimetableGrid): string {
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
+
+/* ────────────────────────────────────────────────────────────
+ * 일반 표 추출 — 강의계획서 평가표·주차표 등 임의의 격자에 적용
+ * ──────────────────────────────────────────────────────────── */
+
+export interface GenericTableRow {
+  /** 헤더 컬럼명 → 셀 안의 텍스트 줄들 */
+  cells: Record<string, string[]>;
+}
+
+export interface GenericTable {
+  page: number;
+  /** 헤더로 잡힌 컬럼 라벨들 (좌→우) */
+  columns: string[];
+  rows: GenericTableRow[];
+  /** LLM에 그대로 넣을 마크다운 표 */
+  markdown: string;
+}
+
+export interface ExtractTablesResult {
+  ok: true;
+  tables: GenericTable[];
+}
+
+export interface ExtractTablesFailure {
+  ok: false;
+  reason: "pdfjs-failed" | "no-match";
+  message: string;
+}
+
+/**
+ * PDF 본문에서 "헤더 키워드"가 한 줄에 일정 수 이상 등장하는 row를 찾고,
+ * 그 row의 컬럼 x 좌표를 경계로 격자를 재구성한다.
+ *
+ * 예시:
+ *   - 시간표: keywords=["일","월","화","수","목","금","토"], min=4
+ *   - 강의계획서 주차표: keywords=["주차","강의주제","과제","비고"], min=2
+ *   - 평가표: keywords=["평가항목","비중","방법"], min=2
+ *
+ * 한 PDF 안에 여러 표가 있으면 각각 별도 GenericTable로 반환.
+ */
+export async function extractPdfTablesByHeader(
+  bytes: ParseBytes,
+  opts: {
+    /** 헤더 row에서 일치해야 할 후보 단어들 (예: ["일","월","화",...]) */
+    headerKeywords: readonly string[];
+    /** 헤더 후보로 인정할 최소 일치 개수 */
+    minMatches: number;
+    /** 셀 안의 줄을 합칠 구분자 (기본 " / ") */
+    joiner?: string;
+  },
+): Promise<ExtractTablesResult | ExtractTablesFailure> {
+  let pages: RawItem[][];
+  try {
+    pages = await loadAllItemsByPage(bytes);
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "pdfjs-failed",
+      message: e instanceof Error ? e.message : String(e),
+    };
+  }
+
+  const tables: GenericTable[] = [];
+  for (let pageIdx = 0; pageIdx < pages.length; pageIdx += 1) {
+    const items = pages[pageIdx];
+    const headers = findGenericHeaders(items, opts.headerKeywords, opts.minMatches);
+    for (const header of headers) {
+      const cols = buildGenericColumns(header);
+      // 본문 = 헤더보다 아래 (y < headerY)
+      const body = items.filter((it) => it.y < header.y - 2);
+      if (body.length === 0) continue;
+      const rows = clusterRowsByY(body, cols, opts.joiner ?? " / ");
+      if (rows.length === 0) continue;
+      const columns = cols.map((c) => c.label);
+      tables.push({
+        page: pageIdx + 1,
+        columns,
+        rows,
+        markdown: genericTableToMarkdown(columns, rows),
+      });
+    }
+  }
+
+  if (tables.length === 0) {
+    return { ok: false, reason: "no-match", message: "헤더 키워드를 만족하는 표를 못 찾음" };
+  }
+  return { ok: true, tables };
+}
+
+async function loadAllItemsByPage(bytes: ParseBytes): Promise<RawItem[][]> {
+  const u8 = toUint8Array(bytes);
+  const pdf = await getDocumentProxy(u8);
+  const out: RawItem[][] = [];
+  for (let i = 1; i <= pdf.numPages; i += 1) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const items: RawItem[] = [];
+    for (const it of content.items) {
+      if (!("str" in it) || typeof it.str !== "string") continue;
+      const s = it.str.trim();
+      if (s.length === 0) continue;
+      const t = it.transform as number[];
+      if (!Array.isArray(t) || t.length < 6) continue;
+      items.push({
+        str: s,
+        x: round1(t[4]),
+        y: round1(t[5]),
+        w: round1((it as { width?: number }).width ?? 0),
+        h: round1((it as { height?: number }).height ?? 0),
+      });
+    }
+    out.push(items);
+  }
+  return out;
+}
+
+interface GenericHeader {
+  y: number;
+  positions: Array<{ label: string; x: number }>;
+}
+
+function findGenericHeaders(
+  items: RawItem[],
+  keywords: readonly string[],
+  minMatches: number,
+): GenericHeader[] {
+  const buckets = new Map<number, RawItem[]>();
+  for (const it of items) {
+    const key = Math.round(it.y);
+    const arr = buckets.get(key) ?? [];
+    arr.push(it);
+    buckets.set(key, arr);
+  }
+  const headers: GenericHeader[] = [];
+  for (const [yKey, arr] of buckets) {
+    const found: GenericHeader["positions"] = [];
+    for (const kw of keywords) {
+      const hit = arr.find((it) => it.str === kw || it.str.replace(/\s/g, "") === kw);
+      if (hit) found.push({ label: kw, x: hit.x });
+    }
+    if (found.length >= minMatches) {
+      headers.push({ y: yKey, positions: found.sort((a, b) => a.x - b.x) });
+    }
+  }
+  return headers;
+}
+
+function buildGenericColumns(
+  header: GenericHeader,
+): Array<{ label: string; left: number; right: number }> {
+  const sorted = [...header.positions].sort((a, b) => a.x - b.x);
+  const cols: Array<{ label: string; left: number; right: number }> = [];
+  for (let i = 0; i < sorted.length; i += 1) {
+    const cur = sorted[i];
+    const prev = sorted[i - 1];
+    const next = sorted[i + 1];
+    const left = prev ? (prev.x + cur.x) / 2 : cur.x - 50;
+    const right = next ? (cur.x + next.x) / 2 : cur.x + 80;
+    cols.push({ label: cur.label, left, right });
+  }
+  return cols;
+}
+
+function clusterRowsByY(
+  body: RawItem[],
+  cols: Array<{ label: string; left: number; right: number }>,
+  joiner: string,
+): GenericTableRow[] {
+  // y 값을 8px tolerance로 묶어 행으로
+  const sortedByY = [...body].sort((a, b) => b.y - a.y);
+  const rowsByY: Array<{ y: number; items: RawItem[] }> = [];
+  for (const it of sortedByY) {
+    const cur = rowsByY[rowsByY.length - 1];
+    if (cur && Math.abs(cur.y - it.y) < 8) {
+      cur.items.push(it);
+    } else {
+      rowsByY.push({ y: it.y, items: [it] });
+    }
+  }
+  const out: GenericTableRow[] = [];
+  for (const r of rowsByY) {
+    const cells: Record<string, string[]> = {};
+    for (const c of cols) cells[c.label] = [];
+    let any = false;
+    for (const it of r.items) {
+      for (const c of cols) {
+        if (it.x >= c.left && it.x < c.right) {
+          cells[c.label].push(it.str);
+          any = true;
+          break;
+        }
+      }
+    }
+    if (any) out.push({ cells });
+  }
+  // joiner는 markdown 출력에서 사용
+  void joiner;
+  return out;
+}
+
+function genericTableToMarkdown(columns: string[], rows: GenericTableRow[]): string {
+  const lines: string[] = [];
+  lines.push(`| ${columns.join(" | ")} |`);
+  lines.push(`| ${columns.map(() => "---").join(" | ")} |`);
+  for (const r of rows) {
+    const cells = columns.map((c) => {
+      const v = (r.cells[c] ?? []).join(" / ").replace(/\|/g, "/");
+      return v.length > 0 ? v : "-";
+    });
+    lines.push(`| ${cells.join(" | ")} |`);
+  }
+  return lines.join("\n");
+}

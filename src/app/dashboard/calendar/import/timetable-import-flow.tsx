@@ -283,7 +283,7 @@ function UploadCard({
           />
           <input
             type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.hwp,.hwpx"
+            accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.xlsx,.xls,.hwp,.hwpx"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="sr-only"
             disabled={extracting}
@@ -309,7 +309,7 @@ function UploadCard({
                 여기에 끌어다 놓거나 클릭해서 선택
               </span>
               <span className="text-[12px] wght-450 text-[var(--color-apple-muted)]">
-                PDF · PNG · JPG · DOCX · HWP
+                PDF · 사진 · Excel · HWP · DOCX
               </span>
             </div>
           )}
