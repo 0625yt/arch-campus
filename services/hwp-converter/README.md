@@ -23,7 +23,9 @@ Next.js 쪽 [src/lib/parsers/hwp.ts](../../src/lib/parsers/hwp.ts)가 이 서비
 ### 2) Blueprint로 한 번에 띄우기 (3분 + 빌드 5~10분)
 - 우측 상단 **New +** → **Blueprint**.
 - Repository에서 `0625yt/arch-campus` 선택.
-- Render가 자동으로 [render.yaml](render.yaml)을 인식해 `arch-campus-hwp-converter` 서비스를 띄움.
+- Render는 **리포 루트의** [`render.yaml`](../../render.yaml)을 자동 인식한다.
+  (이 README가 있는 폴더의 render.yaml은 무시되므로 루트 한 곳에만 둠.)
+- Blueprint 이름은 `arch-campus-hwp-converter`로 떠야 정상.
 - 한 번 묻습니다 — 환경변수 `HWP_CONVERTER_TOKEN` 입력. 무작위 32바이트 문자열을 넣으세요. (만들기는 아래 한 줄)
   ```bash
   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
