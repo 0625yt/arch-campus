@@ -102,20 +102,52 @@ export async function runTimetableExtraction(
     }
   }
 
-  // 2) 추출 경로 결정
-  //    - gridMarkdown 있음 → 텍스트로 LLM에 (Haiku, 저비용·고정확)
-  //    - 좌표 못 잡고 PDF/이미지 있음 → Vision (Sonnet, 비싸지만 그림 그대로)
-  //    - 둘 다 안 되면 → 일반 텍스트 추출 결과 (docx 등 마지막 폴백)
+  // 2) 추출 경로 결정 — Vision을 1순위로.
+  //    좌표 그리드 markdown은 부록(보조 컨텍스트)으로 같이 보내서 모델이
+  //    그림과 좌표 데이터를 교차 검증하게 한다. 좌표 markdown만으로 LLM에게
+  //    추측 시키면 시간 합치기/교수명 분리 같은 데서 환각이 생긴다.
   let result: Awaited<ReturnType<typeof generate>>;
-  const fallbackToVision =
-    !gridMarkdown &&
+  const useVision =
     fileBytesForVision &&
     fileBytesForVision.byteLength > 0 &&
     input.fileMediaType &&
     (input.fileMediaType === "application/pdf" || input.fileMediaType.startsWith("image/"));
 
   try {
-    if (gridMarkdown) {
+    if (useVision && fileBytesForVision && input.fileMediaType) {
+      // 그림 + 좌표 부록 동시 전달
+      const visionContext = gridMarkdown
+        ? [
+            dynamicContext,
+            "",
+            "[부록] 좌표 기반으로 추출한 격자 표 — 그림과 일치하는지 교차 검증용:",
+            "(셀 안 텍스트 순서: 보통 강의명 / 강의실 / 교수)",
+            "",
+            gridMarkdown,
+          ].join("\n")
+        : dynamicContext;
+      result = await generateWithFile({
+        tool: "timetable-extract",
+        rulePrompt,
+        dynamicContext: visionContext,
+        fileBytes: fileBytesForVision,
+        mediaType: input.fileMediaType,
+        userText: [
+          "위 시간표 자료를 보고 강의 N개를 JSON으로 답하세요.",
+          "행 = 교시(시간), 열 = 요일(일/월/화/수/목/금/토).",
+          "각 셀의 강의명/강의실/교수를 시각적으로 정확히 분리하고,",
+          "같은 강의가 같은 요일의 여러 연속 교시에 걸쳐 있으면 시간을 합쳐 슬롯 1개로 만드세요",
+          "(예: 5교시 13:00~13:50 + 6교시 14:00~14:50 같은 강의 → 13:00~14:50 슬롯 1개).",
+          "빈 칸은 제외. 셀에 사람 이름만 있으면 그건 강의가 아니라 교수명 누수입니다.",
+          gridMarkdown ? "부록의 좌표 표는 요일/셀 묶음 검증용 — 시간은 그림 본문이 진실." : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        maxTokens: 4096,
+        temperature: 0.1,
+      });
+    } else if (gridMarkdown) {
+      // PDF/이미지 없는 케이스 (Excel만 vision 불가) — 좌표 markdown만으로 추출
       const sourceLabel = gridSource === "xlsx" ? "Excel 셀 좌표" : "PDF 텍스트 좌표";
       const userPayload = [
         `아래는 시간표 자료에서 ${sourceLabel} 기반으로 정확히 재구성한 격자 표입니다.`,
@@ -132,18 +164,6 @@ export async function runTimetableExtraction(
         maxTokens: 4096,
         temperature: 0.1,
       });
-    } else if (fallbackToVision && fileBytesForVision && input.fileMediaType) {
-      result = await generateWithFile({
-        tool: "timetable-extract",
-        rulePrompt,
-        dynamicContext,
-        fileBytes: fileBytesForVision,
-        mediaType: input.fileMediaType,
-        userText:
-          "위 시간표 그림을 그대로 보고, 격자의 행=교시(시간), 열=요일을 정확히 매칭해서 JSON으로 답하세요. 빈 칸은 제외.",
-        maxTokens: 4096,
-        temperature: 0.1,
-      });
     } else {
       result = await generate({
         tool: "timetable-extract",
@@ -156,7 +176,7 @@ export async function runTimetableExtraction(
     }
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
-    const path = gridMarkdown ? "grid-text" : fallbackToVision ? "vision" : "raw-text";
+    const path = useVision ? "vision" : gridMarkdown ? "grid-text" : "raw-text";
     console.error("[timetable] AI call failed", { path, detail });
     await logGeneration({
       ownerId: input.ownerId,
