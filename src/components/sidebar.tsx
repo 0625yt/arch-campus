@@ -192,14 +192,14 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
         <SearchTrigger variant="sidebar" />
       </div>
 
-      {/* 대시보드 진입점 */}
+      {/* 대시보드 진입점 — 한 학기 전체 홈 */}
       <div className="px-3 pb-3">
         <Link
           href="/dashboard"
           onClick={onNavigate}
           className={cn(
-            "flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--color-apple-hairline)] px-3 py-2 text-[12.5px] transition-colors",
-            pathname === "/dashboard" || pathname === "/dashboard/chat"
+            "press-soft flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--color-apple-hairline)] px-3 py-2 text-[12.5px] transition-colors",
+            pathname === "/dashboard"
               ? "wght-620 bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)]"
               : "wght-450 bg-white text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
           )}
