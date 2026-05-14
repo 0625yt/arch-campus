@@ -1,5 +1,5 @@
 import "server-only";
-import { generate, estimateCost } from "@/lib/claude";
+import { generate, generateWithFile, estimateCost } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
 import {
   parseModelJson,
@@ -12,12 +12,12 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 import { breakdown } from "@/lib/tokens";
 
 /**
- * 시간표 서비스 — 시간표 PDF/이미지 본문 → 강의 N개 추출 → courses upsert (사용자 검토 후 events 생성).
+ * 시간표 서비스 — 시간표 PDF/이미지 → 강의 N개 추출 → courses upsert (사용자 검토 후 events 생성).
  *
- * 책임:
- *   - Haiku 호출 (시간표는 구조 단순, 비용 적게)
- *   - Zod 검증
- *   - 추출된 강의 후보 반환 (사용자 검토 후 별도 confirm API에서 courses upsert)
+ * 핵심:
+ *   - 학교 포털 시간표 PDF는 격자 표인데, unpdf 텍스트 추출은 행/열 위치를 잃음
+ *     ("화 2교시 글로컬 영어 I"가 단순히 "글로컬 영어 I"로 떨어짐 → 요일 매칭 실패)
+ *   - 그래서 PDF/이미지는 **vision으로 그림 그대로 전달**. 텍스트 폴백은 .docx 등에만.
  */
 
 export interface TimetableExtractInput {
@@ -26,6 +26,9 @@ export interface TimetableExtractInput {
   title: string;
   fullText: string;
   semesterHint?: string;
+  /** PDF·이미지면 vision API로 직접 보냄. 셋이 같이 오면 fileBytes 우선 */
+  fileBytes?: Uint8Array;
+  fileMediaType?: string;
 }
 
 export type TimetableExtractResult =
@@ -53,15 +56,33 @@ export async function runTimetableExtraction(
   });
 
   let result: Awaited<ReturnType<typeof generate>>;
+  const useVision =
+    input.fileBytes &&
+    input.fileMediaType &&
+    (input.fileMediaType === "application/pdf" || input.fileMediaType.startsWith("image/"));
   try {
-    result = await generate({
-      tool: "timetable-extract",
-      rulePrompt,
-      dynamicContext,
-      userInput: input.fullText.slice(0, 80_000),
-      maxTokens: 4096,
-      temperature: 0.1,
-    });
+    if (useVision && input.fileBytes && input.fileMediaType) {
+      result = await generateWithFile({
+        tool: "timetable-extract",
+        rulePrompt,
+        dynamicContext,
+        fileBytes: input.fileBytes,
+        mediaType: input.fileMediaType,
+        userText:
+          "위 시간표 그림을 그대로 보고, 격자의 행=교시(시간), 열=요일을 정확히 매칭해서 JSON으로 답하세요. 빈 칸은 제외.",
+        maxTokens: 4096,
+        temperature: 0.1,
+      });
+    } else {
+      result = await generate({
+        tool: "timetable-extract",
+        rulePrompt,
+        dynamicContext,
+        userInput: input.fullText.slice(0, 80_000),
+        maxTokens: 4096,
+        temperature: 0.1,
+      });
+    }
   } catch (e) {
     await logGeneration({
       ownerId: input.ownerId,

@@ -124,13 +124,20 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     );
   }
 
-  // 4. 추출
+  // 4. 추출 — PDF/이미지면 vision 경로 (격자의 행/열 정확히 읽기 위함).
+  // 텍스트 추출 결과(unpdf)는 요일 컬럼이 무너지므로, 같은 파일을 모델 눈으로 다시 보게 한다.
+  const fileBytes = uploaded.bytes;
+  const fileMediaType = uploaded.mimeType;
+  const visionEligible =
+    fileMediaType === "application/pdf" || fileMediaType.startsWith("image/");
   const result = await runTimetableExtraction({
     ownerId,
     materialId: material.id,
     title,
     fullText: parsed.sanitizedText,
     semesterHint,
+    fileBytes: visionEligible ? fileBytes : undefined,
+    fileMediaType: visionEligible ? fileMediaType : undefined,
   });
 
   if (!result.ok) {

@@ -30,7 +30,8 @@ export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   "wizard-exam": MODELS.sonnet,
   "wizard-cram": MODELS.sonnet,
   "syllabus-extract": MODELS.haiku,
-  "timetable-extract": MODELS.haiku,
+  // 시간표는 격자 vision 정확도가 사활. 학기당 1~2번이므로 sonnet 감수.
+  "timetable-extract": MODELS.sonnet,
   "post-mortem": MODELS.haiku,
 };
 
@@ -43,6 +44,29 @@ export interface GenerateInput {
   rulePrompt: string;
   dynamicContext: string;
   userInput: string;
+  maxTokens?: number;
+  temperature?: number;
+}
+
+/**
+ * Vision 입력 — PDF 또는 이미지를 그대로 모델에 보낸다.
+ *
+ * 시간표처럼 "표 그리드의 행/열 위치가 의미"인 자료는 텍스트 추출만으론
+ * 요일/교시 매칭이 무너진다. 모델이 그림을 그대로 읽게 한다.
+ *
+ * 비용: PDF/이미지는 텍스트보다 훨씬 비싸지만 (1페이지 ≈ 1500~2000 토큰)
+ * 시간표는 1페이지짜리고 사용자가 학기당 1~2번 올림. 감수.
+ */
+export interface GenerateVisionInput {
+  tool: ToolKind;
+  rulePrompt: string;
+  dynamicContext: string;
+  /** 파일 바이트 — PDF 또는 이미지 */
+  fileBytes: Uint8Array;
+  /** "application/pdf" 또는 "image/png" 등 */
+  mediaType: string;
+  /** 파일 옆에 함께 보낼 텍스트 지시 (선택) */
+  userText?: string;
   maxTokens?: number;
   temperature?: number;
 }
@@ -84,6 +108,81 @@ export async function generate({
     {
       role: "user",
       content: wrappedUserInput,
+    },
+  ];
+
+  const result = await generateText({
+    model,
+    maxOutputTokens: maxTokens,
+    temperature,
+    messages,
+  });
+
+  const meta = (result.providerMetadata?.anthropic ?? {}) as Record<string, unknown>;
+  const cacheRead = Number(meta.cacheReadInputTokens ?? 0);
+  const cacheCreation = Number(meta.cacheCreationInputTokens ?? 0);
+  const modelId =
+    typeof model === "object" && "modelId" in model ? (model.modelId as string) : String(model);
+
+  return {
+    text: result.text,
+    modelId,
+    usage: {
+      inputTokens: result.usage.inputTokens ?? 0,
+      outputTokens: result.usage.outputTokens ?? 0,
+      cacheReadTokens: cacheRead,
+      cacheCreationTokens: cacheCreation,
+    },
+  };
+}
+
+/**
+ * 파일 1개 + 지시 텍스트로 vision 모델 호출.
+ * Anthropic은 PDF·이미지를 모두 file content block으로 받는다.
+ */
+export async function generateWithFile({
+  tool,
+  rulePrompt,
+  dynamicContext,
+  fileBytes,
+  mediaType,
+  userText,
+  maxTokens = 4096,
+  temperature = 0.1,
+}: GenerateVisionInput): Promise<GenerateResult> {
+  const model = TOOL_MODEL[tool];
+
+  // file (PDF) 또는 image content block — AI SDK는 image type만 union으로 받지만
+  // 내부적으로 PDF mediaType이면 Anthropic file block으로 직렬화해줌.
+  const fileBlock =
+    mediaType === "application/pdf"
+      ? {
+          type: "file" as const,
+          data: fileBytes,
+          mediaType,
+        }
+      : {
+          type: "image" as const,
+          image: fileBytes,
+          mediaType,
+        };
+
+  const messages: ModelMessage[] = [
+    {
+      role: "system",
+      content: rulePrompt,
+      providerOptions: ANTHROPIC_CACHE_1H,
+    },
+    {
+      role: "system",
+      content: dynamicContext,
+    },
+    {
+      role: "user",
+      content: [
+        fileBlock,
+        { type: "text" as const, text: userText ?? "위 파일을 룰대로 처리해 JSON으로 답하세요." },
+      ],
     },
   ];
 
