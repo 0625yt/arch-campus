@@ -63,16 +63,25 @@ function Header() {
           이번 학기 일정.
         </h1>
       </div>
-      <Link
-        href="/dashboard/calendar/import"
-        aria-label="학교 자료 등록"
-        className="mt-7 inline-flex h-[40px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full bg-[var(--color-apple-action)] px-3 text-[13px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)] active:scale-[0.97] sm:mt-0 sm:px-5"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        <span aria-hidden>+</span>
-        <span className="hidden sm:inline">학교 자료 등록</span>
-        <span className="sm:hidden">자료</span>
-      </Link>
+      <div className="mt-7 flex shrink-0 items-center gap-2 sm:mt-0">
+        <Link
+          href="/dashboard/calendar/import?kind=timetable"
+          className="hidden h-[40px] items-center rounded-full bg-white px-4 text-[13px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)] sm:inline-flex"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          시간표 다시 올리기
+        </Link>
+        <Link
+          href="/dashboard/calendar/import"
+          aria-label="학교 자료 등록"
+          className="inline-flex h-[40px] items-center justify-center gap-1 whitespace-nowrap rounded-full bg-[var(--color-apple-action)] px-4 text-[13px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)] active:scale-[0.97] sm:px-5"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          <span aria-hidden>+</span>
+          <span className="hidden sm:inline">학교 자료 등록</span>
+          <span className="sm:hidden">자료</span>
+        </Link>
+      </div>
     </header>
   );
 }

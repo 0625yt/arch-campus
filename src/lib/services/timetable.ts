@@ -144,13 +144,32 @@ export async function confirmTimetable(input: {
   const termStart = new Date(`${semester.termStart}T00:00:00+09:00`);
   const termEnd = new Date(`${semester.termEnd}T23:59:59+09:00`);
 
-  // 같은 시간표를 다시 올린 경우 — 이전 자동 생성된 class events 먼저 삭제
+  // 같은 시간표를 다시 올린 경우 — 이전 자동 생성된 class events 먼저 삭제.
+  // sourceMaterialId 일치하는 것 + 같은 강의명으로 묶인 class kind까지 같이 청소.
+  // (다른 파일로 다시 올린 경우에도 같은 강의명이면 깨끗하게 갈아끼워짐)
   if (input.sourceMaterialId) {
     await admin
       .from("events")
       .delete()
       .eq("owner_id", input.ownerId)
       .eq("source_material_id", input.sourceMaterialId);
+  }
+  const incomingNames = input.courses.map((c) => c.name);
+  if (incomingNames.length > 0) {
+    const { data: existingCourses } = await admin
+      .from("courses")
+      .select("id")
+      .eq("owner_id", input.ownerId)
+      .in("name", incomingNames);
+    const existingIds = (existingCourses ?? []).map((c) => c.id);
+    if (existingIds.length > 0) {
+      await admin
+        .from("events")
+        .delete()
+        .eq("owner_id", input.ownerId)
+        .eq("kind", "class")
+        .in("course_id", existingIds);
+    }
   }
 
   let insertedCourses = 0;

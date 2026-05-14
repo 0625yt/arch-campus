@@ -83,6 +83,11 @@ export function TimetableImportFlow() {
     }
   }
 
+  const [savedSummary, setSavedSummary] = useState<{
+    courses: number;
+    events: number;
+  } | null>(null);
+
   async function handleConfirm() {
     if (!extracted) return;
     setPhase("saving");
@@ -100,14 +105,25 @@ export function TimetableImportFlow() {
           courses,
         }),
       });
-      const json = (await res.json()) as { ok: boolean; insertedCourses?: number; error?: string };
+      const json = (await res.json()) as {
+        ok: boolean;
+        insertedCourses?: number;
+        insertedEvents?: number;
+        error?: string;
+      };
       if (!res.ok || !json.ok) {
         setError(json.error ?? "강의 등록 실패");
         setPhase("review");
         return;
       }
+      setSavedSummary({
+        courses: json.insertedCourses ?? courses.length,
+        events: json.insertedEvents ?? 0,
+      });
       setPhase("done");
-      setTimeout(() => router.push("/dashboard/study"), 1200);
+      // 일정 페이지로 보내서 사용자가 실제로 박힌 수업을 본다 (예전엔 study로 갔는데
+      // "시간표가 안 들어갔다"는 인상을 줌). prefetch + replace로 뒤로가기 깔끔.
+      router.prefetch("/dashboard/calendar");
     } catch (e) {
       setError(e instanceof Error ? e.message : "네트워크 오류");
       setPhase("review");
@@ -176,12 +192,34 @@ export function TimetableImportFlow() {
           >
             강의 등록 완료.
           </p>
-          <p
-            className="relative mt-2 text-[13.5px] wght-450 text-[var(--color-apple-muted)]"
-            style={{ letterSpacing: "-0.022em" }}
-          >
-            잠시 후 공부 페이지로 이동해요.
-          </p>
+          {savedSummary && (
+            <p
+              className="relative mt-2 text-[13.5px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.022em" }}
+            >
+              {savedSummary.courses}과목 · 매주 반복 일정{" "}
+              <span className="wght-620 text-[var(--color-apple-ink)]">
+                {savedSummary.events}개
+              </span>{" "}
+              자동 생성됨
+            </p>
+          )}
+          <div className="relative mt-6 flex flex-wrap items-center justify-center gap-2">
+            <Link
+              href="/dashboard/calendar"
+              className="inline-flex h-[44px] items-center rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)] active:scale-[0.97]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              캘린더에서 확인하기 →
+            </Link>
+            <Link
+              href="/dashboard/study"
+              className="inline-flex h-[44px] items-center rounded-full bg-[var(--color-apple-pearl)] px-5 text-[13px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-hairline)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              과목 폴더 보기
+            </Link>
+          </div>
         </div>
       )}
     </>

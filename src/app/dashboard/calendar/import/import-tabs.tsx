@@ -20,7 +20,13 @@ const TABS: { id: Kind; label: string; hint: string }[] = [
   },
 ];
 
-export function ImportTabs({ initialKind }: { initialKind: Kind }) {
+export function ImportTabs({
+  initialKind,
+  existingCourseCount,
+}: {
+  initialKind: Kind;
+  existingCourseCount: number;
+}) {
   const [kind, setKind] = useState<Kind>(initialKind);
 
   return (
@@ -28,7 +34,22 @@ export function ImportTabs({ initialKind }: { initialKind: Kind }) {
       <PageAuraBackground />
       <Header />
 
-      <div className="mt-10 fade-up fade-up-2 sm:mt-12">
+      {existingCourseCount > 0 && (
+        <div
+          className="mt-6 fade-up fade-up-2 flex flex-wrap items-center gap-3 rounded-[14px] bg-white px-5 py-4"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-apple-action-soft)] text-[12px] wght-700 tabular-nums text-[var(--color-apple-action)]">
+            {existingCourseCount}
+          </span>
+          <p className="flex-1 text-[13px] wght-450 text-[var(--color-apple-muted)]">
+            이미 <span className="wght-560 text-[var(--color-apple-ink)]">{existingCourseCount}과목</span>이
+            등록되어 있어요. 새 시간표를 올리면 같은 이름의 강의 일정은 자동으로 갈아끼워집니다.
+          </p>
+        </div>
+      )}
+
+      <div className="mt-6 fade-up fade-up-2 sm:mt-8">
         <div
           role="tablist"
           aria-label="등록 종류"
@@ -43,7 +64,7 @@ export function ImportTabs({ initialKind }: { initialKind: Kind }) {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setKind(tab.id)}
-                className={`flex-1 rounded-full px-4 py-2.5 text-[13.5px] wght-560 transition-colors ${
+                className={`flex-1 rounded-full px-4 py-2.5 text-[13.5px] wght-560 transition-all active:scale-[0.98] ${
                   active
                     ? "bg-[var(--color-apple-ink)] text-white"
                     : "text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"

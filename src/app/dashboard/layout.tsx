@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { CommandPalette } from "@/components/command-palette";
 import { JobsDock } from "@/components/jobs-dock";
 import { MobileTabBar, MobileTopbar } from "@/components/mobile-nav";
+import { NavigationProgress } from "@/components/navigation-progress";
 import { Sidebar } from "@/components/sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getProfile } from "@/lib/data/profile";
@@ -18,6 +20,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex h-screen-safe overflow-hidden">
+      <Suspense fallback={null}>
+        <NavigationProgress />
+      </Suspense>
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopbar />
