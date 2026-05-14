@@ -148,14 +148,21 @@ export async function runTimetableExtraction(
       });
     }
   } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    const path = gridMarkdown ? "grid-text" : fallbackToVision ? "vision" : "raw-text";
+    console.error("[timetable] AI call failed", { path, detail });
     await logGeneration({
       ownerId: input.ownerId,
       materialId: input.materialId,
       modelId: "claude-haiku-4-5",
       status: "error",
-      errorMessage: e instanceof Error ? e.message : String(e),
+      errorMessage: `${path}: ${detail}`,
     });
-    return { ok: false, status: 502, error: "AI 호출 실패" };
+    return {
+      ok: false,
+      status: 502,
+      error: `AI 호출 실패 (${path}): ${detail.slice(0, 240)}`,
+    };
   }
 
   let parsed: TimetableOutputT;

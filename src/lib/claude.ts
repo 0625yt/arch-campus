@@ -152,20 +152,14 @@ export async function generateWithFile({
 }: GenerateVisionInput): Promise<GenerateResult> {
   const model = TOOL_MODEL[tool];
 
-  // file (PDF) 또는 image content block — AI SDK는 image type만 union으로 받지만
-  // 내부적으로 PDF mediaType이면 Anthropic file block으로 직렬화해줌.
-  const fileBlock =
-    mediaType === "application/pdf"
-      ? {
-          type: "file" as const,
-          data: fileBytes,
-          mediaType,
-        }
-      : {
-          type: "image" as const,
-          image: fileBytes,
-          mediaType,
-        };
+  // AI SDK는 PDF·이미지를 모두 같은 file 블록으로 받는다.
+  // - mediaType="application/pdf" → Anthropic provider가 document(pdfs-2024-09-25)로 변환
+  // - mediaType="image/*"         → Anthropic provider가 image 블록으로 변환
+  const fileBlock = {
+    type: "file" as const,
+    data: fileBytes,
+    mediaType,
+  };
 
   const messages: ModelMessage[] = [
     {
