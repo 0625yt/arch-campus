@@ -190,24 +190,49 @@
 
 /*
  * 카드 elevation 유틸리티 — Tailwind v4에서 임의값 대신 명시 클래스로.
+ *
+ * sky-blue 캔버스 위 흰 카드가 "같은 톤이라 떠 있는 게 안 보인다"는 피드백 해결:
+ *   1) 1px hairline (코발트 그늘) — 카드 가장자리 정의
+ *   2) 미세 inset highlight — 카드 윗변에 종이 결
+ *   3) 그림자 한 겹 더 — hover 시 명확하게 들리게
  */
 .elev-1 {
-  box-shadow: var(--elev-1);
+  box-shadow:
+    0 0 0 1px rgba(20, 30, 50, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 1px 2px rgba(20, 30, 50, 0.05),
+    0 4px 14px -6px rgba(20, 30, 50, 0.08);
 }
 .elev-2 {
-  box-shadow: var(--elev-2);
+  box-shadow:
+    0 0 0 1px rgba(20, 30, 50, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 2px 4px rgba(20, 30, 50, 0.06),
+    0 12px 28px -8px rgba(20, 30, 50, 0.14);
 }
 .elev-3 {
-  box-shadow: var(--elev-3);
+  box-shadow:
+    0 0 0 1px rgba(20, 30, 50, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 6px 16px rgba(20, 30, 50, 0.08),
+    0 28px 60px -12px rgba(20, 30, 50, 0.22);
 }
 .elev-hover-2 {
-  box-shadow: var(--elev-1);
+  box-shadow:
+    0 0 0 1px rgba(20, 30, 50, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 1px 2px rgba(20, 30, 50, 0.05),
+    0 4px 14px -6px rgba(20, 30, 50, 0.08);
   transition: box-shadow var(--duration-base) var(--ease-out),
     transform var(--duration-base) var(--ease-out);
 }
 .elev-hover-2:hover {
-  box-shadow: var(--elev-2);
-  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(20, 30, 50, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 2px 4px rgba(20, 30, 50, 0.06),
+    0 14px 32px -8px rgba(20, 30, 50, 0.16);
+  transform: translateY(-2px);
 }
 
 html,

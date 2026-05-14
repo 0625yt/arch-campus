@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { EventView } from "@/lib/data/events";
 import { formatEventLabel, formatEventCompact } from "@/lib/format-event";
@@ -40,6 +41,7 @@ export function CalendarBoard({
     return { year: now.getFullYear(), month: now.getMonth() };
   });
   const [mode, setMode] = useState<ViewMode>("all");
+  const [selected, setSelected] = useState<EventView | null>(null);
 
   const cells = useMemo(() => buildMonthCells(view.year, view.month), [view]);
   const monthLabel = `${view.year}년 ${view.month + 1}월`;
@@ -129,37 +131,57 @@ export function CalendarBoard({
           {cells.map((cell) => {
             const dayEvents = byDate.get(cell.iso) ?? [];
             return (
-              <DayCell key={cell.iso} cell={cell} events={dayEvents} kindLabel={kindLabel} />
+              <DayCell
+                key={cell.iso}
+                cell={cell}
+                events={dayEvents}
+                kindLabel={kindLabel}
+                onSelectEvent={setSelected}
+              />
             );
           })}
         </div>
       </section>
 
       <aside className="flex flex-col gap-4">
-        <section className="elev-1 rounded-[14px] bg-white p-5">
-          <h3 className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-            {mode === "timetable"
-              ? "이번 주 수업"
-              : mode === "events"
-                ? "다가오는 일정"
-                : "다가오는 일정"}
-          </h3>
-          {filteredUpcoming.length === 0 ? (
-            <p className="mt-3 text-[13px] wght-450 text-[var(--color-apple-muted)]">
+        {selected ? (
+          <EventDetailPanel
+            event={selected}
+            kindLabel={kindLabel}
+            onClose={() => setSelected(null)}
+          />
+        ) : (
+          <section className="elev-1 rounded-[14px] bg-white p-5">
+            <h3 className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
               {mode === "timetable"
-                ? "등록된 수업이 없어요. 시간표를 올려주세요."
-                : "예정된 일정이 없어요."}
+                ? "이번 주 수업"
+                : mode === "events"
+                  ? "다가오는 일정"
+                  : "다가오는 일정"}
+            </h3>
+            {filteredUpcoming.length === 0 ? (
+              <p className="mt-3 text-[13px] wght-450 text-[var(--color-apple-muted)]">
+                {mode === "timetable"
+                  ? "등록된 수업이 없어요. 시간표를 올려주세요."
+                  : "예정된 일정이 없어요."}
+              </p>
+            ) : (
+              <ul className="mt-3 flex flex-col gap-1">
+                {filteredUpcoming.map((e) => (
+                  <li key={e.id}>
+                    <UpcomingRow event={e} onSelect={() => setSelected(e)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p
+              className="mt-4 text-[10.5px] wght-450 text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              일정을 누르면 자세한 내용이 여기에 떠요.
             </p>
-          ) : (
-            <ul className="mt-3 flex flex-col gap-3">
-              {filteredUpcoming.map((e) => (
-                <li key={e.id}>
-                  <UpcomingRow event={e} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+          </section>
+        )}
       </aside>
     </div>
   );
@@ -242,11 +264,14 @@ function DayCell({
   cell,
   events,
   kindLabel,
+  onSelectEvent,
 }: {
   cell: MonthCell;
   events: EventView[];
   kindLabel: Record<EventView["kind"], string>;
+  onSelectEvent?: (e: EventView) => void;
 }) {
+  void kindLabel;
   return (
     <div
       className={`flex min-h-[88px] flex-col gap-1 p-1.5 transition-colors sm:min-h-[110px] sm:p-2 ${
@@ -266,16 +291,19 @@ function DayCell({
       >
         {cell.date.getDate()}
       </span>
-      {/* 모바일/아이패드: 색점만 (잘림 없음) */}
+      {/* 모바일/아이패드: 색점만 (잘림 없음). 점 → 상세 패널 */}
       <ul className="flex flex-wrap gap-0.5 sm:hidden">
         {events.slice(0, 4).map((e) => (
-          <li
-            key={e.id}
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: kindColor(e.kind, e.courseColor) }}
-            title={formatEventLabel(e)}
-            aria-label={formatEventLabel(e)}
-          />
+          <li key={e.id}>
+            <button
+              type="button"
+              onClick={() => onSelectEvent?.(e)}
+              className="block h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: kindColor(e.kind, e.courseColor) }}
+              title={formatEventLabel(e)}
+              aria-label={formatEventLabel(e)}
+            />
+          </li>
         ))}
         {events.length > 4 && (
           <li className="text-[9px] wght-560 leading-[1.4] text-[var(--color-apple-muted)]">
@@ -284,29 +312,27 @@ function DayCell({
         )}
       </ul>
 
-      {/* 데스크톱: 풀 라벨 칩 — 파스텔 배경 + 컬러 텍스트 (Apple Calendar 톤) */}
+      {/* 데스크톱: 풀 라벨 칩 — 파스텔 배경 + 검정(ink) 텍스트.
+          좌측 동그라미 점은 색칩 배경이 이미 kind를 알려주므로 제거. */}
       <ul className="hidden flex-col gap-0.5 sm:flex">
         {events.slice(0, 3).map((e) => {
           const fullLabel = formatEventLabel(e);
           const shortLabel = formatEventCompact(e);
           const tint = kindTint(e.kind);
           return (
-            <li
-              key={e.id}
-              className="flex items-center gap-1 truncate rounded-[4px] px-1.5 py-0.5 text-[10.5px] wght-560 leading-[1.4]"
-              style={{
-                backgroundColor: tint.bg,
-                color: tint.fg,
-                letterSpacing: "-0.012em",
-              }}
-              title={fullLabel}
-            >
-              <span
-                aria-hidden
-                className="inline-block h-1 w-1 shrink-0 rounded-full"
-                style={{ backgroundColor: kindColor(e.kind, e.courseColor) }}
-              />
-              <span className="truncate">{shortLabel}</span>
+            <li key={e.id}>
+              <button
+                type="button"
+                onClick={() => onSelectEvent?.(e)}
+                className="block w-full truncate rounded-[4px] px-1.5 py-0.5 text-left text-[10.5px] wght-560 leading-[1.4] text-[var(--color-apple-ink)] transition-colors hover:brightness-95"
+                style={{
+                  backgroundColor: tint.bg,
+                  letterSpacing: "-0.012em",
+                }}
+                title={fullLabel}
+              >
+                {shortLabel}
+              </button>
             </li>
           );
         })}
@@ -320,7 +346,7 @@ function DayCell({
   );
 }
 
-function UpcomingRow({ event }: { event: EventView }) {
+function UpcomingRow({ event, onSelect }: { event: EventView; onSelect?: () => void }) {
   const date = new Date(event.startsAt);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -330,7 +356,11 @@ function UpcomingRow({ event }: { event: EventView }) {
   const label = formatEventLabel(event);
 
   return (
-    <div className="flex items-baseline gap-3">
+    <button
+      type="button"
+      onClick={onSelect}
+      className="flex w-full items-baseline gap-3 rounded-[8px] px-2 py-1.5 text-left transition-colors hover:bg-[var(--color-apple-pearl)]"
+    >
       <span
         className={`shrink-0 tabular-nums text-[11px] wght-700 ${
           tone === "urgent"
@@ -349,17 +379,167 @@ function UpcomingRow({ event }: { event: EventView }) {
         >
           {label}
         </p>
-        <p className="flex items-center gap-1.5 text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
-          {event.courseColor && (
-            <span
-              className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-              style={{ backgroundColor: kindColor(event.kind, event.courseColor) }}
-            />
-          )}
+        <p className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
           {formatDate(date, event.allDay)}
           {event.weightPercent != null && ` · ${event.weightPercent}%`}
         </p>
       </div>
+    </button>
+  );
+}
+
+/**
+ * 일정 상세 패널 — 캘린더 우측에 sticky로 머무르며 선택된 일정의 본문을 펼친다.
+ * Apple 캘린더 inspector 톤: 큰 제목, 시간, 위치/메모/D-day, 코스 점프 링크.
+ */
+function EventDetailPanel({
+  event,
+  kindLabel,
+  onClose,
+}: {
+  event: EventView;
+  kindLabel: Record<EventView["kind"], string>;
+  onClose: () => void;
+}) {
+  const date = new Date(event.startsAt);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+  const days = Math.round((startOfDay.getTime() - today.getTime()) / 86400000);
+  const dDayLabel = days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
+  const tone = days <= 0 ? "urgent" : days <= 3 ? "warn" : "muted";
+  const tint = kindTint(event.kind);
+  const dot = kindColor(event.kind, event.courseColor);
+
+  const weekday = ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
+  const dateLabel = `${date.getMonth() + 1}월 ${date.getDate()}일 ${weekday}요일`;
+  const timeLabel = event.allDay
+    ? "종일"
+    : `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+  const endDate = event.endsAt ? new Date(event.endsAt) : null;
+  const endLabel = endDate && !event.allDay
+    ? `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`
+    : null;
+
+  return (
+    <section className="elev-2 sticky top-6 overflow-hidden rounded-[14px] bg-white">
+      {/* 컬러 헤더 — kind 톤. Apple Mail 인스펙터처럼 정보 밀도 + 색의 한 호흡 */}
+      <div
+        className="px-5 pb-4 pt-5"
+        style={{ backgroundColor: tint.bg }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: dot }}
+            />
+            <span
+              className="text-[11px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "0.06em" }}
+            >
+              {kindLabel[event.kind]}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            className="-mr-1 -mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full text-[14px] text-[var(--color-apple-muted)] transition-colors hover:bg-white hover:text-[var(--color-apple-ink)]"
+          >
+            ×
+          </button>
+        </div>
+        <h3
+          className="mt-3 text-[20px] leading-[1.2] wght-620 text-[var(--color-apple-ink)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          {formatEventLabel(event)}
+        </h3>
+      </div>
+
+      <div className="flex flex-col gap-4 px-5 py-5">
+        <DetailRow label="언제">
+          <span className="text-[13px] wght-560 text-[var(--color-apple-ink)] tabular-nums">
+            {dateLabel}
+          </span>
+          <span className="mt-0.5 text-[12px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
+            {timeLabel}
+            {endLabel && ` – ${endLabel}`}
+          </span>
+        </DetailRow>
+
+        <DetailRow label="D-day">
+          <span
+            className={`text-[13px] wght-700 tabular-nums ${
+              tone === "urgent"
+                ? "text-[var(--color-urgent)]"
+                : tone === "warn"
+                  ? "text-[var(--color-apple-action)]"
+                  : "text-[var(--color-apple-ink)]"
+            }`}
+          >
+            {dDayLabel}
+          </span>
+        </DetailRow>
+
+        {event.courseName && (
+          <DetailRow label="과목">
+            <Link
+              href={`/dashboard/study/${encodeURIComponent(event.courseName)}`}
+              className="inline-flex items-center gap-1 text-[13px] wght-560 text-[var(--color-apple-action)] hover:underline"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              {event.courseName} <span aria-hidden>›</span>
+            </Link>
+          </DetailRow>
+        )}
+
+        {event.weightPercent != null && (
+          <DetailRow label="비중">
+            <span className="text-[13px] wght-560 tabular-nums text-[var(--color-apple-ink)]">
+              {event.weightPercent}%
+            </span>
+          </DetailRow>
+        )}
+
+        {event.notes && (
+          <DetailRow label="메모">
+            <p
+              className="whitespace-pre-wrap text-[13px] wght-450 leading-[1.55] text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              {event.notes}
+            </p>
+          </DetailRow>
+        )}
+
+        {event.confidence != null && event.confidence < 0.8 && !event.confirmed && (
+          <p
+            className="rounded-[8px] bg-[var(--color-tint-streak)] px-3 py-2 text-[11.5px] wght-560 text-[var(--color-tint-streak-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            AI 추정 일정이에요. 한번 확인해주세요.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span
+        className="text-[10px] wght-620 uppercase text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "0.08em" }}
+      >
+        {label}
+      </span>
+      <div className="flex flex-col">{children}</div>
     </div>
   );
 }

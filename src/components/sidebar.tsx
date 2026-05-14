@@ -438,25 +438,25 @@ function StudyNavItem({
         </button>
       </div>
 
-      <div className={cn("pb-1 pl-[34px] pt-1", open ? "block" : "hidden")}>
+      <div className={cn("pb-1 pl-[26px] pt-1.5", open ? "block" : "hidden")}>
         <CourseGroup
-          label="정규 강의"
+          label="과목"
           courses={courses.filter((c) => (c.category ?? "semester") === "semester")}
           pathname={pathname}
           onNavigate={onNavigate}
-          emptyText="시간표 등록 시 자동 채워져요"
+          emptyText="시간표 등록 시 자동"
           emptyHref="/dashboard/calendar/import"
           emptyHrefLabel="시간표 등록 →"
         />
         <CourseGroup
-          label="개인 공부"
+          label="개인 학습"
           courses={courses.filter((c) => c.category === "personal")}
           pathname={pathname}
           onNavigate={onNavigate}
-          className="mt-2"
-          emptyText="자격증·시험·개인 공부"
+          className="mt-3"
+          emptyText="자격증·시험"
           emptyHref="/dashboard/study"
-          emptyHrefLabel="공부 탭에서 추가 →"
+          emptyHrefLabel="추가 →"
         />
       </div>
     </li>
@@ -482,10 +482,12 @@ function CourseGroup({
   emptyHref: string;
   emptyHrefLabel: string;
 }) {
+  // ㄴ 트리 라인: 좌측 1px hairline + 각 항목 앞에 짧은 가지선.
+  // Apple Finder 사이드바 톤 — 노이즈 없이 계층만 살짝 보이게.
   return (
     <div className={className}>
       <div
-        className="px-1.5 pb-1 pt-0.5 text-[9.5px] wght-560 uppercase tracking-[0.08em] text-[var(--color-apple-muted)]"
+        className="px-1 pb-1.5 text-[10px] wght-620 uppercase text-[var(--color-apple-muted)]"
         style={{ letterSpacing: "0.08em" }}
       >
         {label}
@@ -494,14 +496,20 @@ function CourseGroup({
         <Link
           href={emptyHref}
           onClick={onNavigate}
-          className="flex flex-col gap-0.5 rounded-[6px] border border-dashed border-[var(--color-apple-hairline)] px-2 py-1.5 text-[10.5px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-ink)] hover:text-[var(--color-apple-ink)]"
+          className="ml-1 flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          <span>{emptyText}</span>
-          <span className="text-[var(--color-apple-action)]">{emptyHrefLabel}</span>
+          <span aria-hidden className="text-[var(--color-apple-hairline)]">└</span>
+          <span className="flex-1 truncate">{emptyText}</span>
+          <span className="shrink-0 text-[var(--color-apple-action)]">{emptyHrefLabel}</span>
         </Link>
       ) : (
-        <ul>
+        <ul className="relative ml-1">
+          {/* 세로 hairline — ㄴ 트리 줄기 */}
+          <span
+            aria-hidden
+            className="absolute left-[6px] top-1 bottom-1 w-px bg-[var(--color-apple-hairline)]"
+          />
           {courses.map((course) => {
             const slug = encodeURIComponent(course.name);
             const courseActive =
@@ -509,12 +517,17 @@ function CourseGroup({
               pathname.startsWith(`/dashboard/study/${slug}`);
             const href = `/dashboard/study/${slug}`;
             return (
-              <li key={course.id}>
+              <li key={course.id} className="relative">
+                {/* 가로 가지 hairline — ㄴ 의 가지 */}
+                <span
+                  aria-hidden
+                  className="absolute left-[6px] top-[16px] h-px w-2 bg-[var(--color-apple-hairline)]"
+                />
                 <Link
                   href={href}
                   onClick={onNavigate}
                   className={cn(
-                    "flex items-center gap-2 rounded-[6px] py-1.5 pl-1.5 pr-2 text-[12px] transition-colors",
+                    "relative ml-[16px] flex items-center gap-2 rounded-[6px] py-1.5 pl-2 pr-2 text-[12px] transition-colors",
                     courseActive
                       ? "wght-620 bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)]"
                       : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
@@ -522,7 +535,7 @@ function CourseGroup({
                   style={{ letterSpacing: "-0.012em" }}
                 >
                   <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    className="h-2 w-2 shrink-0 rounded-[2px]"
                     style={{ backgroundColor: course.color ?? "#7aa6d6" }}
                     aria-hidden
                   />
