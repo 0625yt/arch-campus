@@ -129,17 +129,28 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     );
   }
 
-  // 4. AI 추출 — PDF/이미지면 vision 경로(서비스가 알아서 분기)
+  // 4. AI 추출 — PDF/이미지면 vision 경로(서비스가 알아서 분기).
+  // parseDocument()가 uploaded.bytes의 underlying buffer를 detach시키므로
+  // 서비스에 줄 바이트는 Storage에서 다시 받는다.
   const visionEligible =
     uploaded.mimeType === "application/pdf" || uploaded.mimeType.startsWith("image/");
+  let freshFileBytes: Uint8Array | undefined;
+  if (visionEligible) {
+    try {
+      const { downloadMaterialFile } = await import("@/lib/storage");
+      freshFileBytes = await downloadMaterialFile(uploaded.storagePath);
+    } catch (e) {
+      console.error("[syllabus] storage redownload failed, vision path disabled", e);
+    }
+  }
   const result = await runSyllabusExtraction({
     ownerId,
     materialId: material.id,
     title,
     fullText: parsed.sanitizedText,
     semesterHint,
-    fileBytes: visionEligible ? uploaded.bytes : undefined,
-    fileMediaType: visionEligible ? uploaded.mimeType : undefined,
+    fileBytes: freshFileBytes,
+    fileMediaType: freshFileBytes ? uploaded.mimeType : undefined,
   });
 
   if (!result.ok) {

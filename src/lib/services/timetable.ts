@@ -58,6 +58,12 @@ export async function runTimetableExtraction(
     user: input.fullText,
   });
 
+  // pdfjs·unpdf는 받은 Uint8Array의 underlying ArrayBuffer를 worker로 transfer해
+  // detach 시킬 수 있다. 그 뒤로 같은 bytes를 vision 호출에 보내면 0바이트로 도착.
+  // → 좌표 파서·vision 각각에 독립적인 복사본을 미리 만들어둔다.
+  const fileBytesForGrid = input.fileBytes ? input.fileBytes.slice() : undefined;
+  const fileBytesForVision = input.fileBytes ? input.fileBytes.slice() : undefined;
+
   // 1) 좌표 기반 그리드 재구성 — PDF/Excel은 좌표가 사실로 박혀있어 99% 정확.
   let gridMarkdown: string | null = null;
   let gridSource: "pdf" | "xlsx" | null = null;
@@ -68,9 +74,9 @@ export async function runTimetableExtraction(
     input.fileMediaType === "application/vnd.ms-excel" ||
     /\.xlsx?$/i.test(input.title);
   const HEADER_KEYWORDS = ["일", "월", "화", "수", "목", "금", "토"] as const;
-  if (isPdf && input.fileBytes) {
+  if (isPdf && fileBytesForGrid) {
     try {
-      const g = await extractTimetableGrid(input.fileBytes);
+      const g = await extractTimetableGrid(fileBytesForGrid);
       if (g.ok) {
         gridMarkdown = g.markdown;
         gridSource = "pdf";
@@ -79,9 +85,9 @@ export async function runTimetableExtraction(
       // pdf 좌표 실패 → vision 폴백으로 자연스럽게
     }
   }
-  if (!gridMarkdown && isXlsx && input.fileBytes) {
+  if (!gridMarkdown && isXlsx && fileBytesForGrid) {
     try {
-      const g = await extractTimetableGridFromXlsx(input.fileBytes, {
+      const g = await extractTimetableGridFromXlsx(fileBytesForGrid, {
         headerKeywords: HEADER_KEYWORDS,
         minMatches: 4,
       });
@@ -103,7 +109,8 @@ export async function runTimetableExtraction(
   let result: Awaited<ReturnType<typeof generate>>;
   const fallbackToVision =
     !gridMarkdown &&
-    input.fileBytes &&
+    fileBytesForVision &&
+    fileBytesForVision.byteLength > 0 &&
     input.fileMediaType &&
     (input.fileMediaType === "application/pdf" || input.fileMediaType.startsWith("image/"));
 
@@ -125,12 +132,12 @@ export async function runTimetableExtraction(
         maxTokens: 4096,
         temperature: 0.1,
       });
-    } else if (fallbackToVision && input.fileBytes && input.fileMediaType) {
+    } else if (fallbackToVision && fileBytesForVision && input.fileMediaType) {
       result = await generateWithFile({
         tool: "timetable-extract",
         rulePrompt,
         dynamicContext,
-        fileBytes: input.fileBytes,
+        fileBytes: fileBytesForVision,
         mediaType: input.fileMediaType,
         userText:
           "위 시간표 그림을 그대로 보고, 격자의 행=교시(시간), 열=요일을 정확히 매칭해서 JSON으로 답하세요. 빈 칸은 제외.",

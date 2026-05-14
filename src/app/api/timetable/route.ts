@@ -124,20 +124,29 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     );
   }
 
-  // 4. 추출 — PDF/이미지면 vision 경로 (격자의 행/열 정확히 읽기 위함).
-  // 텍스트 추출 결과(unpdf)는 요일 컬럼이 무너지므로, 같은 파일을 모델 눈으로 다시 보게 한다.
-  const fileBytes = uploaded.bytes;
+  // 4. 추출 — PDF/이미지면 좌표 파서·vision 경로로 격자 그대로 읽기.
+  // parseDocument()가 uploaded.bytes의 underlying buffer를 pdfjs/unpdf 워커로
+  // transfer해 detach시켜 버리므로, 서비스에 줄 바이트는 Storage에서 다시 받는다.
   const fileMediaType = uploaded.mimeType;
   const visionEligible =
     fileMediaType === "application/pdf" || fileMediaType.startsWith("image/");
+  let freshFileBytes: Uint8Array | undefined;
+  if (visionEligible) {
+    try {
+      const { downloadMaterialFile } = await import("@/lib/storage");
+      freshFileBytes = await downloadMaterialFile(uploaded.storagePath);
+    } catch (e) {
+      console.error("[timetable] storage redownload failed, vision path disabled", e);
+    }
+  }
   const result = await runTimetableExtraction({
     ownerId,
     materialId: material.id,
     title,
     fullText: parsed.sanitizedText,
     semesterHint,
-    fileBytes: visionEligible ? fileBytes : undefined,
-    fileMediaType: visionEligible ? fileMediaType : undefined,
+    fileBytes: freshFileBytes,
+    fileMediaType: freshFileBytes ? fileMediaType : undefined,
   });
 
   if (!result.ok) {
