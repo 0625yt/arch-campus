@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getAttemptSummary } from "@/lib/data/attempts";
+import { getAdminSupabase } from "@/lib/supabase/admin";
 import { QuizResultView, type ResultQuestion } from "../../quiz-result-view";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,19 @@ export default async function AttemptReviewPage({
 
   const summary = await getAttemptSummary({ ownerId, attemptId });
   if (!summary || summary.quizId !== quizId) notFound();
+
+  // "자료로 돌아가기" 라우트 만들 때 강의명 슬러그 필요 — courseId만으론 부족.
+  let courseName: string | null = null;
+  if (summary.courseId) {
+    const admin = getAdminSupabase();
+    const { data: c } = await admin
+      .from("courses")
+      .select("name")
+      .eq("id", summary.courseId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    courseName = c?.name ?? null;
+  }
 
   const questions: ResultQuestion[] = summary.questions.map((q) => ({
     id: q.id,
@@ -83,6 +97,7 @@ export default async function AttemptReviewPage({
             questions={questions}
             watermark={summary.watermark}
             materialId={summary.materialId}
+            courseName={courseName}
             quizId={summary.quizId}
             showHero={false}
           />

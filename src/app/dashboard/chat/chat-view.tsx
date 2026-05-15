@@ -195,7 +195,12 @@ export function ChatView() {
       <div className="mx-auto flex w-full max-w-[820px] flex-col px-4 sm:px-10 md:px-12">
         <div className="flex-1 pb-[200px] pt-10 sm:pt-14">
           {messages.length === 0 ? (
-            <EmptyHint />
+            <EmptyHint
+              onPick={(q) => {
+                setDraft(q);
+                inputRef.current?.focus();
+              }}
+            />
           ) : (
             <ul className="space-y-8">
               {messages.map((m, i) => (
@@ -251,9 +256,16 @@ export function ChatView() {
   );
 }
 
-function EmptyHint() {
+const STARTER_QUESTIONS = [
+  "이번 주 마감 알려줘",
+  "운영체제 시험이 4일 남았는데 뭐부터 볼까",
+  "발표 준비, 어떤 순서로 만들면 좋을까",
+  "이 자료 요약해줘",
+] as const;
+
+function EmptyHint({ onPick }: { onPick: (q: string) => void }) {
   return (
-    <div className="flex h-[60vh] flex-col items-center justify-center text-center">
+    <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <h1
         className="text-[28px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[36px]"
         style={{ letterSpacing: "-0.012em" }}
@@ -266,6 +278,22 @@ function EmptyHint() {
       >
         강의명을 말씀하시면 자료로 요약·문제를 만들고, 일정·발표·과제도 안내해 드려요.
       </p>
+
+      {/* 칩 — 클릭하면 입력창에 자동 입력. 사용자가 첫 질문을 떠올리는 비용을 0으로. */}
+      <ul className="mt-7 flex flex-wrap items-center justify-center gap-1.5">
+        {STARTER_QUESTIONS.map((q) => (
+          <li key={q}>
+            <button
+              type="button"
+              onClick={() => onPick(q)}
+              className="inline-flex items-center rounded-full border border-[var(--color-apple-hairline)] bg-white px-3.5 py-2 text-[12.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:border-[var(--color-apple-action)] hover:text-[var(--color-apple-action)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              {q}
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

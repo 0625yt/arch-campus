@@ -14,6 +14,8 @@ export interface QuizSolveView {
   id: string;
   materialId: string | null;
   courseId: string | null;
+  /** "자료로 돌아가기" 라우트용 — material detail이 강의 슬러그를 path에 받음. */
+  courseName: string | null;
   title: string;
   difficulty: "쉬움" | "보통" | "어려움";
   watermark: string;
@@ -57,10 +59,23 @@ export async function getQuizForSolving(opts: {
     ? parsed.data.filter((q) => filterSet.has(q.id))
     : parsed.data;
 
+  // 강의명도 같이 — material detail 라우트가 슬러그를 path에 받는다.
+  let courseName: string | null = null;
+  if (data.course_id) {
+    const { data: c } = await admin
+      .from("courses")
+      .select("name")
+      .eq("id", data.course_id)
+      .eq("owner_id", opts.ownerId)
+      .maybeSingle();
+    courseName = c?.name ?? null;
+  }
+
   return {
     id: data.id,
     materialId: data.material_id,
     courseId: data.course_id,
+    courseName,
     title: data.title,
     difficulty: data.difficulty,
     watermark: data.watermark,

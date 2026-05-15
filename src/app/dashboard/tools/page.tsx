@@ -244,12 +244,15 @@ function UrgentCard({ wizard }: { wizard: Wizard }) {
       className="group elev-hover-2 flex min-h-[200px] flex-col justify-between rounded-[18px] bg-white p-7"
     >
       <div>
-        <span
-          className="text-[12px] wght-560 uppercase tracking-[0.06em]"
-          style={{ color: dotColor, letterSpacing: "0.06em" }}
-        >
-          {wizard.category}
-        </span>
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className="text-[12px] wght-560 uppercase tracking-[0.06em]"
+            style={{ color: dotColor, letterSpacing: "0.06em" }}
+          >
+            {wizard.category}
+          </span>
+          <ReadyBadge ready={wizard.ready} />
+        </div>
         <h3
           className="mt-3 text-[22px] leading-[1.15] wght-620 text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
@@ -387,11 +390,14 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
           />
           {wizard.category}
         </span>
-        <span
-          className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {wizard.minutes}분
+        <span className="inline-flex items-center gap-2">
+          <ReadyBadge ready={wizard.ready} />
+          <span
+            className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {wizard.minutes}분
+          </span>
         </span>
       </div>
 
@@ -443,4 +449,31 @@ function wizardHref(wizard: Wizard) {
   if (wizard.slug === "exam-cram") return "/dashboard/tools/exam-cram";
   if (wizard.slug === "report-checklist") return "/dashboard/tools/report-checklist";
   return `/dashboard/chat?q=${encodeURIComponent(wizard.query)}`;
+}
+
+/**
+ * 위저드가 진짜 단계별 위저드 페이지로 가는지(ready),
+ * 아니면 채팅창에 질문이 자동 입력되어 가는지(채팅) 시각적으로 구분.
+ *
+ * 라벨 없이 카드만 똑같이 생기면 "발표 위저드" 클릭했는데 채팅창 떠서 사용자 혼란.
+ */
+function ReadyBadge({ ready }: { ready?: boolean }) {
+  if (ready) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-[var(--color-tint-class)] px-2 py-0.5 text-[10px] wght-620 text-[var(--color-tint-class-ink)]"
+        style={{ letterSpacing: "0.02em" }}
+      >
+        위저드
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border border-[var(--color-apple-hairline)] bg-white px-2 py-0.5 text-[10px] wght-560 text-[var(--color-apple-muted)]"
+      style={{ letterSpacing: "0.02em" }}
+    >
+      채팅으로
+    </span>
+  );
 }

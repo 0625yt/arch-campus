@@ -232,7 +232,10 @@ function SolveSection({
 
 function getMaterialPath(quiz: QuizSolveView): string {
   if (!quiz.materialId) return "/dashboard/study";
-  return `/dashboard/study/${encodeURIComponent("자료")}/${quiz.materialId}`;
+  // 강의 슬러그 — 없으면 "자료" placeholder. material detail page는 detail.course.name으로
+  // 실제 강의명을 다시 받기 때문에 동작은 하지만 breadcrumb 링크가 깨짐.
+  const slug = quiz.courseName ?? "자료";
+  return `/dashboard/study/${encodeURIComponent(slug)}/${quiz.materialId}`;
 }
 
 function ResultSection({ quiz, result }: { quiz: QuizSolveView; result: SubmitOk }) {
@@ -260,6 +263,7 @@ function ResultSection({ quiz, result }: { quiz: QuizSolveView; result: SubmitOk
       questions={merged}
       watermark={result.watermark}
       materialId={quiz.materialId}
+      courseName={quiz.courseName}
       quizId={quiz.id}
     />
   );

@@ -4,6 +4,7 @@ import { tryGetOwnerId } from "@/lib/auth";
 import { listCoursesGrouped, type CourseListItem } from "@/lib/data/materials";
 import { getRecentActivities, type Activity } from "@/lib/data/activity";
 import { AddPersonalButton } from "./add-personal-button";
+import { CourseActionsMenu } from "./course-actions-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -251,10 +252,20 @@ function CourseCard({ course }: { course: CourseListItem }) {
     : "var(--color-tint-prez)";
 
   return (
-    <Link
-      href={`/dashboard/study/${encodeURIComponent(course.name)}`}
-      className="group elev-hover-2 relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-[18px] bg-white p-7 sm:p-8"
-    >
+    <div className="relative">
+      <div className="absolute right-3 top-3 z-20">
+        <CourseActionsMenu
+          courseId={course.id}
+          initialName={course.name}
+          initialProfessor={course.professor}
+          initialColor={course.color}
+          isPersonal={isPersonal}
+        />
+      </div>
+      <Link
+        href={`/dashboard/study/${encodeURIComponent(course.name)}`}
+        className="group elev-hover-2 relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-[18px] bg-white p-7 sm:p-8"
+      >
       {/* 좌측 컬러 리본 — 카드 정체성. hover 시 4px로 살짝 굵어짐. */}
       <span
         aria-hidden
@@ -270,7 +281,7 @@ function CourseCard({ course }: { course: CourseListItem }) {
         }}
       />
 
-      <div className="relative">
+      <div className="relative pr-10">
         <div className="flex items-center gap-2.5">
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dotColor }} />
           <span
@@ -299,7 +310,8 @@ function CourseCard({ course }: { course: CourseListItem }) {
           ›
         </span>
       </div>
-    </Link>
+      </Link>
+    </div>
   );
 }
 

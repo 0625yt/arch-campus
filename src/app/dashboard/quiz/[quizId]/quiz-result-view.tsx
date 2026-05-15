@@ -24,6 +24,8 @@ export interface ResultViewProps {
   watermark: string;
   /** 자료가 연결된 퀴즈만 표시 — null이면 자료 버튼 숨김 */
   materialId: string | null;
+  /** 자료로 돌아가기 링크 만들 때 강의명 슬러그. null이면 일반 공부 페이지로. */
+  courseName?: string | null;
   /** 오답만 다시 풀기 버튼 — quizId 있어야 활성화 */
   quizId: string;
   /** 화면에 들어왔을 때 스크롤 헤더 */
@@ -45,6 +47,7 @@ export function QuizResultView({
   questions,
   watermark,
   materialId,
+  courseName,
   quizId,
   showHero = true,
 }: ResultViewProps) {
@@ -88,9 +91,9 @@ export function QuizResultView({
             오답 {wrongCount}문제만 다시 풀기
           </Link>
         )}
-        {materialId && (
+        {materialId && courseName && (
           <Link
-            href={`/dashboard/study/${encodeURIComponent("자료")}/${materialId}`}
+            href={`/dashboard/study/${encodeURIComponent(courseName)}/${materialId}`}
             className="inline-flex h-[44px] flex-1 items-center justify-center rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)]"
           >
             자료로 돌아가기
@@ -101,6 +104,12 @@ export function QuizResultView({
           className="inline-flex h-[44px] flex-1 items-center justify-center rounded-full bg-white px-6 text-[14px] wght-560 text-[var(--color-apple-ink)] transition-all hover:bg-[var(--color-apple-pearl)]"
         >
           처음부터 다시 풀기
+        </Link>
+        <Link
+          href="/dashboard/study"
+          className="inline-flex h-[44px] flex-1 items-center justify-center rounded-full bg-white px-6 text-[14px] wght-560 text-[var(--color-apple-muted)] transition-all hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+        >
+          공부 목록으로
         </Link>
       </div>
     </section>

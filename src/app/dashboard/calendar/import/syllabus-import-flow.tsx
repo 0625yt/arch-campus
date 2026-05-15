@@ -67,6 +67,8 @@ export function SyllabusImportFlow() {
   const [error, setError] = useState<string | null>(null);
   const [extracted, setExtracted] = useState<ExtractedResponse | null>(null);
   const [editing, setEditing] = useState<ExtractedEvent[]>([]);
+  const [savedCount, setSavedCount] = useState(0);
+  const [savedCourseName, setSavedCourseName] = useState<string | null>(null);
   const [keepIds, setKeepIds] = useState<Set<number>>(new Set());
 
   async function handleUpload() {
@@ -117,8 +119,12 @@ export function SyllabusImportFlow() {
         setPhase("review");
         return;
       }
+      setSavedCount(json.inserted ?? eventsToSave.length);
+      setSavedCourseName(extracted.course?.name ?? null);
       setPhase("done");
-      setTimeout(() => router.push("/dashboard/calendar"), 1200);
+      // 자동 redirect 제거 — 사용자가 결과를 한 번 확인하고 본인이 이동.
+      // 캘린더 prefetch만 (버튼 누르면 즉시 전환).
+      router.prefetch("/dashboard/calendar");
     } catch (e) {
       setError(e instanceof Error ? e.message : "네트워크 오류");
       setPhase("review");
@@ -165,7 +171,13 @@ export function SyllabusImportFlow() {
       )}
 
       {phase === "saving" && <SavingCard />}
-      {phase === "done" && <DoneCard />}
+      {phase === "done" && (
+        <DoneCard
+          insertedEvents={savedCount}
+          courseName={savedCourseName}
+          onGoCalendar={() => router.push("/dashboard/calendar")}
+        />
+      )}
     </>
   );
 }
@@ -662,7 +674,15 @@ function SavingCard() {
   );
 }
 
-function DoneCard() {
+function DoneCard({
+  insertedEvents,
+  courseName,
+  onGoCalendar,
+}: {
+  insertedEvents: number;
+  courseName: string | null;
+  onGoCalendar: () => void;
+}) {
   return (
     <div
       className="relative mt-10 overflow-hidden rounded-[18px] bg-white p-10 text-center fade-up fade-up-3 sm:p-14"
@@ -684,11 +704,32 @@ function DoneCard() {
         등록 완료.
       </p>
       <p
-        className="relative mt-2 text-[13.5px] wght-450 text-[var(--color-apple-muted)]"
+        className="relative mt-2 text-[14px] wght-450 text-[var(--color-apple-muted)]"
         style={{ letterSpacing: "-0.022em" }}
       >
-        잠시 후 캘린더로 이동해요.
+        {courseName ? `"${courseName}"` : "강의"}에 일정{" "}
+        <span className="wght-620 tabular-nums text-[var(--color-apple-ink)]">{insertedEvents}</span>개를
+        캘린더에 박았어요.
       </p>
+
+      <div className="relative mt-7 flex flex-wrap items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={onGoCalendar}
+          className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[var(--color-apple-action)] px-5 text-[13px] wght-620 text-white transition-colors hover:bg-[var(--color-apple-action-hover)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          캘린더에서 보기
+          <span aria-hidden>→</span>
+        </button>
+        <Link
+          href="/dashboard/calendar/import"
+          className="inline-flex h-10 items-center rounded-full bg-white px-4 text-[13px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          다른 강의계획서 올리기
+        </Link>
+      </div>
     </div>
   );
 }

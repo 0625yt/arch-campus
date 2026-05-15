@@ -58,6 +58,21 @@ export async function downloadMaterialFile(storagePath: string): Promise<Uint8Ar
   return new Uint8Array(await data.arrayBuffer());
 }
 
+/**
+ * Storage 원본 파일 삭제. DB 행 지우기 전후 어디서든 호출 가능 (idempotent).
+ * 잘못된 path가 와도 에러 throw하지 않고 false 반환 — 호출부가 DB 트랜잭션 망치지 않게.
+ */
+export async function deleteMaterialFile(storagePath: string): Promise<boolean> {
+  if (!storagePath) return false;
+  const admin = getAdminSupabase();
+  const { error } = await admin.storage.from(BUCKET).remove([storagePath]);
+  if (error) {
+    console.error("[storage] 파일 삭제 실패", { storagePath, error: error.message });
+    return false;
+  }
+  return true;
+}
+
 function extensionOf(filename: string): string {
   const dot = filename.lastIndexOf(".");
   return dot === -1 ? "" : filename.slice(dot + 1).toLowerCase();

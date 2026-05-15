@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listEventsBetween, listUpcomingEvents, type EventView } from "@/lib/data/events";
+import { listCoursesWithMaterialCount } from "@/lib/data/materials";
 import { CalendarBoard } from "./calendar-board";
 
 export const dynamic = "force-dynamic";
@@ -23,14 +24,22 @@ export default async function CalendarPage() {
   const monthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 1);
 
-  const [monthEvents, upcoming] = await Promise.all([
+  const [monthEvents, upcoming, courses] = await Promise.all([
     listEventsBetween({
       ownerId,
       fromIso: monthStart.toISOString(),
       toIso: monthEnd.toISOString(),
     }),
     listUpcomingEvents({ ownerId, limit: 10 }),
+    listCoursesWithMaterialCount({ ownerId }),
   ]);
+
+  // EventCreateForm용 — id/name/color만
+  const courseOptions = courses.map((c) => ({
+    id: c.id,
+    name: c.name,
+    color: c.color,
+  }));
 
   return (
     <div>
@@ -40,6 +49,7 @@ export default async function CalendarPage() {
           monthEvents={monthEvents}
           upcoming={upcoming}
           kindLabel={KIND_LABEL}
+          courses={courseOptions}
         />
       </div>
     </div>

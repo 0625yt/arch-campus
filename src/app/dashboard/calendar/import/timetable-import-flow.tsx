@@ -139,6 +139,18 @@ export function TimetableImportFlow() {
     });
   }
 
+  /** 리뷰 단계에서 사용자가 강의 한 개의 일부 필드를 직접 고친다.
+   *  AI 추출이 강의명·시간·교수·강의실 중 일부만 헛맞은 케이스 — 그것만 고치고 confirm.
+   */
+  function updateCourse(idx: number, patch: Partial<Course>) {
+    setExtracted((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, courses: prev.courses.slice() };
+      next.courses[idx] = { ...next.courses[idx], ...patch };
+      return next;
+    });
+  }
+
   return (
     <>
       {error && <ErrorBanner message={error} />}
@@ -157,6 +169,7 @@ export function TimetableImportFlow() {
           extracted={extracted}
           keepIds={keepIds}
           onToggle={toggleKeep}
+          onUpdateCourse={updateCourse}
           onConfirm={handleConfirm}
         />
       )}
@@ -343,11 +356,13 @@ function ReviewSection({
   extracted,
   keepIds,
   onToggle,
+  onUpdateCourse,
   onConfirm,
 }: {
   extracted: ExtractedResponse;
   keepIds: Set<number>;
   onToggle: (idx: number) => void;
+  onUpdateCourse: (idx: number, patch: Partial<Course>) => void;
   onConfirm: () => void;
 }) {
   return (
@@ -410,6 +425,7 @@ function ReviewSection({
                   course={course}
                   kept={keepIds.has(idx)}
                   onToggle={() => onToggle(idx)}
+                  onUpdate={(patch) => onUpdateCourse(idx, patch)}
                 />
               </li>
             ))}
@@ -442,48 +458,83 @@ function CourseRow({
   course,
   kept,
   onToggle,
+  onUpdate,
 }: {
   course: Course;
   kept: boolean;
   onToggle: () => void;
+  onUpdate: (patch: Partial<Course>) => void;
 }) {
+  const [editing, setEditing] = useState(false);
   const sortedSlots = [...course.slots].sort((a, b) => {
     const dayDiff = WEEKDAY_ORDER.indexOf(a.weekday) - WEEKDAY_ORDER.indexOf(b.weekday);
     if (dayDiff !== 0) return dayDiff;
     return a.startTime.localeCompare(b.startTime);
   });
 
+  if (editing) {
+    return (
+      <CourseEditCard
+        course={course}
+        onCancel={() => setEditing(false)}
+        onSave={(patch) => {
+          onUpdate(patch);
+          setEditing(false);
+        }}
+      />
+    );
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={kept}
-      className={`flex w-full flex-col gap-3 rounded-[14px] border bg-white p-5 text-left transition-colors sm:p-6 ${
+    <div
+      className={`relative flex w-full flex-col gap-3 rounded-[14px] border bg-white p-5 text-left transition-colors sm:p-6 ${
         kept
           ? "border-[var(--color-apple-action)]"
           : "border-[var(--color-apple-hairline)] opacity-60"
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      {/* 카드 본체 클릭 = 체크 토글 */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-pressed={kept}
+        aria-label={kept ? "선택 해제" : "선택"}
+        className="absolute inset-0 rounded-[14px]"
+      />
+
+      <div className="relative flex items-start justify-between gap-3">
         <h3
           className="text-[16px] wght-620 text-[var(--color-apple-ink)] sm:text-[17px]"
           style={{ letterSpacing: "-0.012em" }}
         >
           {course.name}
         </h3>
-        <span
-          aria-hidden
-          className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px] wght-700 transition-colors ${
-            kept
-              ? "border-[var(--color-apple-action)] bg-[var(--color-apple-action)] text-white"
-              : "border-[var(--color-apple-hairline)] bg-white text-transparent"
-          }`}
-        >
-          ✓
-        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditing(true);
+            }}
+            aria-label="강의 정보 수정"
+            className="z-10 inline-flex h-7 w-7 items-center justify-center rounded-full text-[12px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+          >
+            ✎
+          </button>
+          <span
+            aria-hidden
+            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px] wght-700 transition-colors ${
+              kept
+                ? "border-[var(--color-apple-action)] bg-[var(--color-apple-action)] text-white"
+                : "border-[var(--color-apple-hairline)] bg-white text-transparent"
+            }`}
+          >
+            ✓
+          </span>
+        </div>
       </div>
 
-      <ul className="flex flex-wrap gap-1.5">
+      <ul className="relative flex flex-wrap gap-1.5">
         {sortedSlots.map((s, i) => (
           <li
             key={i}
@@ -501,7 +552,7 @@ function CourseRow({
       </ul>
 
       {(course.professor || course.location) && (
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[12px] wght-450 text-[var(--color-apple-muted)]">
+        <div className="relative flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[12px] wght-450 text-[var(--color-apple-muted)]">
           {course.professor && <span>{course.professor}</span>}
           {course.professor && course.location && (
             <span className="text-[var(--color-apple-hairline)]">·</span>
@@ -509,7 +560,149 @@ function CourseRow({
           {course.location && <span>{course.location}</span>}
         </div>
       )}
-    </button>
+    </div>
+  );
+}
+
+/**
+ * 인라인 강의 수정 카드. 슬롯(요일·시간)도 같이 편집 가능.
+ * 시간은 "HH:MM" 24시간 — Course 스키마와 동일.
+ */
+function CourseEditCard({
+  course,
+  onSave,
+  onCancel,
+}: {
+  course: Course;
+  onSave: (patch: Partial<Course>) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(course.name);
+  const [professor, setProfessor] = useState(course.professor ?? "");
+  const [location, setLocation] = useState(course.location ?? "");
+  const [slots, setSlots] = useState(course.slots);
+
+  function updateSlot(idx: number, patch: Partial<Course["slots"][number]>) {
+    setSlots((prev) => {
+      const next = prev.slice();
+      next[idx] = { ...next[idx], ...patch };
+      return next;
+    });
+  }
+  function removeSlot(idx: number) {
+    setSlots((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function addSlot() {
+    setSlots((prev) => [...prev, { weekday: "MON", startTime: "09:00", endTime: "10:50" }]);
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const patch: Partial<Course> = {
+      name: name.trim(),
+      professor: professor.trim() || null,
+      location: location.trim() || null,
+      slots,
+    };
+    onSave(patch);
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="flex w-full flex-col gap-3 rounded-[14px] border border-[var(--color-apple-action)] bg-white p-5 sm:p-6"
+    >
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        required
+        maxLength={80}
+        autoFocus
+        className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[15px] wght-620 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+      />
+
+      <ul className="flex flex-col gap-1.5">
+        {slots.map((s, i) => (
+          <li key={i} className="flex items-center gap-1.5">
+            <select
+              value={s.weekday}
+              onChange={(e) => updateSlot(i, { weekday: e.target.value as Course["slots"][number]["weekday"] })}
+              className="rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-2 py-1.5 text-[12px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+            >
+              {(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const).map((w) => (
+                <option key={w} value={w}>
+                  {WEEKDAY_KO[w]}
+                </option>
+              ))}
+            </select>
+            <input
+              type="time"
+              value={s.startTime}
+              onChange={(e) => updateSlot(i, { startTime: e.target.value })}
+              className="rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-2 py-1.5 text-[12px] tabular-nums text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+            />
+            <span className="text-[12px] text-[var(--color-apple-muted)]">–</span>
+            <input
+              type="time"
+              value={s.endTime}
+              onChange={(e) => updateSlot(i, { endTime: e.target.value })}
+              className="rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-2 py-1.5 text-[12px] tabular-nums text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => removeSlot(i)}
+              aria-label="이 시간 삭제"
+              className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-[14px] text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-urgent)]"
+            >
+              ×
+            </button>
+          </li>
+        ))}
+        <button
+          type="button"
+          onClick={addSlot}
+          className="self-start rounded-full border border-dashed border-[var(--color-apple-hairline)] px-3 py-1 text-[11.5px] wght-560 text-[var(--color-apple-muted)] hover:border-[var(--color-apple-action)] hover:text-[var(--color-apple-action)]"
+        >
+          + 시간 추가
+        </button>
+      </ul>
+
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          type="text"
+          value={professor}
+          onChange={(e) => setProfessor(e.target.value)}
+          placeholder="교수"
+          maxLength={60}
+          className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[12.5px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+        />
+        <input
+          type="text"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          placeholder="강의실"
+          maxLength={120}
+          className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[12.5px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+        />
+      </div>
+
+      <div className="flex justify-end gap-2 border-t border-[var(--color-apple-hairline)] pt-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-[8px] px-3 py-1.5 text-[12px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+        >
+          취소
+        </button>
+        <button
+          type="submit"
+          className="rounded-[8px] bg-[var(--color-apple-ink)] px-3 py-1.5 text-[12px] wght-620 text-white hover:opacity-90"
+        >
+          반영
+        </button>
+      </div>
+    </form>
   );
 }
 

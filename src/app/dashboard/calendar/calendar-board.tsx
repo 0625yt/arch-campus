@@ -1,9 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Modal } from "@/components/modal";
 import type { EventView } from "@/lib/data/events";
 import { formatEventLabel, formatEventCompact } from "@/lib/format-event";
+
+export interface CourseOption {
+  id: string;
+  name: string;
+  color: string | null;
+}
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -31,17 +40,21 @@ export function CalendarBoard({
   monthEvents,
   upcoming,
   kindLabel,
+  courses,
 }: {
   monthEvents: EventView[];
   upcoming: EventView[];
   kindLabel: Record<EventView["kind"], string>;
+  courses: CourseOption[];
 }) {
+  const router = useRouter();
   const [view, setView] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
   const [mode, setMode] = useState<ViewMode>("all");
   const [selected, setSelected] = useState<EventView | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const cells = useMemo(() => buildMonthCells(view.year, view.month), [view]);
   const monthLabel = `${view.year}년 ${view.month + 1}월`;
@@ -91,7 +104,7 @@ export function CalendarBoard({
   }
 
   return (
-    <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px] fade-up fade-up-1">
+    <div className="mt-8 grid gap-6 md:grid-cols-[1fr_280px] lg:grid-cols-[1fr_320px] fade-up fade-up-1">
       <section className="elev-1 rounded-[18px] bg-white p-5 sm:p-7">
         <div className="flex items-baseline justify-between gap-3">
           <h2
@@ -114,6 +127,15 @@ export function CalendarBoard({
             <NavButton onClick={() => navigate(1)} aria-label="다음 달">
               ›
             </NavButton>
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="ml-1 inline-flex h-8 items-center gap-1 rounded-full bg-[var(--color-apple-ink)] px-3 text-[12px] wght-560 text-white transition-opacity hover:opacity-90"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              <span aria-hidden>+</span>
+              <span className="hidden sm:inline">새 일정</span>
+            </button>
           </div>
         </div>
 
@@ -183,6 +205,16 @@ export function CalendarBoard({
           </section>
         )}
       </aside>
+
+      <EventCreateForm
+        open={creating}
+        courses={courses}
+        onClose={() => setCreating(false)}
+        onCreated={() => {
+          setCreating(false);
+          router.refresh();
+        }}
+      />
     </div>
   );
 }
@@ -401,6 +433,27 @@ function EventDetailPanel({
   kindLabel: Record<EventView["kind"], string>;
   onClose: () => void;
 }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteScope, setDeleteScope] = useState<"this" | "all">("this");
+  // class kind는 같은 강의·같은 요일·시간 = 매주 반복 수업. scope 묻기.
+  const isRecurringClass = event.kind === "class" && !!event.courseId;
+
+  if (editing) {
+    return (
+      <EventEditForm
+        event={event}
+        isRecurringClass={isRecurringClass}
+        onCancel={() => setEditing(false)}
+        onSaved={() => {
+          setEditing(false);
+          router.refresh();
+        }}
+      />
+    );
+  }
+
   const date = new Date(event.startsAt);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -423,110 +476,400 @@ function EventDetailPanel({
     ? `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`
     : null;
 
+  async function runDelete() {
+    const scope = isRecurringClass ? deleteScope : "this";
+    const res = await fetch(`/api/events/${event.id}?scope=${scope}`, { method: "DELETE" });
+    const json = await res.json();
+    if (!res.ok || !json.ok) {
+      alert(json.error ?? "삭제 실패");
+      return;
+    }
+    setConfirmDelete(false);
+    onClose();
+    router.refresh();
+  }
+
   return (
-    <section className="elev-2 sticky top-6 overflow-hidden rounded-[14px] bg-white">
-      {/* 컬러 헤더 — kind 톤. Apple Mail 인스펙터처럼 정보 밀도 + 색의 한 호흡 */}
-      <div
-        className="px-5 pb-4 pt-5"
-        style={{ backgroundColor: tint.bg }}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: dot }}
-            />
-            <span
-              className="text-[11px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-ink)]"
-              style={{ letterSpacing: "0.06em" }}
-            >
-              {kindLabel[event.kind]}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="-mr-1 -mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full text-[14px] text-[var(--color-apple-muted)] transition-colors hover:bg-white hover:text-[var(--color-apple-ink)]"
-          >
-            ×
-          </button>
-        </div>
-        <h3
-          className="mt-3 text-[20px] leading-[1.2] wght-620 text-[var(--color-apple-ink)]"
-          style={{ letterSpacing: "-0.012em" }}
+    <>
+      <section className="elev-2 sticky top-6 overflow-hidden rounded-[14px] bg-white">
+        {/* 컬러 헤더 — kind 톤. Apple Mail 인스펙터처럼 정보 밀도 + 색의 한 호흡 */}
+        <div
+          className="px-5 pb-4 pt-5"
+          style={{ backgroundColor: tint.bg }}
         >
-          {formatEventLabel(event)}
-        </h3>
-      </div>
-
-      <div className="flex flex-col gap-4 px-5 py-5">
-        <DetailRow label="언제">
-          <span className="text-[13px] wght-560 text-[var(--color-apple-ink)] tabular-nums">
-            {dateLabel}
-          </span>
-          <span className="mt-0.5 text-[12px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
-            {timeLabel}
-            {endLabel && ` – ${endLabel}`}
-          </span>
-        </DetailRow>
-
-        <DetailRow label="D-day">
-          <span
-            className={`text-[13px] wght-700 tabular-nums ${
-              tone === "urgent"
-                ? "text-[var(--color-urgent)]"
-                : tone === "warn"
-                  ? "text-[var(--color-apple-action)]"
-                  : "text-[var(--color-apple-ink)]"
-            }`}
-          >
-            {dDayLabel}
-          </span>
-        </DetailRow>
-
-        {event.courseName && (
-          <DetailRow label="과목">
-            <Link
-              href={`/dashboard/study/${encodeURIComponent(event.courseName)}`}
-              className="inline-flex items-center gap-1 text-[13px] wght-560 text-[var(--color-apple-action)] hover:underline"
-              style={{ letterSpacing: "-0.012em" }}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span
+                aria-hidden
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: dot }}
+              />
+              <span
+                className="text-[11px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-ink)]"
+                style={{ letterSpacing: "0.06em" }}
+              >
+                {kindLabel[event.kind]}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="-mr-1 -mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full text-[14px] text-[var(--color-apple-muted)] transition-colors hover:bg-white hover:text-[var(--color-apple-ink)]"
             >
-              {event.courseName} <span aria-hidden>›</span>
-            </Link>
-          </DetailRow>
-        )}
-
-        {event.weightPercent != null && (
-          <DetailRow label="비중">
-            <span className="text-[13px] wght-560 tabular-nums text-[var(--color-apple-ink)]">
-              {event.weightPercent}%
-            </span>
-          </DetailRow>
-        )}
-
-        {event.notes && (
-          <DetailRow label="메모">
-            <p
-              className="whitespace-pre-wrap text-[13px] wght-450 leading-[1.55] text-[var(--color-apple-ink)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              {event.notes}
-            </p>
-          </DetailRow>
-        )}
-
-        {event.confidence != null && event.confidence < 0.8 && !event.confirmed && (
-          <p
-            className="rounded-[8px] bg-[var(--color-tint-streak)] px-3 py-2 text-[11.5px] wght-560 text-[var(--color-tint-streak-ink)]"
+              ×
+            </button>
+          </div>
+          <h3
+            className="mt-3 text-[20px] leading-[1.2] wght-620 text-[var(--color-apple-ink)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            AI 추정 일정이에요. 한번 확인해주세요.
+            {formatEventLabel(event)}
+          </h3>
+        </div>
+
+        <div className="flex flex-col gap-4 px-5 py-5">
+          <DetailRow label="언제">
+            <span className="text-[13px] wght-560 text-[var(--color-apple-ink)] tabular-nums">
+              {dateLabel}
+            </span>
+            <span className="mt-0.5 text-[12px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
+              {timeLabel}
+              {endLabel && ` – ${endLabel}`}
+            </span>
+          </DetailRow>
+
+          <DetailRow label="D-day">
+            <span
+              className={`text-[13px] wght-700 tabular-nums ${
+                tone === "urgent"
+                  ? "text-[var(--color-urgent)]"
+                  : tone === "warn"
+                    ? "text-[var(--color-apple-action)]"
+                    : "text-[var(--color-apple-ink)]"
+              }`}
+            >
+              {dDayLabel}
+            </span>
+          </DetailRow>
+
+          {event.courseName && (
+            <DetailRow label="과목">
+              <Link
+                href={`/dashboard/study/${encodeURIComponent(event.courseName)}`}
+                className="inline-flex items-center gap-1 text-[13px] wght-560 text-[var(--color-apple-action)] hover:underline"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                {event.courseName} <span aria-hidden>›</span>
+              </Link>
+            </DetailRow>
+          )}
+
+          {event.weightPercent != null && (
+            <DetailRow label="비중">
+              <span className="text-[13px] wght-560 tabular-nums text-[var(--color-apple-ink)]">
+                {event.weightPercent}%
+              </span>
+            </DetailRow>
+          )}
+
+          {event.notes && (
+            <DetailRow label="메모">
+              <p
+                className="whitespace-pre-wrap text-[13px] wght-450 leading-[1.55] text-[var(--color-apple-ink)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                {event.notes}
+              </p>
+            </DetailRow>
+          )}
+
+          {event.confidence != null && event.confidence < 0.8 && !event.confirmed && (
+            <p
+              className="rounded-[8px] bg-[var(--color-tint-streak)] px-3 py-2 text-[11.5px] wght-560 text-[var(--color-tint-streak-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              AI 추정 일정이에요. 한번 확인해주세요.
+            </p>
+          )}
+
+          <div className="mt-1 flex justify-end gap-1.5 border-t border-[var(--color-apple-hairline)] pt-4">
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="rounded-[8px] px-3 py-1.5 text-[12.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)]"
+            >
+              수정
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteScope("this");
+                setConfirmDelete(true);
+              }}
+              className="rounded-[8px] px-3 py-1.5 text-[12.5px] wght-560 text-[var(--color-urgent)] transition-colors hover:bg-[var(--color-urgent)]/10"
+            >
+              삭제
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title={isRecurringClass ? "수업 일정 삭제" : "일정 삭제"}
+        description={
+          isRecurringClass
+            ? `"${formatEventLabel(event)}"\n\n매주 반복되는 수업이에요. 어디까지 지울까요?`
+            : `"${formatEventLabel(event)}"\n\n이 일정을 지울까요? 되돌릴 수 없어요.`
+        }
+        confirmLabel={
+          isRecurringClass
+            ? deleteScope === "all"
+              ? "학기 전체 회차 삭제"
+              : "이 회차만 삭제"
+            : "삭제"
+        }
+        destructive
+        onConfirm={runDelete}
+        onClose={() => setConfirmDelete(false)}
+      >
+        {isRecurringClass && (
+          <div className="flex flex-col gap-1.5">
+            <span
+              className="text-[10px] wght-620 uppercase text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "0.08em" }}
+            >
+              적용 범위
+            </span>
+            <div className="flex gap-1.5">
+              <ScopeBtn label="이 회차만" active={deleteScope === "this"} onClick={() => setDeleteScope("this")} />
+              <ScopeBtn label="학기 전체" active={deleteScope === "all"} onClick={() => setDeleteScope("all")} />
+            </div>
+          </div>
+        )}
+      </ConfirmDialog>
+    </>
+  );
+}
+
+function ScopeBtn({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        active
+          ? "rounded-[7px] bg-[var(--color-apple-ink)] px-2.5 py-1 text-[11.5px] wght-560 text-white"
+          : "rounded-[7px] px-2.5 py-1 text-[11.5px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+      }
+    >
+      {label}
+    </button>
+  );
+}
+
+/**
+ * 인라인 편집 폼 — 패널 자리 그대로 차지. 시·분·제목·메모·(class면) scope.
+ * 시간만 수정해도 starts/ends 같이 보냄 (서버는 받은 것만 적용).
+ */
+function EventEditForm({
+  event,
+  isRecurringClass,
+  onCancel,
+  onSaved,
+}: {
+  event: EventView;
+  isRecurringClass: boolean;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const startDate = new Date(event.startsAt);
+  const endDate = event.endsAt ? new Date(event.endsAt) : null;
+
+  function toLocalInput(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  const [title, setTitle] = useState(event.title);
+  const [startsAt, setStartsAt] = useState(toLocalInput(startDate));
+  const [endsAt, setEndsAt] = useState(endDate ? toLocalInput(endDate) : "");
+  const [notes, setNotes] = useState(event.notes ?? "");
+  const [scope, setScope] = useState<"this" | "all">("this");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    setError(null);
+    setBusy(true);
+
+    try {
+      const body: Record<string, unknown> = { scope };
+      if (title.trim() !== event.title) body.title = title.trim();
+      if (notes.trim() !== (event.notes ?? "")) {
+        body.notes = notes.trim() || null;
+      }
+      const newStart = new Date(startsAt);
+      if (newStart.getTime() !== startDate.getTime()) {
+        body.starts_at = newStart.toISOString();
+      }
+      if (endsAt) {
+        const newEnd = new Date(endsAt);
+        if (!endDate || newEnd.getTime() !== endDate.getTime()) {
+          body.ends_at = newEnd.toISOString();
+        }
+      } else if (endDate) {
+        body.ends_at = null;
+      }
+
+      // 변경된 게 scope밖에 없으면 의미 없음
+      if (Object.keys(body).length <= 1) {
+        onCancel();
+        return;
+      }
+
+      const res = await fetch(`/api/events/${event.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setError(json.error ?? "수정 실패");
+        return;
+      }
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "수정 실패");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="elev-2 sticky top-6 overflow-hidden rounded-[14px] bg-white">
+      <div className="flex items-baseline justify-between gap-3 border-b border-[var(--color-apple-hairline)] px-5 py-4">
+        <h3
+          className="text-[15px] wght-700 text-[var(--color-apple-ink)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          일정 수정
+        </h3>
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="닫기"
+          className="-mr-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-[13px] text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+        >
+          ×
+        </button>
+      </div>
+
+      <form onSubmit={handleSave} className="flex flex-col gap-4 px-5 py-5">
+        <FieldLabel label="제목">
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            maxLength={120}
+            className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+          />
+        </FieldLabel>
+
+        <FieldLabel label="시작">
+          <input
+            type="datetime-local"
+            value={startsAt}
+            onChange={(e) => setStartsAt(e.target.value)}
+            required
+            className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] tabular-nums text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+          />
+        </FieldLabel>
+
+        <FieldLabel label="종료">
+          <input
+            type="datetime-local"
+            value={endsAt}
+            onChange={(e) => setEndsAt(e.target.value)}
+            className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] tabular-nums text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+          />
+        </FieldLabel>
+
+        <FieldLabel label="메모">
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            maxLength={2000}
+            className="w-full resize-y rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+          />
+        </FieldLabel>
+
+        {isRecurringClass && (
+          <FieldLabel label="적용 범위">
+            <div className="flex gap-1.5">
+              <ScopeBtn label="이 회차만" active={scope === "this"} onClick={() => setScope("this")} />
+              <ScopeBtn label="학기 전체" active={scope === "all"} onClick={() => setScope("all")} />
+            </div>
+            <p className="mt-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)]">
+              {scope === "all"
+                ? "같은 요일·시간의 모든 회차에 동일 변경 적용. 시간 변경 시 시·분만 옮기고 날짜는 회차별로 유지."
+                : "이 회차에만 적용. 다른 주는 그대로."}
+            </p>
+          </FieldLabel>
+        )}
+
+        {error && (
+          <p className="rounded-[8px] bg-[var(--color-urgent)]/10 px-3 py-2 text-[12px] wght-560 text-[var(--color-urgent)]">
+            {error}
           </p>
         )}
-      </div>
+
+        <div className="flex justify-end gap-2 border-t border-[var(--color-apple-hairline)] pt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="rounded-[8px] px-3 py-1.5 text-[12.5px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-[8px] bg-[var(--color-apple-ink)] px-3 py-1.5 text-[12.5px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? "저장 중…" : "저장"}
+          </button>
+        </div>
+      </form>
     </section>
+  );
+}
+
+function FieldLabel({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span
+        className="text-[10px] wght-620 uppercase text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "0.08em" }}
+      >
+        {label}
+      </span>
+      {children}
+    </label>
   );
 }
 
@@ -640,4 +983,216 @@ const KIND_TINT: Record<EventView["kind"], KindTint> = {
 
 function kindTint(kind: EventView["kind"]): KindTint {
   return KIND_TINT[kind];
+}
+
+/**
+ * 새 일정 직접 추가 폼 — class kind는 받지 않음 (시간표 import 흐름이 따로).
+ *
+ * 시작 시간 default = 오늘 오후 9시 (학생이 가장 자주 쓰는 마감 시간대).
+ * 종료는 기본 비워둠 — 시험·과제·발표는 보통 마감 시점만 의미 있음.
+ */
+function EventCreateForm({
+  open,
+  courses,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  courses: CourseOption[];
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const defaultStart = useMemo(() => {
+    const d = new Date();
+    d.setHours(21, 0, 0, 0);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }, []);
+
+  const [kind, setKind] = useState<"exam" | "assignment" | "presentation" | "etc">("exam");
+  const [title, setTitle] = useState("");
+  const [courseId, setCourseId] = useState<string>("");
+  const [startsAt, setStartsAt] = useState(defaultStart);
+  const [endsAt, setEndsAt] = useState("");
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function reset() {
+    setKind("exam");
+    setTitle("");
+    setCourseId("");
+    setStartsAt(defaultStart);
+    setEndsAt("");
+    setNotes("");
+    setError(null);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    setError(null);
+    const trimmed = title.trim();
+    if (!trimmed) {
+      setError("제목을 적어주세요");
+      return;
+    }
+    setBusy(true);
+    try {
+      const body: Record<string, unknown> = {
+        kind,
+        title: trimmed,
+        starts_at: new Date(startsAt).toISOString(),
+        notes: notes.trim() || null,
+      };
+      if (courseId) body.course_id = courseId;
+      if (endsAt) body.ends_at = new Date(endsAt).toISOString();
+
+      const res = await fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setError(json.error ?? "생성 실패");
+        return;
+      }
+      reset();
+      onCreated();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={() => {
+        if (!busy) {
+          reset();
+          onClose();
+        }
+      }}
+      title="새 일정"
+      description="강의계획서 없이 직접 추가. 매주 반복 수업은 시간표 업로드를 써주세요."
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <FieldLabel label="종류">
+          <div className="flex flex-wrap gap-1.5">
+            {(
+              [
+                ["exam", "시험"],
+                ["assignment", "과제"],
+                ["presentation", "발표"],
+                ["etc", "기타"],
+              ] as const
+            ).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setKind(k)}
+                className={
+                  kind === k
+                    ? "rounded-full bg-[var(--color-apple-ink)] px-3 py-1 text-[12px] wght-560 text-white"
+                    : "rounded-full border border-[var(--color-apple-hairline)] bg-white px-3 py-1 text-[12px] wght-560 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </FieldLabel>
+
+        <FieldLabel label="제목">
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            autoFocus
+            maxLength={120}
+            placeholder="예: 운영체제 중간고사"
+            className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[14px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+          />
+        </FieldLabel>
+
+        {courses.length > 0 && (
+          <FieldLabel label="강의 (선택)">
+            <select
+              value={courseId}
+              onChange={(e) => setCourseId(e.target.value)}
+              className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13.5px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+            >
+              <option value="">강의 없음 (미분류)</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </FieldLabel>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <FieldLabel label="시작">
+            <input
+              type="datetime-local"
+              value={startsAt}
+              onChange={(e) => setStartsAt(e.target.value)}
+              required
+              className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] tabular-nums text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+            />
+          </FieldLabel>
+          <FieldLabel label="종료 (선택)">
+            <input
+              type="datetime-local"
+              value={endsAt}
+              onChange={(e) => setEndsAt(e.target.value)}
+              className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] tabular-nums text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+            />
+          </FieldLabel>
+        </div>
+
+        <FieldLabel label="메모 (선택)">
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            maxLength={2000}
+            placeholder="제출 형식·범위·페이지 수 등"
+            className="w-full resize-y rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+          />
+        </FieldLabel>
+
+        {error && (
+          <p className="rounded-[8px] bg-[var(--color-urgent)]/10 px-3 py-2 text-[12px] wght-560 text-[var(--color-urgent)]">
+            {error}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (busy) return;
+              reset();
+              onClose();
+            }}
+            disabled={busy}
+            className="rounded-[8px] px-3.5 py-2 text-[13px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-[8px] bg-[var(--color-apple-ink)] px-3.5 py-2 text-[13px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? "저장 중…" : "추가"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
 }
