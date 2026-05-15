@@ -8,5 +8,8 @@
       "Bash(npm run *)",
       "Bash(npx tsc *)"
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@superpowers-dev": true
   }
 }
