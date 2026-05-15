@@ -149,6 +149,7 @@ ESLint·테스트 러너 없음. UI 검증은 [docs/ARCHITECTURE.md §10](docs/A
 - [ ] [docs/PRODUCT.md](docs/PRODUCT.md) §2 MVP 범위 안인가? — NO면 사용자 확인
 - [ ] 새 도구라면 [docs/ARCHITECTURE.md §2 4-Layer](docs/ARCHITECTURE.md#2-4-layer-패턴--새-도구-추가-시-그대로-복제) 모두 손댈 준비됐나?
 - [ ] DB 스키마 변경 있다면 마이그레이션 SQL 파일도 만들고 사용자에게 실행 안내?
+- [ ] 새 라우트에서 `getAdminSupabase()` 쓰면 [ARCHITECTURE.md §4-1](docs/ARCHITECTURE.md#4-1-service-role-사용-체크리스트-신규-라우트마다) 4개 가드 다 박혔나? (RLS 우회 → 가드 빠지면 데이터 노출)
 - [ ] AI 호출이면 모델 라우팅(§1) 맞나? Sonnet 남발 X
 - [ ] 위저드라면 "치팅 도구"로 안 보이나? (§4)
 - [ ] 끝나고 `npm run dev` 골든패스 돌릴 건가? (CONVENTIONS.md)

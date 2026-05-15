@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Kbd } from "@/components/primitives";
+import { WizardWatermark } from "@/components/wizard-shell";
 import { cn } from "@/lib/utils";
 
 /* ─────────── steps ─────────── */
@@ -355,11 +356,10 @@ function Result({ answers, onReset }: { answers: string[]; onReset: () => void }
       {/* 헤더 */}
       <div className="flex items-baseline justify-between gap-3">
         <span
-          className="inline-flex items-center gap-1.5 text-[12px] wght-560"
-          style={{ letterSpacing: "-0.012em", color: "var(--color-apple-success)" }}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-apple-pearl)] px-2.5 py-1 text-[11px] wght-560 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.012em" }}
         >
-          <CheckIcon />
-          만들어졌어요
+          예고 · 준비 중
         </span>
         <button
           type="button"
@@ -367,9 +367,17 @@ function Result({ answers, onReset }: { answers: string[]; onReset: () => void }
           className="text-[13px] wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          다시 만들기
+          처음으로
         </button>
       </div>
+
+      {/* 안내 — 아직 AI 호출이 연결되지 않은 미리보기 */}
+      <p
+        className="mt-4 rounded-[12px] bg-[var(--color-apple-pearl)] px-4 py-3 text-[12.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        아래는 발표 위저드가 어떤 구조로 나올지 보여주는 예고 화면이에요. 입력하신 답변은 아직 AI로 보내지지 않고, 표시되는 슬라이드·질문은 고정된 샘플입니다. 실제 생성은 곧 열어드릴게요.
+      </p>
 
       {/* 입력 요약 */}
       <ul className="mt-6 flex flex-col gap-2 rounded-[12px] bg-[var(--color-apple-pearl)] px-4 py-4">
@@ -459,6 +467,8 @@ function Result({ answers, onReset }: { answers: string[]; onReset: () => void }
           </li>
         ))}
       </ul>
+
+      <WizardWatermark modelText="이 자료는 학습 보조용이며 본인이 다시 검토·수정해야 학습이 완성돼요. (현재 화면은 샘플 예고)" />
     </div>
   );
 }

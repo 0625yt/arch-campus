@@ -34,8 +34,21 @@
 ## 4. 인증 + RLS
 
 - Supabase Auth on edge (`@supabase/ssr`). 세션 쿠키는 [src/lib/supabase/server.ts](../src/lib/supabase/server.ts).
-- **service-role 어드민 클라이언트** ([src/lib/supabase/admin.ts](../src/lib/supabase/admin.ts))는 RLS 우회용. 호출자는 매번 세션과 ID 재검증.
+- **service-role 어드민 클라이언트** ([src/lib/supabase/admin.ts](../src/lib/supabase/admin.ts))는 RLS 우회용.
 - RLS 정책: `users`, `courses`, `enrollments`, `generations`, `materials`. `admin` role만 전체 조회.
+
+### 4-1. service-role 사용 체크리스트 (신규 라우트마다)
+
+`getAdminSupabase()`는 RLS를 우회한다. 가드 빠지면 다른 사용자 데이터 노출. 신규 API 라우트·server action에서 admin client를 쓸 때 다음 4개 모두 통과해야 한다:
+
+- [ ] **세션 확인**: 함수 첫 줄에서 `const ownerId = await getOwnerId()` (또는 `tryGetOwnerId()` + 401 분기)
+- [ ] **owner 격리 쿼리**: 모든 `select`/`update`/`delete`에 `.eq("owner_id", ownerId)` (또는 `profiles`는 `.eq("id", ownerId)`)
+- [ ] **insert도 검증**: 새 row의 `owner_id` 필드 = 세션 ownerId. 클라이언트가 보낸 값 신뢰 X
+- [ ] **Storage**: path prefix 항상 `<ownerId>/...` 형태. 사용자 입력 path를 그대로 `download/remove`에 넘기지 X — 먼저 DB에서 owner 매칭 row 조회해 그 `storage_path`를 사용
+
+참고 패턴: [src/app/api/materials/[id]/route.ts](../src/app/api/materials/[id]/route.ts) `DELETE` 핸들러 — owner 매칭 row 조회 → storage_path 추출 → 삭제 순서.
+
+코드 리뷰 시 admin client 호출처에 위 4개 중 하나라도 빠지면 머지 차단.
 
 ## 5. 페르소나 기반 생성
 
