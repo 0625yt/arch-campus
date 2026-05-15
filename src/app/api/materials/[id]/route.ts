@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { tryGetOwnerId } from "@/lib/auth";
@@ -8,6 +9,11 @@ import type { Database } from "@/lib/supabase/types";
 type MaterialUpdate = Database["public"]["Tables"]["materials"]["Update"];
 
 export const runtime = "nodejs";
+
+function bustMaterialCache() {
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/study", "layout");
+}
 
 interface OkResponse {
   ok: true;
@@ -99,6 +105,7 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "자료를 찾을 수 없어요" }, { status: 404 });
   }
 
+  bustMaterialCache();
   return NextResponse.json({ ok: true, material: { id: data.id, title: data.title } });
 }
 
@@ -161,5 +168,6 @@ export async function DELETE(
     await deleteMaterialFile(row.storage_path);
   }
 
+  bustMaterialCache();
   return NextResponse.json({ ok: true });
 }

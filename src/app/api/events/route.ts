@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { tryGetOwnerId } from "@/lib/auth";
@@ -101,5 +102,7 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     );
   }
 
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/calendar");
   return NextResponse.json({ ok: true, event: { id: data.id, title: data.title } });
 }

@@ -1,8 +1,16 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
+
+// mutation 후 서버 컴포넌트 캐시 무효화 — 새로고침 없이 다음 요청에 최신 데이터.
+function bustCalendarCache() {
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/calendar");
+  revalidatePath("/dashboard/study", "layout");
+}
 
 type EventUpdate = Database["public"]["Tables"]["events"]["Update"];
 
@@ -242,6 +250,7 @@ export async function PATCH(
       }
     }
 
+    bustCalendarCache();
     return NextResponse.json({ ok: true, affected: matchedIds.length });
   }
 
@@ -258,6 +267,7 @@ export async function PATCH(
       { status: 500 },
     );
   }
+  bustCalendarCache();
   return NextResponse.json({ ok: true, affected: count ?? 0 });
 }
 
@@ -337,6 +347,7 @@ export async function DELETE(
         { status: 500 },
       );
     }
+    bustCalendarCache();
     return NextResponse.json({ ok: true, affected: count ?? ids.length });
   }
 
@@ -354,5 +365,6 @@ export async function DELETE(
   if (!count) {
     return NextResponse.json({ ok: false, error: "일정을 찾을 수 없어요" }, { status: 404 });
   }
+  bustCalendarCache();
   return NextResponse.json({ ok: true, affected: count });
 }

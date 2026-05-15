@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { tryGetOwnerId } from "@/lib/auth";
@@ -7,6 +8,12 @@ import type { Database } from "@/lib/supabase/types";
 type CourseUpdate = Database["public"]["Tables"]["courses"]["Update"];
 
 export const runtime = "nodejs";
+
+function bustCourseCache() {
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/study", "layout");
+  revalidatePath("/dashboard/calendar");
+}
 
 interface OkResponse {
   ok: true;
@@ -119,6 +126,7 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "강의를 찾을 수 없어요" }, { status: 404 });
   }
 
+  bustCourseCache();
   return NextResponse.json({ ok: true, course: { id: data.id, name: data.name } });
 }
 
@@ -156,5 +164,6 @@ export async function DELETE(
     return NextResponse.json({ ok: false, error: "강의를 찾을 수 없어요" }, { status: 404 });
   }
 
+  bustCourseCache();
   return NextResponse.json({ ok: true });
 }

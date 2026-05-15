@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/context-menu";
 import { Modal } from "@/components/modal";
@@ -85,6 +85,13 @@ export function CalendarBoard({
   const [selected, setSelected] = useState<EventView | null>(null);
   const [creating, setCreating] = useState(false);
 
+  // 서버 props를 내부 state로 미러링 — optimistic 제거/수정 즉시 반영하기 위함.
+  // 서버에서 새 props 도착 시(router.refresh 등) sync.
+  const [monthState, setMonthState] = useState(monthEvents);
+  const [upcomingState, setUpcomingState] = useState(upcoming);
+  useEffect(() => setMonthState(monthEvents), [monthEvents]);
+  useEffect(() => setUpcomingState(upcoming), [upcoming]);
+
   // 우클릭/long-press 컨텍스트 메뉴 — 칩이든 inspector든 어디서든 열 수 있게
   // board 레벨에 한 개의 state로 모음. 메뉴 항목은 ctxEvent로 동적 생성.
   const ctx = useContextMenu();
@@ -95,14 +102,51 @@ export function CalendarBoard({
     setCtxEvent(e);
   }
 
+  /** 클라 state에서 즉시 제거 — 서버 응답 도착 전 화면 갱신용. */
+  function removeFromState(predicate: (e: EventView) => boolean) {
+    setMonthState((prev) => prev.filter((e) => !predicate(e)));
+    setUpcomingState((prev) => prev.filter((e) => !predicate(e)));
+  }
+
+  /** 클라 state에서 부분 수정 즉시 반영. */
+  function patchInState(id: string, patch: Partial<EventView>) {
+    setMonthState((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+    setUpcomingState((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }
+
   async function quickDelete(ev: EventView, scope: "this" | "all") {
+    // 옵티미스틱: 같은 강의·요일·시·분의 모든 회차를 미리 제거 (UTC 아닌 KST 기준)
+    const targetIds = new Set<string>([ev.id]);
+    if (scope === "all" && ev.kind === "class" && ev.courseId) {
+      const evDate = new Date(ev.startsAt);
+      const evKst = new Date(evDate.getTime() + 9 * 60 * 60 * 1000);
+      for (const other of monthState) {
+        if (other.id === ev.id) continue;
+        if (other.kind !== "class" || other.courseId !== ev.courseId) continue;
+        const otherKst = new Date(new Date(other.startsAt).getTime() + 9 * 60 * 60 * 1000);
+        if (
+          otherKst.getUTCDay() === evKst.getUTCDay() &&
+          otherKst.getUTCHours() === evKst.getUTCHours() &&
+          otherKst.getUTCMinutes() === evKst.getUTCMinutes()
+        ) {
+          targetIds.add(other.id);
+        }
+      }
+    }
+    const snapshotMonth = monthState;
+    const snapshotUpcoming = upcomingState;
+    removeFromState((e) => targetIds.has(e.id));
+    if (selected && targetIds.has(selected.id)) setSelected(null);
+
     const res = await fetch(`/api/events/${ev.id}?scope=${scope}`, { method: "DELETE" });
-    const json = await res.json();
-    if (!res.ok || !json.ok) {
-      alert(json.error ?? "삭제 실패");
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.ok) {
+      // 롤백
+      setMonthState(snapshotMonth);
+      setUpcomingState(snapshotUpcoming);
+      alert(json?.error ?? "삭제 실패");
       return;
     }
-    if (selected?.id === ev.id) setSelected(null);
     router.refresh();
   }
 
@@ -131,15 +175,15 @@ export function CalendarBoard({
   const counts = useMemo(() => {
     let cls = 0;
     let ev = 0;
-    for (const e of monthEvents) {
+    for (const e of monthState) {
       if (isClass(e)) cls++;
       else ev++;
     }
-    return { all: monthEvents.length, timetable: cls, events: ev };
-  }, [monthEvents]);
+    return { all: monthState.length, timetable: cls, events: ev };
+  }, [monthState]);
 
-  const filteredMonth = useMemo(() => filterByMode(monthEvents, mode), [monthEvents, mode]);
-  const filteredUpcoming = useMemo(() => filterByMode(upcoming, mode), [upcoming, mode]);
+  const filteredMonth = useMemo(() => filterByMode(monthState, mode), [monthState, mode]);
+  const filteredUpcoming = useMemo(() => filterByMode(upcomingState, mode), [upcomingState, mode]);
 
   // 날짜 → 이벤트 그룹 (mode 적용된 것)
   const byDate = useMemo(() => {
@@ -248,6 +292,12 @@ export function CalendarBoard({
             event={selected}
             kindLabel={kindLabel}
             onClose={() => setSelected(null)}
+            onDelete={(scope) => quickDelete(selected, scope)}
+            onPatched={(patch) => {
+              patchInState(selected.id, patch);
+              setSelected({ ...selected, ...patch });
+              router.refresh();
+            }}
           />
         ) : (
           <section className="elev-1 rounded-[14px] bg-white p-5">
@@ -638,12 +688,15 @@ function EventDetailPanel({
   event,
   kindLabel,
   onClose,
+  onDelete,
+  onPatched,
 }: {
   event: EventView;
   kindLabel: Record<EventView["kind"], string>;
   onClose: () => void;
+  onDelete: (scope: "this" | "all") => Promise<void> | void;
+  onPatched: (patch: Partial<EventView>) => void;
 }) {
-  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteScope, setDeleteScope] = useState<"this" | "all">("this");
@@ -656,9 +709,9 @@ function EventDetailPanel({
         event={event}
         isRecurringClass={isRecurringClass}
         onCancel={() => setEditing(false)}
-        onSaved={() => {
+        onSaved={(patch) => {
           setEditing(false);
-          router.refresh();
+          onPatched(patch);
         }}
       />
     );
@@ -688,15 +741,8 @@ function EventDetailPanel({
 
   async function runDelete() {
     const scope = isRecurringClass ? deleteScope : "this";
-    const res = await fetch(`/api/events/${event.id}?scope=${scope}`, { method: "DELETE" });
-    const json = await res.json();
-    if (!res.ok || !json.ok) {
-      alert(json.error ?? "삭제 실패");
-      return;
-    }
     setConfirmDelete(false);
-    onClose();
-    router.refresh();
+    await onDelete(scope);
   }
 
   return (
@@ -900,7 +946,7 @@ function EventEditForm({
   event: EventView;
   isRecurringClass: boolean;
   onCancel: () => void;
-  onSaved: () => void;
+  onSaved: (patch: Partial<EventView>) => void;
 }) {
   const [title, setTitle] = useState(event.title);
   const [startsAt, setStartsAt] = useState(isoToKstLocalInput(event.startsAt));
@@ -952,7 +998,13 @@ function EventEditForm({
         setError(json.error ?? "수정 실패");
         return;
       }
-      onSaved();
+      // 옵티미스틱 patch — 부모가 즉시 UI 반영
+      const patch: Partial<EventView> = {};
+      if (typeof body.title === "string") patch.title = body.title;
+      if (body.notes !== undefined) patch.notes = body.notes as string | null;
+      if (typeof body.starts_at === "string") patch.startsAt = body.starts_at;
+      if (body.ends_at !== undefined) patch.endsAt = body.ends_at as string | null;
+      onSaved(patch);
     } catch (e) {
       setError(e instanceof Error ? e.message : "수정 실패");
     } finally {

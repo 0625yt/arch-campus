@@ -46,12 +46,23 @@ export function Modal({
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    // focus
+    // focus — autoFocus 있는 요소가 있으면 그대로 두고, 없을 때만 첫 입력칸에 포커스.
+    // (이전: 헤더 닫기 버튼이 DOM상 input보다 먼저라 50ms 후 닫기로 튐 → 사용자 입력 끊김)
     setTimeout(() => {
-      const focusable = panelRef.current?.querySelector<HTMLElement>(
-        'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      const root = panelRef.current;
+      if (!root) return;
+      // 이미 패널 안에 포커스가 있으면 (autoFocus든 사용자 클릭이든) 건드리지 않음
+      if (root.contains(document.activeElement)) return;
+      // 입력 우선 → 없으면 첫 인터랙티브 (단, 헤더 닫기 버튼은 제외)
+      const firstInput = root.querySelector<HTMLElement>("input, textarea, select");
+      if (firstInput) {
+        firstInput.focus();
+        return;
+      }
+      const firstButton = root.querySelector<HTMLElement>(
+        'button:not([disabled]):not([aria-label="닫기"])',
       );
-      focusable?.focus();
+      firstButton?.focus();
     }, 50);
 
     return () => {
