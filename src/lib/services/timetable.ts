@@ -358,32 +358,45 @@ export async function confirmTimetable(input: {
 /**
  * 학기 시작~종료 사이에 같은 요일이 들어오는 모든 날짜를 찾아
  * 매 주 반복되는 class 이벤트로 펼친다.
+ *
+ * 모든 시각은 KST(Asia/Seoul, +09:00) 기준. 서버는 Vercel(UTC)에서 돌기 때문에
+ * Date.getDay/setHours 같은 로컬 메서드는 UTC를 가정 → 한국 월요일이 일요일로 잡힘.
+ * 따라서 ISO 문자열 직접 조립 (`YYYY-MM-DDTHH:MM:00+09:00`).
  */
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
 function expandWeekly(
   slot: TimetableSlotT,
   termStart: Date,
   termEnd: Date,
 ): Array<{ startsAt: Date; endsAt: Date }> {
-  const targetDay = WEEKDAY_TO_INDEX[slot.weekday];
+  const targetDay = WEEKDAY_TO_INDEX[slot.weekday]; // 0=SUN ... 6=SAT
   const [startH, startM] = slot.startTime.split(":").map(Number);
   const [endH, endM] = slot.endTime.split(":").map(Number);
 
-  // 학기 시작 이후 첫 번째 targetDay 찾기
-  const firstClass = new Date(termStart);
-  while (firstClass.getDay() !== targetDay) {
-    firstClass.setDate(firstClass.getDate() + 1);
-    if (firstClass > termEnd) return [];
+  // termStart는 "YYYY-MM-DDT00:00:00+09:00"로 만들어진 Date.
+  // 우리는 "한국 시간 기준 어떤 요일/시간"을 다루고 싶으니
+  // KST shift된 가상 UTC 시간으로 계산.
+  const termStartKstMs = termStart.getTime() + KST_OFFSET_MS;
+  const termEndKstMs = termEnd.getTime() + KST_OFFSET_MS;
+
+  // KST 기준 학기 시작일을 자정으로 정렬
+  const firstKst = new Date(termStartKstMs);
+  firstKst.setUTCHours(0, 0, 0, 0);
+  while (firstKst.getUTCDay() !== targetDay) {
+    firstKst.setUTCDate(firstKst.getUTCDate() + 1);
+    if (firstKst.getTime() > termEndKstMs) return [];
   }
 
   const list: Array<{ startsAt: Date; endsAt: Date }> = [];
-  const cursor = new Date(firstClass);
-  while (cursor <= termEnd) {
-    const startsAt = new Date(cursor);
-    startsAt.setHours(startH, startM, 0, 0);
-    const endsAt = new Date(cursor);
-    endsAt.setHours(endH, endM, 0, 0);
-    list.push({ startsAt, endsAt });
-    cursor.setDate(cursor.getDate() + 7);
+  const cursor = new Date(firstKst);
+  while (cursor.getTime() <= termEndKstMs) {
+    // cursor는 KST 자정의 가상 UTC. 시·분 박은 뒤 -9h해서 실제 UTC ms.
+    const startKstMs = cursor.getTime();
+    const startsAtUtc = new Date(startKstMs + (startH * 60 + startM) * 60 * 1000 - KST_OFFSET_MS);
+    const endsAtUtc = new Date(startKstMs + (endH * 60 + endM) * 60 * 1000 - KST_OFFSET_MS);
+    list.push({ startsAt: startsAtUtc, endsAt: endsAtUtc });
+    cursor.setUTCDate(cursor.getUTCDate() + 7);
   }
   return list;
 }

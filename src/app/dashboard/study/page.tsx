@@ -5,6 +5,7 @@ import { listCoursesGrouped, type CourseListItem } from "@/lib/data/materials";
 import { getRecentActivities, type Activity } from "@/lib/data/activity";
 import { AddPersonalButton } from "./add-personal-button";
 import { CourseActionsMenu } from "./course-actions-menu";
+import { CourseContextWrapper } from "./course-context-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -252,6 +253,13 @@ function CourseCard({ course }: { course: CourseListItem }) {
     : "var(--color-tint-prez)";
 
   return (
+    <CourseContextWrapper
+      courseId={course.id}
+      initialName={course.name}
+      initialProfessor={course.professor}
+      initialColor={course.color}
+      isPersonal={isPersonal}
+    >
     <div className="relative">
       <div className="absolute right-3 top-3 z-20">
         <CourseActionsMenu
@@ -312,6 +320,7 @@ function CourseCard({ course }: { course: CourseListItem }) {
       </div>
       </Link>
     </div>
+    </CourseContextWrapper>
   );
 }
 

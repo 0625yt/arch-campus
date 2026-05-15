@@ -6,6 +6,40 @@ import type { Database } from "@/lib/supabase/types";
 
 type EventUpdate = Database["public"]["Tables"]["events"]["Update"];
 
+/**
+ * KST(Asia/Seoul, UTC+9) 기준 요일/시/분 추출.
+ *
+ * 서버는 Vercel(UTC)에서 돌고, 사용자 데이터는 한국 시간 의도로 박혔다.
+ * Date.getDay/getHours는 서버 로컬 = UTC 기준이라 한국 월요일 10:00이
+ * UTC 일요일 01:00으로 보임 → scope=all 매칭이 다 빗나감.
+ *
+ * 해결: ISO 문자열을 UTC 그대로 받고 +9h shift한 뒤 UTC 메서드로 추출.
+ * (toLocaleString으로 timezone 변환은 Vercel에서 timezone DB가 보장 안 됨)
+ */
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+function kstParts(iso: string): { dow: number; hour: number; minute: number } {
+  const t = new Date(iso).getTime();
+  const kst = new Date(t + KST_OFFSET_MS);
+  return {
+    dow: kst.getUTCDay(),
+    hour: kst.getUTCHours(),
+    minute: kst.getUTCMinutes(),
+  };
+}
+
+/**
+ * 어떤 ISO datetime의 시·분 부분만 newH:newM(KST 기준)으로 바꾼 새 ISO 반환.
+ * 날짜·요일은 유지 — scope=all로 시간 변경 시 각 회차의 날짜는 그대로 둬야 한 날에 안 포개짐.
+ */
+function shiftHourMinuteKst(iso: string, newH: number, newM: number): string {
+  const t = new Date(iso).getTime();
+  const kst = new Date(t + KST_OFFSET_MS);
+  // KST 기준 같은 날짜에 시/분만 교체
+  kst.setUTCHours(newH, newM, 0, 0);
+  return new Date(kst.getTime() - KST_OFFSET_MS).toISOString();
+}
+
 export const runtime = "nodejs";
 
 interface OkResponse {
@@ -127,14 +161,12 @@ export async function PATCH(
       );
     }
 
-    const origStart = new Date(original.starts_at);
-    const origDow = origStart.getDay();
-    const origH = origStart.getHours();
-    const origM = origStart.getMinutes();
+    // KST 기준 요일·시·분이 모두 같은 회차만 매칭 (수업 시간표 패턴)
+    const origK = kstParts(original.starts_at);
     const matchedIds = (candidates ?? [])
       .filter((row) => {
-        const d = new Date(row.starts_at);
-        return d.getDay() === origDow && d.getHours() === origH && d.getMinutes() === origM;
+        const k = kstParts(row.starts_at);
+        return k.dow === origK.dow && k.hour === origK.hour && k.minute === origK.minute;
       })
       .map((row) => row.id);
 
@@ -149,23 +181,24 @@ export async function PATCH(
     const updatedRows: Array<{ id: string; starts_at?: string; ends_at?: string | null }> = [];
 
     if (newStart || newEnd !== null) {
-      // 행마다 starts_at·ends_at만 시·분으로 옮긴다
+      // 행마다 starts_at·ends_at의 시·분 부분만 새 값으로 교체.
+      // 클라가 보낸 newStart/newEnd는 사용자가 입력한 KST 시·분이 ISO로 직렬화된 것.
+      // 각 회차의 날짜는 그대로 유지 (전체 회차가 한 날에 포개지지 않게).
       const matchedRows = (candidates ?? []).filter((r) => matchedIds.includes(r.id));
+      const newStartK = newStart ? kstParts(newStart.toISOString()) : null;
+      const newEndK = newEnd ? kstParts(newEnd.toISOString()) : null;
       for (const row of matchedRows) {
-        const cur = new Date(row.starts_at);
         const next: { id: string; starts_at?: string; ends_at?: string | null } = { id: row.id };
-        if (newStart) {
-          const adj = new Date(cur);
-          adj.setHours(newStart.getHours(), newStart.getMinutes(), 0, 0);
-          next.starts_at = adj.toISOString();
+        if (newStartK) {
+          next.starts_at = shiftHourMinuteKst(row.starts_at, newStartK.hour, newStartK.minute);
         }
         if (newEnd !== undefined) {
           if (newEnd === null) {
             next.ends_at = null;
-          } else {
-            const adj = new Date(cur);
-            adj.setHours(newEnd.getHours(), newEnd.getMinutes(), 0, 0);
-            next.ends_at = adj.toISOString();
+          } else if (newEndK) {
+            // 종료 시간 기준 — starts_at의 ISO 그대로에서 시·분만 변경
+            // (대부분 시작과 같은 날이라 안전. 새벽 자정 넘기는 수업은 드문 케이스)
+            next.ends_at = shiftHourMinuteKst(row.starts_at, newEndK.hour, newEndK.minute);
           }
         }
         updatedRows.push(next);
@@ -283,14 +316,11 @@ export async function DELETE(
         { status: 500 },
       );
     }
-    const origStart = new Date(original.starts_at);
-    const origDow = origStart.getDay();
-    const origH = origStart.getHours();
-    const origM = origStart.getMinutes();
+    const origK = kstParts(original.starts_at);
     const ids = (candidates ?? [])
       .filter((row) => {
-        const d = new Date(row.starts_at);
-        return d.getDay() === origDow && d.getHours() === origH && d.getMinutes() === origM;
+        const k = kstParts(row.starts_at);
+        return k.dow === origK.dow && k.hour === origK.hour && k.minute === origK.minute;
       })
       .map((row) => row.id);
 

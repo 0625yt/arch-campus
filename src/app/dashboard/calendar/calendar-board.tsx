@@ -2,11 +2,40 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/context-menu";
 import { Modal } from "@/components/modal";
 import type { EventView } from "@/lib/data/events";
 import { formatEventLabel, formatEventCompact } from "@/lib/format-event";
+
+/**
+ * datetime-local input 값("2026-05-15T14:30")을 항상 KST(UTC+9)로 해석해서 ISO 반환.
+ *
+ * 이유: `new Date("2026-05-15T14:30")` 동작이 환경마다 다를 수 있고(historically UTC, modern은 로컬),
+ * 또 사용자가 UTC 클라이언트(VPN·외국 거주)로 접속해도 시간표 입력은 한국 시간 기준이어야 자연스럽다.
+ * 명시적으로 KST 해석하면 환경 독립적이고 서버 비교 로직(KST 기준)과도 일관.
+ */
+function localInputToKstIso(local: string): string {
+  // local = "2026-05-15T14:30" 또는 "2026-05-15T14:30:00"
+  const [datePart, timePart] = local.split("T");
+  if (!datePart || !timePart) return new Date(local).toISOString(); // fallback
+  const [y, mo, d] = datePart.split("-").map(Number);
+  const [h, mi] = timePart.split(":").map(Number);
+  // KST 시각 = UTC+9 → UTC ms = Date.UTC(...) - 9h
+  const utcMs = Date.UTC(y, mo - 1, d, h, mi, 0) - 9 * 60 * 60 * 1000;
+  return new Date(utcMs).toISOString();
+}
+
+/**
+ * ISO datetime을 datetime-local input 값으로 (KST 시각으로 표시).
+ */
+function isoToKstLocalInput(iso: string): string {
+  const ms = new Date(iso).getTime() + 9 * 60 * 60 * 1000;
+  const kst = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${kst.getUTCFullYear()}-${pad(kst.getUTCMonth() + 1)}-${pad(kst.getUTCDate())}T${pad(kst.getUTCHours())}:${pad(kst.getUTCMinutes())}`;
+}
 
 export interface CourseOption {
   id: string;
@@ -55,6 +84,45 @@ export function CalendarBoard({
   const [mode, setMode] = useState<ViewMode>("all");
   const [selected, setSelected] = useState<EventView | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // 우클릭/long-press 컨텍스트 메뉴 — 칩이든 inspector든 어디서든 열 수 있게
+  // board 레벨에 한 개의 state로 모음. 메뉴 항목은 ctxEvent로 동적 생성.
+  const ctx = useContextMenu();
+  const [ctxEvent, setCtxEvent] = useState<EventView | null>(null);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+
+  function openMenuFor(e: EventView) {
+    setCtxEvent(e);
+  }
+
+  async function quickDelete(ev: EventView, scope: "this" | "all") {
+    const res = await fetch(`/api/events/${ev.id}?scope=${scope}`, { method: "DELETE" });
+    const json = await res.json();
+    if (!res.ok || !json.ok) {
+      alert(json.error ?? "삭제 실패");
+      return;
+    }
+    if (selected?.id === ev.id) setSelected(null);
+    router.refresh();
+  }
+
+  const ctxItems: ContextMenuItem[] = ctxEvent
+    ? (() => {
+        const recurring = ctxEvent.kind === "class" && !!ctxEvent.courseId;
+        const items: ContextMenuItem[] = [
+          { label: "수정", onClick: () => setSelected(ctxEvent) },
+          { label: "삭제", destructive: true, onClick: () => quickDelete(ctxEvent, "this") },
+        ];
+        if (recurring) {
+          items.push({
+            label: "학기 전체 회차 삭제",
+            destructive: true,
+            onClick: () => setConfirmDeleteAll(true),
+          });
+        }
+        return items;
+      })()
+    : [];
 
   const cells = useMemo(() => buildMonthCells(view.year, view.month), [view]);
   const monthLabel = `${view.year}년 ${view.month + 1}월`;
@@ -159,6 +227,15 @@ export function CalendarBoard({
                 events={dayEvents}
                 kindLabel={kindLabel}
                 onSelectEvent={setSelected}
+                onContextEvent={(e, pos) => {
+                  openMenuFor(e);
+                  ctx.bind.onContextMenu({
+                    preventDefault: () => {},
+                    stopPropagation: () => {},
+                    clientX: pos.x,
+                    clientY: pos.y,
+                  } as unknown as React.MouseEvent);
+                }}
               />
             );
           })}
@@ -191,7 +268,19 @@ export function CalendarBoard({
               <ul className="mt-3 flex flex-col gap-1">
                 {filteredUpcoming.map((e) => (
                   <li key={e.id}>
-                    <UpcomingRow event={e} onSelect={() => setSelected(e)} />
+                    <UpcomingRow
+                      event={e}
+                      onSelect={() => setSelected(e)}
+                      onContextEvent={(ev, pos) => {
+                        openMenuFor(ev);
+                        ctx.bind.onContextMenu({
+                          preventDefault: () => {},
+                          stopPropagation: () => {},
+                          clientX: pos.x,
+                          clientY: pos.y,
+                        } as unknown as React.MouseEvent);
+                      }}
+                    />
                   </li>
                 ))}
               </ul>
@@ -214,6 +303,33 @@ export function CalendarBoard({
           setCreating(false);
           router.refresh();
         }}
+      />
+
+      <ContextMenu
+        state={ctx.state}
+        onClose={() => {
+          ctx.close();
+          setCtxEvent(null);
+        }}
+        items={ctxItems}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteAll}
+        title="학기 전체 회차 삭제"
+        description={
+          ctxEvent
+            ? `"${formatEventLabel(ctxEvent)}"\n\n같은 요일·시간의 모든 회차가 삭제돼요. 되돌릴 수 없어요.`
+            : ""
+        }
+        confirmLabel="학기 전체 삭제"
+        destructive
+        onConfirm={async () => {
+          if (!ctxEvent) return;
+          await quickDelete(ctxEvent, "all");
+          setConfirmDeleteAll(false);
+        }}
+        onClose={() => setConfirmDeleteAll(false)}
       />
     </div>
   );
@@ -297,11 +413,14 @@ function DayCell({
   events,
   kindLabel,
   onSelectEvent,
+  onContextEvent,
 }: {
   cell: MonthCell;
   events: EventView[];
   kindLabel: Record<EventView["kind"], string>;
   onSelectEvent?: (e: EventView) => void;
+  /** 우클릭/long-press 시 부모에서 컨텍스트 메뉴 열도록. 좌표는 이벤트에서. */
+  onContextEvent?: (e: EventView, pos: { x: number; y: number }) => void;
 }) {
   void kindLabel;
   return (
@@ -327,13 +446,14 @@ function DayCell({
       <ul className="flex flex-wrap gap-0.5 sm:hidden">
         {events.slice(0, 4).map((e) => (
           <li key={e.id}>
-            <button
-              type="button"
+            <ChipButton
+              event={e}
               onClick={() => onSelectEvent?.(e)}
+              onContext={(pos) => onContextEvent?.(e, pos)}
               className="block h-1.5 w-1.5 rounded-full"
               style={{ backgroundColor: kindColor(e.kind, e.courseColor) }}
               title={formatEventLabel(e)}
-              aria-label={formatEventLabel(e)}
+              ariaLabel={formatEventLabel(e)}
             />
           </li>
         ))}
@@ -353,9 +473,10 @@ function DayCell({
           const tint = kindTint(e.kind);
           return (
             <li key={e.id}>
-              <button
-                type="button"
+              <ChipButton
+                event={e}
                 onClick={() => onSelectEvent?.(e)}
+                onContext={(pos) => onContextEvent?.(e, pos)}
                 className="block w-full truncate rounded-[4px] px-1.5 py-0.5 text-left text-[10.5px] wght-560 leading-[1.4] text-[var(--color-apple-ink)] transition-colors hover:brightness-95"
                 style={{
                   backgroundColor: tint.bg,
@@ -364,7 +485,7 @@ function DayCell({
                 title={fullLabel}
               >
                 {shortLabel}
-              </button>
+              </ChipButton>
             </li>
           );
         })}
@@ -378,7 +499,88 @@ function DayCell({
   );
 }
 
-function UpcomingRow({ event, onSelect }: { event: EventView; onSelect?: () => void }) {
+/**
+ * 캘린더 칩 공통 — onClick(좌클릭)·onContext(우클릭/long-press) 둘 다.
+ * 부모(board)가 받은 좌표로 ContextMenu 위치 잡음.
+ */
+function ChipButton({
+  event,
+  onClick,
+  onContext,
+  className,
+  style,
+  title,
+  ariaLabel,
+  children,
+}: {
+  event: EventView;
+  onClick: () => void;
+  onContext?: (pos: { x: number; y: number }) => void;
+  className: string;
+  style?: React.CSSProperties;
+  title?: string;
+  ariaLabel?: string;
+  children?: React.ReactNode;
+}) {
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  void event;
+
+  function handleContext(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    onContext?.({ x: e.clientX, y: e.clientY });
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    const t = e.touches[0];
+    if (!t) return;
+    const x = t.clientX;
+    const y = t.clientY;
+    longPressTimer.current = setTimeout(() => {
+      try {
+        navigator.vibrate?.(8);
+      } catch {
+        /* noop */
+      }
+      onContext?.({ x, y });
+      longPressTimer.current = null;
+    }, 500);
+  }
+  function handleTouchEnd() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onContextMenu={handleContext}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchEnd}
+      className={className}
+      style={style}
+      title={title}
+      aria-label={ariaLabel}
+    >
+      {children}
+    </button>
+  );
+}
+
+function UpcomingRow({
+  event,
+  onSelect,
+  onContextEvent,
+}: {
+  event: EventView;
+  onSelect?: () => void;
+  onContextEvent?: (e: EventView, pos: { x: number; y: number }) => void;
+}) {
   const date = new Date(event.startsAt);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -387,10 +589,18 @@ function UpcomingRow({ event, onSelect }: { event: EventView; onSelect?: () => v
   const tone = days <= 1 ? "urgent" : days <= 3 ? "warn" : "muted";
   const label = formatEventLabel(event);
 
+  function handleContext(e: React.MouseEvent) {
+    if (!onContextEvent) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onContextEvent(event, { x: e.clientX, y: e.clientY });
+  }
+
   return (
     <button
       type="button"
       onClick={onSelect}
+      onContextMenu={handleContext}
       className="flex w-full items-baseline gap-3 rounded-[8px] px-2 py-1.5 text-left transition-colors hover:bg-[var(--color-apple-pearl)]"
     >
       <span
@@ -692,17 +902,9 @@ function EventEditForm({
   onCancel: () => void;
   onSaved: () => void;
 }) {
-  const startDate = new Date(event.startsAt);
-  const endDate = event.endsAt ? new Date(event.endsAt) : null;
-
-  function toLocalInput(d: Date): string {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-
   const [title, setTitle] = useState(event.title);
-  const [startsAt, setStartsAt] = useState(toLocalInput(startDate));
-  const [endsAt, setEndsAt] = useState(endDate ? toLocalInput(endDate) : "");
+  const [startsAt, setStartsAt] = useState(isoToKstLocalInput(event.startsAt));
+  const [endsAt, setEndsAt] = useState(event.endsAt ? isoToKstLocalInput(event.endsAt) : "");
   const [notes, setNotes] = useState(event.notes ?? "");
   const [scope, setScope] = useState<"this" | "all">("this");
   const [busy, setBusy] = useState(false);
@@ -720,16 +922,17 @@ function EventEditForm({
       if (notes.trim() !== (event.notes ?? "")) {
         body.notes = notes.trim() || null;
       }
-      const newStart = new Date(startsAt);
-      if (newStart.getTime() !== startDate.getTime()) {
-        body.starts_at = newStart.toISOString();
+      // KST로 명시 해석 — 환경 독립 + 서버 매칭과 일관
+      const newStartIso = localInputToKstIso(startsAt);
+      if (newStartIso !== event.startsAt) {
+        body.starts_at = newStartIso;
       }
       if (endsAt) {
-        const newEnd = new Date(endsAt);
-        if (!endDate || newEnd.getTime() !== endDate.getTime()) {
-          body.ends_at = newEnd.toISOString();
+        const newEndIso = localInputToKstIso(endsAt);
+        if (newEndIso !== event.endsAt) {
+          body.ends_at = newEndIso;
         }
-      } else if (endDate) {
+      } else if (event.endsAt) {
         body.ends_at = null;
       }
 
@@ -1003,10 +1206,11 @@ function EventCreateForm({
   onCreated: () => void;
 }) {
   const defaultStart = useMemo(() => {
-    const d = new Date();
-    d.setHours(21, 0, 0, 0);
+    // 오늘 KST 21:00 — 학생이 가장 자주 쓰는 마감 시간대
+    const todayKstMs = Date.now() + 9 * 60 * 60 * 1000;
+    const todayKst = new Date(todayKstMs);
     const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return `${todayKst.getUTCFullYear()}-${pad(todayKst.getUTCMonth() + 1)}-${pad(todayKst.getUTCDate())}T21:00`;
   }, []);
 
   const [kind, setKind] = useState<"exam" | "assignment" | "presentation" | "etc">("exam");
@@ -1042,11 +1246,11 @@ function EventCreateForm({
       const body: Record<string, unknown> = {
         kind,
         title: trimmed,
-        starts_at: new Date(startsAt).toISOString(),
+        starts_at: localInputToKstIso(startsAt),
         notes: notes.trim() || null,
       };
       if (courseId) body.course_id = courseId;
-      if (endsAt) body.ends_at = new Date(endsAt).toISOString();
+      if (endsAt) body.ends_at = localInputToKstIso(endsAt);
 
       const res = await fetch("/api/events", {
         method: "POST",
