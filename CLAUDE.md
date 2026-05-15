@@ -115,7 +115,34 @@ ESLint·테스트 러너 없음. UI 검증은 [docs/ARCHITECTURE.md §10](docs/A
 
 ---
 
-## 8. 작업 시작 전 체크리스트
+## 8. 에이전트 자동 라우팅
+
+작업을 받으면 아래 표를 보고 **자동으로** 해당 에이전트(`Agent` 툴 + `subagent_type`) 호출. 사용자가 명시 안 해도 메인 컨텍스트가 알아서 위임. 호출 전 한 줄로 "이 작업은 X 에이전트에 맡길게요" 알리고 진행.
+
+| 작업 신호 | 에이전트 | 이유 |
+|---|---|---|
+| 작은 버그 수정·1~2 파일 변경·"이 줄만 고쳐줘" | `minimal-change-engineer` | 폭주 리팩터 방지. 우리 §6·7과 결 일치 |
+| Supabase 쿼리 느림·인덱스·N+1·timetable/events 조회 튜닝 | `database-optimizer` | Postgres·Supabase 전문. 학생 늘면 필수 |
+| UI 톤 다듬기·CSS 시스템·디자인 토큰·DESIGN.md 보완 | `design-ux-architect` | 디자인 일관성. DESIGN.md §1~13과 같이 작동 |
+| "다음에 뭐 할까"·우선순위·MVP 범위 결정·PRODUCT.md 보완 | `product-sprint-prioritizer` | 적자 통제 + Phase 1/2/3 판단 |
+| 큰 변경(>200줄·새 라우트·새 위저드) 끝난 후 PR 직전 | `code-reviewer` | 우리 가드 두툼하게 박힌 기존 에이전트 |
+| 코드베이스 광범위 탐색·"X가 어디 있어"·여러 파일 검색 | `Explore` (built-in) | 메인 컨텍스트 보호 |
+| 큰 작업의 구현 전략·아키텍처 결정 | `Plan` (built-in) | 200줄+ 또는 새 시스템 |
+
+**중복·충돌 방지:**
+- 한 작업에 두 에이전트 동시 호출 X. 자연스러운 순서: `Plan` → 구현 → `code-reviewer`
+- 사용자가 "그냥 너가 해" 하면 위 라우팅 무시하고 메인 컨텍스트가 직접 처리
+- 발췌 에이전트(agency-agents 출신)는 [.claude/agents/_GUARDS.md](.claude/agents/_GUARDS.md) 머리에 박힘 — 모델 라우팅·치팅 라인·MVP 범위 다 알고 있음
+
+**superpowers skill (자동 발동):**
+- `brainstorming` — 새 기능 요청 시 spec 먼저 (우리 §0과 일치)
+- `verification-before-completion` — 끝 선언 전 검증 (§7 강화)
+- `systematic-debugging` — "왜 안 돼" 류 시 가설→증명 절차
+- 이 셋은 자동 발동되며 우리 가드와 결이 같아 끄지 않음. 거슬리면 사용자가 "건너뛰고 바로" 한마디로 무시
+
+---
+
+## 9. 작업 시작 전 체크리스트
 
 새 task마다 통과:
 
