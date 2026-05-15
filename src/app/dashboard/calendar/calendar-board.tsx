@@ -84,6 +84,10 @@ export function CalendarBoard({
   const [mode, setMode] = useState<ViewMode>("all");
   const [selected, setSelected] = useState<EventView | null>(null);
   const [creating, setCreating] = useState(false);
+  // 날짜 셀 클릭 시 그 날의 일정을 우측에 모아 봄. 일정 클릭이 우선이면 selected가 덮어씀.
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // 새 일정 추가 시 prefill할 날짜 (YYYY-MM-DD). null이면 기본 오늘.
+  const [createPrefillDate, setCreatePrefillDate] = useState<string | null>(null);
 
   // 서버 props를 내부 state로 미러링 — optimistic 제거/수정 즉시 반영하기 위함.
   // 서버에서 새 props 도착 시(router.refresh 등) sync.
@@ -150,6 +154,9 @@ export function CalendarBoard({
     router.refresh();
   }
 
+  // 우클릭 대상이 일정인지(ctxEvent), 빈 셀인지(ctxDateIso)에 따라 메뉴 항목 달라짐
+  const [ctxDateIso, setCtxDateIso] = useState<string | null>(null);
+
   const ctxItems: ContextMenuItem[] = ctxEvent
     ? (() => {
         const recurring = ctxEvent.kind === "class" && !!ctxEvent.courseId;
@@ -166,7 +173,24 @@ export function CalendarBoard({
         }
         return items;
       })()
-    : [];
+    : ctxDateIso
+      ? [
+          {
+            label: "이 날에 일정 추가",
+            onClick: () => {
+              setCreatePrefillDate(ctxDateIso);
+              setCreating(true);
+            },
+          },
+          {
+            label: "이 날 일정 보기",
+            onClick: () => {
+              setSelectedDate(ctxDateIso);
+              setSelected(null);
+            },
+          },
+        ]
+      : [];
 
   const cells = useMemo(() => buildMonthCells(view.year, view.month), [view]);
   const monthLabel = `${view.year}년 ${view.month + 1}월`;
@@ -264,14 +288,34 @@ export function CalendarBoard({
         <div className="mt-1 grid grid-cols-7 gap-px overflow-hidden rounded-[10px] bg-[var(--color-apple-hairline)]">
           {cells.map((cell) => {
             const dayEvents = byDate.get(cell.iso) ?? [];
+            const isSelectedDay = selectedDate === cell.iso;
             return (
               <DayCell
                 key={cell.iso}
                 cell={cell}
                 events={dayEvents}
                 kindLabel={kindLabel}
-                onSelectEvent={setSelected}
+                isSelected={isSelectedDay}
+                onSelectDay={() => {
+                  setSelectedDate(cell.iso);
+                  setSelected(null);
+                }}
+                onSelectEvent={(e) => {
+                  setSelected(e);
+                  setSelectedDate(null);
+                }}
+                onContextDay={(pos) => {
+                  setCtxEvent(null);
+                  setCtxDateIso(cell.iso);
+                  ctx.bind.onContextMenu({
+                    preventDefault: () => {},
+                    stopPropagation: () => {},
+                    clientX: pos.x,
+                    clientY: pos.y,
+                  } as unknown as React.MouseEvent);
+                }}
                 onContextEvent={(e, pos) => {
+                  setCtxDateIso(null);
                   openMenuFor(e);
                   ctx.bind.onContextMenu({
                     preventDefault: () => {},
@@ -297,6 +341,18 @@ export function CalendarBoard({
               patchInState(selected.id, patch);
               setSelected({ ...selected, ...patch });
               router.refresh();
+            }}
+          />
+        ) : selectedDate ? (
+          <DayDetailPanel
+            dateIso={selectedDate}
+            events={byDate.get(selectedDate) ?? []}
+            kindLabel={kindLabel}
+            onClose={() => setSelectedDate(null)}
+            onSelectEvent={(e) => setSelected(e)}
+            onAddOnDay={() => {
+              setCreatePrefillDate(selectedDate);
+              setCreating(true);
             }}
           />
         ) : (
@@ -348,9 +404,14 @@ export function CalendarBoard({
       <EventCreateForm
         open={creating}
         courses={courses}
-        onClose={() => setCreating(false)}
+        prefillDateIso={createPrefillDate}
+        onClose={() => {
+          setCreating(false);
+          setCreatePrefillDate(null);
+        }}
         onCreated={() => {
           setCreating(false);
+          setCreatePrefillDate(null);
           router.refresh();
         }}
       />
@@ -462,22 +523,49 @@ function DayCell({
   cell,
   events,
   kindLabel,
+  isSelected,
+  onSelectDay,
   onSelectEvent,
+  onContextDay,
   onContextEvent,
 }: {
   cell: MonthCell;
   events: EventView[];
   kindLabel: Record<EventView["kind"], string>;
+  isSelected?: boolean;
+  /** 셀 빈 영역 클릭 — 그 날 일정 모음 패널 열기 */
+  onSelectDay?: () => void;
   onSelectEvent?: (e: EventView) => void;
-  /** 우클릭/long-press 시 부모에서 컨텍스트 메뉴 열도록. 좌표는 이벤트에서. */
+  /** 셀 빈 영역 우클릭 — "이 날에 일정 추가" 메뉴 */
+  onContextDay?: (pos: { x: number; y: number }) => void;
+  /** 일정 칩 우클릭 — 이벤트별 메뉴 */
   onContextEvent?: (e: EventView, pos: { x: number; y: number }) => void;
 }) {
   void kindLabel;
+
+  function handleDayClick(e: React.MouseEvent) {
+    // 칩 클릭은 이벤트 자체에서 stopPropagation으로 막아둠. 빈 영역만 도달.
+    if (e.target !== e.currentTarget && !(e.target as HTMLElement).closest("[data-day-bg]")) {
+      return;
+    }
+    onSelectDay?.();
+  }
+
+  function handleDayContext(e: React.MouseEvent) {
+    // 칩에서 발생한 우클릭은 ChipButton이 stopPropagation으로 막음. 빈 영역만 통과.
+    e.preventDefault();
+    e.stopPropagation();
+    onContextDay?.({ x: e.clientX, y: e.clientY });
+  }
+
   return (
     <div
-      className={`flex min-h-[88px] flex-col gap-1 p-1.5 transition-colors sm:min-h-[110px] sm:p-2 ${
+      data-day-bg
+      onClick={handleDayClick}
+      onContextMenu={handleDayContext}
+      className={`flex min-h-[88px] cursor-pointer flex-col gap-1 p-1.5 transition-colors sm:min-h-[110px] sm:p-2 ${
         cell.inMonth ? "" : "opacity-40"
-      }`}
+      } ${isSelected ? "ring-1 ring-inset ring-[var(--color-apple-action)]" : ""}`}
       style={{
         // 오늘 셀은 종이 위에 살짝 따뜻한 톤. 다른 날은 흰색.
         backgroundColor: cell.isToday ? "var(--color-surface-cream)" : "#ffffff",
@@ -909,6 +997,134 @@ function EventDetailPanel({
   );
 }
 
+/**
+ * 특정 날짜의 모든 일정을 한 번에 보는 패널.
+ * - 날짜 셀 좌클릭 시 열림
+ * - 일정 클릭 → EventDetailPanel로 전환 (부모 onSelectEvent)
+ * - "이 날에 일정 추가" CTA → EventCreateForm prefill
+ */
+function DayDetailPanel({
+  dateIso,
+  events,
+  kindLabel,
+  onClose,
+  onSelectEvent,
+  onAddOnDay,
+}: {
+  dateIso: string;
+  events: EventView[];
+  kindLabel: Record<EventView["kind"], string>;
+  onClose: () => void;
+  onSelectEvent: (e: EventView) => void;
+  onAddOnDay: () => void;
+}) {
+  // dateIso는 "YYYY-MM-DD". 헤더에 한국어 라벨 표시 — KST 기준 그대로 파싱.
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const localDate = new Date(y, m - 1, d);
+  const weekday = ["일", "월", "화", "수", "목", "금", "토"][localDate.getDay()];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((localDate.getTime() - today.getTime()) / 86400000);
+  const dDayLabel = days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
+
+  // 시간순 정렬
+  const sorted = [...events].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+
+  return (
+    <section className="elev-2 sticky top-6 overflow-hidden rounded-[14px] bg-white">
+      <div className="flex items-start justify-between gap-3 border-b border-[var(--color-apple-hairline)] px-5 py-4">
+        <div>
+          <p
+            className="text-[10.5px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "0.06em" }}
+          >
+            {dDayLabel}
+          </p>
+          <h3
+            className="mt-1 text-[18px] leading-[1.2] wght-620 text-[var(--color-apple-ink)] tabular-nums"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {y}년 {m}월 {d}일 {weekday}요일
+          </h3>
+          <p className="mt-0.5 text-[12px] wght-450 text-[var(--color-apple-muted)]">
+            {sorted.length === 0 ? "일정 없음" : `${sorted.length}개 일정`}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="닫기"
+          className="-mr-1 -mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[14px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-2 px-5 py-4">
+        {sorted.length === 0 ? (
+          <p className="py-4 text-center text-[12.5px] wght-450 text-[var(--color-apple-muted)]">
+            이 날엔 등록된 일정이 없어요.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {sorted.map((e) => {
+              const t = new Date(e.startsAt);
+              const tlabel = e.allDay
+                ? "종일"
+                : `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+              const tint = kindTint(e.kind);
+              const dot = kindColor(e.kind, e.courseColor);
+              return (
+                <li key={e.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectEvent(e)}
+                    className="flex w-full items-baseline gap-3 rounded-[8px] px-2 py-1.5 text-left transition-colors hover:bg-[var(--color-apple-pearl)]"
+                  >
+                    <span
+                      className="shrink-0 tabular-nums text-[11px] wght-560 text-[var(--color-apple-muted)]"
+                    >
+                      {tlabel}
+                    </span>
+                    <span
+                      aria-hidden
+                      className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: dot }}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className="block truncate text-[13px] wght-560 text-[var(--color-apple-ink)]"
+                        style={{ letterSpacing: "-0.012em" }}
+                      >
+                        {formatEventLabel(e)}
+                      </span>
+                      <span
+                        className="text-[10.5px] wght-450 uppercase tracking-[0.04em]"
+                        style={{ color: tint.fg }}
+                      >
+                        {kindLabel[e.kind]}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <button
+          type="button"
+          onClick={onAddOnDay}
+          className="mt-2 inline-flex items-center justify-center gap-1.5 rounded-[8px] border border-dashed border-[var(--color-apple-hairline)] px-3 py-2 text-[12.5px] wght-560 text-[var(--color-apple-action)] transition-colors hover:border-[var(--color-apple-action)] hover:bg-[var(--color-apple-pearl)]"
+        >
+          <span aria-hidden>+</span>
+          이 날에 일정 추가
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function ScopeBtn({
   label,
   active,
@@ -1249,21 +1465,27 @@ function kindTint(kind: EventView["kind"]): KindTint {
 function EventCreateForm({
   open,
   courses,
+  prefillDateIso,
   onClose,
   onCreated,
 }: {
   open: boolean;
   courses: CourseOption[];
+  /** "YYYY-MM-DD" — 캘린더에서 특정 날짜 선택 후 추가 흐름. null이면 오늘. */
+  prefillDateIso?: string | null;
   onClose: () => void;
   onCreated: () => void;
 }) {
   const defaultStart = useMemo(() => {
-    // 오늘 KST 21:00 — 학생이 가장 자주 쓰는 마감 시간대
+    // prefill 있으면 그 날짜의 KST 21:00, 없으면 오늘 KST 21:00
+    if (prefillDateIso && /^\d{4}-\d{2}-\d{2}$/.test(prefillDateIso)) {
+      return `${prefillDateIso}T21:00`;
+    }
     const todayKstMs = Date.now() + 9 * 60 * 60 * 1000;
     const todayKst = new Date(todayKstMs);
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${todayKst.getUTCFullYear()}-${pad(todayKst.getUTCMonth() + 1)}-${pad(todayKst.getUTCDate())}T21:00`;
-  }, []);
+  }, [prefillDateIso]);
 
   const [kind, setKind] = useState<"exam" | "assignment" | "presentation" | "etc">("exam");
   const [title, setTitle] = useState("");
@@ -1273,6 +1495,11 @@ function EventCreateForm({
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // prefillDateIso 또는 defaultStart 바뀌면(=다른 날짜로 다시 열림) startsAt 동기화
+  useEffect(() => {
+    setStartsAt(defaultStart);
+  }, [defaultStart]);
 
   function reset() {
     setKind("exam");
