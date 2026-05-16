@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { type DragEvent, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
-type Phase = "idle" | "uploading" | "error";
+type Phase = "idle" | "requesting" | "uploading" | "finalizing" | "error";
 
 export function UploadZone({
   courseId,
@@ -23,32 +23,72 @@ export function UploadZone({
 
   async function startUpload(file: File) {
     setFileName(file.name);
-    setPhase("uploading");
+    setPhase("requesting");
     setErrorMsg(null);
 
-    const form = new FormData();
-    form.set("file", file);
-    form.set("courseId", courseId);
-
     try {
-      const res = await fetch("/api/materials", { method: "POST", body: form });
-      const body = (await res.json().catch(() => null)) as
-        | { ok: true; materialId: string }
+      // 1) signed URL 발급
+      const urlRes = await fetch("/api/materials/upload-url", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ filename: file.name }),
+      });
+      const urlBody = (await urlRes.json().catch(() => null)) as
+        | { ok: true; signedUrl: string; storagePath: string; materialId: string; token: string }
         | { ok: false; error: string }
         | null;
-
-      if (!res.ok || !body || body.ok === false) {
+      if (!urlRes.ok || !urlBody || urlBody.ok === false) {
         const msg =
-          (body && body.ok === false && body.error) ||
-          `업로드 실패 (HTTP ${res.status})`;
+          (urlBody && urlBody.ok === false && urlBody.error) ||
+          `URL 발급 실패 (HTTP ${urlRes.status})`;
         setErrorMsg(msg);
         setPhase("error");
         return;
       }
 
-      // 업로드 + materials row 저장 + 잡 큐잉까지 완료된 응답.
-      // AI 생성은 after() 백그라운드에서 계속됨 → 상세 페이지에서 폴링.
-      const target = `/dashboard/study/${encodeURIComponent(courseName)}/${body.materialId}`;
+      // 2) Storage에 직접 PUT — Vercel 함수 본문 한도(4.5MB) 우회
+      setPhase("uploading");
+      const putRes = await fetch(urlBody.signedUrl, {
+        method: "PUT",
+        headers: {
+          "content-type": file.type || "application/octet-stream",
+          "x-upsert": "false",
+        },
+        body: file,
+      });
+      if (!putRes.ok) {
+        setErrorMsg(`파일 업로드 실패 (HTTP ${putRes.status})`);
+        setPhase("error");
+        return;
+      }
+
+      // 3) finalize — 파싱·INSERT·잡 큐잉
+      setPhase("finalizing");
+      const finRes = await fetch("/api/materials/finalize", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          storagePath: urlBody.storagePath,
+          filename: file.name,
+          mimeType: file.type || undefined,
+          materialId: urlBody.materialId,
+          courseId,
+        }),
+      });
+      const finBody = (await finRes.json().catch(() => null)) as
+        | { ok: true; materialId: string }
+        | { ok: false; error: string }
+        | null;
+      if (!finRes.ok || !finBody || finBody.ok === false) {
+        const msg =
+          (finBody && finBody.ok === false && finBody.error) ||
+          `finalize 실패 (HTTP ${finRes.status})`;
+        setErrorMsg(msg);
+        setPhase("error");
+        return;
+      }
+
+      const target = `/dashboard/study/${encodeURIComponent(courseName)}/${finBody.materialId}`;
       router.push(target);
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "네트워크 오류");
@@ -56,9 +96,11 @@ export function UploadZone({
     }
   }
 
+  const busy = phase === "requesting" || phase === "uploading" || phase === "finalizing";
+
   function onDragOver(e: DragEvent<HTMLLabelElement>) {
     e.preventDefault();
-    if (phase === "uploading") return;
+    if (busy) return;
     setOver(true);
   }
   function onDragLeave() {
@@ -67,12 +109,18 @@ export function UploadZone({
   function onDrop(e: DragEvent<HTMLLabelElement>) {
     e.preventDefault();
     setOver(false);
-    if (phase === "uploading") return;
+    if (busy) return;
     const f = e.dataTransfer.files?.[0];
     if (f) void startUpload(f);
   }
 
-  const uploading = phase === "uploading";
+  const phaseLabel: Record<Phase, string> = {
+    idle: "",
+    requesting: "업로드 준비 중…",
+    uploading: "파일 올리는 중… 잠시만요",
+    finalizing: "분석 큐에 넣는 중…",
+    error: "",
+  };
 
   return (
     <label
@@ -80,10 +128,10 @@ export function UploadZone({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      aria-busy={uploading}
+      aria-busy={busy}
       className={cn(
         "flex min-h-[200px] cursor-pointer flex-col items-center justify-center rounded-[12px] border border-dashed px-8 py-10 text-center transition-colors",
-        uploading && "cursor-wait opacity-90",
+        busy && "cursor-wait opacity-90",
         over
           ? "border-[var(--color-apple-action)] bg-[#f0f7ff]"
           : "border-[var(--color-apple-hairline)] bg-white hover:bg-[var(--color-apple-pearl)]",
@@ -94,7 +142,7 @@ export function UploadZone({
         id="upload"
         type="file"
         accept=".pdf,.hwpx,.pptx,.docx,.txt,.md"
-        disabled={uploading}
+        disabled={busy}
         className="sr-only"
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -102,7 +150,7 @@ export function UploadZone({
         }}
       />
 
-      {phase === "uploading" ? (
+      {busy ? (
         <>
           <span
             aria-hidden
@@ -118,7 +166,7 @@ export function UploadZone({
             className="mt-1.5 text-[13px] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            파일 올리는 중… 잠시만요
+            {phaseLabel[phase]}
           </p>
         </>
       ) : phase === "error" ? (

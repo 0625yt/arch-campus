@@ -236,7 +236,7 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
   });
 }
 
-async function runSummarizeJob(opts: {
+export async function runSummarizeJob(opts: {
   jobId: string;
   ownerId: string;
   materialId: string;
@@ -278,7 +278,7 @@ async function runSummarizeJob(opts: {
   }
 }
 
-async function runQuizJob(opts: {
+export async function runQuizJob(opts: {
   jobId: string;
   ownerId: string;
   materialId: string;
@@ -333,6 +333,6 @@ function emptyToUndef(v: FormDataEntryValue | null): string | undefined {
   return t.length === 0 ? undefined : t;
 }
 
-function stripExt(name: string): string {
+export function stripExt(name: string): string {
   return name.replace(/\.[^.]+$/, "");
 }
