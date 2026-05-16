@@ -52,7 +52,7 @@ export default async function CourseDetailPage({
             끌어다 놓거나 클릭해서 선택하면 60초 안에 요약과 첫 문제가 만들어져요.
           </p>
           <div className="mt-6">
-            <UploadZone />
+            <UploadZone courseId={course.id} courseName={course.name} />
           </div>
         </section>
       </div>

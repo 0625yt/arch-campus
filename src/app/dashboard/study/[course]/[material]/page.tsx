@@ -6,6 +6,7 @@ import { getMaterialDetail, type MaterialDetail } from "@/lib/data/materials";
 import type { SummarizeOutputT } from "@/lib/schemas";
 import { GenerateButton } from "./generate-button";
 import { SummarizeNowButton } from "./summarize-now-button";
+import { SummaryLoading } from "./summary-loading";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -38,7 +39,11 @@ export default async function MaterialDetailPage({
         {detail.summary ? (
           <SummaryArticle summary={detail.summary} className="mt-14 fade-up fade-up-3 sm:mt-16" />
         ) : (
-          <EmptySummary materialId={detail.id} className="mt-14 fade-up fade-up-3 sm:mt-16" />
+          <SummaryLoading
+            materialId={detail.id}
+            className="mt-14 fade-up fade-up-3 sm:mt-16"
+            fallback={<EmptySummary materialId={detail.id} />}
+          />
         )}
 
         {detail.summaryKeywords && detail.summaryKeywords.length > 0 && (

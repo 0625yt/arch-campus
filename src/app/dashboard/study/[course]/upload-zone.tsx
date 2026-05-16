@@ -1,15 +1,64 @@
 "use client";
 
 import { CloudUpload } from "lucide-react";
-import { type DragEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import { type DragEvent, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
-export function UploadZone() {
+type Phase = "idle" | "uploading" | "error";
+
+export function UploadZone({
+  courseId,
+  courseName,
+}: {
+  courseId: string;
+  courseName: string;
+}) {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
-  const [name, setName] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  async function startUpload(file: File) {
+    setFileName(file.name);
+    setPhase("uploading");
+    setErrorMsg(null);
+
+    const form = new FormData();
+    form.set("file", file);
+    form.set("courseId", courseId);
+
+    try {
+      const res = await fetch("/api/materials", { method: "POST", body: form });
+      const body = (await res.json().catch(() => null)) as
+        | { ok: true; materialId: string }
+        | { ok: false; error: string }
+        | null;
+
+      if (!res.ok || !body || body.ok === false) {
+        const msg =
+          (body && body.ok === false && body.error) ||
+          `업로드 실패 (HTTP ${res.status})`;
+        setErrorMsg(msg);
+        setPhase("error");
+        return;
+      }
+
+      // 업로드 + materials row 저장 + 잡 큐잉까지 완료된 응답.
+      // AI 생성은 after() 백그라운드에서 계속됨 → 상세 페이지에서 폴링.
+      const target = `/dashboard/study/${encodeURIComponent(courseName)}/${body.materialId}`;
+      router.push(target);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "네트워크 오류");
+      setPhase("error");
+    }
+  }
 
   function onDragOver(e: DragEvent<HTMLLabelElement>) {
     e.preventDefault();
+    if (phase === "uploading") return;
     setOver(true);
   }
   function onDragLeave() {
@@ -18,9 +67,12 @@ export function UploadZone() {
   function onDrop(e: DragEvent<HTMLLabelElement>) {
     e.preventDefault();
     setOver(false);
+    if (phase === "uploading") return;
     const f = e.dataTransfer.files?.[0];
-    if (f) setName(f.name);
+    if (f) void startUpload(f);
   }
+
+  const uploading = phase === "uploading";
 
   return (
     <label
@@ -28,37 +80,69 @@ export function UploadZone() {
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      aria-busy={uploading}
       className={cn(
         "flex min-h-[200px] cursor-pointer flex-col items-center justify-center rounded-[12px] border border-dashed px-8 py-10 text-center transition-colors",
+        uploading && "cursor-wait opacity-90",
         over
           ? "border-[var(--color-apple-action)] bg-[#f0f7ff]"
           : "border-[var(--color-apple-hairline)] bg-white hover:bg-[var(--color-apple-pearl)]",
       )}
     >
       <input
+        ref={inputRef}
         id="upload"
         type="file"
         accept=".pdf,.hwpx,.pptx,.docx,.txt,.md"
+        disabled={uploading}
         className="sr-only"
-        onChange={(e) => setName(e.target.files?.[0]?.name ?? null)}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void startUpload(f);
+        }}
       />
 
-      {name ? (
+      {phase === "uploading" ? (
         <>
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-apple-pearl)] text-[var(--color-apple-success)]">
-            ✓
-          </span>
+          <span
+            aria-hidden
+            className="h-9 w-9 animate-spin rounded-full border-2 border-[var(--color-apple-hairline)] border-t-[var(--color-apple-action)]"
+          />
           <p
             className="mt-4 text-[15px] wght-560 text-[var(--color-apple-ink)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            {name}
+            {fileName}
           </p>
           <p
             className="mt-1.5 text-[13px] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            요약과 첫 문제를 만들고 있어요…
+            파일 올리는 중… 잠시만요
+          </p>
+        </>
+      ) : phase === "error" ? (
+        <>
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#fde8eb] text-[var(--color-apple-danger,#c44)]">
+            !
+          </span>
+          <p
+            className="mt-4 text-[15px] wght-560 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {fileName ?? "업로드 실패"}
+          </p>
+          <p
+            className="mt-1.5 max-w-[420px] text-[13px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.022em" }}
+          >
+            {errorMsg ?? "다시 시도해 주세요"}
+          </p>
+          <p
+            className="mt-3 text-[11px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            클릭하면 다시 선택할 수 있어요
           </p>
         </>
       ) : (
