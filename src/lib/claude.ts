@@ -35,6 +35,38 @@ export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   "post-mortem": MODELS.haiku,
 };
 
+/**
+ * 런타임 모델 override.
+ *
+ * 환경변수로 특정 tool의 모델을 일시 교체한다. 적자 통제 실험·롤백용
+ * (CLAUDE.md §1, 진단 리포트 P0 quiz 모델 재평가).
+ *
+ *  - `QUIZ_MODEL=haiku` → quiz만 Haiku로
+ *  - `QUIZ_MODEL=sonnet` (또는 unset) → 기본값(Sonnet)
+ *
+ * 다른 tool은 영향 X. prod에서 한 줄 env로 즉시 롤백 가능.
+ * 미지정·미인식 값이면 TOOL_MODEL 기본값 그대로.
+ */
+function resolveModel(tool: ToolKind): LanguageModel {
+  if (tool === "quiz") {
+    const override = process.env.QUIZ_MODEL?.toLowerCase();
+    if (override === "haiku") return MODELS.haiku;
+    if (override === "sonnet") return MODELS.sonnet;
+  }
+  return TOOL_MODEL[tool];
+}
+
+/**
+ * 실패 로그·UI 표시용으로 어떤 model이 선택될지 미리 확인.
+ * AI 호출 자체가 throw하면 result.modelId를 못 받으므로 호출 전에 박아둔다.
+ */
+export function getModelIdFor(tool: ToolKind): string {
+  const model = resolveModel(tool);
+  return typeof model === "object" && "modelId" in model
+    ? (model.modelId as string)
+    : String(model);
+}
+
 const ANTHROPIC_CACHE_1H = {
   anthropic: { cacheControl: { type: "ephemeral", ttl: "1h" } as const },
 };
@@ -92,7 +124,7 @@ export async function generate({
   maxTokens = 4096,
   temperature = 0.4,
 }: GenerateInput): Promise<GenerateResult> {
-  const model = TOOL_MODEL[tool];
+  const model = resolveModel(tool);
   const wrappedUserInput = `<user_input>\n${userInput}\n</user_input>`;
 
   const messages: ModelMessage[] = [
@@ -150,7 +182,7 @@ export async function generateWithFile({
   maxTokens = 4096,
   temperature = 0.1,
 }: GenerateVisionInput): Promise<GenerateResult> {
-  const model = TOOL_MODEL[tool];
+  const model = resolveModel(tool);
 
   // AI SDK는 PDF·이미지를 모두 같은 file 블록으로 받는다.
   // - mediaType="application/pdf" → Anthropic provider가 document(pdfs-2024-09-25)로 변환

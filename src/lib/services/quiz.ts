@@ -1,5 +1,5 @@
 import "server-only";
-import { generate, estimateCost } from "@/lib/claude";
+import { generate, estimateCost, getModelIdFor } from "@/lib/claude";
 import { classifyMaterial, classificationToContext, type Classification } from "@/lib/classify-material";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, QuizOutput, type QuizOutputT } from "@/lib/schemas";
@@ -108,7 +108,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     await logGeneration({
       ownerId: input.ownerId,
       materialId: input.materialId,
-      modelId: "claude-sonnet-4-6",
+      modelId: getModelIdFor("quiz"),
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });
