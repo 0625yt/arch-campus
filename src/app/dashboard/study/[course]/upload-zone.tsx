@@ -1,11 +1,11 @@
 "use client";
 
 import { CloudUpload } from "lucide-react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { type DragEvent, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
-type Phase = "idle" | "requesting" | "uploading" | "finalizing" | "error";
+type Phase = "idle" | "requesting" | "uploading" | "finalizing" | "done" | "error";
 
 export function UploadZone({
   courseId,
@@ -14,11 +14,11 @@ export function UploadZone({
   courseId: string;
   courseName: string;
 }) {
-  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [fileName, setFileName] = useState<string | null>(null);
+  const [doneMaterialId, setDoneMaterialId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function startUpload(file: File) {
@@ -88,8 +88,10 @@ export function UploadZone({
         return;
       }
 
-      const target = `/dashboard/study/${encodeURIComponent(courseName)}/${finBody.materialId}`;
-      router.push(target);
+      // 자동 이동 X — zone 풀어주고 done 카드만 표시.
+      // 사용자는 그대로 다른 자료 올리거나, 다른 페이지로 가거나, 결과 보러 갈 수 있다.
+      setDoneMaterialId(finBody.materialId);
+      setPhase("done");
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "네트워크 오류");
       setPhase("error");
@@ -119,8 +121,16 @@ export function UploadZone({
     requesting: "업로드 준비 중…",
     uploading: "파일 올리는 중… 잠시만요",
     finalizing: "분석 큐에 넣는 중…",
+    done: "",
     error: "",
   };
+
+  function resetForNextUpload() {
+    setPhase("idle");
+    setFileName(null);
+    setDoneMaterialId(null);
+    setErrorMsg(null);
+  }
 
   return (
     <label
@@ -168,6 +178,49 @@ export function UploadZone({
           >
             {phaseLabel[phase]}
           </p>
+        </>
+      ) : phase === "done" ? (
+        <>
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#e8f4ec] text-[var(--color-apple-action,#26a065)]">
+            ✓
+          </span>
+          <p
+            className="mt-4 text-[15px] wght-560 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {fileName}
+          </p>
+          <p
+            className="mt-1.5 max-w-[420px] text-[13px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.022em" }}
+          >
+            분석을 시작했어요. 끝나면 자료에서 요약·문제를 확인할 수 있어요.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            {doneMaterialId && (
+              <Link
+                href={`/dashboard/study/${encodeURIComponent(courseName)}/${doneMaterialId}`}
+                onClick={(e) => e.stopPropagation()}
+                className="rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-1.5 text-[12px] wght-560 text-[var(--color-apple-ink)] hover:border-[var(--color-apple-action)] hover:text-[var(--color-apple-action)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                자료 보기 →
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                resetForNextUpload();
+                inputRef.current?.click();
+              }}
+              className="rounded-[8px] bg-[var(--color-apple-ink)] px-3 py-1.5 text-[12px] wght-560 text-white hover:opacity-90"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              다른 자료 더 올리기
+            </button>
+          </div>
         </>
       ) : phase === "error" ? (
         <>
