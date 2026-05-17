@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
-import { runQuizJob, runSummarizeJob, stripExt } from "@/app/api/materials/route";
+import { runConvertPdfJob, runQuizJob, runSummarizeJob, stripExt } from "@/app/api/materials/route";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { enqueueJob } from "@/lib/data/jobs";
 import { parseDocument, ParserRejectedError } from "@/lib/parsers";
@@ -38,6 +38,7 @@ interface PipelineOk {
   jobs: {
     summarize: { id: string; status: "pending" | "running" | "done" | "error" | "cancelled" };
     quiz: { id: string; status: "pending" | "running" | "done" | "error" | "cancelled" };
+    convertPdf?: { id: string; status: "pending" | "running" | "done" | "error" | "cancelled" };
   };
 }
 
@@ -180,9 +181,24 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
     }),
   ]);
 
+  // PDF 아니면 변환 잡 추가 큐잉 — split-view 좌측 iframe용
+  const needsPdfConvert = mimeType !== "application/pdf";
+  const convertEnqueue = needsPdfConvert
+    ? await enqueueJob({
+        ownerId,
+        materialId: material.id,
+        tool: "convert-pdf",
+        inputParams: {
+          materialId: material.id,
+          sourceStoragePath: body.storagePath,
+          filename: body.filename,
+        },
+      })
+    : null;
+
   // 5) 백그라운드 실행 — runSummarizeJob/runQuizJob은 기존 materials/route.ts와 공유
   after(async () => {
-    await Promise.all([
+    const jobs: Array<Promise<unknown>> = [
       runSummarizeJob({
         jobId: summarizeEnqueue.job.id,
         ownerId,
@@ -208,7 +224,19 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
         difficulty: (body.difficulty ?? "보통") as Difficulty,
         requestedCount: body.count ?? 10,
       }),
-    ]);
+    ];
+    if (convertEnqueue) {
+      jobs.push(
+        runConvertPdfJob({
+          jobId: convertEnqueue.job.id,
+          ownerId,
+          materialId: material.id,
+          sourceStoragePath: body.storagePath,
+          filename: body.filename,
+        }),
+      );
+    }
+    await Promise.all(jobs);
   });
 
   return NextResponse.json({
@@ -219,6 +247,9 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
     jobs: {
       summarize: { id: summarizeEnqueue.job.id, status: summarizeEnqueue.job.status },
       quiz: { id: quizEnqueue.job.id, status: quizEnqueue.job.status },
+      ...(convertEnqueue && {
+        convertPdf: { id: convertEnqueue.job.id, status: convertEnqueue.job.status },
+      }),
     },
   });
 }
