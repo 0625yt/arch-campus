@@ -394,10 +394,119 @@ export async function runConvertPdfJob(opts: {
       usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
       costUsd: 0, // 무료 한도 안 — 초과 시 별도 계측
     });
+
+    // 변환된 PDF로 자료 본문 재추출 + summary/quiz 재실행:
+    // HWP·Office 원본 파싱은 본문이 비어 placeholder만 들어가는 케이스가 잦음 (특히 HWP).
+    // 변환 후 PDF는 LibreOffice 출력이라 pdfjs로 안정 추출 — 여기서 다시 돌려야
+    // 사용자가 "변환은 됐는데 quiz가 망가짐" 상태를 보지 않는다.
+    await reparseAndRerunAi({
+      ownerId: opts.ownerId,
+      materialId: opts.materialId,
+      pdfPath,
+      pdfBytes,
+      filename: opts.filename,
+    });
   } catch (e) {
     await markJobError({
       jobId: opts.jobId,
       errorMessage: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
+/**
+ * 변환 끝난 PDF를 다시 파싱해 materials.full_text/page_count를 갱신하고,
+ * summarize·quiz 잡을 다시 큐잉한다.
+ *
+ * 실패해도 throw하지 않음 — 변환 잡 자체는 이미 done으로 마킹된 뒤라
+ * 이 후처리가 깨져도 사용자 입장에서 "변환 OK + 옛 요약/문제 그대로"를 본다.
+ * 새 잡이 만들어지면 enqueueJob의 active-dedupe 덕에 race-safe.
+ */
+async function reparseAndRerunAi(opts: {
+  ownerId: string;
+  materialId: string;
+  pdfPath: string;
+  pdfBytes: Uint8Array;
+  filename: string;
+}): Promise<void> {
+  try {
+    const parsed = await parseDocument({
+      bytes: opts.pdfBytes,
+      filename: opts.filename.replace(/\.[^.]+$/, ".pdf"),
+      mimeType: "application/pdf",
+    });
+
+    const admin = getAdminSupabase();
+    const { data: existing } = await admin
+      .from("materials")
+      .select("title, type, course_id")
+      .eq("id", opts.materialId)
+      .eq("owner_id", opts.ownerId)
+      .maybeSingle();
+    if (!existing) return;
+
+    await admin
+      .from("materials")
+      .update({
+        page_count: parsed.pageCount ?? null,
+        full_text: parsed.sanitizedText.slice(0, 200_000),
+      })
+      .eq("id", opts.materialId)
+      .eq("owner_id", opts.ownerId);
+
+    const title = existing.title;
+    const type = existing.type;
+    const courseId = existing.course_id;
+
+    const [reSummarize, reQuiz] = await Promise.all([
+      enqueueJob({
+        ownerId: opts.ownerId,
+        materialId: opts.materialId,
+        tool: "summarize",
+        inputParams: { materialId: opts.materialId, title, type, retryAfterConvert: true },
+      }),
+      enqueueJob({
+        ownerId: opts.ownerId,
+        materialId: opts.materialId,
+        tool: "quiz",
+        inputParams: { materialId: opts.materialId, retryAfterConvert: true },
+      }),
+    ]);
+
+    after(async () => {
+      await Promise.all([
+        runSummarizeJob({
+          jobId: reSummarize.job.id,
+          ownerId: opts.ownerId,
+          materialId: opts.materialId,
+          title,
+          type,
+          fullText: parsed.text,
+          sanitizedText: parsed.sanitizedText,
+          pageCount: parsed.pageCount ?? null,
+          parserWarnings: parsed.warnings,
+        }),
+        runQuizJob({
+          jobId: reQuiz.job.id,
+          ownerId: opts.ownerId,
+          materialId: opts.materialId,
+          courseId: courseId ?? null,
+          title,
+          type,
+          fullText: parsed.text,
+          sanitizedText: parsed.sanitizedText,
+          pageCount: parsed.pageCount ?? null,
+          parserWarnings: parsed.warnings,
+          difficulty: "보통",
+          requestedCount: 10,
+        }),
+      ]);
+    });
+  } catch (e) {
+    // 후처리 실패는 사용자에게 보이지 않게 로그만 — 변환은 이미 done
+    console.error("[convert-pdf] reparse/rerun failed", {
+      materialId: opts.materialId,
+      error: e instanceof Error ? e.message : String(e),
     });
   }
 }
