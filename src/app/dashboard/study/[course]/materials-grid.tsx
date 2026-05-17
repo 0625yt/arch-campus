@@ -47,6 +47,8 @@ export function MaterialsGrid({
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // 사용자가 막 삭제한 id들 — server refetch가 props로 도착하기 전까지 숨김
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -70,24 +72,57 @@ export function MaterialsGrid({
 
   async function handleBulkDelete() {
     const ids = Array.from(selected);
+    // optimistic: 사용자 시야에선 즉시 사라짐
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.add(id);
+      return next;
+    });
+    setConfirmDelete(false);
+    exitSelectMode();
+
     const results = await Promise.allSettled(
       ids.map((id) =>
         fetch(`/api/materials/${id}`, { method: "DELETE" }).then(async (res) => {
           const j = await res.json();
           if (!res.ok || !j.ok) throw new Error(j.error ?? "삭제 실패");
+          return id;
         }),
       ),
     );
-    const failed = results.filter((r) => r.status === "rejected").length;
-    if (failed > 0) {
-      alert(`${ids.length - failed}개 삭제됨, ${failed}개 실패`);
+    // 실패한 것 다시 보이게 복구
+    const failedIds = results
+      .map((r, i) => (r.status === "rejected" ? ids[i] : null))
+      .filter((x): x is string => x !== null);
+    if (failedIds.length > 0) {
+      setHiddenIds((prev) => {
+        const next = new Set(prev);
+        for (const id of failedIds) next.delete(id);
+        return next;
+      });
+      alert(`${ids.length - failedIds.length}개 삭제됨, ${failedIds.length}개 실패`);
     }
-    setConfirmDelete(false);
-    exitSelectMode();
     router.refresh();
   }
 
-  if (materials.length === 0) {
+  function hideMaterial(id: string) {
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }
+  function unhideMaterial(id: string) {
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  const visibleMaterials = materials.filter((m) => !hiddenIds.has(m.id));
+
+  if (visibleMaterials.length === 0) {
     return (
       <div className="elev-1 mt-6 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
         <p
@@ -157,7 +192,7 @@ export function MaterialsGrid({
       </div>
 
       <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-        {materials.map((m) => {
+        {visibleMaterials.map((m) => {
           const isSelected = selected.has(m.id);
           return (
             <li key={m.id} className="relative">
@@ -169,6 +204,8 @@ export function MaterialsGrid({
                     initialTitle={m.title}
                     currentCourseId={currentCourseId}
                     courses={moveTargets}
+                    onDeleteOptimistic={hideMaterial}
+                    onDeleteFailed={unhideMaterial}
                   />
                 </div>
               )}

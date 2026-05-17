@@ -21,11 +21,17 @@ export function MaterialActionsMenu({
   initialTitle,
   currentCourseId,
   courses,
+  onDeleteOptimistic,
+  onDeleteFailed,
 }: {
   materialId: string;
   initialTitle: string;
   currentCourseId?: string | null;
   courses?: CoursePick[];
+  /** 호출하면 grid에서 즉시 숨김 — 서버 응답 기다리지 않음 */
+  onDeleteOptimistic?: (id: string) => void;
+  /** 서버 삭제 실패 시 다시 보이게 복구 */
+  onDeleteFailed?: (id: string) => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -88,14 +94,22 @@ export function MaterialActionsMenu({
   }
 
   async function handleDelete() {
-    const res = await fetch(`/api/materials/${materialId}`, { method: "DELETE" });
-    const json = await res.json();
-    if (!res.ok || !json.ok) {
-      alert(json.error ?? "삭제 실패");
-      return;
-    }
+    // 모달 즉시 닫고 grid에서 숨김 — 서버 응답은 백그라운드
     setConfirmDelete(false);
-    router.refresh();
+    onDeleteOptimistic?.(materialId);
+    try {
+      const res = await fetch(`/api/materials/${materialId}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        onDeleteFailed?.(materialId);
+        alert(json.error ?? "삭제 실패");
+        return;
+      }
+      router.refresh();
+    } catch (e) {
+      onDeleteFailed?.(materialId);
+      alert(e instanceof Error ? e.message : "네트워크 오류");
+    }
   }
 
   async function handleMove(e: React.FormEvent) {

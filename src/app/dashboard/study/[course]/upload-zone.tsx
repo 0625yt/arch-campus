@@ -3,6 +3,7 @@
 import { CloudUpload } from "lucide-react";
 import Link from "next/link";
 import { type DragEvent, useRef, useState } from "react";
+import { addOptimisticJob, pingActiveJobs, removeOptimisticJob } from "@/lib/hooks/use-active-jobs";
 import { cn } from "@/lib/utils";
 
 type Phase = "idle" | "requesting" | "uploading" | "finalizing" | "done" | "error";
@@ -48,6 +49,19 @@ export function UploadZone({
 
       // 2) Storage에 직접 PUT — Vercel 함수 본문 한도(4.5MB) 우회
       setPhase("uploading");
+      // dock에 즉시 "올라가는 중" 표시 — 서버 잡 도착 전까지 임시로 박음
+      const optimisticId = `optimistic-${urlBody.materialId}`;
+      addOptimisticJob({
+        id: optimisticId,
+        tool: "upload",
+        toolLabel: "올리는 중",
+        status: "running",
+        materialId: urlBody.materialId,
+        materialTitle: file.name,
+        courseId,
+        createdAt: new Date().toISOString(),
+        startedAt: new Date().toISOString(),
+      });
       const putRes = await fetch(urlBody.signedUrl, {
         method: "PUT",
         headers: {
@@ -57,6 +71,7 @@ export function UploadZone({
         body: file,
       });
       if (!putRes.ok) {
+        removeOptimisticJob(optimisticId);
         setErrorMsg(`파일 업로드 실패 (HTTP ${putRes.status})`);
         setPhase("error");
         return;
@@ -80,6 +95,7 @@ export function UploadZone({
         | { ok: false; error: string }
         | null;
       if (!finRes.ok || !finBody || finBody.ok === false) {
+        removeOptimisticJob(optimisticId);
         const msg =
           (finBody && finBody.ok === false && finBody.error) ||
           `finalize 실패 (HTTP ${finRes.status})`;
@@ -88,8 +104,10 @@ export function UploadZone({
         return;
       }
 
+      // 서버에 잡이 이미 INSERT된 상태 — dock 즉시 갱신 trigger
+      pingActiveJobs();
+
       // 자동 이동 X — zone 풀어주고 done 카드만 표시.
-      // 사용자는 그대로 다른 자료 올리거나, 다른 페이지로 가거나, 결과 보러 갈 수 있다.
       setDoneMaterialId(finBody.materialId);
       setPhase("done");
     } catch (e) {
