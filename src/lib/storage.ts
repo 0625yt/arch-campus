@@ -58,6 +58,29 @@ export async function downloadMaterialFile(storagePath: string): Promise<Uint8Ar
   return new Uint8Array(await data.arrayBuffer());
 }
 
+/**
+ * 원본 파일을 클라이언트가 직접 열 수 있게 signed download URL을 발급한다.
+ *
+ * iframe·다운로드 링크용. service-role로 만들지만 URL이 storagePath까지 잠겨있어
+ * 다른 사용자 영역엔 접근 불가. (admin.ts §4-1 storage 격리.)
+ *
+ * TTL: 기본 1시간 — 사용자 세션 보호 + 유출 시 자연 만료의 균형.
+ */
+export async function createSignedReadUrl(opts: {
+  storagePath: string;
+  ttlSec?: number;
+}): Promise<string> {
+  const admin = getAdminSupabase();
+  const ttl = opts.ttlSec ?? 3600;
+  const { data, error } = await admin.storage
+    .from(BUCKET)
+    .createSignedUrl(opts.storagePath, ttl);
+  if (error || !data) {
+    throw new Error(`signed read URL 발급 실패: ${error?.message ?? "no data"}`);
+  }
+  return data.signedUrl;
+}
+
 export interface SignedUploadTarget {
   /** 클라이언트가 PUT할 signed URL */
   signedUrl: string;
