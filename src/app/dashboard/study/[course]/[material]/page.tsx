@@ -2,9 +2,13 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { WizardWatermark } from "@/components/wizard-shell";
 import { tryGetOwnerId } from "@/lib/auth";
+import { getLatestJob } from "@/lib/data/jobs";
 import { getMaterialDetail, type MaterialDetail } from "@/lib/data/materials";
 import type { SummarizeOutputT } from "@/lib/schemas";
+import { createSignedReadUrl } from "@/lib/storage";
 import { GenerateButton } from "./generate-button";
+import { MaterialView } from "./material-view";
+import { SplitWithConvertingLeft, SplitWithFailedLeft } from "./pdf-convert-states";
 import { SummarizeNowButton } from "./summarize-now-button";
 import { SummaryLoading } from "./summary-loading";
 
@@ -30,14 +34,64 @@ export default async function MaterialDetailPage({
   const courseLabel = detail.course?.name ?? courseSlug;
   const dotColor = detail.course?.color ?? "var(--color-apple-action)";
 
+  // mime + convert-pdf job 상태로 4-way 분기:
+  //   1) PDF + signed URL OK  → MaterialView (split iframe + summary)
+  //   2) Office + 변환 중      → SplitWithConvertingLeft (polling)
+  //   3) Office + 변환 실패    → SplitWithFailedLeft (다운로드 fallback)
+  //   4) 그 외 (변환 잡 없음 등) → 기존 SummaryArticle
+  const isPdf = detail.mimeType === "application/pdf";
+  let pdfUrl: string | null = null;
+  let convertingPdf = false;
+  let convertFailed = false;
+
+  if (isPdf && detail.storagePath) {
+    try {
+      pdfUrl = await createSignedReadUrl({ storagePath: detail.storagePath });
+    } catch {
+      pdfUrl = null;
+    }
+  } else if (!isPdf) {
+    const convertJob = await getLatestJob({
+      ownerId,
+      materialId: detail.id,
+      tool: "convert-pdf",
+    });
+    if (convertJob && (convertJob.status === "pending" || convertJob.status === "running")) {
+      convertingPdf = true;
+    } else if (convertJob && convertJob.status === "error") {
+      convertFailed = true;
+    }
+  }
+
   return (
     <div>
-      <div className="mx-auto w-full max-w-[920px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
+      <div className="mx-auto w-full max-w-[920px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:max-w-[1400px] md:px-12">
         <Breadcrumb courseLabel={courseLabel} dotColor={dotColor} />
         <Hero detail={detail} />
 
         {detail.summary ? (
-          <SummaryArticle summary={detail.summary} className="mt-14 fade-up fade-up-3 sm:mt-16" />
+          isPdf && pdfUrl ? (
+            <MaterialView
+              pdfUrl={pdfUrl}
+              summary={detail.summary}
+              className="mt-14 fade-up fade-up-3 sm:mt-16"
+            />
+          ) : convertingPdf ? (
+            <SplitWithConvertingLeft
+              materialId={detail.id}
+              summary={detail.summary}
+              className="mt-14 fade-up fade-up-3 sm:mt-16"
+            />
+          ) : convertFailed ? (
+            <SplitWithFailedLeft
+              materialId={detail.id}
+              summary={detail.summary}
+              filename={detail.title}
+              className="mt-14 fade-up fade-up-3 sm:mt-16"
+            />
+          ) : (
+            <SummaryArticle summary={detail.summary} className="mt-14 fade-up fade-up-3 sm:mt-16" />
+          )
         ) : (
           <SummaryLoading
             materialId={detail.id}
