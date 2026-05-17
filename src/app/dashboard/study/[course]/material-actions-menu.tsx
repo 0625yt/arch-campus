@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Modal } from "@/components/modal";
+import { pingSidebarCourses } from "@/components/sidebar";
 
 interface CoursePick {
   id: string;
@@ -105,6 +106,7 @@ export function MaterialActionsMenu({
         alert(json.error ?? "삭제 실패");
         return;
       }
+      pingSidebarCourses();
       router.refresh();
     } catch (e) {
       onDeleteFailed?.(materialId);
@@ -134,6 +136,7 @@ export function MaterialActionsMenu({
         return;
       }
       setMoving(false);
+      pingSidebarCourses();
       router.refresh();
     } finally {
       setBusy(false);

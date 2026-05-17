@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { pingSidebarCourses } from "@/components/sidebar";
+import { useActiveJobs } from "@/lib/hooks/use-active-jobs";
 import { MaterialActionsMenu } from "./material-actions-menu";
 
 const TYPE_LABEL = {
@@ -49,6 +51,24 @@ export function MaterialsGrid({
   const [confirmDelete, setConfirmDelete] = useState(false);
   // 사용자가 막 삭제한 id들 — server refetch가 props로 도착하기 전까지 숨김
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const { jobs: activeJobs } = useActiveJobs();
+  // grid에 아직 안 보이는 신규 자료의 materialId 모음 — 생성 중 카드로 미리 그림
+  const knownIds = new Set(materials.map((m) => m.id));
+  const pendingMaterials = new Map<string, { title: string; tools: Set<string> }>();
+  for (const j of activeJobs) {
+    if (!j.materialId || knownIds.has(j.materialId)) continue;
+    // courseId가 있다면 현재 강의만, 없으면 일단 보임 (optimistic은 courseId 박혀있음)
+    if (j.courseId && j.courseId !== currentCourseId) continue;
+    const prev = pendingMaterials.get(j.materialId);
+    if (prev) {
+      prev.tools.add(j.tool);
+    } else {
+      pendingMaterials.set(j.materialId, {
+        title: j.materialTitle ?? "새 자료",
+        tools: new Set([j.tool]),
+      });
+    }
+  }
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -102,6 +122,7 @@ export function MaterialsGrid({
       });
       alert(`${ids.length - failedIds.length}개 삭제됨, ${failedIds.length}개 실패`);
     }
+    pingSidebarCourses();
     router.refresh();
   }
 
@@ -244,6 +265,11 @@ export function MaterialsGrid({
             </li>
           );
         })}
+        {Array.from(pendingMaterials.entries()).map(([id, info]) => (
+          <li key={`pending-${id}`} className="relative">
+            <PendingCard title={info.title} dotColor={dotColor} />
+          </li>
+        ))}
       </ul>
 
       <ConfirmDialog
@@ -307,6 +333,40 @@ function CardInner({
         )}
       </div>
     </>
+  );
+}
+
+function PendingCard({ title, dotColor }: { title: string; dotColor: string }) {
+  return (
+    <div
+      aria-busy
+      className="flex h-full min-h-[150px] flex-col justify-between rounded-[12px] border border-dashed border-[var(--color-apple-hairline)] bg-white p-6"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className="text-[11px] wght-560 uppercase tracking-[0.06em]"
+          style={{ color: dotColor }}
+        >
+          생성 중
+        </span>
+        <span
+          aria-hidden
+          className="h-3.5 w-3.5 animate-spin rounded-full border-[1.5px] border-[var(--color-apple-hairline)] border-t-[var(--color-apple-action)]"
+        />
+      </div>
+      <h3
+        className="mt-3 truncate text-[16px] leading-[1.3] wght-560 text-[var(--color-apple-ink)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        {title}
+      </h3>
+      <p
+        className="mt-auto pt-5 text-[12px] wght-450 text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        요약·문제를 준비하고 있어요
+      </p>
+    </div>
   );
 }
 

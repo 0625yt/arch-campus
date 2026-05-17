@@ -34,19 +34,41 @@ export function pingActiveJobs(): void {
 }
 
 /**
- * 서버 응답 기다리지 않고 dock에 임시 row를 박는다. id가 같은 서버 row가 도착하면
- * 자연스럽게 덮어쓰임. 업로드 진행 표시 등에 사용.
+ * 서버 응답 기다리지 않고 dock에 임시 row를 박는다. 업로드 진행 표시 등에 사용.
+ *
+ * 자동 제거 정책:
+ *  - server jobs에 같은 materialId가 잡히면 더 자세한 row가 있으니 제거
+ *  - 위에 안 잡혀도 6초 후 자동 만료 (그 사이 잡들이 다 끝났을 수 있음)
+ *  - 명시적 removeOptimisticJob도 가능
  */
-export interface OptimisticJob extends ActiveJobRow {}
+export interface OptimisticJob extends ActiveJobRow {
+  /** dock에 박힌 시각 — 만료 판단용 */
+  pinnedAt?: number;
+}
 const optimisticListeners = new Set<(rows: OptimisticJob[]) => void>();
 let optimisticPool: OptimisticJob[] = [];
+const OPTIMISTIC_TTL_MS = 6000;
+
 export function addOptimisticJob(row: OptimisticJob): void {
-  optimisticPool = [row, ...optimisticPool.filter((r) => r.id !== row.id)];
+  const pinned: OptimisticJob = { ...row, pinnedAt: row.pinnedAt ?? Date.now() };
+  optimisticPool = [pinned, ...optimisticPool.filter((r) => r.id !== pinned.id)];
   for (const fn of optimisticListeners) fn(optimisticPool);
 }
 export function removeOptimisticJob(id: string): void {
   optimisticPool = optimisticPool.filter((r) => r.id !== id);
   for (const fn of optimisticListeners) fn(optimisticPool);
+}
+
+/** TTL 지난 row 청소 — useActiveJobs tick에서 호출 */
+function pruneExpiredOptimistic(): boolean {
+  const now = Date.now();
+  const next = optimisticPool.filter(
+    (r) => r.pinnedAt == null || now - r.pinnedAt < OPTIMISTIC_TTL_MS,
+  );
+  if (next.length === optimisticPool.length) return false;
+  optimisticPool = next;
+  for (const fn of optimisticListeners) fn(optimisticPool);
+  return true;
 }
 
 export function useActiveJobs() {
@@ -79,6 +101,8 @@ export function useActiveJobs() {
           setServerJobs(j.jobs);
           setError(null);
         }
+        // 만료된 optimistic 청소
+        pruneExpiredOptimistic();
         // 서버에 잡이 도착했으면 같은 materialId의 optimistic은 자동 제거
         if (j.ok) {
           for (const o of optimisticPool) {

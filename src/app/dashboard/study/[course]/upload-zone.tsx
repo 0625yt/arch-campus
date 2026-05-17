@@ -4,6 +4,7 @@ import { CloudUpload } from "lucide-react";
 import Link from "next/link";
 import { type DragEvent, useRef, useState } from "react";
 import { addOptimisticJob, pingActiveJobs, removeOptimisticJob } from "@/lib/hooks/use-active-jobs";
+import { pingSidebarCourses } from "@/components/sidebar";
 import { cn } from "@/lib/utils";
 
 type Phase = "idle" | "requesting" | "uploading" | "finalizing" | "done" | "error";
@@ -106,6 +107,8 @@ export function UploadZone({
 
       // 서버에 잡이 이미 INSERT된 상태 — dock 즉시 갱신 trigger
       pingActiveJobs();
+      // 사이드바 강의별 자료 수도 즉시 갱신
+      pingSidebarCourses();
 
       // 자동 이동 X — zone 풀어주고 done 카드만 표시.
       setDoneMaterialId(finBody.materialId);

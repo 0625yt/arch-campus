@@ -357,23 +357,46 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * 사이드바 강의·자료수 외부 갱신 trigger. 자료/강의 추가·삭제·이동 직후
+ * `pingSidebarCourses()` 호출 → 모든 사이드바 인스턴스가 즉시 refetch.
+ */
+const sidebarRefetchListeners = new Set<() => void>();
+export function pingSidebarCourses(): void {
+  for (const fn of sidebarRefetchListeners) fn();
+}
+
 function useSidebarCourses(): SidebarCourse[] {
   const [courses, setCourses] = useState<SidebarCourse[]>([]);
+  const pathname = usePathname();
+
   useEffect(() => {
     let aborted = false;
-    fetch("/api/courses")
-      .then((r) => r.json())
-      .then((j) => {
-        if (aborted) return;
-        if (j?.ok && Array.isArray(j.courses)) setCourses(j.courses);
-      })
-      .catch(() => {
-        // 사이드바는 강의 0개여도 메인 메뉴는 살아있어야 함 — 조용히 실패
-      });
+    function refetch() {
+      fetch("/api/courses")
+        .then((r) => r.json())
+        .then((j) => {
+          if (aborted) return;
+          if (j?.ok && Array.isArray(j.courses)) setCourses(j.courses);
+        })
+        .catch(() => {
+          // 사이드바는 강의 0개여도 메인 메뉴는 살아있어야 함 — 조용히 실패
+        });
+    }
+    refetch();
+    sidebarRefetchListeners.add(refetch);
     return () => {
       aborted = true;
+      sidebarRefetchListeners.delete(refetch);
     };
   }, []);
+
+  // 라우트 이동 시(예: 자료 삭제 후 강의 페이지로 router.refresh) 자료 수 동기화
+  useEffect(() => {
+    const fns = Array.from(sidebarRefetchListeners);
+    for (const fn of fns) fn();
+  }, [pathname]);
+
   return courses;
 }
 
