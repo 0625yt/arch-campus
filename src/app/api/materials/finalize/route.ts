@@ -93,50 +93,15 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
     );
   }
 
-  // 1) Storage 다운로드
-  let bytes: Uint8Array;
-  try {
-    bytes = await downloadMaterialFile(body.storagePath);
-  } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "파일을 못 찾았어요" },
-      { status: 404 },
-    );
-  }
-
   const mimeType = body.mimeType ?? "application/octet-stream";
-
-  // 2) Parse
-  let parsed: Awaited<ReturnType<typeof parseDocument>>;
-  try {
-    parsed = await parseDocument({
-      bytes,
-      filename: body.filename,
-      mimeType,
-    });
-  } catch (e) {
-    if (e instanceof ParserRejectedError) {
-      const message = e.message;
-      parsed = {
-        text: `[자동 추출 실패]\n파일명: ${body.filename}\n사유: ${message}`,
-        sanitizedText: `[자동 추출 실패]\n파일명: ${body.filename}\n사유: ${message}`,
-        mimeType,
-        source: "rejected",
-        warnings: [message],
-      };
-    } else {
-      return NextResponse.json(
-        { ok: false, error: e instanceof Error ? e.message : "파싱 실패" },
-        { status: 500 },
-      );
-    }
-  }
-
-  // 3) materials 행
   const admin = getAdminSupabase();
   const title = (body.title ?? "").trim() || stripExt(body.filename);
   const type: MaterialType = body.type ?? "lecture";
 
+  // 1) materials 행 즉시 INSERT (placeholder — full_text·page_count는 after()에서 채움)
+  //    parse를 응답 전에 돌리면 5~15초 걸려 사용자가 dock을 못 보고 페이지 이동 시
+  //    fetch가 abort되어 after()가 등록조차 안 됨. INSERT만 먼저 박고 빨리 응답한 뒤
+  //    Storage download + parse + 잡 실행은 after()에 위임.
   const { data: material, error: materialErr } = await admin
     .from("materials")
     .insert({
@@ -148,8 +113,8 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
       original_filename: body.filename,
       mime_type: mimeType,
       storage_path: body.storagePath,
-      page_count: parsed.pageCount ?? null,
-      full_text: parsed.sanitizedText.slice(0, 200_000),
+      page_count: null,
+      full_text: null,
     })
     .select("id")
     .single();
@@ -161,7 +126,7 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
     );
   }
 
-  // 4) 두 잡 큐잉
+  // 2) 잡 enqueue도 응답 전에 — dock 폴링이 즉시 잡음
   const [summarizeEnqueue, quizEnqueue] = await Promise.all([
     enqueueJob({
       ownerId,
@@ -181,7 +146,6 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
     }),
   ]);
 
-  // PDF 아니면 변환 잡 추가 큐잉 — split-view 좌측 iframe용
   const needsPdfConvert = mimeType !== "application/pdf";
   const convertEnqueue = needsPdfConvert
     ? await enqueueJob({
@@ -196,8 +160,64 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
       })
     : null;
 
-  // 5) 백그라운드 실행 — runSummarizeJob/runQuizJob은 기존 materials/route.ts와 공유
+  // 3) 무거운 작업 전부 백그라운드:
+  //    a. Storage download
+  //    b. parseDocument
+  //    c. materials.full_text/page_count 보정 UPDATE
+  //    d. summarize/quiz/convert-pdf 잡 실행
   after(async () => {
+    let bytes: Uint8Array;
+    try {
+      bytes = await downloadMaterialFile(body.storagePath);
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "파일을 못 찾았어요";
+      // 잡들 모두 error 마킹 — 사용자 dock에서 빨간 상태로 보임
+      await Promise.all([
+        markBgJobError(summarizeEnqueue.job.id, errMsg),
+        markBgJobError(quizEnqueue.job.id, errMsg),
+        convertEnqueue ? markBgJobError(convertEnqueue.job.id, errMsg) : Promise.resolve(),
+      ]);
+      return;
+    }
+
+    let parsed: Awaited<ReturnType<typeof parseDocument>>;
+    try {
+      parsed = await parseDocument({
+        bytes,
+        filename: body.filename,
+        mimeType,
+      });
+    } catch (e) {
+      if (e instanceof ParserRejectedError) {
+        const message = e.message;
+        parsed = {
+          text: `[자동 추출 실패]\n파일명: ${body.filename}\n사유: ${message}`,
+          sanitizedText: `[자동 추출 실패]\n파일명: ${body.filename}\n사유: ${message}`,
+          mimeType,
+          source: "rejected",
+          warnings: [message],
+        };
+      } else {
+        const errMsg = e instanceof Error ? e.message : "파싱 실패";
+        await Promise.all([
+          markBgJobError(summarizeEnqueue.job.id, errMsg),
+          markBgJobError(quizEnqueue.job.id, errMsg),
+          convertEnqueue ? markBgJobError(convertEnqueue.job.id, errMsg) : Promise.resolve(),
+        ]);
+        return;
+      }
+    }
+
+    // parse 결과로 materials row 보정
+    await admin
+      .from("materials")
+      .update({
+        page_count: parsed.pageCount ?? null,
+        full_text: parsed.sanitizedText.slice(0, 200_000),
+      })
+      .eq("id", material.id)
+      .eq("owner_id", ownerId);
+
     const jobs: Array<Promise<unknown>> = [
       runSummarizeJob({
         jobId: summarizeEnqueue.job.id,
@@ -242,8 +262,8 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
   return NextResponse.json({
     ok: true,
     materialId: material.id,
-    parser: parsed.source,
-    pageCount: parsed.pageCount ?? null,
+    parser: "pending",
+    pageCount: null,
     jobs: {
       summarize: { id: summarizeEnqueue.job.id, status: summarizeEnqueue.job.status },
       quiz: { id: quizEnqueue.job.id, status: quizEnqueue.job.status },
@@ -252,4 +272,9 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
       }),
     },
   });
+}
+
+async function markBgJobError(jobId: string, message: string): Promise<void> {
+  const { markJobError } = await import("@/lib/data/jobs");
+  await markJobError({ jobId, errorMessage: message });
 }
