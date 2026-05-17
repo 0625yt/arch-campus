@@ -5,7 +5,8 @@ import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/dat
 import { parseDocument, ParserRejectedError } from "@/lib/parsers";
 import { runQuizGeneration, type Difficulty } from "@/lib/services/quiz";
 import { runSummarize } from "@/lib/services/summarize";
-import { storeMaterialFile } from "@/lib/storage";
+import { convertToPdf } from "@/lib/cloudconvert";
+import { createSignedReadUrl, storeMaterialFile } from "@/lib/storage";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -317,6 +318,81 @@ export async function runQuizJob(opts: {
       modelId: result.modelId,
       usage: result.usage,
       costUsd: result.costUsd,
+    });
+  } catch (e) {
+    await markJobError({
+      jobId: opts.jobId,
+      errorMessage: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
+/**
+ * Office 자료를 PDF로 변환해 Storage·DB를 교체한다.
+ *
+ * 흐름:
+ *   1) markJobRunning
+ *   2) Storage signed read URL 1h 발급 → CloudConvert에 input으로 전달
+ *   3) convertToPdf → PDF 바이트 받음
+ *   4) Storage에 <ownerId>/<materialId>.pdf로 PUT (admin client, upsert)
+ *   5) materials UPDATE:
+ *        original_storage_path = (구) storage_path
+ *        storage_path          = 새 PDF 경로
+ *        mime_type             = "application/pdf"
+ *   6) markJobDone
+ *
+ * 실패 시 markJobError. materials row는 건드리지 않아 원본 그대로 남음.
+ */
+export async function runConvertPdfJob(opts: {
+  jobId: string;
+  ownerId: string;
+  materialId: string;
+  /** 변환 전 storage_path (원본 Office 파일) */
+  sourceStoragePath: string;
+  /** 원본 파일명 (확장자 + CloudConvert input_format 추정용) */
+  filename: string;
+}): Promise<void> {
+  try {
+    await markJobRunning(opts.jobId);
+
+    const sourceUrl = await createSignedReadUrl({
+      storagePath: opts.sourceStoragePath,
+      ttlSec: 3600,
+    });
+
+    const pdfBytes = await convertToPdf({
+      sourceUrl,
+      filename: opts.filename,
+    });
+
+    const pdfPath = `${opts.ownerId}/${opts.materialId}.pdf`;
+    const admin = getAdminSupabase();
+    const { error: putErr } = await admin.storage
+      .from("materials")
+      .upload(pdfPath, pdfBytes, {
+        contentType: "application/pdf",
+        upsert: true,
+      });
+    if (putErr) throw new Error(`PDF 저장 실패: ${putErr.message}`);
+
+    const { error: updErr } = await admin
+      .from("materials")
+      .update({
+        original_storage_path: opts.sourceStoragePath,
+        storage_path: pdfPath,
+        mime_type: "application/pdf",
+      })
+      .eq("id", opts.materialId)
+      .eq("owner_id", opts.ownerId);
+    if (updErr) throw new Error(`materials 갱신 실패: ${updErr.message}`);
+
+    // markJobDone은 모델 호출용 시그니처라 더미 값 — convert-pdf는 AI 호출 없음
+    await markJobDone({
+      jobId: opts.jobId,
+      result: { pdfPath },
+      modelId: "cloudconvert",
+      usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
+      costUsd: 0, // 무료 한도 안 — 초과 시 별도 계측
     });
   } catch (e) {
     await markJobError({

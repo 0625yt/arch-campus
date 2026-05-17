@@ -165,6 +165,7 @@ export interface Database {
           original_filename: string | null;
           mime_type: string | null;
           storage_path: string | null;
+          original_storage_path: string | null;
           page_count: number | null;
           full_text: string | null;
           extracted_keywords: string[] | null;
@@ -183,6 +184,7 @@ export interface Database {
           original_filename?: string | null;
           mime_type?: string | null;
           storage_path?: string | null;
+          original_storage_path?: string | null;
           page_count?: number | null;
           full_text?: string | null;
           extracted_keywords?: string[] | null;
