@@ -28,6 +28,8 @@ export interface MaterialDetail {
   summary: SummarizeOutputT | null;
   summaryKeywords: string[] | null;
   lastSummarizedAt: string | null;
+  mimeType: string | null;
+  storagePath: string | null;
 }
 
 export interface MaterialListItem {
@@ -63,6 +65,8 @@ interface MaterialDetailRaw {
   last_summarized_at: string | null;
   course_id: string | null;
   courses: Pick<CourseRow, "id" | "name" | "color"> | null;
+  mime_type: string | null;
+  storage_path: string | null;
 }
 
 export async function getMaterialDetail(opts: {
@@ -73,7 +77,7 @@ export async function getMaterialDetail(opts: {
   const { data, error } = await admin
     .from("materials")
     .select(
-      "id, title, type, page_count, uploaded_at, summary_payload, summary_keywords, last_summarized_at, course_id, courses(id, name, color)",
+      "id, title, type, page_count, uploaded_at, summary_payload, summary_keywords, last_summarized_at, course_id, mime_type, storage_path, courses(id, name, color)",
     )
     .eq("id", opts.materialId)
     .eq("owner_id", opts.ownerId)
@@ -93,6 +97,8 @@ export async function getMaterialDetail(opts: {
     summary: parseSummary(row.summary_payload),
     summaryKeywords: row.summary_keywords ?? null,
     lastSummarizedAt: row.last_summarized_at,
+    mimeType: row.mime_type,
+    storagePath: row.storage_path,
   };
 }
 
