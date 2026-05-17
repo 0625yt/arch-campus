@@ -10,6 +10,19 @@ import type { EventView } from "@/lib/data/events";
 import { formatEventLabel, formatEventCompact } from "@/lib/format-event";
 
 /**
+ * SSR과 client 첫 paint를 일치시키기 위한 mount 플래그.
+ * D-N 계산처럼 `new Date()`에 의존하는 라벨은 mounted === false 동안 빈 문자열을 렌더해
+ * hydration mismatch (#418) 를 막는다.
+ */
+function useMounted() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  return mounted;
+}
+
+/**
  * datetime-local input 값("2026-05-15T14:30")을 항상 KST(UTC+9)로 해석해서 ISO 반환.
  *
  * 이유: `new Date("2026-05-15T14:30")` 동작이 환경마다 다를 수 있고(historically UTC, modern은 로컬),
@@ -719,12 +732,13 @@ function UpcomingRow({
   onSelect?: () => void;
   onContextEvent?: (e: EventView, pos: { x: number; y: number }) => void;
 }) {
+  const mounted = useMounted();
   const date = new Date(event.startsAt);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const days = Math.round((date.getTime() - today.getTime()) / 86400000);
-  const dDayLabel = days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
-  const tone = days <= 1 ? "urgent" : days <= 3 ? "warn" : "muted";
+  const dDayLabel = !mounted ? "" : days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
+  const tone = !mounted ? "muted" : days <= 1 ? "urgent" : days <= 3 ? "warn" : "muted";
   const label = formatEventLabel(event);
 
   function handleContext(e: React.MouseEvent) {
@@ -805,14 +819,15 @@ function EventDetailPanel({
     );
   }
 
+  const mounted = useMounted();
   const date = new Date(event.startsAt);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
   const days = Math.round((startOfDay.getTime() - today.getTime()) / 86400000);
-  const dDayLabel = days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
-  const tone = days <= 0 ? "urgent" : days <= 3 ? "warn" : "muted";
+  const dDayLabel = !mounted ? "" : days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
+  const tone = !mounted ? "muted" : days <= 0 ? "urgent" : days <= 3 ? "warn" : "muted";
   const tint = kindTint(event.kind);
   const dot = kindColor(event.kind, event.courseColor);
 
@@ -1019,13 +1034,14 @@ function DayDetailPanel({
   onAddOnDay: () => void;
 }) {
   // dateIso는 "YYYY-MM-DD". 헤더에 한국어 라벨 표시 — KST 기준 그대로 파싱.
+  const mounted = useMounted();
   const [y, m, d] = dateIso.split("-").map(Number);
   const localDate = new Date(y, m - 1, d);
   const weekday = ["일", "월", "화", "수", "목", "금", "토"][localDate.getDay()];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const days = Math.round((localDate.getTime() - today.getTime()) / 86400000);
-  const dDayLabel = days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
+  const dDayLabel = !mounted ? "" : days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
 
   // 시간순 정렬
   const sorted = [...events].sort((a, b) => a.startsAt.localeCompare(b.startsAt));

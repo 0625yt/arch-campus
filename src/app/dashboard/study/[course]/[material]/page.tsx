@@ -34,15 +34,17 @@ export default async function MaterialDetailPage({
   const courseLabel = detail.course?.name ?? courseSlug;
   const dotColor = detail.course?.color ?? "var(--color-apple-action)";
 
-  // mime + convert-pdf job 상태로 4-way 분기:
+  // mime + convert-pdf job 상태로 분기:
   //   1) PDF + signed URL OK  → MaterialView (split iframe + summary)
   //   2) Office + 변환 중      → SplitWithConvertingLeft (polling)
   //   3) Office + 변환 실패    → SplitWithFailedLeft (다운로드 fallback)
   //   4) 그 외 (변환 잡 없음 등) → 기존 SummaryArticle
+  // summarize 잡도 같이 봐서 summary null인데 잡이 error면 사용자에게 이유 표시.
   const isPdf = detail.mimeType === "application/pdf";
   let pdfUrl: string | null = null;
   let convertingPdf = false;
   let convertFailed = false;
+  let convertErrorMessage: string | null = null;
 
   if (isPdf && detail.storagePath) {
     try {
@@ -60,8 +62,16 @@ export default async function MaterialDetailPage({
       convertingPdf = true;
     } else if (convertJob && convertJob.status === "error") {
       convertFailed = true;
+      convertErrorMessage = convertJob.errorMessage ?? null;
     }
   }
+
+  // summary가 아직 없을 때 — 잡 상태로 안내 분기
+  const summarizeJob = detail.summary
+    ? null
+    : await getLatestJob({ ownerId, materialId: detail.id, tool: "summarize" });
+  const summarizeStatus = summarizeJob?.status ?? null;
+  const summarizeError = summarizeJob?.errorMessage ?? null;
 
   return (
     <div>
@@ -92,6 +102,15 @@ export default async function MaterialDetailPage({
           ) : (
             <SummaryArticle summary={detail.summary} className="mt-14 fade-up fade-up-3 sm:mt-16" />
           )
+        ) : summarizeStatus === "error" ? (
+          <SummaryErrorCard
+            materialId={detail.id}
+            filename={detail.title}
+            summarizeError={summarizeError}
+            convertFailed={convertFailed}
+            convertErrorMessage={convertErrorMessage}
+            className="mt-14 fade-up fade-up-3 sm:mt-16"
+          />
         ) : (
           <SummaryLoading
             materialId={detail.id}
@@ -212,6 +231,89 @@ function EmptySummary({ materialId, className }: { materialId: string; className
         <div className="mt-7 flex justify-center">
           <SummarizeNowButton materialId={materialId} />
         </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * summary 잡이 error로 끝났을 때 — 사용자에게 이유를 보여주고 다시 시도하게.
+ *
+ * convertFailed가 true면 진짜 원인이 변환 실패라는 것도 같이 안내한다.
+ * "그냥 다시 만들기"만 띄우면 사용자가 무한 retry할 수 있으므로 fallback 행동도 제시:
+ *   - PDF로 변환 후 다시 올리기 (변환 실패 케이스)
+ *   - 자료 다시 올리기 (그 외)
+ */
+function SummaryErrorCard({
+  materialId,
+  filename,
+  summarizeError,
+  convertFailed,
+  convertErrorMessage,
+  className,
+}: {
+  materialId: string;
+  filename: string;
+  summarizeError: string | null;
+  convertFailed: boolean;
+  convertErrorMessage: string | null;
+  className?: string;
+}) {
+  const title = convertFailed
+    ? "원본을 PDF로 바꾸지 못해서 요약을 만들 수 없었어요"
+    : "요약을 만들지 못했어요";
+  const body = convertFailed
+    ? "Office 파일 변환이 실패하면 본문을 읽을 수 없어요. PDF로 변환해서 다시 올려보면 대부분 풀려요."
+    : summarizeError ||
+      "잠시 후 다시 시도하면 보통 풀려요. 같은 자료를 다시 올리는 것도 방법이에요.";
+  return (
+    <section className={className}>
+      <div className="elev-1 rounded-[18px] bg-white px-7 py-10 sm:px-10 sm:py-12">
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-[#fde8eb] text-[14px] wght-700 text-[var(--color-urgent,#c44)]"
+          >
+            !
+          </span>
+          <p
+            className="text-[18px] wght-620 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {title}
+          </p>
+        </div>
+        <p
+          className="mt-4 max-w-[560px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.022em" }}
+        >
+          {body}
+        </p>
+        {convertFailed && convertErrorMessage && (
+          <p
+            className="mt-2 max-w-[560px] text-[11.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            <span aria-hidden>↳ </span>
+            {convertErrorMessage}
+          </p>
+        )}
+        <div className="mt-7 flex flex-wrap items-center gap-2">
+          <SummarizeNowButton materialId={materialId} />
+          <Link
+            href="/dashboard/study"
+            className="rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3.5 py-2 text-[13px] wght-560 text-[var(--color-apple-ink)] hover:border-[var(--color-apple-action)] hover:text-[var(--color-apple-action)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            다른 자료 올리러 가기
+          </Link>
+        </div>
+        <p
+          className="mt-4 text-[11px] wght-450 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          {filename}
+        </p>
       </div>
     </section>
   );
