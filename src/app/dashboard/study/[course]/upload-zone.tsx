@@ -141,7 +141,7 @@ export function UploadZone({
         ref={inputRef}
         id="upload"
         type="file"
-        accept=".pdf,.hwpx,.pptx,.docx,.txt,.md"
+        accept=".pdf,.hwp,.hwpx,.pptx,.docx,.txt,.md"
         disabled={busy}
         className="sr-only"
         onChange={(e) => {
