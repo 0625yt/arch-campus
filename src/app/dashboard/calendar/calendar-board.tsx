@@ -492,13 +492,8 @@ export function CalendarBoard({
         </section>
       </aside>
 
-      {/* Inspector modals — 일정 선택 / 날짜 선택 */}
-      <Modal
-        open={!!selected}
-        onClose={() => setSelected(null)}
-        title={selected ? formatEventLabel(selected) : ""}
-        size="md"
-      >
+      {/* Inspector — 데스크톱은 우측 float, 모바일은 bottom sheet. arch 톤 자체 컴포넌트. */}
+      <CalendarInspector open={!!selected || (!!selectedDate && !selected)} onClose={() => { setSelected(null); setSelectedDate(null); }}>
         {selected && (
           <EventDetailPanel
             event={selected}
@@ -512,15 +507,7 @@ export function CalendarBoard({
             }}
           />
         )}
-      </Modal>
-
-      <Modal
-        open={!!selectedDate && !selected}
-        onClose={() => setSelectedDate(null)}
-        title={selectedDate ? formatDateIsoLabel(selectedDate) : ""}
-        size="md"
-      >
-        {selectedDate && (
+        {!selected && selectedDate && (
           <DayDetailPanel
             dateIso={selectedDate}
             events={byDate.get(selectedDate) ?? []}
@@ -533,7 +520,7 @@ export function CalendarBoard({
             }}
           />
         )}
-      </Modal>
+      </CalendarInspector>
 
       <EventCreateForm
         open={creating}
@@ -992,7 +979,7 @@ function EventChip({
       </button>
     );
   }
-  // 시간 지정
+  // 시간 지정 — 좌측 얇은 색 bar + 텍스트. (동그라미 점은 DESIGN §10 금지.)
   return (
     <button
       type="button"
@@ -1002,22 +989,143 @@ function EventChip({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       title={title}
-      className={`flex w-full items-center gap-1.5 truncate rounded-[6px] px-1.5 py-[2px] text-left text-[11px] leading-[1.35] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] ${
+      className={`group relative flex w-full items-center truncate rounded-[4px] py-[3px] pl-2 pr-1.5 text-left text-[11px] leading-[1.35] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] ${
         selected ? "wght-700" : "wght-450"
       }`}
       style={{
-        backgroundColor: selected ? toAlpha(color, 0.15) : "transparent",
+        backgroundColor: selected ? toAlpha(color, 0.12) : "transparent",
         color: "var(--color-apple-ink)",
         letterSpacing: "-0.012em",
       }}
     >
       <span
         aria-hidden
-        className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+        className="absolute left-0 top-1/2 h-3 w-[2.5px] -translate-y-1/2 rounded-full"
         style={{ backgroundColor: color }}
       />
       <span className="truncate">{label}</span>
     </button>
+  );
+}
+
+/**
+ * Calendar inspector overlay — 데스크톱·모바일 분기.
+ *
+ * 데스크톱(md+): 우측에서 슬라이드 인하는 sticky 패널. 백드롭은 살짝만 dim (Apple 캘린더 톤).
+ * 모바일(<md): 화면 하단에서 올라오는 bottom sheet. 헤더 grabber bar로 swipe down 가능.
+ *
+ * DESIGN.md §10 가드:
+ *  - generic shadcn 모달(흰 카드 + 헤더 + X) 형식 사용 X — 내용 자체가 EventDetailPanel
+ *  - 백드롭 blur 없음 (살짝 ink 30% dim만)
+ *  - 데스크톱은 가운데 모달 X — Apple 캘린더처럼 우측 inspector
+ */
+function CalendarInspector({
+  open,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef<number | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open, onClose]);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    dragStartY.current = e.touches[0]?.clientY ?? null;
+  }
+  function handleTouchMove(e: React.TouchEvent) {
+    if (dragStartY.current == null) return;
+    const y = e.touches[0]?.clientY ?? dragStartY.current;
+    const delta = Math.max(0, y - dragStartY.current); // 위로는 안 끌림
+    setDragOffset(delta);
+  }
+  function handleTouchEnd() {
+    if (dragOffset > 120) {
+      // 충분히 내려갔으면 닫음
+      setDragOffset(0);
+      dragStartY.current = null;
+      onClose();
+      return;
+    }
+    // 다시 원위치
+    setDragOffset(0);
+    dragStartY.current = null;
+  }
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-40" aria-hidden={!open}>
+      {/* Backdrop — 살짝만 dim, blur 없음 */}
+      <button
+        type="button"
+        aria-label="닫기"
+        onClick={onClose}
+        className="absolute inset-0 bg-[var(--color-apple-ink)]/15 transition-opacity duration-200"
+      />
+
+      {/* 데스크톱: 우측 float panel */}
+      <div
+        className="pointer-events-none absolute inset-y-6 right-6 hidden w-[360px] md:block lg:w-[400px]"
+      >
+        <div className="pointer-events-auto h-full overflow-y-auto" style={{ animation: "slideInRight 220ms ease-out" }}>
+          {children}
+        </div>
+      </div>
+
+      {/* 모바일: bottom sheet */}
+      <div
+        ref={sheetRef}
+        className="absolute inset-x-0 bottom-0 md:hidden"
+        style={{
+          transform: `translateY(${dragOffset}px)`,
+          transition: dragOffset === 0 ? "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)" : "none",
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="max-h-[85vh] overflow-y-auto rounded-t-[20px] bg-white shadow-[0_-8px_28px_rgba(0,0,0,0.08)]">
+          {/* Grabber bar — swipe down 힌트 */}
+          <div className="flex justify-center pt-2.5 pb-1">
+            <span
+              aria-hidden
+              className="block h-1 w-9 rounded-full bg-[var(--color-apple-hairline)]"
+            />
+          </div>
+          {children}
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes slideInRight {
+          from {
+            opacity: 0;
+            transform: translateX(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
+    </div>
   );
 }
 

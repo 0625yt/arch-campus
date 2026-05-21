@@ -7,7 +7,7 @@
 - **새 도구 만들 때 따를 청사진 (4-Layer, RLS, 검증, 파이프라인)** → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **컨벤션 + Karpathy 4원칙** → [docs/CONVENTIONS.md](docs/CONVENTIONS.md)
 - **제품 정체성·MVP 범위·로드맵·KPI** → [docs/PRODUCT.md](docs/PRODUCT.md)
-- **디자인 가이드** → [docs/design/DESIGN.md](docs/design/DESIGN.md)
+- **디자인 가이드** → [docs/design/DESIGN.md](docs/design/DESIGN.md) — 특히 §10 절대 금지 (AI 티 패턴: 좌측 동그라미 점·마침표 카피 남발·generic shadcn 모달)
 - **도입 보류 외부 자료** → [docs/REFERENCES.md](docs/REFERENCES.md)
 - **코드 리뷰 서브에이전트**: `Agent` 툴에 `subagent_type: "code-reviewer"`
 
