@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/context-menu";
 import { Modal } from "@/components/modal";
+import { Popover } from "@/components/popover";
 import type { EventView } from "@/lib/data/events";
 import { formatEventLabel, formatEventCompact } from "@/lib/format-event";
 
@@ -123,6 +124,17 @@ export function CalendarBoard({
   });
   const [mode, setMode] = useState<ViewMode>("all");
   const [selected, setSelected] = useState<EventView | null>(null);
+  /** 일정 칩 클릭 시 popover가 자리 잡을 anchor rect. 데스크톱 popover 전용. */
+  const [selectedAnchor, setSelectedAnchor] = useState<DOMRect | null>(null);
+  /** 데스크톱(md+) 미디어쿼리 — popover vs bottom sheet 분기 */
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
   const [creating, setCreating] = useState(false);
   // 날짜 셀 클릭 시 그 날의 일정을 우측에 모아 봄. 일정 클릭이 우선이면 selected가 덮어씀.
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -408,8 +420,9 @@ export function CalendarBoard({
                       setSelectedDate(cell.iso);
                       setSelected(null);
                     }}
-                    onSelectEvent={(e) => {
+                    onSelectEvent={(e, anchorRect) => {
                       setSelected(e);
+                      setSelectedAnchor(anchorRect);
                       setSelectedDate(null);
                     }}
                     onContextDay={(pos) => {
@@ -468,7 +481,10 @@ export function CalendarBoard({
                 <li key={e.id}>
                   <UpcomingRow
                     event={e}
-                    onSelect={() => setSelected(e)}
+                    onSelect={(anchorRect) => {
+                      setSelected(e);
+                      setSelectedAnchor(anchorRect ?? null);
+                    }}
                     onContextEvent={(ev, pos) => {
                       openMenuFor(ev);
                       ctx.bind.onContextMenu({
@@ -492,35 +508,94 @@ export function CalendarBoard({
         </section>
       </aside>
 
-      {/* Inspector — 데스크톱은 우측 float, 모바일은 bottom sheet. arch 톤 자체 컴포넌트. */}
-      <CalendarInspector open={!!selected || (!!selectedDate && !selected)} onClose={() => { setSelected(null); setSelectedDate(null); }}>
-        {selected && (
-          <EventDetailPanel
-            event={selected}
-            kindLabel={kindLabel}
-            onClose={() => setSelected(null)}
-            onDelete={(scope) => quickDelete(selected, scope)}
-            onPatched={(patch) => {
-              patchInState(selected.id, patch);
-              setSelected({ ...selected, ...patch });
-              router.refresh();
+      {/* 데스크톱: 칩 옆 popover. 모바일: bottom sheet.
+          isDesktop으로 한쪽만 렌더 — popover portal이라 CSS hidden 안 먹음. */}
+      {isDesktop ? (
+        <>
+          <Popover
+            open={!!selected && !!selectedAnchor}
+            anchorRect={selectedAnchor}
+            onClose={() => {
+              setSelected(null);
+              setSelectedAnchor(null);
             }}
-          />
-        )}
-        {!selected && selectedDate && (
-          <DayDetailPanel
-            dateIso={selectedDate}
-            events={byDate.get(selectedDate) ?? []}
-            kindLabel={kindLabel}
+            width={360}
+          >
+            {selected && (
+              <EventDetailPanel
+                event={selected}
+                kindLabel={kindLabel}
+                onClose={() => {
+                  setSelected(null);
+                  setSelectedAnchor(null);
+                }}
+                onDelete={(scope) => quickDelete(selected, scope)}
+                onPatched={(patch) => {
+                  patchInState(selected.id, patch);
+                  setSelected({ ...selected, ...patch });
+                  router.refresh();
+                }}
+              />
+            )}
+          </Popover>
+
+          <Popover
+            open={!!selectedDate && !selected}
+            anchorRect={null}
             onClose={() => setSelectedDate(null)}
-            onSelectEvent={(e) => setSelected(e)}
-            onAddOnDay={() => {
-              setCreatePrefillDate(selectedDate);
-              setCreating(true);
-            }}
-          />
-        )}
-      </CalendarInspector>
+            width={360}
+          >
+            {selectedDate && (
+              <DayDetailPanel
+                dateIso={selectedDate}
+                events={byDate.get(selectedDate) ?? []}
+                kindLabel={kindLabel}
+                onClose={() => setSelectedDate(null)}
+                onSelectEvent={(e) => setSelected(e)}
+                onAddOnDay={() => {
+                  setCreatePrefillDate(selectedDate);
+                  setCreating(true);
+                }}
+              />
+            )}
+          </Popover>
+        </>
+      ) : (
+        <CalendarInspector
+          open={!!selected || (!!selectedDate && !selected)}
+          onClose={() => {
+            setSelected(null);
+            setSelectedDate(null);
+          }}
+        >
+          {selected && (
+            <EventDetailPanel
+              event={selected}
+              kindLabel={kindLabel}
+              onClose={() => setSelected(null)}
+              onDelete={(scope) => quickDelete(selected, scope)}
+              onPatched={(patch) => {
+                patchInState(selected.id, patch);
+                setSelected({ ...selected, ...patch });
+                router.refresh();
+              }}
+            />
+          )}
+          {!selected && selectedDate && (
+            <DayDetailPanel
+              dateIso={selectedDate}
+              events={byDate.get(selectedDate) ?? []}
+              kindLabel={kindLabel}
+              onClose={() => setSelectedDate(null)}
+              onSelectEvent={(e) => setSelected(e)}
+              onAddOnDay={() => {
+                setCreatePrefillDate(selectedDate);
+                setCreating(true);
+              }}
+            />
+          )}
+        </CalendarInspector>
+      )}
 
       <EventCreateForm
         open={creating}
@@ -743,7 +818,8 @@ function DayCell({
   isInDragRange?: boolean;
   /** 셀 빈 영역 클릭 — 그 날 일정 모음 패널 열기 */
   onSelectDay?: () => void;
-  onSelectEvent?: (e: EventView) => void;
+  /** 칩 클릭 — anchorRect는 popover가 옆에 자리 잡는 좌표 */
+  onSelectEvent?: (e: EventView, anchorRect: DOMRect) => void;
   /** 셀 빈 영역 우클릭 — "이 날에 일정 추가" 메뉴 */
   onContextDay?: (pos: { x: number; y: number }) => void;
   /** 일정 칩 우클릭 — 이벤트별 메뉴 */
@@ -818,13 +894,13 @@ function DayCell({
       >
         {cell.date.getDate()}
       </span>
-      {/* 모바일/아이패드: 색점만 (잘림 없음). 점 → 상세 패널 */}
+      {/* 모바일/아이패드: 색점만 (잘림 없음). 점 → bottom sheet으로 상세 */}
       <ul className="flex flex-wrap gap-0.5 sm:hidden">
         {events.slice(0, 4).map((e) => (
           <li key={e.id}>
             <ChipButton
               event={e}
-              onClick={() => onSelectEvent?.(e)}
+              onClick={() => onSelectEvent?.(e, new DOMRect(0, 0, 0, 0))}
               onContext={(pos) => onContextEvent?.(e, pos)}
               className="block h-1.5 w-1.5 rounded-full"
               style={{ backgroundColor: kindColor(e.kind, e.courseColor) }}
@@ -859,7 +935,7 @@ function DayCell({
                   color={color}
                   label={shortLabel}
                   title={fullLabel}
-                  onClick={() => onSelectEvent?.(e)}
+                  onClick={(rect) => onSelectEvent?.(e, rect)}
                   onContext={(pos) => onContextEvent?.(e, pos)}
                 />
               </li>
@@ -874,7 +950,7 @@ function DayCell({
                 color={color}
                 label={shortLabel}
                 title={fullLabel}
-                onClick={() => onSelectEvent?.(e)}
+                onClick={(rect) => onSelectEvent?.(e, rect)}
                 onContext={(pos) => onContextEvent?.(e, pos)}
               />
             </li>
@@ -919,12 +995,14 @@ function EventChip({
   color: string;
   label: string;
   title?: string;
-  onClick: () => void;
+  /** anchorRect: 칩 자체의 DOMRect — popover가 옆에 자리 잡을 좌표 */
+  onClick: (anchorRect: DOMRect) => void;
   onContext?: (pos: { x: number; y: number }) => void;
 }) {
   void event;
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   function handleContext(e: React.MouseEvent) {
     e.preventDefault();
@@ -933,7 +1011,8 @@ function EventChip({
   }
   function handleClick(e: React.MouseEvent) {
     e.stopPropagation();
-    onClick();
+    const rect = btnRef.current?.getBoundingClientRect() ?? new DOMRect(e.clientX, e.clientY, 0, 0);
+    onClick(rect);
   }
   function handleTouchStart(e: React.TouchEvent) {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
@@ -961,6 +1040,7 @@ function EventChip({
   if (allDay) {
     return (
       <button
+        ref={btnRef}
         type="button"
         onClick={handleClick}
         onContextMenu={handleContext}
@@ -982,6 +1062,7 @@ function EventChip({
   // 시간 지정 — 좌측 얇은 색 bar + 텍스트. (동그라미 점은 DESIGN §10 금지.)
   return (
     <button
+      ref={btnRef}
       type="button"
       onClick={handleClick}
       onContextMenu={handleContext}
@@ -1230,9 +1311,11 @@ function UpcomingRow({
   onContextEvent,
 }: {
   event: EventView;
-  onSelect?: () => void;
+  /** anchorRect: 행 자체의 rect — popover가 옆에 자리 잡음 */
+  onSelect?: (anchorRect?: DOMRect) => void;
   onContextEvent?: (e: EventView, pos: { x: number; y: number }) => void;
 }) {
+  const btnRef = useRef<HTMLButtonElement>(null);
   const mounted = useMounted();
   const date = new Date(event.startsAt);
   const today = new Date();
@@ -1248,11 +1331,16 @@ function UpcomingRow({
     e.stopPropagation();
     onContextEvent(event, { x: e.clientX, y: e.clientY });
   }
+  function handleClick() {
+    const rect = btnRef.current?.getBoundingClientRect();
+    onSelect?.(rect);
+  }
 
   return (
     <button
+      ref={btnRef}
       type="button"
-      onClick={onSelect}
+      onClick={handleClick}
       onContextMenu={handleContext}
       className="flex w-full items-baseline gap-3 rounded-[8px] px-2 py-1.5 text-left transition-colors hover:bg-[var(--color-apple-pearl)]"
     >
