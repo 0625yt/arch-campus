@@ -1351,7 +1351,7 @@ function EventDetailPanel({
 
   return (
     <>
-      <section className="elev-2 sticky top-6 overflow-hidden rounded-[14px] bg-white">
+      <section className="elev-2 overflow-hidden rounded-[14px] bg-white">
         {/* 컬러 헤더 — kind 톤. Apple Mail 인스펙터처럼 정보 밀도 + 색의 한 호흡 */}
         <div
           className="px-5 pb-4 pt-5"
@@ -1746,7 +1746,7 @@ function EventEditForm({
   }
 
   return (
-    <section className="elev-2 sticky top-6 overflow-hidden rounded-[14px] bg-white">
+    <section className="elev-2 overflow-hidden rounded-[14px] bg-white">
       <div className="flex items-baseline justify-between gap-3 border-b border-[var(--color-apple-hairline)] px-5 py-4">
         <h3
           className="text-[15px] wght-700 text-[var(--color-apple-ink)]"
@@ -2024,7 +2024,8 @@ function EventCreateForm({
     return "";
   }, [prefillEndDateIso]);
 
-  const [kind, setKind] = useState<"exam" | "assignment" | "presentation" | "etc">("exam");
+  // 기본값 강요 X — 사용자가 명시적으로 선택. 그래야 "왜 시험이지?" 같은 어색함이 없음.
+  const [kind, setKind] = useState<"exam" | "assignment" | "presentation" | "etc" | "">("");
   const [title, setTitle] = useState("");
   const [courseId, setCourseId] = useState<string>("");
   const [startsAt, setStartsAt] = useState(defaultStart);
@@ -2042,7 +2043,7 @@ function EventCreateForm({
   }, [defaultEnd]);
 
   function reset() {
-    setKind("exam");
+    setKind("");
     setTitle("");
     setCourseId("");
     setStartsAt(defaultStart);
@@ -2058,6 +2059,10 @@ function EventCreateForm({
     const trimmed = title.trim();
     if (!trimmed) {
       setError("제목을 적어주세요");
+      return;
+    }
+    if (!kind) {
+      setError("어떤 일정인지 골라주세요");
       return;
     }
     setBusy(true);
@@ -2101,7 +2106,20 @@ function EventCreateForm({
       description="강의계획서 없이 직접 추가. 매주 반복 수업은 시간표 업로드를 써주세요."
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <FieldLabel label="종류">
+        <FieldLabel label="제목">
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            autoFocus
+            maxLength={120}
+            placeholder="새 이벤트"
+            className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[14px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+          />
+        </FieldLabel>
+
+        <FieldLabel label="어떤 일정이에요?">
           <div className="flex flex-wrap gap-1.5">
             {(
               [
@@ -2125,19 +2143,6 @@ function EventCreateForm({
               </button>
             ))}
           </div>
-        </FieldLabel>
-
-        <FieldLabel label="제목">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            autoFocus
-            maxLength={120}
-            placeholder="예: 운영체제 중간고사"
-            className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[14px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
-          />
         </FieldLabel>
 
         {courses.length > 0 && (
