@@ -128,6 +128,8 @@ export function CalendarBoard({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   // 새 일정 추가 시 prefill할 날짜 (YYYY-MM-DD). null이면 기본 오늘.
   const [createPrefillDate, setCreatePrefillDate] = useState<string | null>(null);
+  // 드래그로 선택한 종료 날짜 (start와 다르면 end). 단일 클릭이면 null.
+  const [createPrefillEndDate, setCreatePrefillEndDate] = useState<string | null>(null);
 
   // 서버 props를 내부 state로 미러링 — optimistic 제거/수정 즉시 반영하기 위함.
   // 서버에서 새 props 도착 시(router.refresh 등) sync.
@@ -141,6 +143,66 @@ export function CalendarBoard({
   const ctx = useContextMenu();
   const [ctxEvent, setCtxEvent] = useState<EventView | null>(null);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+
+  // 빈 셀에서 드래그로 새 일정 범위 선택. mousedown 셀 → mousemove하며 같은 그리드 안의
+  // 다른 셀들로 확장 → mouseup 시 모든 셀 iso가 dragRange에 담겨있다. 그 범위를 시작/끝
+  // 날짜로 새 일정 modal 열 때 prefill로 넘긴다.
+  const [dragStartIso, setDragStartIso] = useState<string | null>(null);
+  const [dragEndIso, setDragEndIso] = useState<string | null>(null);
+  const dragRangeIsoSet = useMemo(() => {
+    if (!dragStartIso || !dragEndIso) return new Set<string>();
+    const a = dragStartIso;
+    const b = dragEndIso;
+    const [lo, hi] = a <= b ? [a, b] : [b, a];
+    const out = new Set<string>();
+    let cur = lo;
+    // 단순 문자열 비교 가능 (YYYY-MM-DD ISO)
+    while (cur <= hi) {
+      out.add(cur);
+      const d = new Date(cur);
+      d.setDate(d.getDate() + 1);
+      cur = isoDate(d);
+    }
+    return out;
+  }, [dragStartIso, dragEndIso]);
+
+  function beginDrag(iso: string) {
+    setDragStartIso(iso);
+    setDragEndIso(iso);
+  }
+  function extendDrag(iso: string) {
+    if (!dragStartIso) return; // mousedown 없이 mouseenter만 들어오는 경우 무시
+    setDragEndIso(iso);
+  }
+  function endDrag() {
+    if (!dragStartIso || !dragEndIso) {
+      setDragStartIso(null);
+      setDragEndIso(null);
+      return;
+    }
+    const a = dragStartIso;
+    const b = dragEndIso;
+    setDragStartIso(null);
+    setDragEndIso(null);
+    // 같은 셀에서 시작·종료한 단순 클릭이면 새 일정 모달 X (그건 셀 선택임)
+    if (a === b) return;
+    const [lo, hi] = a <= b ? [a, b] : [b, a];
+    setCreatePrefillDate(lo);
+    setCreatePrefillEndDate(hi);
+    setCreating(true);
+  }
+
+  // window mouseup으로 드래그 cancel 보장 — 사용자가 셀 밖에서 떼도 정리
+  useEffect(() => {
+    if (!dragStartIso) return;
+    function onUp() {
+      // 현재 dragEnd 그대로 endDrag 호출하면 같은 셀 == 클릭이라 무시됨 → 좋음
+      endDrag();
+    }
+    window.addEventListener("mouseup", onUp);
+    return () => window.removeEventListener("mouseup", onUp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragStartIso, dragEndIso]);
 
   function openMenuFor(e: EventView) {
     setCtxEvent(e);
@@ -332,6 +394,7 @@ export function CalendarBoard({
               {cells.map((cell) => {
                 const dayEvents = byDate.get(cell.iso) ?? [];
                 const isSelectedDay = selectedDate === cell.iso;
+                const inDrag = dragRangeIsoSet.has(cell.iso);
                 return (
                   <DayCell
                     key={cell.iso}
@@ -339,6 +402,8 @@ export function CalendarBoard({
                     events={dayEvents}
                     kindLabel={kindLabel}
                     isSelected={isSelectedDay}
+                    selectedEventId={selected?.id ?? null}
+                    isInDragRange={inDrag}
                     onSelectDay={() => {
                       setSelectedDate(cell.iso);
                       setSelected(null);
@@ -367,6 +432,9 @@ export function CalendarBoard({
                         clientY: pos.y,
                       } as unknown as React.MouseEvent);
                     }}
+                    onDragStart={() => beginDrag(cell.iso)}
+                    onDragOver={() => extendDrag(cell.iso)}
+                    onDragEnd={() => endDrag()}
                   />
                 );
               })}
@@ -380,7 +448,58 @@ export function CalendarBoard({
       </section>
 
       <aside className="flex flex-col gap-4">
-        {selected ? (
+        <section className="elev-1 rounded-[14px] bg-white p-5">
+          <h3 className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+            {mode === "timetable"
+              ? "이번 주 수업"
+              : mode === "events"
+                ? "다가오는 일정"
+                : "다가오는 일정"}
+          </h3>
+          {filteredUpcoming.length === 0 ? (
+            <p className="mt-3 text-[13px] wght-450 text-[var(--color-apple-muted)]">
+              {mode === "timetable"
+                ? "등록된 수업이 없어요. 시간표를 올려주세요."
+                : "예정된 일정이 없어요."}
+            </p>
+          ) : (
+            <ul className="mt-3 flex flex-col gap-1">
+              {filteredUpcoming.map((e) => (
+                <li key={e.id}>
+                  <UpcomingRow
+                    event={e}
+                    onSelect={() => setSelected(e)}
+                    onContextEvent={(ev, pos) => {
+                      openMenuFor(ev);
+                      ctx.bind.onContextMenu({
+                        preventDefault: () => {},
+                        stopPropagation: () => {},
+                        clientX: pos.x,
+                        clientY: pos.y,
+                      } as unknown as React.MouseEvent);
+                    }}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+          <p
+            className="mt-4 text-[10.5px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            일정을 누르면 모달로 자세한 내용이 떠요.
+          </p>
+        </section>
+      </aside>
+
+      {/* Inspector modals — 일정 선택 / 날짜 선택 */}
+      <Modal
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        title={selected ? formatEventLabel(selected) : ""}
+        size="md"
+      >
+        {selected && (
           <EventDetailPanel
             event={selected}
             kindLabel={kindLabel}
@@ -392,7 +511,16 @@ export function CalendarBoard({
               router.refresh();
             }}
           />
-        ) : selectedDate ? (
+        )}
+      </Modal>
+
+      <Modal
+        open={!!selectedDate && !selected}
+        onClose={() => setSelectedDate(null)}
+        title={selectedDate ? formatDateIsoLabel(selectedDate) : ""}
+        size="md"
+      >
+        {selectedDate && (
           <DayDetailPanel
             dateIso={selectedDate}
             events={byDate.get(selectedDate) ?? []}
@@ -404,63 +532,23 @@ export function CalendarBoard({
               setCreating(true);
             }}
           />
-        ) : (
-          <section className="elev-1 rounded-[14px] bg-white p-5">
-            <h3 className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-              {mode === "timetable"
-                ? "이번 주 수업"
-                : mode === "events"
-                  ? "다가오는 일정"
-                  : "다가오는 일정"}
-            </h3>
-            {filteredUpcoming.length === 0 ? (
-              <p className="mt-3 text-[13px] wght-450 text-[var(--color-apple-muted)]">
-                {mode === "timetable"
-                  ? "등록된 수업이 없어요. 시간표를 올려주세요."
-                  : "예정된 일정이 없어요."}
-              </p>
-            ) : (
-              <ul className="mt-3 flex flex-col gap-1">
-                {filteredUpcoming.map((e) => (
-                  <li key={e.id}>
-                    <UpcomingRow
-                      event={e}
-                      onSelect={() => setSelected(e)}
-                      onContextEvent={(ev, pos) => {
-                        openMenuFor(ev);
-                        ctx.bind.onContextMenu({
-                          preventDefault: () => {},
-                          stopPropagation: () => {},
-                          clientX: pos.x,
-                          clientY: pos.y,
-                        } as unknown as React.MouseEvent);
-                      }}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p
-              className="mt-4 text-[10.5px] wght-450 text-[var(--color-apple-muted)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              일정을 누르면 자세한 내용이 여기에 떠요.
-            </p>
-          </section>
         )}
-      </aside>
+      </Modal>
 
       <EventCreateForm
         open={creating}
         courses={courses}
         prefillDateIso={createPrefillDate}
+        prefillEndDateIso={createPrefillEndDate}
         onClose={() => {
           setCreating(false);
           setCreatePrefillDate(null);
+          setCreatePrefillEndDate(null);
         }}
         onCreated={() => {
           setCreating(false);
           setCreatePrefillDate(null);
+          setCreatePrefillEndDate(null);
           router.refresh();
         }}
       />
@@ -648,15 +736,24 @@ function DayCell({
   events,
   kindLabel,
   isSelected,
+  selectedEventId,
+  isInDragRange,
   onSelectDay,
   onSelectEvent,
   onContextDay,
   onContextEvent,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
 }: {
   cell: MonthCell;
   events: EventView[];
   kindLabel: Record<EventView["kind"], string>;
   isSelected?: boolean;
+  /** 클릭된 이벤트 id — 칩이 진해지는 selected 표시 */
+  selectedEventId?: string | null;
+  /** 드래그로 선택된 범위 안에 들어가있나 — 셀 배경 강조 */
+  isInDragRange?: boolean;
   /** 셀 빈 영역 클릭 — 그 날 일정 모음 패널 열기 */
   onSelectDay?: () => void;
   onSelectEvent?: (e: EventView) => void;
@@ -664,6 +761,12 @@ function DayCell({
   onContextDay?: (pos: { x: number; y: number }) => void;
   /** 일정 칩 우클릭 — 이벤트별 메뉴 */
   onContextEvent?: (e: EventView, pos: { x: number; y: number }) => void;
+  /** 드래그 시작 (mousedown on empty cell area) */
+  onDragStart?: () => void;
+  /** 드래그 진행 중 다른 셀로 진입 */
+  onDragOver?: () => void;
+  /** 드래그 종료 */
+  onDragEnd?: () => void;
 }) {
   void kindLabel;
 
@@ -682,17 +785,41 @@ function DayCell({
     onContextDay?.({ x: e.clientX, y: e.clientY });
   }
 
+  function handleMouseDown(e: React.MouseEvent) {
+    // 오직 빈 영역에서만 드래그 시작 (칩 위에선 X)
+    if (e.button !== 0) return;
+    if (e.target !== e.currentTarget && !(e.target as HTMLElement).closest("[data-day-bg]")) {
+      return;
+    }
+    onDragStart?.();
+  }
+  function handleMouseEnter() {
+    onDragOver?.();
+  }
+  function handleMouseUp() {
+    onDragEnd?.();
+  }
+
   return (
     <div
       data-day-bg
       onClick={handleDayClick}
       onContextMenu={handleDayContext}
-      className={`flex min-h-[88px] cursor-pointer flex-col gap-1 p-1.5 transition-colors sm:min-h-[110px] sm:p-2 ${
+      onMouseDown={handleMouseDown}
+      onMouseEnter={handleMouseEnter}
+      onMouseUp={handleMouseUp}
+      className={`flex min-h-[88px] cursor-pointer flex-col gap-1 p-1.5 transition-colors duration-150 sm:min-h-[110px] sm:p-2 ${
         cell.inMonth ? "" : "opacity-40"
-      } ${isSelected ? "ring-1 ring-inset ring-[var(--color-apple-action)]" : ""}`}
+      } ${isSelected ? "ring-1 ring-inset ring-[var(--color-apple-action)]" : ""} ${
+        isInDragRange ? "ring-2 ring-inset ring-[var(--color-apple-action)]" : ""
+      }`}
       style={{
-        // 오늘 셀은 종이 위에 살짝 따뜻한 톤. 다른 날은 흰색.
-        backgroundColor: cell.isToday ? "var(--color-surface-cream)" : "#ffffff",
+        // 오늘 셀은 종이 위에 살짝 따뜻한 톤. 다른 날은 흰색. 드래그 진행 중인 셀은 강조 톤.
+        backgroundColor: isInDragRange
+          ? "var(--color-apple-action-soft, #e6f0ff)"
+          : cell.isToday
+            ? "var(--color-surface-cream)"
+            : "#ffffff",
       }}
     >
       <span
@@ -726,39 +853,194 @@ function DayCell({
         )}
       </ul>
 
-      {/* 데스크톱: 풀 라벨 칩 — 파스텔 배경 + 검정(ink) 텍스트.
-          좌측 동그라미 점은 색칩 배경이 이미 kind를 알려주므로 제거. */}
-      <ul className="hidden flex-col gap-0.5 sm:flex">
-        {events.slice(0, 3).map((e) => {
+      {/* 데스크톱: macOS 캘린더 톤 — 시간 지정은 좌측 색 도트 + 텍스트(투명 배경),
+          하루 종일은 셀 가로 가득 차는 흐릿한 색 막대. */}
+      <ul className="hidden flex-col gap-px sm:flex">
+        {events.slice(0, 4).map((e) => {
           const fullLabel = formatEventLabel(e);
           const shortLabel = formatEventCompact(e);
-          const tint = kindTint(e.kind);
+          const color = kindColor(e.kind, e.courseColor);
+          const isSelectedEvent = selectedEventId === e.id;
+          if (e.allDay) {
+            // 하루 종일 — 배경 흐릿 + 흰 텍스트 톤
+            return (
+              <li key={e.id}>
+                <EventChip
+                  event={e}
+                  selected={isSelectedEvent}
+                  allDay
+                  color={color}
+                  label={shortLabel}
+                  title={fullLabel}
+                  onClick={() => onSelectEvent?.(e)}
+                  onContext={(pos) => onContextEvent?.(e, pos)}
+                />
+              </li>
+            );
+          }
           return (
             <li key={e.id}>
-              <ChipButton
+              <EventChip
                 event={e}
+                selected={isSelectedEvent}
+                allDay={false}
+                color={color}
+                label={shortLabel}
+                title={fullLabel}
                 onClick={() => onSelectEvent?.(e)}
                 onContext={(pos) => onContextEvent?.(e, pos)}
-                className="block w-full truncate rounded-[4px] px-1.5 py-0.5 text-left text-[10.5px] wght-560 leading-[1.4] text-[var(--color-apple-ink)] transition-colors hover:brightness-95"
-                style={{
-                  backgroundColor: tint.bg,
-                  letterSpacing: "-0.012em",
-                }}
-                title={fullLabel}
-              >
-                {shortLabel}
-              </ChipButton>
+              />
             </li>
           );
         })}
-        {events.length > 3 && (
-          <li className="truncate text-[10px] wght-560 text-[var(--color-apple-muted)]">
-            + {events.length - 3}개
+        {events.length > 4 && (
+          <li
+            className="truncate pl-1 pt-0.5 text-[10px] wght-560 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            + {events.length - 4}개 더
           </li>
         )}
       </ul>
     </div>
   );
+}
+
+/**
+ * 이벤트 chip — macOS 캘린더 톤.
+ *
+ * 시간 지정 일정: 투명 배경 + 좌측 색 도트 + 검은 텍스트. 클릭 시 색 배경 진해짐.
+ * 하루 종일 일정: 색 배경 막대 (셀 가로 가득) + 흰 텍스트 톤. selected 시 진한 색.
+ *
+ * selected 상태:
+ *   - 시간 지정: 배경에 옅은 색 + bold
+ *   - 하루 종일: 배경 진해짐 + bold
+ */
+function EventChip({
+  event,
+  selected,
+  allDay,
+  color,
+  label,
+  title,
+  onClick,
+  onContext,
+}: {
+  event: EventView;
+  selected?: boolean;
+  allDay: boolean;
+  color: string;
+  label: string;
+  title?: string;
+  onClick: () => void;
+  onContext?: (pos: { x: number; y: number }) => void;
+}) {
+  void event;
+
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleContext(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    onContext?.({ x: e.clientX, y: e.clientY });
+  }
+  function handleClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    onClick();
+  }
+  function handleTouchStart(e: React.TouchEvent) {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    const t = e.touches[0];
+    if (!t) return;
+    const x = t.clientX;
+    const y = t.clientY;
+    longPressTimer.current = setTimeout(() => {
+      try {
+        navigator.vibrate?.(8);
+      } catch {
+        /* noop */
+      }
+      onContext?.({ x, y });
+      longPressTimer.current = null;
+    }, 500);
+  }
+  function handleTouchEnd() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }
+
+  if (allDay) {
+    return (
+      <button
+        type="button"
+        onClick={handleClick}
+        onContextMenu={handleContext}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        title={title}
+        className="block w-full truncate rounded-[6px] px-2 py-[3px] text-left text-[11px] wght-560 leading-[1.35] transition-all duration-150 hover:brightness-105 active:scale-[0.98]"
+        style={{
+          backgroundColor: selected ? toAlpha(color, 0.9) : toAlpha(color, 0.18),
+          color: selected ? "white" : "var(--color-apple-ink)",
+          letterSpacing: "-0.012em",
+        }}
+      >
+        {label}
+      </button>
+    );
+  }
+  // 시간 지정
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      onContextMenu={handleContext}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+      title={title}
+      className={`flex w-full items-center gap-1.5 truncate rounded-[6px] px-1.5 py-[2px] text-left text-[11px] leading-[1.35] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] ${
+        selected ? "wght-700" : "wght-450"
+      }`}
+      style={{
+        backgroundColor: selected ? toAlpha(color, 0.15) : "transparent",
+        color: "var(--color-apple-ink)",
+        letterSpacing: "-0.012em",
+      }}
+    >
+      <span
+        aria-hidden
+        className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: color }}
+      />
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+/**
+ * hex/rgb 색을 알파 섞은 rgba로 변환. 간단 hex 가정.
+ * 실패 시 원본 그대로 반환 (CSS는 brightness 등으로 보정).
+ */
+function toAlpha(input: string, alpha: number): string {
+  const hex = input.trim();
+  if (hex.startsWith("#") && (hex.length === 7 || hex.length === 4)) {
+    let r: number, g: number, b: number;
+    if (hex.length === 7) {
+      r = parseInt(hex.slice(1, 3), 16);
+      g = parseInt(hex.slice(3, 5), 16);
+      b = parseInt(hex.slice(5, 7), 16);
+    } else {
+      r = parseInt(hex[1] + hex[1], 16);
+      g = parseInt(hex[2] + hex[2], 16);
+      b = parseInt(hex[3] + hex[3], 16);
+    }
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return hex;
 }
 
 /**
@@ -1536,6 +1818,15 @@ function isoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** "YYYY-MM-DD" → "5월 18일 월요일" 같은 라벨 */
+function formatDateIsoLabel(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const dt = new Date(y, m - 1, d);
+  const weekday = ["일", "월", "화", "수", "목", "금", "토"][dt.getDay()];
+  return `${m}월 ${d}일 ${weekday}요일`;
+}
+
 function formatDate(d: Date, allDay: boolean): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -1593,6 +1884,7 @@ function EventCreateForm({
   open,
   courses,
   prefillDateIso,
+  prefillEndDateIso,
   onClose,
   onCreated,
 }: {
@@ -1600,6 +1892,8 @@ function EventCreateForm({
   courses: CourseOption[];
   /** "YYYY-MM-DD" — 캘린더에서 특정 날짜 선택 후 추가 흐름. null이면 오늘. */
   prefillDateIso?: string | null;
+  /** 드래그로 잡은 종료 날짜 — start와 다르면 사용자가 범위 잡은 것 */
+  prefillEndDateIso?: string | null;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -1614,11 +1908,19 @@ function EventCreateForm({
     return `${todayKst.getUTCFullYear()}-${pad(todayKst.getUTCMonth() + 1)}-${pad(todayKst.getUTCDate())}T21:00`;
   }, [prefillDateIso]);
 
+  const defaultEnd = useMemo(() => {
+    if (prefillEndDateIso && /^\d{4}-\d{2}-\d{2}$/.test(prefillEndDateIso)) {
+      // 드래그로 범위 잡은 경우 — 끝 날짜 22:00 (1시간)
+      return `${prefillEndDateIso}T22:00`;
+    }
+    return "";
+  }, [prefillEndDateIso]);
+
   const [kind, setKind] = useState<"exam" | "assignment" | "presentation" | "etc">("exam");
   const [title, setTitle] = useState("");
   const [courseId, setCourseId] = useState<string>("");
   const [startsAt, setStartsAt] = useState(defaultStart);
-  const [endsAt, setEndsAt] = useState("");
+  const [endsAt, setEndsAt] = useState(defaultEnd);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1627,6 +1929,9 @@ function EventCreateForm({
   useEffect(() => {
     setStartsAt(defaultStart);
   }, [defaultStart]);
+  useEffect(() => {
+    setEndsAt(defaultEnd);
+  }, [defaultEnd]);
 
   function reset() {
     setKind("exam");
