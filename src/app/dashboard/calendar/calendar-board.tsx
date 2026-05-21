@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/context-menu";
@@ -68,6 +68,16 @@ interface MonthCell {
 /** 듀얼 뷰 모드 — 시간표(주간 반복 수업)만 보거나, 내 일정(시험·과제·발표·기타)만 보거나, 전체 */
 type ViewMode = "all" | "timetable" | "events";
 
+/** 일/주/월/년 단위로 캘린더 보기 스케일. URL `?scale=`로 영속. */
+export type CalendarScale = "day" | "week" | "month" | "year";
+const SCALE_LABELS: Record<CalendarScale, string> = {
+  day: "일",
+  week: "주",
+  month: "월",
+  year: "년",
+};
+const SCALE_ORDER: CalendarScale[] = ["day", "week", "month", "year"];
+
 function isClass(e: EventView): boolean {
   return e.kind === "class";
 }
@@ -90,6 +100,23 @@ export function CalendarBoard({
   courses: CourseOption[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialScale = ((): CalendarScale => {
+    const raw = searchParams.get("scale");
+    if (raw === "day" || raw === "week" || raw === "month" || raw === "year") return raw;
+    return "month";
+  })();
+  const [scale, setScaleState] = useState<CalendarScale>(initialScale);
+  function setScale(next: CalendarScale) {
+    setScaleState(next);
+    // URL ?scale= 갱신 — 새로고침해도 유지, 그러나 history push는 안 함
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "month") params.delete("scale");
+    else params.set("scale", next);
+    const qs = params.toString();
+    const url = qs ? `?${qs}` : "?";
+    window.history.replaceState(null, "", url);
+  }
   const [view, setView] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -255,7 +282,7 @@ export function CalendarBoard({
   return (
     <div className="mt-8 grid gap-6 md:grid-cols-[1fr_280px] lg:grid-cols-[1fr_320px] fade-up fade-up-1">
       <section className="elev-1 rounded-[18px] bg-white p-5 sm:p-7">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2
             className="text-[20px] wght-620 text-[var(--color-apple-ink)] sm:text-[22px]"
             style={{ letterSpacing: "-0.012em" }}
@@ -276,6 +303,7 @@ export function CalendarBoard({
             <NavButton onClick={() => navigate(1)} aria-label="다음 달">
               ›
             </NavButton>
+            <ScaleToggle scale={scale} onChange={setScale} className="ml-2" />
             <button
               type="button"
               onClick={() => setCreating(true)}
@@ -290,57 +318,65 @@ export function CalendarBoard({
 
         <ViewModeToggle mode={mode} onChange={setMode} counts={counts} className="mt-4" />
 
-        <ul className="mt-4 grid grid-cols-7 gap-px text-center text-[10.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-          {WEEKDAYS.map((d) => (
-            <li key={d} className="py-1.5">
-              {d}
-            </li>
-          ))}
-        </ul>
+        {scale === "month" && (
+          <>
+            <ul className="mt-4 grid grid-cols-7 gap-px text-center text-[10.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+              {WEEKDAYS.map((d) => (
+                <li key={d} className="py-1.5">
+                  {d}
+                </li>
+              ))}
+            </ul>
 
-        <div className="mt-1 grid grid-cols-7 gap-px overflow-hidden rounded-[10px] bg-[var(--color-apple-hairline)]">
-          {cells.map((cell) => {
-            const dayEvents = byDate.get(cell.iso) ?? [];
-            const isSelectedDay = selectedDate === cell.iso;
-            return (
-              <DayCell
-                key={cell.iso}
-                cell={cell}
-                events={dayEvents}
-                kindLabel={kindLabel}
-                isSelected={isSelectedDay}
-                onSelectDay={() => {
-                  setSelectedDate(cell.iso);
-                  setSelected(null);
-                }}
-                onSelectEvent={(e) => {
-                  setSelected(e);
-                  setSelectedDate(null);
-                }}
-                onContextDay={(pos) => {
-                  setCtxEvent(null);
-                  setCtxDateIso(cell.iso);
-                  ctx.bind.onContextMenu({
-                    preventDefault: () => {},
-                    stopPropagation: () => {},
-                    clientX: pos.x,
-                    clientY: pos.y,
-                  } as unknown as React.MouseEvent);
-                }}
-                onContextEvent={(e, pos) => {
-                  setCtxDateIso(null);
-                  openMenuFor(e);
-                  ctx.bind.onContextMenu({
-                    preventDefault: () => {},
-                    stopPropagation: () => {},
-                    clientX: pos.x,
-                    clientY: pos.y,
-                  } as unknown as React.MouseEvent);
-                }}
-              />
-            );
-          })}
-        </div>
+            <div className="mt-1 grid grid-cols-7 gap-px overflow-hidden rounded-[10px] bg-[var(--color-apple-hairline)]">
+              {cells.map((cell) => {
+                const dayEvents = byDate.get(cell.iso) ?? [];
+                const isSelectedDay = selectedDate === cell.iso;
+                return (
+                  <DayCell
+                    key={cell.iso}
+                    cell={cell}
+                    events={dayEvents}
+                    kindLabel={kindLabel}
+                    isSelected={isSelectedDay}
+                    onSelectDay={() => {
+                      setSelectedDate(cell.iso);
+                      setSelected(null);
+                    }}
+                    onSelectEvent={(e) => {
+                      setSelected(e);
+                      setSelectedDate(null);
+                    }}
+                    onContextDay={(pos) => {
+                      setCtxEvent(null);
+                      setCtxDateIso(cell.iso);
+                      ctx.bind.onContextMenu({
+                        preventDefault: () => {},
+                        stopPropagation: () => {},
+                        clientX: pos.x,
+                        clientY: pos.y,
+                      } as unknown as React.MouseEvent);
+                    }}
+                    onContextEvent={(e, pos) => {
+                      setCtxDateIso(null);
+                      openMenuFor(e);
+                      ctx.bind.onContextMenu({
+                        preventDefault: () => {},
+                        stopPropagation: () => {},
+                        clientX: pos.x,
+                        clientY: pos.y,
+                      } as unknown as React.MouseEvent);
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {scale !== "month" && (
+          <ScalePlaceholder scale={scale} className="mt-6" />
+        )}
       </section>
 
       <aside className="flex flex-col gap-4">
@@ -507,6 +543,81 @@ function ViewModeToggle({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * 일/주/월/년 스케일 segmented control — macOS 캘린더 톤.
+ * 작은 라운드 pill 그룹, 활성 셀은 흰 배경. 모바일은 가로 컴팩트.
+ */
+function ScaleToggle({
+  scale,
+  onChange,
+  className,
+}: {
+  scale: CalendarScale;
+  onChange: (s: CalendarScale) => void;
+  className?: string;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="보기 스케일"
+      className={`inline-flex items-center gap-px overflow-hidden rounded-full bg-[var(--color-apple-pearl)] p-0.5 ${className ?? ""}`}
+    >
+      {SCALE_ORDER.map((s) => {
+        const active = scale === s;
+        return (
+          <button
+            key={s}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(s)}
+            className={`inline-flex h-7 min-w-[28px] items-center justify-center rounded-full px-2.5 text-[12px] transition-all ${
+              active
+                ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+                : "wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
+            }`}
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {SCALE_LABELS[s]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * 일/주/년 view는 Phase 2~에서 구현 예정 — 일단 스케일 토글이 동작은 하되
+ * 본 화면은 안내문으로 자리를 잡아둔다. 이렇게 하면 toggle UX는 즉시 잡고,
+ * 본 그리드는 별도 PR로 깔끔히 진행 가능.
+ */
+function ScalePlaceholder({ scale, className }: { scale: CalendarScale; className?: string }) {
+  const titleByScale: Record<CalendarScale, string> = {
+    day: "일 단위 보기",
+    week: "주 단위 보기",
+    month: "월 단위 보기",
+    year: "년 단위 보기",
+  };
+  return (
+    <div
+      className={`flex flex-col items-center justify-center rounded-[12px] border border-dashed border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)] px-6 py-16 text-center ${className ?? ""}`}
+    >
+      <p
+        className="text-[14px] wght-560 text-[var(--color-apple-ink)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        {titleByScale[scale]} 준비 중이에요
+      </p>
+      <p
+        className="mt-2 max-w-[360px] text-[12.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "-0.022em" }}
+      >
+        곧 일·주·년 보기도 같은 톤으로 채워드릴게요. 지금은 월 보기로 전환해서 사용해 주세요.
+      </p>
     </div>
   );
 }
