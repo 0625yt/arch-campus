@@ -26,7 +26,8 @@ const CSP_REPORT_ONLY = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://cdn.jsdelivr.net",
   "frame-src 'self' https://*.supabase.co",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  // Anthropic 미리 화이트리스트 — 향후 클라이언트 streaming(useChat) 도입 시 enforce 전환에서 막히지 않게
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

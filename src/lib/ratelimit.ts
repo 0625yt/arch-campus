@@ -47,11 +47,24 @@ const POLICIES: Record<string, LimiterConfig> = {
 let redis: Redis | null = null;
 const limiters = new Map<string, Ratelimit>();
 
+let warnedNoEnvInProd = false;
 function getRedis(): Redis | null {
   if (redis) return redis;
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
+  if (!url || !token) {
+    // prod에서 env 누락은 rate limit이 무음 비활성 — 한 번만 큰 로그로 알린다.
+    // Vercel logs 검색 시 즉시 잡히게 메시지 고정.
+    if (process.env.NODE_ENV === "production" && !warnedNoEnvInProd) {
+      warnedNoEnvInProd = true;
+      console.error(
+        "[ratelimit.CRITICAL] UPSTASH_REDIS_REST_URL/TOKEN not set in production. " +
+          "Rate limit is DISABLED — AI/upload abuse not protected. " +
+          "Set both env vars in Vercel project settings.",
+      );
+    }
+    return null;
+  }
   redis = new Redis({ url, token });
   return redis;
 }
@@ -138,10 +151,20 @@ export async function guardRateLimit<T = unknown>(
 ): Promise<NextResponse<T> | null> {
   const { success, headers } = await checkRateLimit(kind, identifier);
   if (success) return null;
+  // kind를 error 메시지·body에 포함 — 클라이언트가 어떤 limit에 걸렸는지 분기 가능
+  const friendlyKind =
+    kind === "ai"
+      ? "AI 호출"
+      : kind === "upload"
+        ? "파일 업로드"
+        : kind === "login"
+          ? "로그인 시도"
+          : "요청";
   return NextResponse.json(
     {
       ok: false,
-      error: "요청이 너무 많아요. 잠시 후 다시 시도해주세요.",
+      kind,
+      error: `${friendlyKind} 횟수가 한도를 넘었어요. 잠시 후 다시 시도해주세요.`,
       retryAfterSec: Number(headers["Retry-After"] ?? 60),
     },
     { status: 429, headers },

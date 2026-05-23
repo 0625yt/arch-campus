@@ -59,7 +59,9 @@ function isPrivateIPv6(ip: string): boolean {
   const lower = ip.toLowerCase();
   if (lower === "::1" || lower === "::") return true;
   if (lower.startsWith("fc") || lower.startsWith("fd")) return true;
-  if (lower.startsWith("fe80:") || lower.startsWith("fe90:") || lower.startsWith("fea0:")) return true;
+  // link-local 정확한 범위: fe80::/10 → 첫 10비트 1111_1110_10xx_xxxx
+  // 16진 prefix는 fe80~febf — 정규식으로 한 번에.
+  if (/^fe[89ab][0-9a-f]?:/.test(lower)) return true;
   // IPv4-mapped
   const m = lower.match(/::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
   if (m && isPrivateIPv4(m[1])) return true;

@@ -56,7 +56,14 @@ export function MfaSection({ className }: { className?: string }) {
       return;
     }
     setFactorId(data.id);
-    setQrSvg(data.totp.qr_code);
+    // SVG 안에 <script> 포함되면 거부 — Supabase가 정상 반환할 일 없지만 supply chain 가드.
+    // 정상 SVG는 <svg ...><rect/></svg> 형태만 포함.
+    const rawSvg = data.totp.qr_code;
+    if (/<\s*script/i.test(rawSvg) || /on\w+\s*=/i.test(rawSvg)) {
+      setError("QR 응답이 신뢰할 수 없는 형식이에요. Supabase 측 점검 필요.");
+      return;
+    }
+    setQrSvg(rawSvg);
     setSecret(data.totp.secret);
     setStatus("enrolling");
   }
