@@ -143,37 +143,64 @@ function groupByQuiz(items: WrongItem[]): QuizGroup[] {
     .sort((a, b) => b.uniqueQuestionCount - a.uniqueQuestionCount);
 }
 
+/**
+ * 오답 그룹 카드 — 캘린더 EventChip + Inspector 톤을 가져옴.
+ *
+ *  - 좌측 2.5px coral bar (DESIGN §10: 동그라미 점 금지, 얇은 bar는 허용)
+ *  - 한 줄 헤드라인 "오답 {N}문제 · {N일 전}" coral 텍스트
+ *  - 큰 제목 (Apple Inspector h3 자리)
+ *  - hover lift + 우상단 radial wash (tools ToolCard 톤)
+ */
 function ReviewCard({ group }: { group: QuizGroup }) {
   const days = daysSince(group.lastAttemptedAt);
+  const timeLabel = days === 0 ? "오늘" : `${days}일 전`;
+
   return (
-    <article className="elev-hover-2 rounded-[18px] bg-white p-6">
-      <div className="flex items-baseline justify-between gap-3">
-        <p
-          className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]"
-        >
-          오답 {group.uniqueQuestionCount}문제
-        </p>
-        <p className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
-          {days === 0 ? "오늘" : `${days}일 전`}
-        </p>
-      </div>
+    <article className="group elev-hover-2 relative flex h-full flex-col overflow-hidden rounded-[16px] bg-white p-6">
+      {/* 좌측 컬러 ribbon — 평소 옅게, hover에서 진해짐 */}
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-[2.5px] opacity-55 transition-opacity duration-300 group-hover:opacity-100"
+        style={{ backgroundColor: "var(--color-urgent)" }}
+      />
+      {/* hover 우상단 미세 컬러 워시 — coral tint */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{
+          background:
+            "radial-gradient(160px at 100% 0%, color-mix(in oklab, var(--color-urgent) 14%, transparent), transparent 70%)",
+        }}
+      />
+
+      {/* 헤드라인 1줄 — coral 톤. 정보 위계 (캘린더 Inspector와 동일 패턴) */}
+      <p
+        className="relative text-[12px] wght-620 tabular-nums text-[var(--color-urgent)]"
+        style={{ letterSpacing: "-0.006em" }}
+      >
+        오답 {group.uniqueQuestionCount}문제 <span className="text-[var(--color-apple-muted)] wght-450">· {timeLabel}</span>
+      </p>
+
       <h2
-        className="mt-3 text-[17px] leading-[1.35] wght-620 text-[var(--color-apple-ink)]"
-        style={{ letterSpacing: "-0.012em" }}
+        className="relative mt-2 text-[18px] leading-[1.3] wght-700 text-[var(--color-apple-ink)]"
+        style={{ letterSpacing: "-0.018em" }}
       >
         {group.quizTitle}
       </h2>
-      <div className="mt-6 flex gap-2">
+
+      <div className="relative mt-auto flex gap-2 pt-6">
         <Link
           href={`/dashboard/quiz/${group.quizId}/wrong`}
-          className="inline-flex h-[40px] flex-1 items-center justify-center rounded-full bg-[var(--color-urgent)] px-4 text-[13px] wght-560 text-white transition-all hover:opacity-90"
+          className="inline-flex h-[38px] flex-1 items-center justify-center rounded-full bg-[var(--color-urgent)] px-4 text-[13px] wght-620 text-white transition-all hover:brightness-105"
+          style={{ letterSpacing: "-0.012em" }}
         >
           오답 다시 풀기
         </Link>
         {group.materialId && (
           <Link
             href={`/dashboard/study/${encodeURIComponent("자료")}/${group.materialId}`}
-            className="inline-flex h-[40px] items-center justify-center rounded-full border border-[var(--color-apple-hairline)] px-4 text-[12px] wght-450 text-[var(--color-apple-muted)] transition-all hover:border-[var(--color-apple-ink)] hover:text-[var(--color-apple-ink)]"
+            className="inline-flex h-[38px] items-center justify-center rounded-full px-3.5 text-[12.5px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
           >
             자료
           </Link>

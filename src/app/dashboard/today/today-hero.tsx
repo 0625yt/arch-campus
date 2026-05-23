@@ -37,7 +37,16 @@ export function TodayHero({
     m = Math.floor((diffSec % 3600) / 60);
     s = diffSec % 60;
   }
-  const days = now ? Math.floor((target.getTime() - now.getTime()) / 86400000) : 0;
+  // D-day는 자정 기준 — 캘린더 Inspector의 D-day와 일치시킴. 시계 시각으로 자르면
+  // "오늘 새벽 1시 시험"이 D-1로 보이는 어색함이 생김.
+  const days = (() => {
+    if (!now) return 0;
+    const t = new Date(target);
+    t.setHours(0, 0, 0, 0);
+    const n = new Date(now);
+    n.setHours(0, 0, 0, 0);
+    return Math.round((t.getTime() - n.getTime()) / 86400000);
+  })();
   const within24h = diffSec > 0 && diffSec < 24 * 3600;
   const isUrgent = diffSec < 6 * 3600;
 
@@ -45,25 +54,26 @@ export function TodayHero({
 
   // Apple "MacBook Air" 카피 패턴 — 작은 라벨(eyebrow) → 큰 두 문장 헤드 → 코랄 한 줄 부제.
   // 카운트다운/CTA 같은 인터랙션은 헤드라인 아래로 옮겨 카피가 호흡할 공간을 만든다.
-  const eyebrow = kindLabel[focus.kind];
+  //
+  // 2026-05-23: eyebrow를 캘린더 Inspector "D-3 · 글로컬 영어 I" 한 줄 헤드라인 패턴으로 일관화.
+  // kind 컬러로 강조, course 있으면 함께 노출. 정보 위계로 곧장 의미 전달.
+  const dDayLabel = now ? (days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`) : "";
   const headlineA = focus.courseName ?? formatEventHeading(focus);
   const headlineB = headlineCallout(focus.kind, isUrgent, within24h);
   const coralLine = focus.notes ?? formatEventHeading(focus);
 
   return (
     <section className={className}>
-      {/* 1. eyebrow — Apple "MacBook Air" 자리 */}
+      {/* 1. eyebrow — "D-3 · 시험 · 20%" 한 줄. kind 컬러로 강조 (캘린더 Inspector 톤). */}
       <p
-        className="text-[14px] wght-560 text-[var(--color-apple-muted)] sm:text-[15px]"
-        style={{ letterSpacing: "-0.012em" }}
+        className="flex items-baseline gap-2 text-[14px] wght-620 tabular-nums sm:text-[15px]"
+        style={{ letterSpacing: "-0.012em", color: kindStyle.dot }}
       >
-        {eyebrow}
-        {focus.weightPercent != null && (
-          <span className="ml-2 text-[var(--color-apple-hairline)]">·</span>
-        )}
-        {focus.weightPercent != null && (
-          <span className="ml-2">{focus.weightPercent}%</span>
-        )}
+        {dDayLabel && <span>{dDayLabel}</span>}
+        <span className="text-[var(--color-apple-muted)] wght-450">
+          · {kindLabel[focus.kind]}
+          {focus.weightPercent != null && ` · ${focus.weightPercent}%`}
+        </span>
       </p>
 
       {/* 2. 큰 두 문장 헤드 — "강력하게. 비상하다." 자리 */}
@@ -88,11 +98,14 @@ export function TodayHero({
         </p>
       )}
 
-      {/* 4. 카운트다운 + CTA — Apple 가격 + 구입하기 자리 */}
+      {/* 4. 카운트다운 + CTA — Apple 가격 + 구입하기 자리.
+          urgent(6시간 이내)이면 카운트다운 전체가 미세 박동(urgent-pulse 유틸). */}
       <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-4 sm:mt-14">
         <div
-          className="flex items-baseline gap-2"
-          style={{ color: isUrgent ? "var(--color-urgent)" : "var(--color-apple-ink)" }}
+          className={`flex items-baseline gap-2 ${isUrgent ? "urgent-pulse" : ""}`}
+          style={{
+            color: isUrgent ? "var(--color-urgent)" : "var(--color-apple-ink)",
+          }}
         >
           {within24h ? (
             <>
@@ -178,14 +191,27 @@ function kindHeroStyle(kind: EventView["kind"]): KindHeroStyle {
   }
 }
 
+/**
+ * 카운트다운 셀 — 숫자가 바뀔 때 살짝 위로 올라오는 디지털 플립 톤.
+ *
+ * 구현: key를 value에 묶어 React가 값 변경 시 재마운트 → CSS 키프레임이 매번 재생.
+ * 자연스러움 위해 50ms 짧은 fade-up. 시각적 노이즈는 없고, 시간이 살아 있다는 신호만.
+ */
 function ClockCell({ value, unit }: { value: number; unit: string }) {
+  const display = String(value).padStart(2, "0");
   return (
     <span className="flex items-baseline gap-1">
       <span
-        className="text-[44px] wght-620 leading-none tabular-nums sm:text-[60px]"
-        style={{ letterSpacing: "-0.024em" }}
+        className="relative inline-block overflow-hidden tabular-nums"
+        style={{ width: "1.4em" }}
       >
-        {String(value).padStart(2, "0")}
+        <span
+          key={display}
+          className="clock-tick block text-[44px] wght-620 leading-none sm:text-[60px]"
+          style={{ letterSpacing: "-0.024em" }}
+        >
+          {display}
+        </span>
       </span>
       <span className="text-[14px] wght-560 text-[var(--color-apple-muted)] sm:text-[16px]">
         {unit}

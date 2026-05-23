@@ -272,12 +272,20 @@ function CourseCard({ course }: { course: CourseListItem }) {
       </div>
       <Link
         href={`/dashboard/study/${encodeURIComponent(course.name)}`}
-        className="group elev-hover-2 relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-[18px] bg-white p-7 sm:p-8"
+        className="group elev-hover-2 relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-[18px] bg-white p-7 transition-transform duration-300 hover:-translate-y-0.5 sm:p-8"
       >
-      {/* 좌측 컬러 리본 — 카드 정체성. hover 시 4px로 살짝 굵어짐. */}
+      {/* 좌측 컬러 리본 — 카드 정체성. hover 시 4px로 살짝 굵어짐 + 옅은 glow. */}
       <span
         aria-hidden
-        className="absolute inset-y-0 left-0 w-[3px] transition-all group-hover:w-[4px]"
+        className="absolute inset-y-0 left-0 w-[3px] transition-all duration-300 group-hover:w-[4px]"
+        style={{
+          backgroundColor: ribbon,
+          boxShadow: `0 0 0 0 ${ribbon}`,
+        }}
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 left-0 w-[6px] opacity-0 blur-md transition-opacity duration-300 group-hover:opacity-50"
         style={{ backgroundColor: ribbon }}
       />
       {/* hover 시 우상단에 미세한 컬러 워시 — Apple Mail/Notes 컬러 폴더 호버 톤 */}
@@ -324,6 +332,21 @@ function CourseCard({ course }: { course: CourseListItem }) {
   );
 }
 
+/**
+ * Activity kind → 컬러. 캘린더 KIND_FALLBACK_COLOR 톤과 결 맞춰 6종.
+ * 사용자가 행을 훑을 때 카테고리가 한눈에 들어오게 좌측 가는 bar로 표현.
+ */
+function activityColor(kind: Activity["kind"]): string {
+  switch (kind) {
+    case "summarize": return "#7aa6d6"; // cobalt
+    case "quiz": return "#e0445e"; // coral
+    case "syllabus": return "#7fb38c"; // sage
+    case "presentation": return "#7aa6d6"; // cobalt
+    case "wizard": return "#a08bc4"; // mauve
+    case "attempt": return "#cca06b"; // mustard
+  }
+}
+
 function RecentActivity({
   activities,
   className,
@@ -352,37 +375,53 @@ function RecentActivity({
       </div>
 
       <ul className="mt-8 overflow-hidden rounded-[12px] border border-[var(--color-apple-hairline)] bg-white">
-        {activities.map((a, idx) => (
-          <li
-            key={a.id}
-            className={
-              idx !== activities.length - 1 ? "border-b border-[var(--color-apple-hairline-soft)]" : ""
-            }
-          >
-            <Link
-              href={a.href}
-              className="grid grid-cols-[60px_1fr_auto] items-center gap-4 px-5 py-[18px] transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[72px_1fr_auto] sm:gap-5 sm:px-7"
+        {activities.map((a, idx) => {
+          const accent = activityColor(a.kind);
+          return (
+            <li
+              key={a.id}
+              className={
+                idx !== activities.length - 1
+                  ? "border-b border-[var(--color-apple-hairline-soft)]"
+                  : ""
+              }
             >
-              <span className="text-[11px] wght-450 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-                {a.kindLabel}
-              </span>
-              <span className="min-w-0">
+              <Link
+                href={a.href}
+                className="group relative grid grid-cols-[60px_1fr_auto] items-center gap-4 px-5 py-[18px] transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[72px_1fr_auto] sm:gap-5 sm:px-7"
+              >
+                {/* 좌측 컬러 단서 — 평소 작고 hover에서 늘어남 (캘린더 EventChip 좌측 bar 톤) */}
                 <span
-                  className="block truncate text-[14px] wght-560 text-[var(--color-apple-ink)]"
-                  style={{ letterSpacing: "-0.012em" }}
+                  aria-hidden
+                  className="absolute left-0 top-1/2 h-[8px] w-[2px] -translate-y-1/2 rounded-full transition-all duration-200 group-hover:h-[24px] group-hover:w-[2.5px]"
+                  style={{ backgroundColor: accent }}
+                />
+                <span
+                  className="text-[11px] wght-620 uppercase tabular-nums"
+                  style={{ letterSpacing: "0.06em", color: accent }}
                 >
-                  {a.title}
+                  {a.kindLabel}
                 </span>
-                {a.detail && (
-                  <span className="mt-1 block truncate text-[12px] wght-450 text-[var(--color-apple-muted)]">
-                    {a.detail}
+                <span className="min-w-0">
+                  <span
+                    className="block truncate text-[14px] wght-560 text-[var(--color-apple-ink)]"
+                    style={{ letterSpacing: "-0.012em" }}
+                  >
+                    {a.title}
                   </span>
-                )}
-              </span>
-              <span className="text-[15px] text-[var(--color-apple-muted)]">›</span>
-            </Link>
-          </li>
-        ))}
+                  {a.detail && (
+                    <span className="mt-1 block truncate text-[12px] wght-450 text-[var(--color-apple-muted)]">
+                      {a.detail}
+                    </span>
+                  )}
+                </span>
+                <span className="text-[15px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
+                  ›
+                </span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

@@ -359,6 +359,30 @@ select:focus-visible {
   animation: pulse-soft 2.4s var(--ease-out) infinite;
 }
 
+/* 임박 D-day·카운트다운 강조 — 부드러운 opacity 박동.
+   today UpcomingCard·TodayHero에서 임박 상태일 때 적용. */
+.urgent-pulse {
+  animation: pulse-soft 1.8s var(--ease-out) infinite;
+}
+
+/* 카운트다운 자리 숫자 교체 — 위에서 살짝 떨어지며 blur가 빠지는 디지털 톤.
+   today TodayHero의 ClockCell에서 사용. */
+@keyframes clock-tick {
+  0% {
+    transform: translateY(40%);
+    opacity: 0;
+    filter: blur(1px);
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+.clock-tick {
+  animation: clock-tick 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 /* 페이지 진입 — 생활형 도구라 첫 정보가 늦게 뜨지 않게 짧게 */
 @keyframes fade-up {
   from {
