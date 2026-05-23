@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getBrowserSupabase } from "@/lib/supabase/client";
 
 export interface ActiveJobRow {
   id: string;
@@ -136,6 +137,17 @@ export function useActiveJobs() {
     }
     optimisticListeners.add(syncOptimistic);
 
+    // Realtime — jobs 테이블 INSERT/UPDATE/DELETE 시 즉시 refetch.
+    // 필터 X (사용자 본인 owner_id row만 RLS에 의해 도달).
+    // polling은 그대로 유지 — Realtime 끊긴 짧은 구간의 안전망.
+    const supabase = getBrowserSupabase();
+    const channel = supabase
+      .channel("active-jobs")
+      .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, () => {
+        pingNow();
+      })
+      .subscribe();
+
     tick();
 
     return () => {
@@ -143,6 +155,7 @@ export function useActiveJobs() {
       refetchListeners.delete(pingNow);
       optimisticListeners.delete(syncOptimistic);
       if (timerRef.current) clearTimeout(timerRef.current);
+      supabase.removeChannel(channel);
     };
   }, []);
 
