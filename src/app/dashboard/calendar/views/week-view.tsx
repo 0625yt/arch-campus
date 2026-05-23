@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { EventView } from "@/lib/data/events";
 import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
-import { kindColor } from "../calendar-board";
+import { eventColor } from "../calendar-board";
 import {
   ALL_DAY_ROW_PX,
   HOUR_HEIGHT_PX,
@@ -137,7 +137,7 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
           {dateKeys.map((key) => (
             <div key={key} className="relative flex-1 border-l border-[var(--color-apple-hairline-soft)] px-1 pt-1">
               {(byDate.get(key)?.allDay ?? []).map((e, i) => {
-                const color = kindColor(e.kind, e.courseColor);
+                const color = eventColor(e);
                 return (
                   <button
                     key={e.id}
@@ -248,7 +248,7 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
                 {positioned.map(({ event, topPx, heightPx, columnIdx, totalColumns }) => {
                   const widthPct = 100 / totalColumns;
                   const leftPct = columnIdx * widthPct;
-                  const color = kindColor(event.kind, event.courseColor);
+                  const color = eventColor(event);
                   const adjustedTop = topPx - startHour * HOUR_HEIGHT_PX;
                   // 시작 시간이 startHour 이전이면 그리드에서 숨김 (시간표 모드 06시 이전 X)
                   if (adjustedTop + heightPx < 0) return null;

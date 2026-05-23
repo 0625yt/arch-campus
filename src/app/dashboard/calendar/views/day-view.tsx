@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { EventView } from "@/lib/data/events";
 import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
-import { kindColor } from "../calendar-board";
+import { eventColor } from "../calendar-board";
 import {
   HOUR_HEIGHT_PX,
   TIME_AXIS_WIDTH_DAY,
@@ -119,7 +119,7 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
           </div>
           <div className="flex-1 px-2 py-2">
             {allDay.map((e) => {
-              const color = kindColor(e.kind, e.courseColor);
+              const color = eventColor(e);
               return (
                 <button
                   key={e.id}
@@ -220,7 +220,7 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
             {positioned.map(({ event, topPx, heightPx, columnIdx, totalColumns }) => {
               const widthPct = 100 / totalColumns;
               const leftPct = columnIdx * widthPct;
-              const color = kindColor(event.kind, event.courseColor);
+              const color = eventColor(event);
               const adjustedTop = topPx - startHour * HOUR_HEIGHT_PX;
               if (adjustedTop + heightPx < 0) return null;
               const isRecurring = event.kind === "class";

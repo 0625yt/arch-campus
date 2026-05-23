@@ -134,6 +134,10 @@ export interface Database {
           weight_percent: number | null;
           confidence: number | null;
           confirmed: boolean;
+          color: string | null;
+          location: string | null;
+          recurrence_rule: string | null;
+          reminder_minutes: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -151,6 +155,10 @@ export interface Database {
           weight_percent?: number | null;
           confidence?: number | null;
           confirmed?: boolean;
+          color?: string | null;
+          location?: string | null;
+          recurrence_rule?: string | null;
+          reminder_minutes?: number | null;
         };
         Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
         Relationships: [];

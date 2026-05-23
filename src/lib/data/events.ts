@@ -20,6 +20,14 @@ export interface EventView {
   weightPercent: number | null;
   confidence: number | null;
   confirmed: boolean;
+  /** 일정별 색상 (#RRGGBB). NULL이면 courseColor → kindFallback 순. */
+  color: string | null;
+  /** 강의실·온라인 링크·장소. */
+  location: string | null;
+  /** iCalendar RRULE 문자열. NULL이면 단발성. */
+  recurrenceRule: string | null;
+  /** 시작 N분 전 알림. NULL이면 알림 없음. 0/10/60/1440 같은 값. */
+  reminderMinutes: number | null;
 }
 
 interface EventJoinRaw {
@@ -34,6 +42,10 @@ interface EventJoinRaw {
   weight_percent: number | null;
   confidence: number | null;
   confirmed: boolean;
+  color: string | null;
+  location: string | null;
+  recurrence_rule: string | null;
+  reminder_minutes: number | null;
   courses: {
     id: string;
     name: string;
@@ -58,11 +70,15 @@ function mapEvent(row: EventJoinRaw): EventView {
     weightPercent: row.weight_percent,
     confidence: row.confidence,
     confirmed: row.confirmed,
+    color: row.color,
+    location: row.location,
+    recurrenceRule: row.recurrence_rule,
+    reminderMinutes: row.reminder_minutes,
   };
 }
 
 const SELECT_COLS =
-  "id, course_id, kind, title, notes, starts_at, ends_at, all_day, weight_percent, confidence, confirmed, courses(id, name, color, term_start)";
+  "id, course_id, kind, title, notes, starts_at, ends_at, all_day, weight_percent, confidence, confirmed, color, location, recurrence_rule, reminder_minutes, courses(id, name, color, term_start)";
 
 export async function listEventsBetween(opts: {
   ownerId: string;

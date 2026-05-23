@@ -76,6 +76,14 @@ const PatchBody = z
     all_day: z.boolean().optional(),
     weight_percent: z.number().min(0).max(100).nullable().optional(),
     confirmed: z.boolean().optional(),
+    color: z
+      .string()
+      .regex(/^#[0-9A-Fa-f]{6}$/, "색은 #RRGGBB 형식이어야 해요")
+      .nullable()
+      .optional(),
+    location: z.string().max(200).nullable().optional(),
+    recurrence_rule: z.string().max(500).nullable().optional(),
+    reminder_minutes: z.number().int().min(0).max(10080).nullable().optional(),
     scope: z.enum(["this", "all"]).default("this"),
   })
   .strict();
@@ -117,6 +125,12 @@ export async function PATCH(
   if (body.all_day !== undefined) update.all_day = body.all_day;
   if (body.weight_percent !== undefined) update.weight_percent = body.weight_percent;
   if (body.confirmed !== undefined) update.confirmed = body.confirmed;
+  if (body.color !== undefined) update.color = body.color;
+  if (body.location !== undefined)
+    update.location = body.location?.trim() ? body.location.trim() : null;
+  if (body.recurrence_rule !== undefined)
+    update.recurrence_rule = body.recurrence_rule?.trim() ? body.recurrence_rule.trim() : null;
+  if (body.reminder_minutes !== undefined) update.reminder_minutes = body.reminder_minutes;
 
   // 시간 변경: starts_at만 바꾸면 ends_at도 비례 이동시켜야 자연스러움
   // 단순화: 사용자가 시간 바꾸면 두 개 다 같이 보내라. 하나만 와도 받기는 함.

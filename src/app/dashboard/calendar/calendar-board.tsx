@@ -15,6 +15,7 @@ import { EventAIDraftPanel } from "./ai-draft-panel";
 import { DayView } from "./views/day-view";
 import { startOfWeekKst } from "./views/shared/time-grid";
 import { WeekView } from "./views/week-view";
+import { YearView } from "./views/year-view";
 
 /**
  * SSR과 client 첫 paint를 일치시키기 위한 mount 플래그.
@@ -318,6 +319,7 @@ export function CalendarBoard({
 
   const cells = useMemo(() => buildMonthCells(view.year, view.month), [view]);
   const monthLabel = useMemo(() => {
+    if (scale === "year") return `${view.year}년`;
     if (scale === "month") return `${view.year}년 ${view.month + 1}월`;
     const d = new Date(`${focusDate}T00:00:00+09:00`);
     if (scale === "day") return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
@@ -347,6 +349,10 @@ export function CalendarBoard({
   }, [monthState]);
 
   function navigate(delta: number) {
+    if (scale === "year") {
+      setView((prev) => ({ year: prev.year + delta, month: prev.month }));
+      return;
+    }
     if (scale === "month") {
       setView((prev) => {
         const m = prev.month + delta;
@@ -366,7 +372,7 @@ export function CalendarBoard({
 
   function goToday() {
     const now = new Date();
-    if (scale === "month") {
+    if (scale === "month" || scale === "year") {
       setView({ year: now.getFullYear(), month: now.getMonth() });
     }
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -410,7 +416,7 @@ export function CalendarBoard({
             <span aria-hidden className="mx-1 h-4 w-px bg-[var(--color-apple-hairline)]" />
             <Link
               href="/dashboard/calendar/import?kind=timetable"
-              className="rounded-full px-2.5 py-1 text-[13px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+              className="rounded-full px-3 py-1.5 text-[14px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
               시간표 다시 올리기
@@ -521,7 +527,20 @@ export function CalendarBoard({
           />
         )}
 
-        {scale === "year" && <ScalePlaceholder scale={scale} className="mt-6" />}
+        {scale === "year" && (
+          <YearView
+            year={view.year}
+            events={monthState}
+            onSelectMonth={(y, m) => {
+              setView({ year: y, month: m });
+              setScale("month");
+            }}
+            onSelectDay={(dateKey) => {
+              setFocusDate(dateKey);
+              setScale("day");
+            }}
+          />
+        )}
       </section>
 
       {/* 데스크톱: 칩 옆 popover. 모바일: bottom sheet.
@@ -668,38 +687,6 @@ export function CalendarBoard({
 }
 
 /**
- * 일/주/년 view는 Phase 2~에서 구현 예정 — 일단 스케일 토글이 동작은 하되
- * 본 화면은 안내문으로 자리를 잡아둔다. 이렇게 하면 toggle UX는 즉시 잡고,
- * 본 그리드는 별도 PR로 깔끔히 진행 가능.
- */
-function ScalePlaceholder({ scale, className }: { scale: CalendarScale; className?: string }) {
-  const titleByScale: Record<CalendarScale, string> = {
-    day: "일 단위 보기",
-    week: "주 단위 보기",
-    month: "월 단위 보기",
-    year: "년 단위 보기",
-  };
-  return (
-    <div
-      className={`flex flex-col items-center justify-center rounded-[12px] border border-dashed border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)] px-6 py-16 text-center ${className ?? ""}`}
-    >
-      <p
-        className="text-[14px] wght-560 text-[var(--color-apple-ink)]"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        {titleByScale[scale]} 준비 중이에요
-      </p>
-      <p
-        className="mt-2 max-w-[360px] text-[12.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
-        style={{ letterSpacing: "-0.022em" }}
-      >
-        곧 일·주·년 보기도 같은 톤으로 채워드릴게요. 지금은 월 보기로 전환해서 사용해 주세요.
-      </p>
-    </div>
-  );
-}
-
-/**
  * 일/주/월 스케일 토글 — segmented control (DESIGN §10 풀-라운드 pill 무분별 X 룰 준수).
  * rounded-md 컨테이너 + 활성만 흰 배경 + 작은 그림자.
  */
@@ -716,6 +703,7 @@ function ScaleToggle({
     { value: "day", label: "일" },
     { value: "week", label: "주" },
     { value: "month", label: "월" },
+    { value: "year", label: "년" },
   ];
   return (
     <div
@@ -923,7 +911,7 @@ function DayCell({
         {events.slice(0, 3).map((e) => {
           const fullLabel = formatEventLabel(e);
           const shortLabel = formatEventCompact(e);
-          const color = kindColor(e.kind, e.courseColor);
+          const color = eventColor(e);
           return (
             <li key={e.id}>
               <EventChip
@@ -952,7 +940,7 @@ function DayCell({
         {events.slice(0, 4).map((e) => {
           const fullLabel = formatEventLabel(e);
           const shortLabel = formatEventCompact(e);
-          const color = kindColor(e.kind, e.courseColor);
+          const color = eventColor(e);
           const isSelectedEvent = selectedEventId === e.id;
           if (e.allDay) {
             // 하루 종일 — 배경 흐릿 + 흰 텍스트 톤
@@ -1353,7 +1341,7 @@ function EventDetailPanel({
       <EventEditForm
         event={event}
         isRecurringClass={isRecurringClass}
-        accentColor={kindColor(event.kind, event.courseColor)}
+        accentColor={eventColor(event)}
         onCancel={() => setEditing(false)}
         onSaved={(patch) => {
           setEditing(false);
@@ -1370,7 +1358,7 @@ function EventDetailPanel({
   startOfDay.setHours(0, 0, 0, 0);
   const days = Math.round((startOfDay.getTime() - today.getTime()) / 86400000);
   const dDayLabel = !mounted ? "" : days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
-  const accent = kindColor(event.kind, event.courseColor);
+  const accent = eventColor(event);
 
   const weekday = ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
 
@@ -1501,6 +1489,39 @@ function EventDetailPanel({
                 </Link>
               )}
             </div>
+          )}
+
+          {/* 메타 정보 — 위치·반복·알림. 라벨 없이 한 줄씩, 작은 회색 텍스트. macOS Inspector 톤. */}
+          {(event.location || event.recurrenceRule || event.reminderMinutes != null) && (
+            <ul className="mt-4 flex flex-col gap-1.5">
+              {event.location && (
+                <li
+                  className="text-[12.5px] wght-450 text-[var(--color-apple-ink)]"
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  <span className="text-[var(--color-apple-muted)]">위치 </span>
+                  {event.location}
+                </li>
+              )}
+              {event.recurrenceRule && (
+                <li
+                  className="text-[12.5px] wght-450 text-[var(--color-apple-ink)]"
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  <span className="text-[var(--color-apple-muted)]">반복 </span>
+                  {formatRecurrence(event.recurrenceRule)}
+                </li>
+              )}
+              {event.reminderMinutes != null && (
+                <li
+                  className="text-[12.5px] wght-450 text-[var(--color-apple-ink)]"
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  <span className="text-[var(--color-apple-muted)]">알림 </span>
+                  {formatReminder(event.reminderMinutes)}
+                </li>
+              )}
+            </ul>
           )}
 
           {/* 메모 — 라벨·구분선 없이 공백으로 분리. Apple Notes 톤. */}
@@ -1675,7 +1696,7 @@ function DayDetailPanel({
             const tlabel = e.allDay
               ? "종일"
               : `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
-            const accent = kindColor(e.kind, e.courseColor);
+            const accent = eventColor(e);
             return (
               <li key={e.id}>
                 <button
@@ -1769,6 +1790,22 @@ function EventEditForm({
   const [startsAt, setStartsAt] = useState(isoToKstLocalInput(event.startsAt));
   const [endsAt, setEndsAt] = useState(event.endsAt ? isoToKstLocalInput(event.endsAt) : "");
   const [notes, setNotes] = useState(event.notes ?? "");
+  const [allDay, setAllDay] = useState(event.allDay);
+  const [location, setLocation] = useState(event.location ?? "");
+  const [recurrence, setRecurrence] = useState<"" | "weekly" | "daily" | "monthly">(() => {
+    const r = (event.recurrenceRule ?? "").toUpperCase();
+    if (r.includes("FREQ=DAILY")) return "daily";
+    if (r.includes("FREQ=WEEKLY")) return "weekly";
+    if (r.includes("FREQ=MONTHLY")) return "monthly";
+    return "";
+  });
+  const [reminder, setReminder] = useState<"" | "0" | "10" | "60" | "1440">(() => {
+    if (event.reminderMinutes == null) return "";
+    const v = String(event.reminderMinutes);
+    if (v === "0" || v === "10" || v === "60" || v === "1440") return v;
+    return "";
+  });
+  const [color, setColor] = useState<string>(event.color ?? "");
   const [scope, setScope] = useState<"this" | "all">("this");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1785,13 +1822,50 @@ function EventEditForm({
       if (notes.trim() !== (event.notes ?? "")) {
         body.notes = notes.trim() || null;
       }
+      if (allDay !== event.allDay) body.all_day = allDay;
+      if (location.trim() !== (event.location ?? "")) {
+        body.location = location.trim() || null;
+      }
+      // recurrence: 폼은 단순화 — FREQ만 비교.
+      const currentFreq = (() => {
+        const r = (event.recurrenceRule ?? "").toUpperCase();
+        if (r.includes("FREQ=DAILY")) return "daily";
+        if (r.includes("FREQ=WEEKLY")) return "weekly";
+        if (r.includes("FREQ=MONTHLY")) return "monthly";
+        return "";
+      })();
+      if (recurrence !== currentFreq) {
+        body.recurrence_rule = recurrence
+          ? `FREQ=${recurrence.toUpperCase()}`
+          : null;
+      }
+      const currentReminder = event.reminderMinutes == null ? "" : String(event.reminderMinutes);
+      if (reminder !== currentReminder) {
+        body.reminder_minutes = reminder === "" ? null : Number(reminder);
+      }
+      if ((color || null) !== (event.color || null)) {
+        body.color = color || null;
+      }
+
+      // 시간 계산 — 종일 모드에선 날짜만 받고 시각 부분 정규화
+      const composeStart = (raw: string, dayMode: boolean) => {
+        if (!dayMode) return raw;
+        return `${raw.slice(0, 10)}T00:00`;
+      };
+      const composeEnd = (raw: string, dayMode: boolean) => {
+        if (!raw) return "";
+        if (!dayMode) return raw;
+        return `${raw.slice(0, 10)}T23:59`;
+      };
+
       // KST로 명시 해석 — 환경 독립 + 서버 매칭과 일관
-      const newStartIso = localInputToKstIso(startsAt);
+      const newStartIso = localInputToKstIso(composeStart(startsAt, allDay));
       if (newStartIso !== event.startsAt) {
         body.starts_at = newStartIso;
       }
-      if (endsAt) {
-        const newEndIso = localInputToKstIso(endsAt);
+      const endLocal = composeEnd(endsAt, allDay);
+      if (endLocal) {
+        const newEndIso = localInputToKstIso(endLocal);
         if (newEndIso !== event.endsAt) {
           body.ends_at = newEndIso;
         }
@@ -1821,6 +1895,13 @@ function EventEditForm({
       if (body.notes !== undefined) patch.notes = body.notes as string | null;
       if (typeof body.starts_at === "string") patch.startsAt = body.starts_at;
       if (body.ends_at !== undefined) patch.endsAt = body.ends_at as string | null;
+      if (body.all_day !== undefined) patch.allDay = body.all_day as boolean;
+      if (body.location !== undefined) patch.location = body.location as string | null;
+      if (body.recurrence_rule !== undefined)
+        patch.recurrenceRule = body.recurrence_rule as string | null;
+      if (body.reminder_minutes !== undefined)
+        patch.reminderMinutes = body.reminder_minutes as number | null;
+      if (body.color !== undefined) patch.color = body.color as string | null;
       onSaved(patch);
     } catch (e) {
       setError(e instanceof Error ? e.message : "수정 실패");
@@ -1896,11 +1977,39 @@ function EventEditForm({
 
         {/* 플로잉 폼 — 라벨 컬럼 X. underline-only 톤. */}
         <div className="mt-5 flex flex-col">
+          {/* 종일 toggle */}
+          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
+            <span
+              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              종일
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={allDay}
+              onClick={() => setAllDay((v) => !v)}
+              className={`relative inline-flex h-[22px] w-[36px] flex-shrink-0 items-center rounded-full transition-colors ${
+                allDay ? "bg-[var(--color-apple-action)]" : "bg-[var(--color-apple-hairline)]"
+              }`}
+            >
+              <span
+                className={`inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow transition-transform ${
+                  allDay ? "translate-x-[16px]" : "translate-x-[2px]"
+                }`}
+              />
+            </button>
+          </div>
           <div className="border-t border-[var(--color-apple-hairline-soft)]">
             <input
-              type="datetime-local"
-              value={startsAt}
-              onChange={(e) => setStartsAt(e.target.value)}
+              type={allDay ? "date" : "datetime-local"}
+              value={allDay ? startsAt.slice(0, 10) : startsAt}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (allDay) setStartsAt(`${v}T00:00`);
+                else setStartsAt(v);
+              }}
               required
               aria-label="시작 시간"
               className="w-full border-0 bg-transparent py-3 text-[14px] tabular-nums text-[var(--color-apple-ink)] outline-none"
@@ -1909,14 +2018,117 @@ function EventEditForm({
           </div>
           <div className="border-t border-[var(--color-apple-hairline-soft)]">
             <input
-              type="datetime-local"
-              value={endsAt}
-              onChange={(e) => setEndsAt(e.target.value)}
+              type={allDay ? "date" : "datetime-local"}
+              value={allDay ? endsAt.slice(0, 10) : endsAt}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v) {
+                  setEndsAt("");
+                  return;
+                }
+                if (allDay) setEndsAt(`${v}T23:59`);
+                else setEndsAt(v);
+              }}
               aria-label="종료 시간"
               placeholder="종료 시간 추가"
               className="w-full border-0 bg-transparent py-3 text-[14px] tabular-nums text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
               style={{ letterSpacing: "-0.012em" }}
             />
+          </div>
+          {/* 위치 */}
+          <div className="border-t border-[var(--color-apple-hairline-soft)]">
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              maxLength={200}
+              placeholder="위치 — 강의실, 카페, 온라인 링크 등"
+              className="w-full border-0 bg-transparent py-3 text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
+              style={{ letterSpacing: "-0.012em" }}
+            />
+          </div>
+          {/* 반복 */}
+          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
+            <span
+              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              반복
+            </span>
+            <select
+              value={recurrence}
+              onChange={(e) =>
+                setRecurrence(e.target.value as "" | "weekly" | "daily" | "monthly")
+              }
+              aria-label="반복"
+              className="appearance-none border-0 bg-transparent text-right text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              <option value="">안 함</option>
+              <option value="daily">매일</option>
+              <option value="weekly">매주</option>
+              <option value="monthly">매월</option>
+            </select>
+          </div>
+          {/* 알림 */}
+          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
+            <span
+              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              알림
+            </span>
+            <select
+              value={reminder}
+              onChange={(e) => setReminder(e.target.value as "" | "0" | "10" | "60" | "1440")}
+              aria-label="알림"
+              className="appearance-none border-0 bg-transparent text-right text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              <option value="">없음</option>
+              <option value="0">정시에</option>
+              <option value="10">10분 전</option>
+              <option value="60">1시간 전</option>
+              <option value="1440">하루 전</option>
+            </select>
+          </div>
+          {/* 색상 */}
+          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
+            <span
+              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              색상
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setColor("")}
+                aria-label="자동 색상"
+                className={`relative inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] wght-560 transition-colors ${
+                  color === ""
+                    ? "border-[var(--color-apple-ink)] bg-white text-[var(--color-apple-ink)]"
+                    : "border-[var(--color-apple-hairline)] bg-white text-[var(--color-apple-muted)] hover:border-[var(--color-apple-ink)]/40"
+                }`}
+              >
+                자동
+              </button>
+              {COLOR_SWATCHES.map((c) => {
+                const active = color.toLowerCase() === c.toLowerCase();
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    aria-label={`색상 ${c}`}
+                    className={`inline-flex h-5 w-5 items-center justify-center rounded-full transition-all ${
+                      active ? "ring-2 ring-offset-1 ring-[var(--color-apple-ink)]" : ""
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                );
+              })}
+            </div>
           </div>
           <div className="border-t border-[var(--color-apple-hairline-soft)]">
             <textarea
@@ -2029,9 +2241,52 @@ export const KIND_FALLBACK_COLOR: Record<EventView["kind"], string> = {
   etc: "#a08bc4",        // mauve
 };
 
+/**
+ * EventCreateForm·EventEditForm의 색상 swatch row.
+ * macOS Calendar 톤 — 채도 낮춘 6색. KIND_FALLBACK과 톤 일치.
+ */
+export const COLOR_SWATCHES = [
+  "#e0445e", // coral
+  "#cca06b", // mustard
+  "#7fb38c", // sage
+  "#7aa6d6", // cobalt
+  "#a08bc4", // mauve
+  "#5a6470", // graphite
+] as const;
+
+/** RRULE FREQ만 보고 한국어 라벨 — 폼이 단순화돼 있어 FREQ=DAILY|WEEKLY|MONTHLY 케이스만 본다. */
+function formatRecurrence(rule: string): string {
+  const up = rule.toUpperCase();
+  if (up.includes("FREQ=DAILY")) return "매일";
+  if (up.includes("FREQ=WEEKLY")) return "매주";
+  if (up.includes("FREQ=MONTHLY")) return "매월";
+  if (up.includes("FREQ=YEARLY")) return "매년";
+  return rule;
+}
+
+/** reminder_minutes → 사람 읽기 좋은 라벨. */
+function formatReminder(min: number): string {
+  if (min === 0) return "정시에";
+  if (min < 60) return `${min}분 전`;
+  if (min < 1440) {
+    const h = Math.round(min / 60);
+    return `${h}시간 전`;
+  }
+  const d = Math.round(min / 1440);
+  return `${d}일 전`;
+}
+
 export function kindColor(kind: EventView["kind"], courseColor: string | null): string {
   if (courseColor) return courseColor;
   return KIND_FALLBACK_COLOR[kind];
+}
+
+/**
+ * 일정 색 최종 결정: event.color (사용자 직접 지정) > courseColor > kind fallback.
+ */
+export function eventColor(e: EventView): string {
+  if (e.color) return e.color;
+  return kindColor(e.kind, e.courseColor);
 }
 
 /**
@@ -2089,6 +2344,14 @@ function EventCreateForm({
   const [courseId, setCourseId] = useState<string>("");
   const [startsAt, setStartsAt] = useState(defaultStart);
   const [endsAt, setEndsAt] = useState(defaultEnd);
+  const [allDay, setAllDay] = useState(false);
+  const [location, setLocation] = useState("");
+  /** "" | "weekly" | "daily" | "monthly" — 폼은 단순화. 상세 RRULE은 향후 확장. */
+  const [recurrence, setRecurrence] = useState<"" | "weekly" | "daily" | "monthly">("");
+  /** "" (없음) | "0" | "10" | "60" | "1440" — 분 단위 string으로 select value 운용. */
+  const [reminder, setReminder] = useState<"" | "0" | "10" | "60" | "1440">("");
+  /** "" (자동 — courseColor 또는 kind fallback) | "#RRGGBB". */
+  const [color, setColor] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2107,6 +2370,11 @@ function EventCreateForm({
     setCourseId("");
     setStartsAt(defaultStart);
     setEndsAt("");
+    setAllDay(false);
+    setLocation("");
+    setRecurrence("");
+    setReminder("");
+    setColor("");
     setNotes("");
     setError(null);
   }
@@ -2126,14 +2394,41 @@ function EventCreateForm({
     }
     setBusy(true);
     try {
+      // 종일이면 시각 부분을 그 날 KST 00:00 / 23:59로 정규화 — 백엔드는 timestamptz라
+      // 정확한 시점이 박혀 있어야 하지만 UI는 allDay 플래그로 시각 안 보여줌.
+      const startsIso = (() => {
+        if (!allDay) return localInputToKstIso(startsAt);
+        const dateOnly = startsAt.slice(0, 10); // YYYY-MM-DD
+        return localInputToKstIso(`${dateOnly}T00:00`);
+      })();
+      const endsIso = (() => {
+        if (!endsAt) return null;
+        if (!allDay) return localInputToKstIso(endsAt);
+        const dateOnly = endsAt.slice(0, 10);
+        return localInputToKstIso(`${dateOnly}T23:59`);
+      })();
+
+      // 반복 → RRULE 단순 매핑 (학기 끝까지 UNTIL은 향후 강의 학기와 연동)
+      const recurrenceRule = (() => {
+        if (!recurrence) return null;
+        if (recurrence === "daily") return "FREQ=DAILY";
+        if (recurrence === "weekly") return "FREQ=WEEKLY";
+        return "FREQ=MONTHLY";
+      })();
+
       const body: Record<string, unknown> = {
         kind,
         title: trimmed,
-        starts_at: localInputToKstIso(startsAt),
+        starts_at: startsIso,
         notes: notes.trim() || null,
+        all_day: allDay,
       };
       if (courseId) body.course_id = courseId;
-      if (endsAt) body.ends_at = localInputToKstIso(endsAt);
+      if (endsIso) body.ends_at = endsIso;
+      if (location.trim()) body.location = location.trim();
+      if (recurrenceRule) body.recurrence_rule = recurrenceRule;
+      if (reminder !== "") body.reminder_minutes = Number(reminder);
+      if (color) body.color = color;
 
       const res = await fetch("/api/events", {
         method: "POST",
@@ -2243,12 +2538,40 @@ function EventCreateForm({
         {/* 플로잉 폼 — 라벨 컬럼 X. placeholder가 라벨 역할. 모든 input이 borderless underline.
             Apple Calendar의 "위치 또는 영상 통화 추가", "2026. 5. 19. ..." 식 placeholder-only. */}
         <div className="flex flex-col">
+          {/* 종일 toggle — Apple Calendar의 "하루 종일" 체크 톤. 좌측 텍스트 + 우측 switch. */}
+          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
+            <span
+              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              종일
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={allDay}
+              onClick={() => setAllDay((v) => !v)}
+              className={`relative inline-flex h-[22px] w-[36px] flex-shrink-0 items-center rounded-full transition-colors ${
+                allDay ? "bg-[var(--color-apple-action)]" : "bg-[var(--color-apple-hairline)]"
+              }`}
+            >
+              <span
+                className={`inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow transition-transform ${
+                  allDay ? "translate-x-[16px]" : "translate-x-[2px]"
+                }`}
+              />
+            </button>
+          </div>
           {/* 시간 시작 */}
           <div className="border-t border-[var(--color-apple-hairline-soft)]">
             <input
-              type="datetime-local"
-              value={startsAt}
-              onChange={(e) => setStartsAt(e.target.value)}
+              type={allDay ? "date" : "datetime-local"}
+              value={allDay ? startsAt.slice(0, 10) : startsAt}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (allDay) setStartsAt(`${v}T00:00`);
+                else setStartsAt(v);
+              }}
               required
               aria-label="시작 시간"
               className="w-full border-0 bg-transparent py-3 text-[14px] tabular-nums text-[var(--color-apple-ink)] outline-none"
@@ -2258,14 +2581,117 @@ function EventCreateForm({
           {/* 시간 종료 */}
           <div className="border-t border-[var(--color-apple-hairline-soft)]">
             <input
-              type="datetime-local"
-              value={endsAt}
-              onChange={(e) => setEndsAt(e.target.value)}
+              type={allDay ? "date" : "datetime-local"}
+              value={allDay ? endsAt.slice(0, 10) : endsAt}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v) {
+                  setEndsAt("");
+                  return;
+                }
+                if (allDay) setEndsAt(`${v}T23:59`);
+                else setEndsAt(v);
+              }}
               aria-label="종료 시간"
               placeholder="종료 시간 추가"
               className="w-full border-0 bg-transparent py-3 text-[14px] tabular-nums text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
               style={{ letterSpacing: "-0.012em" }}
             />
+          </div>
+          {/* 위치 */}
+          <div className="border-t border-[var(--color-apple-hairline-soft)]">
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              maxLength={200}
+              placeholder="위치 — 강의실, 카페, 온라인 링크 등"
+              className="w-full border-0 bg-transparent py-3 text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
+              style={{ letterSpacing: "-0.012em" }}
+            />
+          </div>
+          {/* 반복 */}
+          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
+            <span
+              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              반복
+            </span>
+            <select
+              value={recurrence}
+              onChange={(e) =>
+                setRecurrence(e.target.value as "" | "weekly" | "daily" | "monthly")
+              }
+              aria-label="반복"
+              className="appearance-none border-0 bg-transparent text-right text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              <option value="">안 함</option>
+              <option value="daily">매일</option>
+              <option value="weekly">매주</option>
+              <option value="monthly">매월</option>
+            </select>
+          </div>
+          {/* 알림 */}
+          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
+            <span
+              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              알림
+            </span>
+            <select
+              value={reminder}
+              onChange={(e) => setReminder(e.target.value as "" | "0" | "10" | "60" | "1440")}
+              aria-label="알림"
+              className="appearance-none border-0 bg-transparent text-right text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              <option value="">없음</option>
+              <option value="0">정시에</option>
+              <option value="10">10분 전</option>
+              <option value="60">1시간 전</option>
+              <option value="1440">하루 전</option>
+            </select>
+          </div>
+          {/* 색상 — 자동(코스/카테고리 색) + 6개 팔레트. 좌측 점 X — 우측 정렬 swatch row. */}
+          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
+            <span
+              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              색상
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setColor("")}
+                aria-label="자동 색상"
+                className={`relative inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] wght-560 transition-colors ${
+                  color === ""
+                    ? "border-[var(--color-apple-ink)] bg-white text-[var(--color-apple-ink)]"
+                    : "border-[var(--color-apple-hairline)] bg-white text-[var(--color-apple-muted)] hover:border-[var(--color-apple-ink)]/40"
+                }`}
+              >
+                자동
+              </button>
+              {COLOR_SWATCHES.map((c) => {
+                const active = color.toLowerCase() === c.toLowerCase();
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    aria-label={`색상 ${c}`}
+                    className={`inline-flex h-5 w-5 items-center justify-center rounded-full transition-all ${
+                      active ? "ring-2 ring-offset-1 ring-[var(--color-apple-ink)]" : ""
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                );
+              })}
+            </div>
           </div>
           {/* 강의 선택 */}
           {courses.length > 0 && (

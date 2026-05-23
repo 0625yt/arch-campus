@@ -37,6 +37,15 @@ const CreateBody = z
     ends_at: z.string().datetime().nullable().optional(),
     all_day: z.boolean().optional().default(false),
     weight_percent: z.number().min(0).max(100).nullable().optional(),
+    // 풍부화 필드 (모두 옵셔널) — DB 제약은 마이그레이션에서.
+    color: z
+      .string()
+      .regex(/^#[0-9A-Fa-f]{6}$/, "색은 #RRGGBB 형식이어야 해요")
+      .nullable()
+      .optional(),
+    location: z.string().max(200).nullable().optional(),
+    recurrence_rule: z.string().max(500).nullable().optional(),
+    reminder_minutes: z.number().int().min(0).max(10080).nullable().optional(),
   })
   .strict();
 
@@ -87,6 +96,10 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     all_day: body.all_day ?? false,
     weight_percent: body.weight_percent ?? null,
     confirmed: true, // 사용자가 직접 입력 = 무조건 확정
+    color: body.color ?? null,
+    location: body.location?.trim() ? body.location.trim() : null,
+    recurrence_rule: body.recurrence_rule?.trim() ? body.recurrence_rule.trim() : null,
+    reminder_minutes: body.reminder_minutes ?? null,
   };
 
   const { data, error } = await admin
