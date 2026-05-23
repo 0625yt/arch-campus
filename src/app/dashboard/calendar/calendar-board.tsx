@@ -68,15 +68,8 @@ interface MonthCell {
   isToday: boolean;
 }
 
-/** 일/주/월/년 단위로 캘린더 보기 스케일. URL `?scale=`로 영속. */
+/** 일/주/월/년 단위로 캘린더 보기 스케일. URL `?scale=`로 영속. 토글 UI는 미노출. */
 export type CalendarScale = "day" | "week" | "month" | "year";
-const SCALE_LABELS: Record<CalendarScale, string> = {
-  day: "일",
-  week: "주",
-  month: "월",
-  year: "년",
-};
-const SCALE_ORDER: CalendarScale[] = ["day", "week", "month", "year"];
 
 export function CalendarBoard({
   monthEvents,
@@ -96,17 +89,9 @@ export function CalendarBoard({
     if (raw === "day" || raw === "week" || raw === "month" || raw === "year") return raw;
     return "month";
   })();
-  const [scale, setScaleState] = useState<CalendarScale>(initialScale);
-  function setScale(next: CalendarScale) {
-    setScaleState(next);
-    // URL ?scale= 갱신 — 새로고침해도 유지, 그러나 history push는 안 함
-    const params = new URLSearchParams(searchParams.toString());
-    if (next === "month") params.delete("scale");
-    else params.set("scale", next);
-    const qs = params.toString();
-    const url = qs ? `?${qs}` : "?";
-    window.history.replaceState(null, "", url);
-  }
+  // scale은 URL ?scale=day|week|month|year로 진입 시에만 변경됨. 토글 UI 제거
+  // (2026-05-23) — 일/주/년 뷰가 미구현이라 사용자에게 노출 X.
+  const [scale] = useState<CalendarScale>(initialScale);
   const [view, setView] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -328,7 +313,34 @@ export function CalendarBoard({
   }
 
   return (
-    <div className="mt-8 grid gap-6 md:grid-cols-[1fr_280px] lg:grid-cols-[1fr_320px] fade-up fade-up-1">
+    <div className="mt-8 fade-up fade-up-1">
+      {/* AI 자연어 검색바 — 헤더 아래 1급 진입점. 클릭하면 AI 모드 모달 열림.
+          학생이 페이지 진입 즉시 "여기 AI 되네" 인지하도록 search-bar 톤. */}
+      <button
+        type="button"
+        onClick={() => setCreating(true)}
+        className="group mb-6 flex w-full items-center gap-3 rounded-[14px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3.5 text-left transition-all hover:border-[var(--color-apple-action)]/40 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] sm:px-5 sm:py-4"
+      >
+        <span
+          aria-hidden
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-apple-action)]/10 text-[14px] text-[var(--color-apple-action)] transition-colors group-hover:bg-[var(--color-apple-action)] group-hover:text-white"
+        >
+          ✨
+        </span>
+        <span
+          className="flex-1 text-[14px] wght-450 text-[var(--color-apple-muted)] sm:text-[15px]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          일정을 자유롭게 적어보세요 — <span className="text-[var(--color-apple-ink)]/60">다음 주 화 3시 영어 과제</span>
+        </span>
+        <span
+          aria-hidden
+          className="hidden shrink-0 rounded-full bg-[var(--color-apple-pearl)] px-2.5 py-1 text-[11px] wght-560 text-[var(--color-apple-muted)] sm:inline-flex"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          ⌘ K
+        </span>
+      </button>
       <section className="elev-1 rounded-[18px] bg-white p-5 sm:p-7">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2
@@ -351,16 +363,8 @@ export function CalendarBoard({
             <NavButton onClick={() => navigate(1)} aria-label="다음 달">
               ›
             </NavButton>
-            <ScaleToggle scale={scale} onChange={setScale} className="ml-2" />
-            <button
-              type="button"
-              onClick={() => setCreating(true)}
-              className="ml-1 inline-flex h-8 items-center gap-1 rounded-full bg-[var(--color-apple-ink)] px-3 text-[12px] wght-560 text-white transition-opacity hover:opacity-90"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              <span aria-hidden>+</span>
-              <span className="hidden sm:inline">새 일정</span>
-            </button>
+            {/* 일/주/년 뷰는 별도 sprint에서 구현 예정. 토글 노출 X — 동작 안 하는 옵션
+                보이면 사용자가 헷갈림. setScale은 외부 trigger용(URL ?scale=...)으로 유지. */}
           </div>
         </div>
 
@@ -432,48 +436,6 @@ export function CalendarBoard({
           <ScalePlaceholder scale={scale} className="mt-6" />
         )}
       </section>
-
-      <aside className="flex flex-col gap-4">
-        <section className="elev-1 rounded-[14px] bg-white p-5">
-          <h3 className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-            다가오는 일정
-          </h3>
-          {upcomingState.length === 0 ? (
-            <p className="mt-3 text-[13px] wght-450 text-[var(--color-apple-muted)]">
-              예정된 일정이 없어요
-            </p>
-          ) : (
-            <ul className="mt-3 flex flex-col gap-1">
-              {upcomingState.map((e) => (
-                <li key={e.id}>
-                  <UpcomingRow
-                    event={e}
-                    onSelect={(anchorRect) => {
-                      setSelected(e);
-                      setSelectedAnchor(anchorRect ?? null);
-                    }}
-                    onContextEvent={(ev, pos) => {
-                      openMenuFor(ev);
-                      ctx.bind.onContextMenu({
-                        preventDefault: () => {},
-                        stopPropagation: () => {},
-                        clientX: pos.x,
-                        clientY: pos.y,
-                      } as unknown as React.MouseEvent);
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-          <p
-            className="mt-4 text-[10.5px] wght-450 text-[var(--color-apple-muted)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            일정을 누르면 상세가 떠요
-          </p>
-        </section>
-      </aside>
 
       {/* 데스크톱: 칩 옆 popover. 모바일: bottom sheet.
           isDesktop으로 한쪽만 렌더 — popover portal이라 CSS hidden 안 먹음. */}
@@ -614,49 +576,6 @@ export function CalendarBoard({
         }}
         onClose={() => setConfirmDeleteAll(false)}
       />
-    </div>
-  );
-}
-
-/**
- * 일/주/월/년 스케일 segmented control — macOS 캘린더 톤.
- * 작은 라운드 pill 그룹, 활성 셀은 흰 배경. 모바일은 가로 컴팩트.
- */
-function ScaleToggle({
-  scale,
-  onChange,
-  className,
-}: {
-  scale: CalendarScale;
-  onChange: (s: CalendarScale) => void;
-  className?: string;
-}) {
-  return (
-    <div
-      role="tablist"
-      aria-label="보기 스케일"
-      className={`inline-flex items-center gap-px overflow-hidden rounded-full bg-[var(--color-apple-pearl)] p-0.5 ${className ?? ""}`}
-    >
-      {SCALE_ORDER.map((s) => {
-        const active = scale === s;
-        return (
-          <button
-            key={s}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(s)}
-            className={`inline-flex h-7 min-w-[28px] items-center justify-center rounded-full px-2.5 text-[12px] transition-all ${
-              active
-                ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
-                : "wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
-            }`}
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            {SCALE_LABELS[s]}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -1205,73 +1124,7 @@ function toAlpha(input: string, alpha: number): string {
   return hex;
 }
 
-// ChipButton (구 공통 칩 래퍼) — 모든 호출처가 EventChip으로 통합되어 제거됨 (2026-05-23).
-
-function UpcomingRow({
-  event,
-  onSelect,
-  onContextEvent,
-}: {
-  event: EventView;
-  /** anchorRect: 행 자체의 rect — popover가 옆에 자리 잡음 */
-  onSelect?: (anchorRect?: DOMRect) => void;
-  onContextEvent?: (e: EventView, pos: { x: number; y: number }) => void;
-}) {
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const mounted = useMounted();
-  const date = new Date(event.startsAt);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const days = Math.round((date.getTime() - today.getTime()) / 86400000);
-  const dDayLabel = !mounted ? "" : days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
-  const tone = !mounted ? "muted" : days <= 1 ? "urgent" : days <= 3 ? "warn" : "muted";
-  const label = formatEventLabel(event);
-
-  function handleContext(e: React.MouseEvent) {
-    if (!onContextEvent) return;
-    e.preventDefault();
-    e.stopPropagation();
-    onContextEvent(event, { x: e.clientX, y: e.clientY });
-  }
-  function handleClick() {
-    const rect = btnRef.current?.getBoundingClientRect();
-    onSelect?.(rect);
-  }
-
-  return (
-    <button
-      ref={btnRef}
-      type="button"
-      onClick={handleClick}
-      onContextMenu={handleContext}
-      className="flex w-full items-baseline gap-3 rounded-[8px] px-2 py-1.5 text-left transition-colors hover:bg-[var(--color-apple-pearl)]"
-    >
-      <span
-        className={`shrink-0 tabular-nums text-[11px] wght-700 ${
-          tone === "urgent"
-            ? "text-[var(--color-urgent)]"
-            : tone === "warn"
-              ? "text-[var(--color-apple-action)]"
-              : "text-[var(--color-apple-muted)]"
-        }`}
-      >
-        {dDayLabel}
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <p
-          className="truncate text-[13px] wght-560 text-[var(--color-apple-ink)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {label}
-        </p>
-        <p className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
-          {formatDate(date, event.allDay)}
-          {event.weightPercent != null && ` · ${event.weightPercent}%`}
-        </p>
-      </div>
-    </button>
-  );
-}
+// ChipButton·UpcomingRow — 사이드바 제거(2026-05-23)로 함께 삭제됨.
 
 /**
  * 일정 상세 인스펙터 — Apple Calendar Inspector 톤을 학생 컨텍스트로 재해석.
@@ -1981,15 +1834,6 @@ function isoDate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-function formatDate(d: Date, allDay: boolean): string {
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  if (allDay) return `${m}/${day}`;
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${m}/${day} ${hh}:${mm}`;
 }
 
 /**

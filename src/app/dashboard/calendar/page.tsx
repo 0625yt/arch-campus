@@ -70,7 +70,7 @@ function Header() {
           className="mt-3 text-[30px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[44px] md:text-[52px]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          이번 학기 일정.
+          이번 학기 일정
         </h1>
       </div>
       <div className="mt-7 flex shrink-0 items-center gap-2 sm:mt-0">
