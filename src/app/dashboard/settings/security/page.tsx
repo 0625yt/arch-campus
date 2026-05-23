@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
+import { getServerSupabase } from "@/lib/supabase/server";
 import { MfaSection } from "./mfa-section";
 import { SessionsSection } from "./sessions-section";
+import { AccountSection } from "./account-section";
 
 /**
  * 보안 설정 — 2026-05 보안 리서치 단기 항목 (MFA·활성 세션).
@@ -22,6 +24,10 @@ export const dynamic = "force-dynamic";
 export default async function SecuritySettingsPage() {
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
+
+  const supabase = await getServerSupabase();
+  const { data: userData } = await supabase.auth.getUser();
+  const userEmail = userData.user?.email ?? "";
 
   return (
     <div className="mx-auto w-full max-w-[820px] px-6 pb-24 pt-10 sm:px-10 sm:pt-14">
@@ -48,6 +54,7 @@ export default async function SecuritySettingsPage() {
 
       <MfaSection className="mt-12" />
       <SessionsSection className="mt-8" />
+      {userEmail && <AccountSection className="mt-8" userEmail={userEmail} />}
     </div>
   );
 }

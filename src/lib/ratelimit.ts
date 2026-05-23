@@ -1,4 +1,5 @@
 import "server-only";
+import { NextResponse } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
@@ -129,8 +130,6 @@ export function getClientIp(req: Request): string {
   }
   return req.headers.get("x-real-ip") ?? "unknown";
 }
-
-import { NextResponse } from "next/server";
 
 /**
  * Route handler 안에서 한 줄로 호출 — 초과 시 즉시 429 NextResponse 반환.

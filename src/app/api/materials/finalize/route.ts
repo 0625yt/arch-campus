@@ -7,6 +7,7 @@ import { parseDocument, ParserRejectedError } from "@/lib/parsers";
 import { type Difficulty } from "@/lib/services/quiz";
 import { downloadMaterialFile } from "@/lib/storage";
 import { getAdminSupabase } from "@/lib/supabase/admin";
+import { recordAudit, pickRequestContext } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -125,6 +126,18 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
       { status: 500 },
     );
   }
+
+  // 감사 로그 (fire-and-forget) — PIPA 24h 대응
+  const ctx = pickRequestContext(req);
+  void recordAudit({
+    ownerId,
+    action: "material.upload",
+    targetType: "material",
+    targetId: material.id,
+    ip: ctx.ip,
+    userAgent: ctx.userAgent,
+    metadata: { filename: body.filename, mimeType, type },
+  });
 
   // 2) 잡 enqueue도 응답 전에 — dock 폴링이 즉시 잡음
   const [summarizeEnqueue, quizEnqueue] = await Promise.all([

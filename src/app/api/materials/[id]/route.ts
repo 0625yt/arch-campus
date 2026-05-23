@@ -5,6 +5,7 @@ import { tryGetOwnerId } from "@/lib/auth";
 import { deleteMaterialFile } from "@/lib/storage";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
+import { recordAudit, pickRequestContext } from "@/lib/audit";
 
 type MaterialUpdate = Database["public"]["Tables"]["materials"]["Update"];
 
@@ -115,7 +116,7 @@ export async function PATCH(
  * 고아 파일은 백오피스에서 정리 가능). DB 실패 시는 throw.
  */
 export async function DELETE(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ id: string }> },
 ): Promise<NextResponse<OkResponse | ErrResponse>> {
   const ownerId = await tryGetOwnerId();
@@ -167,6 +168,18 @@ export async function DELETE(
   if (row.storage_path) {
     await deleteMaterialFile(row.storage_path);
   }
+
+  // 감사 로그 (fire-and-forget) — PIPA 24h 대응
+  const auditCtx = pickRequestContext(req);
+  void recordAudit({
+    ownerId,
+    action: "material.delete",
+    targetType: "material",
+    targetId: id,
+    ip: auditCtx.ip,
+    userAgent: auditCtx.userAgent,
+    metadata: { storagePath: row.storage_path },
+  });
 
   bustMaterialCache();
   return NextResponse.json({ ok: true });

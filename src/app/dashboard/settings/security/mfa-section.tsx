@@ -28,6 +28,7 @@ export function MfaSection({ className }: { className?: string }) {
   const [secret, setSecret] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDisable, setConfirmingDisable] = useState(false);
 
   // 현재 등록된 TOTP factor 조회
   useEffect(() => {
@@ -97,7 +98,6 @@ export function MfaSection({ className }: { className?: string }) {
 
   async function disableMfa() {
     if (!factorId) return;
-    if (!confirm("MFA를 해제하면 매직링크만으로 로그인 가능해져요. 계속할까요?")) return;
     const { error } = await supabase.auth.mfa.unenroll({ factorId });
     if (error) {
       setError(error.message);
@@ -105,6 +105,7 @@ export function MfaSection({ className }: { className?: string }) {
     }
     setFactorId(null);
     setStatus("off");
+    setConfirmingDisable(false);
   }
 
   return (
@@ -218,16 +219,45 @@ export function MfaSection({ className }: { className?: string }) {
           </div>
         )}
 
-        {status === "on" && (
+        {status === "on" && !confirmingDisable && (
           <div className="mt-6">
             <button
               type="button"
-              onClick={disableMfa}
+              onClick={() => setConfirmingDisable(true)}
               className="rounded-full border border-[var(--color-apple-hairline)] px-4 py-2 text-[13px] wght-560 text-[var(--color-urgent)] hover:bg-[var(--color-urgent)]/5"
               style={{ letterSpacing: "-0.012em" }}
             >
               MFA 해제
             </button>
+          </div>
+        )}
+
+        {status === "on" && confirmingDisable && (
+          <div className="mt-6 rounded-[12px] border border-[var(--color-apple-hairline)] bg-[var(--color-apple-surface,#f5f5f7)] px-5 py-4">
+            <p
+              className="text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.022em" }}
+            >
+              MFA를 해제하면 매직링크만으로 로그인할 수 있어요. 이메일 탈취 시 2차 보호가 사라져요.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={disableMfa}
+                className="inline-flex h-[36px] items-center rounded-full bg-[var(--color-urgent)] px-4 text-[13px] wght-560 text-white transition-opacity hover:opacity-90"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                해제
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingDisable(false)}
+                className="rounded-full border border-[var(--color-apple-hairline)] bg-white px-4 text-[13px] wght-560 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                취소
+              </button>
+            </div>
           </div>
         )}
 

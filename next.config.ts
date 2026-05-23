@@ -16,18 +16,31 @@ import type { NextConfig } from "next";
  * CSP 외부 자원 화이트리스트:
  *   - style-src: jsdelivr (Pretendard 폰트 CSS), 'unsafe-inline' (Tailwind v4가 인라인 스타일)
  *   - img-src: data: + supabase storage (signed URL PDF는 frame-src로)
- *   - frame-src: supabase.co (자료 PDF iframe), self
+ *   - frame-src: 우리 supabase project 도메인만 (와일드카드 X — 사용자가 다른 project로 우회 못 함)
  *   - connect-src: supabase REST·Realtime·Anthropic (모두 self+같은 도메인 또는 외부)
+ *
+ * SUPABASE_PROJECT_HOST: NEXT_PUBLIC_SUPABASE_URL에서 host만 뽑아 사용.
+ * 빌드 시 env 없으면 와일드카드 fallback (preview 환경 깨짐 방지).
  */
+const SUPABASE_PROJECT_HOST = (() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return "*.supabase.co"; // build-time env 없을 때만 fallback
+  try {
+    return new URL(url).host;
+  } catch {
+    return "*.supabase.co";
+  }
+})();
+
 const CSP_REPORT_ONLY = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js dev에 필요, nonce 도입은 별도 sprint
   "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://cdn.jsdelivr.net",
-  "frame-src 'self' https://*.supabase.co",
+  `frame-src 'self' https://${SUPABASE_PROJECT_HOST}`,
   // Anthropic 미리 화이트리스트 — 향후 클라이언트 streaming(useChat) 도입 시 enforce 전환에서 막히지 않게
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com",
+  `connect-src 'self' https://${SUPABASE_PROJECT_HOST} wss://${SUPABASE_PROJECT_HOST} https://api.anthropic.com`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
