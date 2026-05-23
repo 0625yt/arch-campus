@@ -169,9 +169,10 @@ export async function POST(
   });
 
   if (!result.ok) {
+    // ai 호출 실패·검증 실패 둘 다 클라이언트가 fix 못 함 → 502 통일
     return NextResponse.json(
       { ok: false, error: result.error },
-      { status: result.stage === "ai" ? 502 : 502 },
+      { status: 502 },
     );
   }
 

@@ -8,6 +8,8 @@ import {
 } from "@/lib/material-policy";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
+import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
+import { buildPlaybookSection } from "@/lib/subject-playbook";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { breakdown } from "@/lib/tokens";
 
@@ -78,8 +80,13 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
 
   // 룰 + 동적 컨텍스트
   const rulePrompt = loadPrompt("summarize");
-  // 스타일 4개 max — UI에서 제한하지만 서버에서도 한 번 더 cap
+  // 스타일 4개 max — 라우트에서도 cap, 서비스에서도 한 번 더 (이중 방어)
   const styles = (input.styles ?? []).slice(0, MAX_STYLES_PER_REQUEST);
+  // 과목 영역 추론 — classification.domain > 자료 제목 토큰 매칭 순
+  const subject = detectSubject({
+    classificationDomain: classification?.domain ?? null,
+    materialTitle: input.title,
+  });
   const dynamicContext = buildDynamicContext({
     title: input.title,
     type: input.type,
@@ -88,6 +95,7 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     parserWarnings: input.parserWarnings,
     classification,
     styles,
+    subject,
   });
   const tokenBudget = breakdown({
     rule: rulePrompt,
@@ -113,7 +121,8 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     await logGeneration({
       ownerId: input.ownerId,
       materialId: input.materialId,
-      modelId: "claude-haiku-4-5",
+      // generate()가 throw해 modelId를 알 수 없음 → sentinel. 라우팅이 바뀌면 잘못된 모델로 기록될 위험 회피.
+      modelId: "unknown",
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });
@@ -187,6 +196,7 @@ function buildDynamicContext(meta: {
   parserWarnings?: string[];
   classification?: Classification | null;
   styles?: SummaryStyle[];
+  subject?: ReturnType<typeof detectSubject>;
 }): string {
   const lines: string[] = [`자료 메타:`, `- 제목: ${meta.title}`, `- 종류: ${meta.type}`];
   if (meta.pageCount) lines.push(`- 분량: ${meta.pageCount}쪽`);
@@ -195,6 +205,15 @@ function buildDynamicContext(meta: {
   }
   if (meta.classification) {
     lines.push("", classificationToContext(meta.classification));
+  }
+
+  // 과목별 디테일 — 어학·수학·CS 등 영역마다 시험에서 진짜 원하는 게 다름.
+  // playbook은 "영역 + 도구" 조합으로 미리 작성된 1차 가이드.
+  if (meta.subject && meta.subject !== "default") {
+    const section = buildPlaybookSection(meta.subject, "summarize");
+    if (section) {
+      lines.push("", `(영역: ${SUBJECT_LABEL[meta.subject]})`, section);
+    }
   }
 
   // 요청된 요약 스타일 — 한 호출 안에서 모두 반영. 섹션으로 나눠 출력.

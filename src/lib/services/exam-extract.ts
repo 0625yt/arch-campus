@@ -8,6 +8,8 @@ import {
   type ExamExtractedQuestionT,
   hasWatermark,
 } from "@/lib/schemas";
+import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
+import { buildPlaybookSection } from "@/lib/subject-playbook";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 import { breakdown } from "@/lib/tokens";
@@ -273,6 +275,16 @@ function buildDynamicContext(meta: {
     "이 자료는 학생이 type=exam으로 분류한 기출문제 PDF입니다.",
     "본문에서 문제·정답·해설을 그대로 추출하세요. 새로 만들지 마세요.",
   );
+
+  // 과목 영역 — 자료 제목 기준 (exam은 classification을 안 돌림. 비용 절약)
+  const subject = detectSubject({ materialTitle: meta.title });
+  if (subject !== "default") {
+    const section = buildPlaybookSection(subject, "examExtract");
+    if (section) {
+      lines.push("", `(영역: ${SUBJECT_LABEL[subject]})`, section);
+    }
+  }
+
   return lines.join("\n");
 }
 

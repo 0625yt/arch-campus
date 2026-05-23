@@ -3,6 +3,8 @@ import { generate, estimateCost, getModelIdFor } from "@/lib/claude";
 import { classifyMaterial, classificationToContext, type Classification } from "@/lib/classify-material";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, QuizOutput, type QuizOutputT } from "@/lib/schemas";
+import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
+import { buildPlaybookSection } from "@/lib/subject-playbook";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { breakdown } from "@/lib/tokens";
 
@@ -70,6 +72,11 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   }
 
   const rulePrompt = loadPrompt("quiz");
+  // 과목 영역 추론 → playbook으로 quiz 출제 톤 주입
+  const subject = detectSubject({
+    classificationDomain: classification?.domain ?? null,
+    materialTitle: input.title,
+  });
   const dynamicContext = buildDynamicContext({
     title: input.title,
     type: input.type,
@@ -80,6 +87,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     parserWarnings: input.parserWarnings,
     classification,
     fullText: input.sanitizedText,
+    subject,
   });
   if (process.env.NODE_ENV !== "production") {
     console.log("[quiz] dynamicContext 첫 1500자:\n" + dynamicContext.slice(0, 1500));
@@ -194,6 +202,7 @@ function buildDynamicContext(meta: {
   parserWarnings: string[];
   classification: Classification | null;
   fullText: string;
+  subject: ReturnType<typeof detectSubject>;
 }): string {
   const detected = detectForeignLanguage(meta.fullText);
 
@@ -239,6 +248,14 @@ function buildDynamicContext(meta: {
   if (meta.parserWarnings.length) lines.push(`- 파서 경고: ${meta.parserWarnings.join(", ")}`);
   if (meta.classification) {
     lines.push("", classificationToContext(meta.classification));
+  }
+
+  // 과목별 출제 톤 — 영어는 어휘·문법, 수학은 단답·서술, CS는 코드 출력 등
+  if (meta.subject && meta.subject !== "default") {
+    const section = buildPlaybookSection(meta.subject, "quiz");
+    if (section) {
+      lines.push("", `(영역: ${SUBJECT_LABEL[meta.subject]})`, section);
+    }
   }
 
   if (meta.isMetadataOnly) {

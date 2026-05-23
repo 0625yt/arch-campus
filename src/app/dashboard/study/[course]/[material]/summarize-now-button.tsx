@@ -32,10 +32,11 @@ export function SummarizeNowButton({
   async function handle() {
     setSubmitError(null);
     try {
+      // styles 빈 배열이어도 일관되게 body 보냄 — 서버는 어차피 같은 결과 (styles=[])
       const res = await fetch(`/api/materials/${materialId}/summarize`, {
         method: "POST",
-        headers: styles && styles.length > 0 ? { "content-type": "application/json" } : undefined,
-        body: styles && styles.length > 0 ? JSON.stringify({ styles }) : undefined,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ styles: styles ?? [] }),
       });
       const json = (await res.json()) as {
         ok: boolean;

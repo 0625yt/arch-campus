@@ -367,7 +367,7 @@
 
 ## 변형 차이축
 
-이 도구는 단일 출력 (N개 변형 X). 단, **자료 type에 따라 reviewSpots 강조점 달라야 함**:
+이 도구는 단일 JSON 객체 출력 (객체를 여러 개 따로 출력 X — 다중 스타일도 한 객체 안 blocks의 h2 섹션으로 분리). 단, **자료 type에 따라 reviewSpots 강조점 달라야 함**:
 
 - `type: "lecture"` — 시험 빈출 가능성 높은 개념
 - `type: "assignment"` — 채점 기준에서 놓치기 쉬운 조건
