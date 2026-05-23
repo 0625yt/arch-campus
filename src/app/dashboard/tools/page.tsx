@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ToolsEntryCard } from "./tools-entry-card";
 
 const CATEGORY = {
   발표: "#7aa6d6",
@@ -189,11 +190,16 @@ export default function ToolsPage() {
           </p>
         </header>
 
+        {/* AI 진입 카드 — "어떤 게 막혀 있어요?" 자연어 입구. 캘린더 AI 진입 카드와 같은 톤. */}
+        <div className="mt-8 max-w-[720px] fade-up fade-up-2">
+          <ToolsEntryCard />
+        </div>
+
         {/* 이번 주 자주 막히는 순간 — Bento 3 */}
-        <UrgentBoard wizards={urgent} className="mt-12 fade-up fade-up-2 sm:mt-14" />
+        <UrgentBoard wizards={urgent} className="mt-12 fade-up fade-up-3 sm:mt-14" />
 
         {/* 필터 + 리스트 */}
-        <section className="mt-16 fade-up fade-up-3 sm:mt-20">
+        <section className="mt-16 fade-up fade-up-4 sm:mt-20">
           <div className="flex items-baseline justify-between gap-3">
             <h2
               className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
