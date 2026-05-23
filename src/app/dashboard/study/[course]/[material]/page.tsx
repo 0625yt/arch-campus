@@ -129,6 +129,8 @@ export default async function MaterialDetailPage({
             <MaterialView
               pdfUrl={pdfUrl}
               summary={detail.summary}
+              materialId={detail.id}
+              materialTitle={detail.title}
               className="mt-14 fade-up fade-up-3 sm:mt-16"
             />
           ) : convertingPdf ? (

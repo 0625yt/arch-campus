@@ -1,5 +1,5 @@
 import { anthropic } from "@ai-sdk/anthropic";
-import { generateText, type LanguageModel, type ModelMessage } from "ai";
+import { generateText, streamText, type LanguageModel, type ModelMessage } from "ai";
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey && process.env.NODE_ENV === "production") {
@@ -22,7 +22,8 @@ export type ToolKind =
   | "timetable-extract"
   | "post-mortem"
   | "event-parse"
-  | "exam-extract";
+  | "exam-extract"
+  | "chat";
 
 export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   summarize: MODELS.haiku,
@@ -41,6 +42,10 @@ export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   // Vision 입력이라 토큰 비싸지만 추출은 생성보다 쉬워 Haiku로 시작.
   // EXTRACT_MODEL=sonnet env로 승격 가능 (정확도 70% 미만 시).
   "exam-extract": MODELS.haiku,
+  // 자료 기반 RAG 챗 — turn 빈도가 높아 Sonnet은 적자 위험. Haiku + 1h cache로 자료
+  // 본문 90% 할인. 답변 품질은 자료 인용 위주라 Haiku로 충분.
+  // CHAT_MODEL=sonnet env로 격상 가능.
+  chat: MODELS.haiku,
 };
 
 /**
@@ -63,6 +68,11 @@ function resolveModel(tool: ToolKind): LanguageModel {
   }
   if (tool === "exam-extract") {
     const override = process.env.EXTRACT_MODEL?.toLowerCase();
+    if (override === "haiku") return MODELS.haiku;
+    if (override === "sonnet") return MODELS.sonnet;
+  }
+  if (tool === "chat") {
+    const override = process.env.CHAT_MODEL?.toLowerCase();
     if (override === "haiku") return MODELS.haiku;
     if (override === "sonnet") return MODELS.sonnet;
   }
@@ -362,6 +372,118 @@ export async function generateWithFile({
       cacheReadTokens: cacheRead,
       cacheCreationTokens: cacheCreation,
     },
+  };
+}
+
+/**
+ * AI Chat — streamText 진입점.
+ *
+ * 차이점 (generate 대비):
+ *   1) text를 SSE로 흘려보냄 → 첫 토큰 시 1초 안에 사용자 화면
+ *   2) 메시지 구조 자유 (history N-turn 포함)
+ *   3) onFinish 콜백에서 호출자가 DB 저장·후처리
+ *
+ * Cache boundary 전략:
+ *   - 시스템 블록 1: rulePrompt (INJECTION_GUARD + chat.md). cache_control 1h.
+ *   - 시스템 블록 2: 자료 본문 snapshot (thread당 immutable). cache_control 1h.
+ *   - 시스템 블록 3: dynamicContext (자료 메타 — title/type/page). 가변, no cache.
+ *   - history: user/assistant turn. cache 밖.
+ *   - user: 현재 turn, 가변.
+ *
+ * 두 번째 turn부터 system 1·2가 cache hit → 자료 본문 90% 할인.
+ */
+export interface StreamChatInput {
+  rulePrompt: string;
+  materialBlock: string;
+  dynamicContext: string;
+  history: Array<{ role: "user" | "assistant"; content: string }>;
+  userMessage: string;
+  maxTokens?: number;
+  temperature?: number;
+  onFinish?: (event: {
+    text: string;
+    usage: GenerateUsage;
+    modelId: string;
+    costUsd: number;
+  }) => Promise<void> | void;
+}
+
+export interface StreamChatResult {
+  /** 라우트에서 return result.toUIMessageStreamResponse() 호출용 */
+  toUIMessageStreamResponse: () => Response;
+  /** 비-UI raw text SSE 필요 시 */
+  toTextStreamResponse: () => Response;
+}
+
+export function streamChatReply(input: StreamChatInput): StreamChatResult {
+  const model = resolveModel("chat");
+  const modelId =
+    typeof model === "object" && "modelId" in model ? (model.modelId as string) : String(model);
+  warnIfBelowCacheMin("chat", modelId, input.rulePrompt);
+
+  const messages: ModelMessage[] = [
+    {
+      role: "system",
+      content: INJECTION_GUARD + input.rulePrompt,
+      providerOptions: ANTHROPIC_CACHE_1H,
+    },
+    {
+      role: "system",
+      content: input.materialBlock,
+      providerOptions: ANTHROPIC_CACHE_1H,
+    },
+    {
+      role: "system",
+      content: input.dynamicContext,
+    },
+    ...input.history.map<ModelMessage>((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
+    {
+      role: "user",
+      content: `<user_input>\n${input.userMessage}\n</user_input>`,
+    },
+  ];
+
+  const result = streamText({
+    model,
+    maxOutputTokens: input.maxTokens ?? 1500,
+    temperature: input.temperature ?? 0.3,
+    messages,
+    async onFinish(event) {
+      // AI SDK v6 onFinish: { text, usage } — usage는 inputTokenDetails로 캐시 분리
+      const inputTokens = event.usage?.inputTokens ?? 0;
+      const outputTokens = event.usage?.outputTokens ?? 0;
+      const details = (event.usage as { inputTokenDetails?: { cacheReadTokens?: number; cacheWriteTokens?: number } })
+        ?.inputTokenDetails;
+      const cacheRead = details?.cacheReadTokens ?? 0;
+      const cacheCreation = details?.cacheWriteTokens ?? 0;
+      logCacheStats("chat", modelId, {
+        inputTokens,
+        outputTokens,
+        cacheRead,
+        cacheCreation,
+      });
+      const usage: GenerateUsage = {
+        inputTokens,
+        outputTokens,
+        cacheReadTokens: cacheRead,
+        cacheCreationTokens: cacheCreation,
+      };
+      const costUsd = estimateCost(usage, modelId);
+      try {
+        await input.onFinish?.({ text: event.text, usage, modelId, costUsd });
+      } catch (e) {
+        // onFinish 실패가 stream 자체를 깨면 안 됨 — 사용자에겐 응답이 이미 갔음
+        console.error("[chat.onFinish] handler threw", e);
+      }
+    },
+  });
+
+  return {
+    toUIMessageStreamResponse: () => result.toUIMessageStreamResponse(),
+    toTextStreamResponse: () => result.toTextStreamResponse(),
   };
 }
 
