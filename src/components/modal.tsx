@@ -26,7 +26,7 @@ export function Modal({
   title: string;
   description?: string;
   children: React.ReactNode;
-  size?: "md" | "lg";
+  size?: "sm" | "md" | "lg";
   /**
    * chromeless: header(타이틀·description·X 버튼) 안 그림.
    * macOS 새 이벤트 popover처럼 panel 안 콘텐츠가 곧 헤더 역할.
@@ -102,6 +102,7 @@ export function Modal({
         ref={panelRef}
         className={cn(
           "relative w-full max-h-[90vh] rounded-2xl bg-white shadow-[var(--shadow-lift)] fade-up sm:max-h-[85vh]",
+          size === "sm" && "sm:max-w-[440px]",
           size === "md" && "sm:max-w-[560px]",
           size === "lg" && "sm:max-w-[680px]",
         )}

@@ -416,7 +416,7 @@ export function CalendarBoard({
             <span aria-hidden className="mx-1 h-4 w-px bg-[var(--color-apple-hairline)]" />
             <Link
               href="/dashboard/calendar/import?kind=timetable"
-              className="rounded-full px-3 py-1.5 text-[14px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+              className="rounded-full px-3.5 py-1.5 text-[15px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
               시간표 다시 올리기
@@ -428,7 +428,7 @@ export function CalendarBoard({
 
         {scale === "month" && (
           <>
-            <ul className="mt-4 grid grid-cols-7 gap-px text-center text-[10.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+            <ul className="mt-4 grid grid-cols-7 gap-px text-center text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
               {WEEKDAYS.map((d) => (
                 <li key={d} className="py-1.5">
                   {d}
@@ -883,7 +883,7 @@ function DayCell({
       onMouseDown={handleMouseDown}
       onMouseEnter={handleMouseEnter}
       onMouseUp={handleMouseUp}
-      className={`flex min-h-[88px] cursor-pointer flex-col gap-[1px] px-0.5 pt-0.5 pb-0 transition-colors duration-150 sm:min-h-[110px] sm:px-0.5 sm:pt-1 sm:pb-0.5 ${
+      className={`flex min-h-[94px] cursor-pointer flex-col gap-[1px] px-0.5 pt-0.5 pb-0 transition-colors duration-150 sm:min-h-[118px] sm:px-0.5 sm:pt-1 sm:pb-0.5 ${
         cell.inMonth ? "" : "opacity-40"
       } ${isSelected ? "ring-1 ring-inset ring-[var(--color-apple-action)]" : ""} ${
         isInDragRange ? "ring-2 ring-inset ring-[var(--color-apple-action)]" : ""
@@ -898,7 +898,7 @@ function DayCell({
       }}
     >
       <span
-        className={`self-end text-[11px] wght-450 tabular-nums ${
+        className={`self-end text-[12px] wght-450 tabular-nums ${
           cell.isToday
             ? "rounded-full bg-[var(--color-apple-action)] px-1.5 py-0.5 text-white"
             : "text-[var(--color-apple-muted)]"
@@ -928,7 +928,7 @@ function DayCell({
           );
         })}
         {events.length > 3 && (
-          <li className="px-1 text-[10px] wght-560 leading-[1.4] text-[var(--color-apple-muted)]">
+          <li className="px-1 text-[11px] wght-560 leading-[1.4] text-[var(--color-apple-muted)]">
             외 {events.length - 3}
           </li>
         )}
@@ -976,7 +976,7 @@ function DayCell({
         })}
         {events.length > 4 && (
           <li
-            className="truncate pl-1 pt-0.5 text-[10px] wght-560 text-[var(--color-apple-muted)]"
+            className="truncate pl-1 pt-0.5 text-[11px] wght-560 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
             + {events.length - 4}개 더
@@ -1066,7 +1066,7 @@ function EventChip({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
         title={title}
-        className="block w-full truncate rounded-[4px] px-1 py-0 text-left text-[11px] wght-560 leading-[1.5] transition-all duration-150 hover:brightness-105 active:scale-[0.98]"
+        className="block w-full truncate rounded-[4px] px-1 py-0 text-left text-[12px] wght-560 leading-[1.55] transition-all duration-150 hover:brightness-105 active:scale-[0.98]"
         style={{
           backgroundColor: selected ? toAlpha(color, 0.9) : toAlpha(color, 0.18),
           color: selected ? "white" : "var(--color-apple-ink)",
@@ -1088,7 +1088,7 @@ function EventChip({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       title={title}
-      className={`group relative flex w-full items-center truncate rounded-[4px] py-0 pl-[8px] pr-0.5 text-left text-[11px] leading-[1.5] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] ${
+      className={`group relative flex w-full items-center truncate rounded-[4px] py-0 pl-[8px] pr-0.5 text-left text-[12px] leading-[1.55] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] ${
         selected ? "wght-700" : "wght-450"
       }`}
       style={{
@@ -1099,7 +1099,7 @@ function EventChip({
     >
       <span
         aria-hidden
-        className="absolute left-[2px] top-1/2 h-[8px] w-[2px] -translate-y-1/2 rounded-full"
+        className="absolute left-[2px] top-1/2 h-[10px] w-[2px] -translate-y-1/2 rounded-full"
         style={{ backgroundColor: color }}
       />
       <span className="truncate">{label}</span>
@@ -2463,14 +2463,11 @@ function EventCreateForm({
         }
       }}
       // AI 모드: header 안 그림. 패널 자체가 popover 톤(헤더 X, 본문 padding 자기 책임).
-      // manual 모드: 기존 header 유지 (이 PR 범위 밖).
-      chromeless={mode === "ai"}
-      title={mode === "ai" ? "일정 추가" : "새 일정"}
-      description={
-        mode === "ai"
-          ? undefined
-          : "시험·과제·발표·기타를 추가해요. 매주 반복 수업은 시간표 업로드로 들어와요"
-      }
+      // manual 모드: chromeless로 통일 — macOS Calendar 새 이벤트 popover처럼 그릇 없이 콘텐츠가 헤더.
+      // 사용자 요청 (2026-05-23): "폼 좀 더 타이트하게" — 440px sm 사이즈로 압축.
+      chromeless
+      size="sm"
+      title="새 일정"
     >
       {mode === "ai" ? (
         <EventAIDraftPanel
@@ -2487,7 +2484,7 @@ function EventCreateForm({
           onSwitchToManual={() => setMode("manual")}
         />
       ) : (
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5 px-5 py-5">
         {/* 사용자 강요 (2026-05-23): "라벨 컬럼 만들지 마. Apple식 placeholder-only flowing form".
             Apple Calendar 새 이벤트 popover처럼 — 라벨 없이 placeholder만으로 의도 전달. */}
 
@@ -2500,7 +2497,7 @@ function EventCreateForm({
           autoFocus
           maxLength={120}
           placeholder="새 일정"
-          className="w-full border-0 bg-transparent p-0 text-[20px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
+          className="w-full border-0 bg-transparent p-0 text-[18px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
           style={{ letterSpacing: "-0.018em" }}
         />
 
@@ -2539,9 +2536,9 @@ function EventCreateForm({
             Apple Calendar의 "위치 또는 영상 통화 추가", "2026. 5. 19. ..." 식 placeholder-only. */}
         <div className="flex flex-col">
           {/* 종일 toggle — Apple Calendar의 "하루 종일" 체크 톤. 좌측 텍스트 + 우측 switch. */}
-          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
+          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
             <span
-              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
+              className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
               종일
@@ -2551,13 +2548,13 @@ function EventCreateForm({
               role="switch"
               aria-checked={allDay}
               onClick={() => setAllDay((v) => !v)}
-              className={`relative inline-flex h-[22px] w-[36px] flex-shrink-0 items-center rounded-full transition-colors ${
+              className={`relative inline-flex h-[20px] w-[32px] flex-shrink-0 items-center rounded-full transition-colors ${
                 allDay ? "bg-[var(--color-apple-action)]" : "bg-[var(--color-apple-hairline)]"
               }`}
             >
               <span
-                className={`inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow transition-transform ${
-                  allDay ? "translate-x-[16px]" : "translate-x-[2px]"
+                className={`inline-block h-[16px] w-[16px] transform rounded-full bg-white shadow transition-transform ${
+                  allDay ? "translate-x-[14px]" : "translate-x-[2px]"
                 }`}
               />
             </button>
@@ -2574,7 +2571,7 @@ function EventCreateForm({
               }}
               required
               aria-label="시작 시간"
-              className="w-full border-0 bg-transparent py-3 text-[14px] tabular-nums text-[var(--color-apple-ink)] outline-none"
+              className="w-full border-0 bg-transparent py-2.5 text-[13.5px] tabular-nums text-[var(--color-apple-ink)] outline-none"
               style={{ letterSpacing: "-0.012em" }}
             />
           </div>
@@ -2594,7 +2591,7 @@ function EventCreateForm({
               }}
               aria-label="종료 시간"
               placeholder="종료 시간 추가"
-              className="w-full border-0 bg-transparent py-3 text-[14px] tabular-nums text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
+              className="w-full border-0 bg-transparent py-2.5 text-[13.5px] tabular-nums text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
               style={{ letterSpacing: "-0.012em" }}
             />
           </div>
@@ -2606,14 +2603,14 @@ function EventCreateForm({
               onChange={(e) => setLocation(e.target.value)}
               maxLength={200}
               placeholder="위치 — 강의실, 카페, 온라인 링크 등"
-              className="w-full border-0 bg-transparent py-3 text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
+              className="w-full border-0 bg-transparent py-2.5 text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
               style={{ letterSpacing: "-0.012em" }}
             />
           </div>
           {/* 반복 */}
-          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
+          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
             <span
-              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
+              className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
               반복
@@ -2624,7 +2621,7 @@ function EventCreateForm({
                 setRecurrence(e.target.value as "" | "weekly" | "daily" | "monthly")
               }
               aria-label="반복"
-              className="appearance-none border-0 bg-transparent text-right text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none"
+              className="appearance-none border-0 bg-transparent text-right text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none"
               style={{ letterSpacing: "-0.012em" }}
             >
               <option value="">안 함</option>
@@ -2634,9 +2631,9 @@ function EventCreateForm({
             </select>
           </div>
           {/* 알림 */}
-          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
+          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
             <span
-              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
+              className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
               알림
@@ -2645,7 +2642,7 @@ function EventCreateForm({
               value={reminder}
               onChange={(e) => setReminder(e.target.value as "" | "0" | "10" | "60" | "1440")}
               aria-label="알림"
-              className="appearance-none border-0 bg-transparent text-right text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none"
+              className="appearance-none border-0 bg-transparent text-right text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none"
               style={{ letterSpacing: "-0.012em" }}
             >
               <option value="">없음</option>
@@ -2656,9 +2653,9 @@ function EventCreateForm({
             </select>
           </div>
           {/* 색상 — 자동(코스/카테고리 색) + 6개 팔레트. 좌측 점 X — 우측 정렬 swatch row. */}
-          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
+          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
             <span
-              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
+              className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
               색상
@@ -2668,7 +2665,7 @@ function EventCreateForm({
                 type="button"
                 onClick={() => setColor("")}
                 aria-label="자동 색상"
-                className={`relative inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] wght-560 transition-colors ${
+                className={`relative inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border text-[9px] wght-560 transition-colors ${
                   color === ""
                     ? "border-[var(--color-apple-ink)] bg-white text-[var(--color-apple-ink)]"
                     : "border-[var(--color-apple-hairline)] bg-white text-[var(--color-apple-muted)] hover:border-[var(--color-apple-ink)]/40"
@@ -2684,7 +2681,7 @@ function EventCreateForm({
                     type="button"
                     onClick={() => setColor(c)}
                     aria-label={`색상 ${c}`}
-                    className={`inline-flex h-5 w-5 items-center justify-center rounded-full transition-all ${
+                    className={`inline-flex h-[18px] w-[18px] items-center justify-center rounded-full transition-all ${
                       active ? "ring-2 ring-offset-1 ring-[var(--color-apple-ink)]" : ""
                     }`}
                     style={{ backgroundColor: c }}
@@ -2700,7 +2697,7 @@ function EventCreateForm({
                 value={courseId}
                 onChange={(e) => setCourseId(e.target.value)}
                 aria-label="강의"
-                className="w-full appearance-none border-0 bg-transparent py-3 text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none"
+                className="w-full appearance-none border-0 bg-transparent py-2.5 text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none"
                 style={{ letterSpacing: "-0.012em" }}
               >
                 <option value="">강의 선택 (선택사항)</option>
@@ -2717,10 +2714,10 @@ function EventCreateForm({
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              rows={3}
+              rows={2}
               maxLength={2000}
               placeholder="메모 — 제출 형식·범위·페이지 수 등"
-              className="w-full resize-y border-0 bg-transparent py-3 text-[14px] leading-[1.55] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
+              className="w-full resize-none border-0 bg-transparent py-2.5 text-[13.5px] leading-[1.5] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
               style={{ letterSpacing: "-0.012em" }}
             />
           </div>
@@ -2732,8 +2729,9 @@ function EventCreateForm({
           </p>
         )}
 
-        {/* 액션 — 우측 정렬. 구분선 없이 공백으로 분리 (Apple 톤). */}
-        <div className="flex items-center justify-end gap-1">
+        {/* 액션 — macOS Calendar 새 이벤트 popover 톤. 좌측 취소(텍스트 링크), 우측 "추가" pill 액션.
+            사용자 피드백 (2026-05-23): 양쪽 모두 회색 박스라 어색 → 취소는 borderless 텍스트로, 추가는 그대로. */}
+        <div className="-mx-1 mt-1 flex items-center justify-between gap-2 pt-1">
           <button
             type="button"
             onClick={() => {
@@ -2742,7 +2740,7 @@ function EventCreateForm({
               onClose();
             }}
             disabled={busy}
-            className="rounded-[8px] px-3.5 py-2 text-[13px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
+            className="rounded-[6px] px-2 py-1 text-[13px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)] disabled:opacity-50"
             style={{ letterSpacing: "-0.012em" }}
           >
             취소
@@ -2750,10 +2748,10 @@ function EventCreateForm({
           <button
             type="submit"
             disabled={busy || !kind || !title.trim()}
-            className="rounded-[8px] bg-[var(--color-apple-action)] px-4 py-2 text-[13px] wght-620 text-white transition-opacity hover:bg-[var(--color-apple-action-hover)] disabled:opacity-40"
+            className="rounded-full bg-[var(--color-apple-action)] px-4 py-1.5 text-[13px] wght-620 text-white transition-opacity hover:bg-[var(--color-apple-action-hover)] disabled:opacity-40"
             style={{ letterSpacing: "-0.012em" }}
           >
-            {busy ? "저장 중…" : "추가"}
+            {busy ? "추가 중…" : "추가"}
           </button>
         </div>
       </form>
