@@ -197,21 +197,28 @@ function kindHeroStyle(kind: EventView["kind"]): KindHeroStyle {
  * 구현: key를 value에 묶어 React가 값 변경 시 재마운트 → CSS 키프레임이 매번 재생.
  * 자연스러움 위해 50ms 짧은 fade-up. 시각적 노이즈는 없고, 시간이 살아 있다는 신호만.
  */
+/**
+ * 카운트다운 셀 — 숫자가 바뀔 때 살짝 위로 올라오는 디지털 플립 톤.
+ *
+ * 구현: key를 display에 묶어 React가 값 변경 시 재마운트 → CSS 키프레임이 매번 재생.
+ *
+ * 폭: 최소 자릿수 보장을 위해 `min-width: {len}ch`. days가 D-30이면 두 자리,
+ * D-365 같은 케이스에도 자릿수만큼 자동 확장. overflow-hidden은 빼서 잘림 방지.
+ */
 function ClockCell({ value, unit }: { value: number; unit: string }) {
   const display = String(value).padStart(2, "0");
   return (
-    <span className="flex items-baseline gap-1">
+    <span className="inline-flex items-baseline gap-1">
       <span
-        className="relative inline-block overflow-hidden tabular-nums"
-        style={{ width: "1.4em" }}
+        key={display}
+        className="clock-tick inline-block text-[44px] wght-620 leading-none tabular-nums sm:text-[60px]"
+        style={{
+          letterSpacing: "-0.024em",
+          minWidth: `${display.length}ch`,
+          textAlign: "right",
+        }}
       >
-        <span
-          key={display}
-          className="clock-tick block text-[44px] wght-620 leading-none sm:text-[60px]"
-          style={{ letterSpacing: "-0.024em" }}
-        >
-          {display}
-        </span>
+        {display}
       </span>
       <span className="text-[14px] wght-560 text-[var(--color-apple-muted)] sm:text-[16px]">
         {unit}
