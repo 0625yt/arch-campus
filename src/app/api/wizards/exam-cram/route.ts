@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { listWrongItems } from "@/lib/data/attempts";
 import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import { guardRateLimit } from "@/lib/ratelimit";
 import { runExamCram, type ExamCramWrongHint } from "@/lib/services/exam-cram";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
@@ -36,6 +37,9 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
     throw e;
   }
+
+  const blocked = await guardRateLimit("ai", ownerId);
+  if (blocked) return blocked;
 
   let body: z.infer<typeof RequestSchema>;
   try {

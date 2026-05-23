@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { parseDocument, ParserRejectedError } from "@/lib/parsers";
+import { guardRateLimit } from "@/lib/ratelimit";
 import { runQuizGeneration, type Difficulty } from "@/lib/services/quiz";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { storeMaterialFile } from "@/lib/storage";
@@ -55,6 +56,11 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
     }
     throw e;
   }
+
+  const uploadBlock = await guardRateLimit<QuizResponseOk | QuizResponseErr>("upload", ownerId);
+  if (uploadBlock) return uploadBlock;
+  const aiBlock = await guardRateLimit<QuizResponseOk | QuizResponseErr>("ai", ownerId);
+  if (aiBlock) return aiBlock;
 
   const contentType = req.headers.get("content-type") ?? "";
   let form: FormData;

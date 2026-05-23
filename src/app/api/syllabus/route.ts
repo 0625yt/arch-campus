@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { parseDocument, ParserRejectedError } from "@/lib/parsers";
+import { guardRateLimit } from "@/lib/ratelimit";
 import { inferSemester } from "@/lib/semester";
 import { runSyllabusExtraction } from "@/lib/services/syllabus";
 import { type SyllabusOutputT } from "@/lib/schemas";
@@ -40,6 +41,11 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     }
     throw e;
   }
+
+  const uploadBlock = await guardRateLimit<OkResponse | ErrResponse>("upload", ownerId);
+  if (uploadBlock) return uploadBlock;
+  const aiBlock = await guardRateLimit<OkResponse | ErrResponse>("ai", ownerId);
+  if (aiBlock) return aiBlock;
 
   let form: FormData;
   try {

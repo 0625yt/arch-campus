@@ -1,6 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import { guardRateLimit } from "@/lib/ratelimit";
 import { runSummarize } from "@/lib/services/summarize";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import {
@@ -37,6 +38,10 @@ export async function POST(
     }
     throw e;
   }
+
+  // Rate limit — AI 호출은 적자 위험 큼 (CLAUDE.md §1). 분당 6회 캡.
+  const blocked = await guardRateLimit("ai", ownerId);
+  if (blocked) return blocked;
 
   const { id: materialId } = await params;
 

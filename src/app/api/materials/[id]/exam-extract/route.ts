@@ -1,6 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import { guardRateLimit } from "@/lib/ratelimit";
 import { runExamExtract } from "@/lib/services/exam-extract";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
@@ -35,6 +36,9 @@ export async function POST(
     }
     throw e;
   }
+
+  const blocked = await guardRateLimit("ai", ownerId);
+  if (blocked) return blocked;
 
   const { id: materialId } = await params;
 

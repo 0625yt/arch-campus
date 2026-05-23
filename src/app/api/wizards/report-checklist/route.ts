@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import { guardRateLimit } from "@/lib/ratelimit";
 import { runReportChecklist } from "@/lib/services/report-checklist";
 
 export const runtime = "nodejs";
@@ -34,6 +35,9 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
     throw e;
   }
+
+  const blocked = await guardRateLimit("ai", ownerId);
+  if (blocked) return blocked;
 
   let body: z.infer<typeof RequestSchema>;
   try {

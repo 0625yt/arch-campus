@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import { guardRateLimit } from "@/lib/ratelimit";
 import { runQuizGeneration } from "@/lib/services/quiz";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
@@ -40,6 +41,9 @@ export async function POST(
     }
     throw e;
   }
+
+  const blocked = await guardRateLimit("ai", ownerId);
+  if (blocked) return blocked;
 
   const { id: materialId } = await params;
 

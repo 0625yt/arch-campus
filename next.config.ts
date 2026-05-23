@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 /**
- * 보안 헤더 7종 (2026-05 보안 리서치 적용).
+ * 보안 헤더 7종 + CSP Report-Only (2026-05 보안 리서치 적용).
  *
  * 각 헤더의 이유:
  *   - HSTS: HTTP 다운그레이드 차단. preload 등록 권장 (https://hstspreload.org)
@@ -11,9 +11,29 @@ import type { NextConfig } from "next";
  *   - Permissions-Policy: 카메라·마이크·위치 거부 — 우리는 이 권한 안 씀
  *   - COOP same-origin: cross-origin window opener 격리 (Spectre 류 방어)
  *   - X-DNS-Prefetch-Control on: 사용자 경험 (안전한 prefetch)
+ *   - CSP Report-Only: 일주일 violation 보고 받고 enforce 전환
  *
- * CSP는 별도 sprint에서 nonce 기반으로 추가 — 현 단계엔 마크다운·iframe 호환성 점검 필요.
+ * CSP 외부 자원 화이트리스트:
+ *   - style-src: jsdelivr (Pretendard 폰트 CSS), 'unsafe-inline' (Tailwind v4가 인라인 스타일)
+ *   - img-src: data: + supabase storage (signed URL PDF는 frame-src로)
+ *   - frame-src: supabase.co (자료 PDF iframe), self
+ *   - connect-src: supabase REST·Realtime·Anthropic (모두 self+같은 도메인 또는 외부)
  */
+const CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js dev에 필요, nonce 도입은 별도 sprint
+  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data: https://cdn.jsdelivr.net",
+  "frame-src 'self' https://*.supabase.co",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "upgrade-insecure-requests",
+].join("; ");
+
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -25,6 +45,9 @@ const securityHeaders = [
   },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "X-DNS-Prefetch-Control", value: "on" },
+  // Report-Only — 일주일 운영 후 violation 0~소수면 'Content-Security-Policy'로 enforce 전환.
+  // violation은 브라우저 콘솔에서 즉시 확인 가능 (report-uri 별도 설정 안 함).
+  { key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY },
 ];
 
 const nextConfig: NextConfig = {
