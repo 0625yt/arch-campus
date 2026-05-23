@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listCoursesGrouped, type CourseListItem } from "@/lib/data/materials";
 import { getRecentActivities, type Activity } from "@/lib/data/activity";
+import { activityColor } from "@/lib/activity-color";
 import { AddPersonalButton } from "./add-personal-button";
 import { CourseActionsMenu } from "./course-actions-menu";
 import { CourseContextWrapper } from "./course-context-wrapper";
@@ -272,22 +273,9 @@ function CourseCard({ course }: { course: CourseListItem }) {
       </div>
       <Link
         href={`/dashboard/study/${encodeURIComponent(course.name)}`}
-        className="group elev-hover-2 relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-[18px] bg-white p-7 transition-transform duration-300 hover:-translate-y-0.5 sm:p-8"
+        className="group card-glow-ribbon elev-hover-2 relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-[18px] bg-white p-7 sm:p-8"
+        style={{ ["--ribbon-color" as string]: ribbon }}
       >
-      {/* 좌측 컬러 리본 — 카드 정체성. hover 시 4px로 살짝 굵어짐 + 옅은 glow. */}
-      <span
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-[3px] transition-all duration-300 group-hover:w-[4px]"
-        style={{
-          backgroundColor: ribbon,
-          boxShadow: `0 0 0 0 ${ribbon}`,
-        }}
-      />
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-0 w-[6px] opacity-0 blur-md transition-opacity duration-300 group-hover:opacity-50"
-        style={{ backgroundColor: ribbon }}
-      />
       {/* hover 시 우상단에 미세한 컬러 워시 — Apple Mail/Notes 컬러 폴더 호버 톤 */}
       <span
         aria-hidden
@@ -330,21 +318,6 @@ function CourseCard({ course }: { course: CourseListItem }) {
     </div>
     </CourseContextWrapper>
   );
-}
-
-/**
- * Activity kind → 컬러. 캘린더 KIND_FALLBACK_COLOR 톤과 결 맞춰 6종.
- * 사용자가 행을 훑을 때 카테고리가 한눈에 들어오게 좌측 가는 bar로 표현.
- */
-function activityColor(kind: Activity["kind"]): string {
-  switch (kind) {
-    case "summarize": return "#7aa6d6"; // cobalt
-    case "quiz": return "#e0445e"; // coral
-    case "syllabus": return "#7fb38c"; // sage
-    case "presentation": return "#7aa6d6"; // cobalt
-    case "wizard": return "#a08bc4"; // mauve
-    case "attempt": return "#cca06b"; // mustard
-  }
 }
 
 function RecentActivity({

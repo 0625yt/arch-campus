@@ -309,6 +309,83 @@
 
 ---
 
+## 10-B. 살아있는 톤 가드 (2026-05-23 추가) ★
+
+캘린더 리뉴얼에서 검증된 "살아있는" 디자인 토큰들. 다른 화면 만들 때 이 톤을 빌려와
+정체성 일관 유지. shadcn 박스 톤이 의심되면 아래 세 패턴을 끼워넣어 즉시 살림.
+
+### 10-B-1. Sparkles orb (AI 진입의 1급 정체성)
+
+AI가 개입하는 진입점은 모두 같은 orb로 표시. 화면 간 "AI"가 같은 얼굴로 보임.
+
+```tsx
+<span
+  aria-hidden
+  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow-[0_2px_8px_-2px_rgba(0,113,227,0.4)]"
+  style={{
+    background:
+      "linear-gradient(135deg, var(--color-apple-action) 0%, #7aa6d6 60%, #a08bc4 100%)",
+  }}
+>
+  <Sparkles className="h-[15px] w-[15px]" strokeWidth={2.2} />
+</span>
+```
+
+적용 위치: `start-screen` 챗 입구, `tools` AI 카드, `calendar` AI 진입 카드, `chat` AssistantAvatar.
+❌ 검정 동그라미 + 글자 한 자 (`a`, `i` 등) — 이미 제거됨.
+
+### 10-B-2. Typing placeholder (입력 어포던스 살아있게)
+
+빈 입력칸은 죽은 회색 placeholder 대신 prompt 4~5개가 글자 단위로 타이핑·삭제되며 회전.
+사용자가 입력 시작하면 즉시 사라짐. "이런 식으로 적으면 되는구나" 학습 + 화면이 정지하지 않은 느낌.
+
+핵심 동작: `phase: "typing" | "hold" | "deleting"` 상태머신 + setTimeout 50~55ms 글자 추가, 24ms 글자 삭제, 1400ms hold.
+
+적용: `start-screen`, `tools/tools-entry-card`, `calendar/ai-entry-card`.
+
+### 10-B-3. 좌측 ribbon + hover glow (.card-glow-ribbon)
+
+카드형 컴포넌트의 카테고리·임박도 식별. 캘린더 EventChip의 좌측 얇은 색 bar를 카드 크기로 확장.
+
+```tsx
+<article
+  className="group card-glow-ribbon relative overflow-hidden rounded-[14px] bg-white p-5"
+  style={{ ["--ribbon-color" as string]: "#e0445e" }}
+>
+  ...
+</article>
+```
+
+자동으로:
+- 좌측 2.5px ribbon → hover에서 3.5px
+- 좌측에 옅은 glow가 hover에서 번짐
+- 카드가 -2px 살짝 떠오름
+
+적용 위치: today `UpcomingCard`, study `CourseCard`·`materials-grid`, review `ReviewCard`, chat suggestion 카드.
+
+### 10-B-4. .urgent-pulse · .clock-tick (시간 살아있게)
+
+임박한 D-day·카운트다운은 정적 텍스트가 아니라 미세 박동 + 숫자 교체 애니메이션으로 표시.
+
+- `.urgent-pulse`: 1.8s 부드러운 opacity 박동 (D-day urgent, 카운트다운 6시간 이내)
+- `.clock-tick`: 숫자 값 변할 때 위에서 살짝 떨어지며 blur가 빠지는 디지털 톤
+
+적용: today `TodayHero` ClockCell, `UpcomingCard` D-day.
+
+### 10-B-5. fade-up stagger
+
+페이지 진입 시 섹션이 위로 살짝 올라오며 등장. 첫 인상을 살아있게.
+
+```tsx
+<header className="fade-up fade-up-1">...</header>
+<section className="fade-up fade-up-2">...</section>
+<section className="fade-up fade-up-3">...</section>
+```
+
+globals.css에 `fade-up-1`~`fade-up-5` 지원. 위에서 아래로 30~60ms 간격으로 stagger.
+
+---
+
 ## 11. 새 페이지 만들 때 체크리스트
 
 - [ ] 액센트 색이 단 하나인가?
@@ -323,6 +400,7 @@
 - [ ] **모바일(375px)·태블릿(820px)·데스크톱(1280px) 셋 다 확인했나?**
 - [ ] **터치 타깃 44px 이상인가?**
 - [ ] **모바일에서 사이드바가 하단 탭바로 바뀌는가?**
+- [ ] **§10-B 살아있는 톤 적용?** — AI 진입은 Sparkles orb, 카테고리 카드는 `.card-glow-ribbon`, 시간 임박은 `.urgent-pulse`, 진입은 `fade-up` stagger
 
 ---
 

@@ -156,13 +156,10 @@ function ReviewCard({ group }: { group: QuizGroup }) {
   const timeLabel = days === 0 ? "오늘" : `${days}일 전`;
 
   return (
-    <article className="group elev-hover-2 relative flex h-full flex-col overflow-hidden rounded-[16px] bg-white p-6">
-      {/* 좌측 컬러 ribbon — 평소 옅게, hover에서 진해짐 */}
-      <span
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-[2.5px] opacity-55 transition-opacity duration-300 group-hover:opacity-100"
-        style={{ backgroundColor: "var(--color-urgent)" }}
-      />
+    <article
+      className="group card-glow-ribbon elev-hover-2 relative flex h-full flex-col overflow-hidden rounded-[16px] bg-white p-6"
+      style={{ ["--ribbon-color" as string]: "var(--color-urgent)" }}
+    >
       {/* hover 우상단 미세 컬러 워시 — coral tint */}
       <span
         aria-hidden

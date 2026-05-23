@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getRecentActivities, type Activity } from "@/lib/data/activity";
+import { activityColor } from "@/lib/activity-color";
 
 export const dynamic = "force-dynamic";
 
@@ -77,21 +78,6 @@ function Empty({ className }: { className?: string }) {
       </div>
     </section>
   );
-}
-
-/**
- * Activity kind → 컬러. study/RecentActivity와 같은 매핑.
- * 화면 간 같은 활동이 같은 색으로 보이게 일관 유지.
- */
-function activityColor(kind: Activity["kind"]): string {
-  switch (kind) {
-    case "summarize": return "#7aa6d6"; // cobalt
-    case "quiz": return "#e0445e"; // coral
-    case "syllabus": return "#7fb38c"; // sage
-    case "presentation": return "#7aa6d6"; // cobalt
-    case "wizard": return "#a08bc4"; // mauve
-    case "attempt": return "#cca06b"; // mustard
-  }
 }
 
 function ActivityList({ activities, className }: { activities: Activity[]; className?: string }) {

@@ -236,11 +236,10 @@ export function MaterialsGrid({
                   type="button"
                   onClick={() => toggle(m.id)}
                   aria-pressed={isSelected}
-                  className={`group flex h-full w-full flex-col rounded-[12px] bg-white p-6 text-left transition-all ${
-                    isSelected
-                      ? "ring-2 ring-[var(--color-apple-action)]"
-                      : "hover:-translate-y-0.5"
+                  className={`group card-glow-ribbon relative flex h-full w-full flex-col overflow-hidden rounded-[12px] bg-white p-6 text-left transition-all ${
+                    isSelected ? "ring-2 ring-[var(--color-apple-action)]" : ""
                   }`}
+                  style={{ ["--ribbon-color" as string]: dotColor }}
                 >
                   <CardInner m={m} dotColor={dotColor} selectMode />
                   <span
@@ -257,7 +256,8 @@ export function MaterialsGrid({
               ) : (
                 <Link
                   href={`/dashboard/study/${encodeURIComponent(courseName)}/${m.id}`}
-                  className="group flex h-full flex-col rounded-[12px] bg-white p-6 transition-transform duration-200 hover:-translate-y-0.5"
+                  className="group card-glow-ribbon relative flex h-full flex-col overflow-hidden rounded-[12px] bg-white p-6"
+                  style={{ ["--ribbon-color" as string]: dotColor }}
                 >
                   <CardInner m={m} dotColor={dotColor} />
                 </Link>

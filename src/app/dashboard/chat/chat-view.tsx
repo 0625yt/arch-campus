@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Sparkles } from "lucide-react";
 
 type Role = "user" | "assistant";
 
@@ -328,42 +329,38 @@ function AssistantBubble({ m }: { m: Message }) {
         )}
         {!m.pending && m.suggestions && m.suggestions.length > 0 && (
           <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {m.suggestions.map((s) => (
-              <li key={s.href + s.label}>
-                <Link
-                  href={s.href}
-                  className="group flex items-center gap-3 rounded-[12px] bg-white px-4 py-3 transition-transform duration-200 hover:-translate-y-0.5"
-                >
-                  {s.dot ? (
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: s.dot }}
-                    />
-                  ) : (
-                    <span
-                      aria-hidden
-                      className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-apple-hairline)]"
-                    />
-                  )}
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span
-                      className="truncate text-[13.5px] wght-560 text-[var(--color-apple-ink)]"
-                      style={{ letterSpacing: "-0.012em" }}
-                    >
-                      {s.label}
-                    </span>
-                    {s.meta && (
-                      <span className="text-[10.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-                        {s.meta}
+            {m.suggestions.map((s) => {
+              const accent = s.dot ?? "var(--color-apple-hairline)";
+              return (
+                <li key={s.href + s.label}>
+                  <Link
+                    href={s.href}
+                    className="group card-glow-ribbon relative flex items-center gap-3 overflow-hidden rounded-[12px] bg-white pl-4 pr-3 py-3"
+                    style={{ ["--ribbon-color" as string]: accent }}
+                  >
+                    <div className="relative flex min-w-0 flex-1 flex-col">
+                      <span
+                        className="truncate text-[13.5px] wght-560 text-[var(--color-apple-ink)]"
+                        style={{ letterSpacing: "-0.012em" }}
+                      >
+                        {s.label}
                       </span>
-                    )}
-                  </div>
-                  <span className="shrink-0 text-[14px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
-                    ›
-                  </span>
-                </Link>
-              </li>
-            ))}
+                      {s.meta && (
+                        <span
+                          className="text-[10.5px] wght-620 uppercase tracking-[0.06em]"
+                          style={{ color: accent }}
+                        >
+                          {s.meta}
+                        </span>
+                      )}
+                    </div>
+                    <span className="relative shrink-0 text-[14px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
+                      ›
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
@@ -371,12 +368,21 @@ function AssistantBubble({ m }: { m: Message }) {
   );
 }
 
+/**
+ * Assistant avatar — start-screen·tools·calendar의 AI entry orb와 동일 톤.
+ * cobalt → mauve 그라데이션 + sparkles. 화면 간 "AI"가 같은 정체성으로 보임.
+ */
 function AssistantAvatar() {
   return (
-    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-apple-ink)]">
-      <span className="text-[11px] wght-620 text-white" style={{ letterSpacing: "-0.012em" }}>
-        a
-      </span>
+    <div
+      aria-hidden
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white shadow-[0_2px_8px_-2px_rgba(0,113,227,0.4)]"
+      style={{
+        background:
+          "linear-gradient(135deg, var(--color-apple-action) 0%, #7aa6d6 60%, #a08bc4 100%)",
+      }}
+    >
+      <Sparkles className="h-[13px] w-[13px]" strokeWidth={2.4} />
     </div>
   );
 }

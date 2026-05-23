@@ -327,22 +327,13 @@ function UpcomingCard({
   const tone = days <= 1 ? "urgent" : days <= 3 ? "warn" : "muted";
   const tint = upcomingTint(event.kind);
 
-  // 캘린더 EventChip 톤 흡수 — 좌측 컬러 ribbon이 카테고리 즉시 식별 +
-  // hover에서 살짝 lift. 우상단 D-day, 좌상단 chip은 그대로 둠.
+  // 캘린더 EventChip 톤 흡수 — 좌측 컬러 ribbon이 카테고리 즉시 식별.
+  // ribbon + hover glow + lift는 .card-glow-ribbon 공용 util.
   return (
-    <article className="group elev-hover-2 relative overflow-hidden rounded-[14px] bg-white p-5 transition-transform duration-300 hover:-translate-y-0.5 sm:p-6">
-      {/* 좌측 컬러 ribbon (캘린더 카드와 일관) */}
-      <span
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-[2.5px] opacity-70 transition-all duration-300 group-hover:w-[3.5px] group-hover:opacity-100"
-        style={{ backgroundColor: tint.bar }}
-      />
-      {/* hover 시 좌측에 옅은 glow */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-0 w-[8px] opacity-0 blur-md transition-opacity duration-300 group-hover:opacity-40"
-        style={{ backgroundColor: tint.bar }}
-      />
+    <article
+      className="group card-glow-ribbon elev-hover-2 relative overflow-hidden rounded-[14px] bg-white p-5 sm:p-6"
+      style={{ ["--ribbon-color" as string]: tint.bar }}
+    >
 
       <div className="relative flex items-center justify-between gap-3">
         <span
