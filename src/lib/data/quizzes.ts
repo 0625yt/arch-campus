@@ -1,7 +1,11 @@
 import "server-only";
 import { z } from "zod";
 import { getAdminSupabase } from "@/lib/supabase/admin";
-import { QuizQuestion } from "@/lib/schemas";
+import {
+  ExamExtractedQuestion,
+  type ExamExtractedQuestionT,
+  QuizQuestion,
+} from "@/lib/schemas";
 
 /**
  * Quizzes DAL — server pages·route handlers 공통 입구.
@@ -88,5 +92,55 @@ export async function getQuizForSolving(opts: {
       hint: q.hint,
     })),
     total: filtered.length,
+  };
+}
+
+const ExtractedArray = z.array(ExamExtractedQuestion);
+
+export interface ExtractedExamView {
+  quizId: string;
+  title: string;
+  watermark: string;
+  questions: ExamExtractedQuestionT[];
+  createdAt: string;
+}
+
+/**
+ * 가장 최근 기출 추출 결과 (mode='extracted')를 가져옴.
+ *
+ * 같은 자료에 여러 번 추출하면 최신 한 건만 반환.
+ * 풀이 모드에서 사용자가 답을 입력하기 전까지 정답·해설을 UI가 가려야 한다 (B-6 게이트).
+ *
+ * 마이그레이션 0013 안 돌렸으면 mode 컬럼 없어서 query 실패 → null 반환.
+ */
+export async function getExtractedExam(opts: {
+  ownerId: string;
+  materialId: string;
+}): Promise<ExtractedExamView | null> {
+  const admin = getAdminSupabase();
+  const { data, error } = await admin
+    .from("quizzes")
+    .select("id, title, watermark, questions, created_at, mode")
+    .eq("owner_id", opts.ownerId)
+    .eq("material_id", opts.materialId)
+    .eq("mode", "extracted")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  const parsed = ExtractedArray.safeParse(data.questions);
+  if (!parsed.success) {
+    console.error("extracted exam questions 파싱 실패:", parsed.error.message);
+    return null;
+  }
+
+  return {
+    quizId: data.id,
+    title: data.title,
+    watermark: data.watermark,
+    questions: parsed.data,
+    createdAt: data.created_at,
   };
 }

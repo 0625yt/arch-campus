@@ -295,6 +295,8 @@ export interface Database {
           watermark: string;
           model_id: string;
           generation_id: string | null;
+          /** 0013: 'generated'=AI 새 생성 / 'extracted'=PDF 본문에서 그대로 추출 */
+          mode: "generated" | "extracted";
           created_at: string;
         };
         Insert: {
@@ -309,6 +311,7 @@ export interface Database {
           watermark: string;
           model_id: string;
           generation_id?: string | null;
+          mode?: "generated" | "extracted";
         };
         Update: Partial<Database["public"]["Tables"]["quizzes"]["Insert"]>;
         Relationships: [];

@@ -21,7 +21,8 @@ export type ToolKind =
   | "syllabus-extract"
   | "timetable-extract"
   | "post-mortem"
-  | "event-parse";
+  | "event-parse"
+  | "exam-extract";
 
 export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   summarize: MODELS.haiku,
@@ -36,6 +37,10 @@ export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   "post-mortem": MODELS.haiku,
   // 자연어 → 일정 JSON. 짧고 정형이라 Haiku 충분.
   "event-parse": MODELS.haiku,
+  // 기출문제 PDF에서 문제·정답·해설을 그대로 추출 (새 생성 X).
+  // Vision 입력이라 토큰 비싸지만 추출은 생성보다 쉬워 Haiku로 시작.
+  // EXTRACT_MODEL=sonnet env로 승격 가능 (정확도 70% 미만 시).
+  "exam-extract": MODELS.haiku,
 };
 
 /**
@@ -53,6 +58,11 @@ export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
 function resolveModel(tool: ToolKind): LanguageModel {
   if (tool === "quiz") {
     const override = process.env.QUIZ_MODEL?.toLowerCase();
+    if (override === "haiku") return MODELS.haiku;
+    if (override === "sonnet") return MODELS.sonnet;
+  }
+  if (tool === "exam-extract") {
+    const override = process.env.EXTRACT_MODEL?.toLowerCase();
     if (override === "haiku") return MODELS.haiku;
     if (override === "sonnet") return MODELS.sonnet;
   }

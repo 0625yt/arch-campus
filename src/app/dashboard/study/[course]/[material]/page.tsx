@@ -4,8 +4,11 @@ import { WizardWatermark } from "@/components/wizard-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getLatestJob } from "@/lib/data/jobs";
 import { getMaterialDetail, type MaterialDetail } from "@/lib/data/materials";
+import { getExtractedExam } from "@/lib/data/quizzes";
 import type { SummarizeOutputT } from "@/lib/schemas";
 import { createSignedReadUrl } from "@/lib/storage";
+import { ExtractExamButton } from "./extract-exam-button";
+import { ExtractExamView } from "./extract-exam-view";
 import { GenerateButton } from "./generate-button";
 import { MaterialView } from "./material-view";
 import { SplitWithConvertingLeft, SplitWithFailedLeft } from "./pdf-convert-states";
@@ -73,13 +76,43 @@ export default async function MaterialDetailPage({
   const summarizeStatus = summarizeJob?.status ?? null;
   const summarizeError = summarizeJob?.errorMessage ?? null;
 
+  // type=exam은 별도 흐름 — 본문에서 기출문제·정답·해설 추출
+  // (요약 생성 X. CLAUDE.md §4 치팅 라인)
+  const isExamType = detail.type === "exam";
+  const extracted = isExamType
+    ? await getExtractedExam({ ownerId, materialId: detail.id })
+    : null;
+  const extractJob = isExamType && !extracted
+    ? await getLatestJob({ ownerId, materialId: detail.id, tool: "exam-extract" })
+    : null;
+
   return (
     <div>
       <div className="mx-auto w-full max-w-[920px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:max-w-[1400px] md:px-12">
         <Breadcrumb courseLabel={courseLabel} dotColor={dotColor} />
         <Hero detail={detail} />
 
-        {detail.summary ? (
+        {isExamType ? (
+          extracted ? (
+            <ExtractExamView
+              extracted={extracted}
+              className="mt-14 fade-up fade-up-3 sm:mt-16"
+            />
+          ) : extractJob?.status === "error" ? (
+            <ExtractExamErrorCard
+              materialId={detail.id}
+              errorMessage={extractJob.errorMessage ?? null}
+              className="mt-14 fade-up fade-up-3 sm:mt-16"
+            />
+          ) : extractJob?.status === "pending" || extractJob?.status === "running" ? (
+            <ExtractExamLoading className="mt-14 fade-up fade-up-3 sm:mt-16" />
+          ) : (
+            <ExtractExamEmpty
+              materialId={detail.id}
+              className="mt-14 fade-up fade-up-3 sm:mt-16"
+            />
+          )
+        ) : detail.summary ? (
           isPdf && pdfUrl ? (
             <MaterialView
               pdfUrl={pdfUrl}
@@ -119,7 +152,7 @@ export default async function MaterialDetailPage({
           />
         )}
 
-        {detail.summaryKeywords && detail.summaryKeywords.length > 0 && (
+        {!isExamType && detail.summaryKeywords && detail.summaryKeywords.length > 0 && (
           <Keywords keywords={detail.summaryKeywords} className="mt-12 fade-up fade-up-2" />
         )}
 
@@ -208,6 +241,100 @@ function Keywords({ keywords, className }: { keywords: string[]; className?: str
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/* ─────────── type=exam 분기 컴포넌트들 ─────────── */
+
+function ExtractExamEmpty({
+  materialId,
+  className,
+}: {
+  materialId: string;
+  className?: string;
+}) {
+  return (
+    <section className={className}>
+      <div className="elev-1 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
+        <p
+          className="text-[18px] wght-620 text-[var(--color-apple-ink)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          기출문제를 추출해 볼까요?
+        </p>
+        <p
+          className="mx-auto mt-3 max-w-[460px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.022em" }}
+        >
+          이 자료의 문제·정답·해설을 그대로 가져와요. 새 문제를 만들지 않아요. 본인이 풀어보고 답을 적은 뒤 정답을 확인할 수 있어요.
+        </p>
+        <div className="mt-7 flex justify-center">
+          <ExtractExamButton materialId={materialId} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ExtractExamLoading({ className }: { className?: string }) {
+  return (
+    <section className={className}>
+      <div className="elev-1 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
+        <p
+          className="text-[16px] wght-560 text-[var(--color-apple-ink)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          기출문제를 추출하는 중이에요
+        </p>
+        <p
+          className="mx-auto mt-3 max-w-[460px] text-[13px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.022em" }}
+        >
+          본문에서 문제·정답·해설을 그대로 가져오고 있어요. 30~60초 정도 걸려요.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function ExtractExamErrorCard({
+  materialId,
+  errorMessage,
+  className,
+}: {
+  materialId: string;
+  errorMessage: string | null;
+  className?: string;
+}) {
+  return (
+    <section className={className}>
+      <div className="elev-1 rounded-[18px] bg-white px-7 py-10 sm:px-10 sm:py-12">
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-[#fde8eb] text-[14px] wght-700 text-[var(--color-urgent)]"
+          >
+            !
+          </span>
+          <p
+            className="text-[18px] wght-620 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            기출 추출에 실패했어요
+          </p>
+        </div>
+        <p
+          className="mt-4 max-w-[560px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.022em" }}
+        >
+          {errorMessage ??
+            "잠시 후 다시 시도하면 보통 풀려요. 자료가 시험지가 아니라면 자료 종류를 다시 설정해 주세요."}
+        </p>
+        <div className="mt-7">
+          <ExtractExamButton materialId={materialId} />
+        </div>
+      </div>
     </section>
   );
 }
@@ -328,6 +455,9 @@ function CtaCard({
   courseLabel: string;
   dotColor: string;
 }) {
+  // type=exam은 별도 흐름 — 위쪽에 추출 결과·게이트가 이미 있으니 CTA 카드 X (정보 중복).
+  if (detail.type === "exam") return null;
+
   return (
     <section className="mt-14 fade-up fade-up-4 sm:mt-20">
       <div className="elev-1 rounded-[18px] bg-white px-7 py-9 sm:px-12 sm:py-12">

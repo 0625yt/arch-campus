@@ -92,6 +92,67 @@ export const QuizOutput = z.union([
 ]);
 export type QuizOutputT = z.infer<typeof QuizOutput>;
 
+/**
+ * 기출문제 추출 — PDF 본문에 이미 존재하는 문제·정답·해설을 그대로 가져온다.
+ *
+ * 핵심 가드 (CLAUDE.md §4 치팅 라인):
+ *   - 새 문제 생성 X. 본문에 적힌 그대로만.
+ *   - 정답이 본문에 없거나 불분명하면 answer=null + needsManualCheck=true.
+ *   - 추측 X. 모범답안 만들기 X.
+ *   - 풀이 모드에서 사용자가 답을 입력하기 전까지 answer/explanation 노출 금지 (UI 게이트).
+ *
+ * 스키마는 객관식·단답형·서술형 3종을 한 배열에 섞어 담음.
+ *  - kind=multiple-choice: choices 4개 필수, answer는 키("A"~"D") 또는 null
+ *  - kind=short-answer: choices 없음, answer는 정답 단어/구
+ *  - kind=essay: choices 없음, answer는 모범답안의 핵심 키워드/방향
+ */
+export const ExamExtractedQuestion = z.object({
+  id: z.number().int().positive(),
+  kind: z.enum(["multiple-choice", "short-answer", "essay"]),
+  stem: z.string().min(5).max(2000),
+  choices: z
+    .array(
+      z.object({
+        key: z.enum(["A", "B", "C", "D"]),
+        text: z.string().min(1).max(500),
+      }),
+    )
+    .length(4)
+    .nullable()
+    .optional(),
+  /** 정답. multiple-choice면 "A"~"D" 한 글자. short-answer/essay면 정답 텍스트. null이면 본문에 정답 없음. */
+  answer: z.string().min(1).max(2000).nullable(),
+  /** 본문에 있는 해설. 없으면 null. AI가 새로 작성 금지. */
+  explanation: z.string().min(5).max(2000).nullable(),
+  /** PDF 페이지 번호 (vision 추출 시 박을 수 있으면). */
+  sourcePageNum: z.number().int().min(1).max(2000).nullable(),
+  /** 본문 substring 인용 — full_text 검증용. */
+  sourceQuote: z.string().min(2).max(1000),
+  /**
+   * 정답이 불명확하거나 형식 변형이 필요한 경우 true.
+   * 학생에게 "AI가 자신 없음, 본인이 확인" 시그널.
+   */
+  needsManualCheck: z.boolean().default(false),
+});
+export type ExamExtractedQuestionT = z.infer<typeof ExamExtractedQuestion>;
+
+export const ExamExtractOutput = z.union([
+  z.object({
+    questions: z.array(ExamExtractedQuestion).min(1).max(50),
+    rejected: z.literal(false).optional(),
+    /** 추출 메타 — 자료에서 발견된 총 문제 수가 50개 초과면 truncated 표시 */
+    truncated: z.boolean().default(false),
+    watermark: z.string().min(10),
+  }),
+  z.object({
+    questions: z.array(ExamExtractedQuestion).length(0),
+    rejected: z.literal(true),
+    reason: z.string().min(10),
+    watermark: z.string().min(10),
+  }),
+]);
+export type ExamExtractOutputT = z.infer<typeof ExamExtractOutput>;
+
 export const SyllabusEvent = z.object({
   kind: z.enum(["exam", "assignment", "presentation", "class", "etc"]),
   title: z.string().min(1).max(120),
