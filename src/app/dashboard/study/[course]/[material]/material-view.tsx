@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SummaryColumn } from "./summary-column";
 import { SplitControl, useSplitView } from "./split-control";
 import { ChatPanel } from "./chat-panel";
@@ -11,16 +11,11 @@ import type { SummarizeOutputT } from "@/lib/schemas";
  *
  * 데스크톱(md+):
  *  - 좌 sticky PDF iframe + 우 스크롤 요약
- *  - 우상단 SplitControl segmented로 PDF만 / 5:5 / 요약만 분기
- *  - 상태 localStorage 영속 (useSplitView)
+ *  - 우상단 SplitControl segmented (PDF만 / 5:5 / 요약만 preset)
+ *  - 두 컬럼 사이 hairline divider를 드래그하면 임의 비율 — localStorage 영속.
+ *  - 드래그 중에는 iframe pointer-events: none (iframe이 mousemove 가로채는 문제 회피).
  *
  * 모바일(<md): 단일 컬럼 요약만. 페이지 칩 클릭은 새 탭으로 PDF.
- *
- * iframe은 page 바뀔 때 key remount — Chrome이 같은 URL의 #page=N fragment만 바뀌면
- * 가끔 점프 안 하는 버그 회피.
- *
- * 분할 변경 시 iframe DOM은 유지 + grid-cols로 컬럼 폭만 0으로 줄임 → display:none이 PDF
- * 로드 끊는 브라우저 회피.
  */
 export function MaterialView({
   pdfUrl,
@@ -37,18 +32,19 @@ export function MaterialView({
 }) {
   const [page, setPage] = useState<number>(1);
   const [view, setView] = useSplitView();
+  const [ratio, setRatio] = useSplitRatio();
   const [chatOpen, setChatOpen] = useState(false);
+
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   function jumpDesktop(target: number) {
     setPage(target);
-    // PDF만 닫혀 있던 상태라면 5:5로 자동 전환 — 학생이 페이지 칩 누른 의도는 PDF 보기
     if (view === "summary-only") setView("split");
   }
   function jumpMobile(target: number) {
     window.open(`${pdfUrl}#page=${target}`, "_blank", "noopener");
   }
-
-  // 인용 chip 클릭 — 데스크탑은 PDF 점프, 모바일은 새 탭
   function jumpFromChat(target: number) {
     if (typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches) {
       jumpDesktop(target);
@@ -57,17 +53,62 @@ export function MaterialView({
     }
   }
 
-  // grid-cols-template 동적. summary-only는 PDF 컬럼을 0fr로 → DOM 유지하며 폭만 압축.
-  const gridCols =
+  // 드래그 핸들러 — pointer 이벤트로 마우스·터치·펜 모두 커버
+  const onPointerMove = useCallback(
+    (e: PointerEvent) => {
+      const grid = gridRef.current;
+      if (!grid) return;
+      const rect = grid.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const next = clamp(x / rect.width, MIN_RATIO, MAX_RATIO);
+      setRatio(next);
+      // 사용자가 드래그하면 preset(pdf-only·summary-only)에서 자동으로 split로 — 컬럼이 보여야 함
+      if (view !== "split") setView("split");
+    },
+    [setRatio, setView, view],
+  );
+
+  const stopDrag = useCallback(() => {
+    setDragging(false);
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", stopDrag);
+    window.removeEventListener("pointercancel", stopDrag);
+    document.body.style.removeProperty("cursor");
+    document.body.style.removeProperty("user-select");
+  }, [onPointerMove]);
+
+  function startDrag(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragging(true);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", stopDrag);
+    window.addEventListener("pointercancel", stopDrag);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }
+
+  // cleanup on unmount
+  useEffect(() => {
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", stopDrag);
+      window.removeEventListener("pointercancel", stopDrag);
+    };
+  }, [onPointerMove, stopDrag]);
+
+  // grid-cols: preset이면 0fr / 1fr / ratio 분기.
+  // split일 때는 ratio (드래그로 자유 조절). preset 클릭하면 segmented가 즉시 적용 — ratio는 유지.
+  const gridStyle =
     view === "pdf-only"
-      ? "md:grid-cols-[1fr_0fr]"
+      ? { gridTemplateColumns: "1fr 0px 0fr" }
       : view === "summary-only"
-        ? "md:grid-cols-[0fr_1fr]"
-        : "md:grid-cols-[1.2fr_1fr] lg:grid-cols-[1.3fr_1fr]";
+        ? { gridTemplateColumns: "0fr 0px 1fr" }
+        : {
+            gridTemplateColumns: `${ratio}fr 12px ${1 - ratio}fr`,
+          };
 
   return (
     <section className={className}>
-      {/* 데스크톱: split 컨트롤 + 챗 토글. 우상단 정렬. */}
       <div className="mb-4 hidden items-center justify-end gap-2 md:flex">
         <SplitControl view={view} onChange={setView} />
         <button
@@ -80,14 +121,51 @@ export function MaterialView({
         </button>
       </div>
 
-      <div className={`hidden md:grid md:gap-6 lg:gap-8 ${gridCols} transition-[grid-template-columns] duration-300 ease-out`}>
+      <div
+        ref={gridRef}
+        className="hidden md:grid transition-[grid-template-columns] duration-300 ease-out"
+        style={{ ...gridStyle, ...(dragging && { transitionDuration: "0ms" }) }}
+      >
         <div
           className={`sticky top-4 h-[calc(100vh-2rem)] overflow-hidden rounded-[18px] bg-white transition-opacity duration-300 ${
             view === "summary-only" ? "pointer-events-none opacity-0" : "opacity-100"
           }`}
         >
-          <PdfViewer src={pdfUrl} page={page} />
+          {/* 드래그 중엔 iframe이 mousemove 가로채지 않게 */}
+          <div className={dragging ? "pointer-events-none h-full w-full" : "h-full w-full"}>
+            <PdfViewer src={pdfUrl} page={page} />
+          </div>
         </div>
+
+        {/* 드래그 핸들 — 8px 폭 hairline. 호버하면 액션 컬러 강조 */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="너비 조절"
+          onPointerDown={startDrag}
+          onDoubleClick={() => setRatio(0.5)}
+          title="드래그해서 너비 조절 · 더블클릭하면 5:5"
+          className={`group sticky top-4 z-10 h-[calc(100vh-2rem)] cursor-col-resize ${
+            view === "split" ? "" : "pointer-events-none opacity-0"
+          }`}
+        >
+          {/* 가운데 1px 라인 + 호버 시 강조 */}
+          <span
+            className={`absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 transition-colors ${
+              dragging
+                ? "bg-[var(--color-apple-action)]"
+                : "bg-[var(--color-apple-hairline)] group-hover:bg-[var(--color-apple-action)]"
+            }`}
+          />
+          {/* 가운데 가벼운 grip 인디케이터 */}
+          <span
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] wght-560 text-[var(--color-apple-muted)] opacity-0 transition-opacity group-hover:opacity-100"
+            aria-hidden
+          >
+            ⋮⋮
+          </span>
+        </div>
+
         <div
           className={`transition-opacity duration-300 ${
             view === "pdf-only" ? "pointer-events-none opacity-0" : "opacity-100"
@@ -101,7 +179,6 @@ export function MaterialView({
         <SummaryColumn summary={summary} onPageClick={jumpMobile} />
       </div>
 
-      {/* 모바일 floating action button — md 미만에서만 표시 */}
       {!chatOpen && (
         <button
           type="button"
@@ -126,7 +203,6 @@ export function MaterialView({
 }
 
 function PdfViewer({ src, page }: { src: string; page: number }) {
-  // key remount로 fragment 점프를 안정적으로
   return (
     <iframe
       key={page}
@@ -148,4 +224,44 @@ export function PageChip({ page, onClick }: { page: number; onClick: () => void 
       p.{page}
     </button>
   );
+}
+
+// ─────────────────────────────────────────────────────────────
+// 드래그 ratio 영속 + 한계
+// ─────────────────────────────────────────────────────────────
+const RATIO_STORAGE_KEY = "arch.material.splitRatio";
+const MIN_RATIO = 0.2; // PDF가 20% 미만으로 줄면 의미 없음
+const MAX_RATIO = 0.8; // 요약이 20% 미만이면 글자 잘림
+
+function clamp(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v));
+}
+
+function useSplitRatio(): [number, (v: number) => void] {
+  // SSR-safe: 기본 0.55 (PDF 약간 더 넓게 — 기존 1.2fr_1fr 비슷)
+  const [ratio, setRatioState] = useState<number>(0.55);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(RATIO_STORAGE_KEY);
+      if (raw) {
+        const n = parseFloat(raw);
+        if (Number.isFinite(n)) setRatioState(clamp(n, MIN_RATIO, MAX_RATIO));
+      }
+    } catch {
+      /* localStorage 막혀있으면 기본값 */
+    }
+  }, []);
+
+  const setRatio = useCallback((next: number) => {
+    const safe = clamp(next, MIN_RATIO, MAX_RATIO);
+    setRatioState(safe);
+    try {
+      window.localStorage.setItem(RATIO_STORAGE_KEY, String(safe));
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  return [ratio, setRatio];
 }
