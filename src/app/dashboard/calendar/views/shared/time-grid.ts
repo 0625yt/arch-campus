@@ -47,9 +47,12 @@ export function isoToKstDateKey(iso: string): string {
   }).format(d);
 }
 
-/** "HH:MM" 라벨. 시간축 표시용. */
+/** 한국어 시간 라벨 — "오전 8시", "정오", "오후 1시". macOS Calendar 톤. */
 export function formatHourLabel(hour: number): string {
-  return `${String(hour).padStart(2, "0")}:00`;
+  if (hour === 0) return "자정";
+  if (hour === 12) return "정오";
+  if (hour < 12) return `오전 ${hour}시`;
+  return `오후 ${hour - 12}시`;
 }
 
 export interface PositionedEvent {

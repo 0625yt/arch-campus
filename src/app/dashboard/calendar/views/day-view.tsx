@@ -47,11 +47,6 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
     return () => clearInterval(t);
   }, []);
 
-  useEffect(() => {
-    if (!mounted || !scrollRef.current) return;
-    scrollRef.current.scrollTop = 8 * HOUR_HEIGHT_PX - 24;
-  }, [mounted, dateKey]);
-
   const todayKey = isoToKstDateKey(new Date().toISOString());
   const isToday = dateKey === todayKey;
 
@@ -65,28 +60,48 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
   const timed = dayEvents.filter((e) => !e.allDay);
   const positioned = layoutDayEvents(timed);
 
+  // 일 뷰도 새벽(0~5시) 안 보여줌 — 일관성 + 학생 컨텍스트.
+  // 단, 0~5시에 시작하는 이벤트가 있으면 자동으로 0시부터 표시.
+  const hasEarlyEvent = timed.some((e) => {
+    const d = new Date(e.startsAt);
+    const kst = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+    return kst.getHours() < 6;
+  });
+  const startHour = hasEarlyEvent ? 0 : 6;
+  const visibleHours = 24 - startHour;
+  const gridHeight = visibleHours * HOUR_HEIGHT_PX;
+
+  useEffect(() => {
+    if (!mounted || !scrollRef.current) return;
+    // 진입 시 08시로 스크롤 — startHour 보정 후. 보통은 06시 시작이라 약간만 내림.
+    const targetHour = 8;
+    scrollRef.current.scrollTop = Math.max(0, (targetHour - startHour) * HOUR_HEIGHT_PX - 24);
+  }, [mounted, dateKey, startHour]);
+
   return (
     <div className="mt-4 overflow-hidden rounded-[10px] border border-[var(--color-apple-hairline)] bg-white">
-      {/* 헤더 — 큰 날짜 + 요일 */}
-      <div className="flex items-baseline gap-3 border-b border-[var(--color-apple-hairline)] px-5 py-4">
-        <span
-          className={`text-[24px] wght-700 tabular-nums ${
-            isToday ? "text-[var(--color-apple-action)]" : "text-[var(--color-apple-ink)]"
-          }`}
-          style={{ letterSpacing: "-0.018em" }}
-        >
-          {monthDay}
-        </span>
-        <span
-          className="text-[14px] wght-450 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {WEEKDAYS_FULL[dow]}
-        </span>
+      {/* 헤더 — macOS 톤 두 줄: 큰 "5월 23일" + 다음 줄 "토요일" */}
+      <div className="flex items-start justify-between gap-3 border-b border-[var(--color-apple-hairline)] px-5 py-4">
+        <div className="flex flex-col">
+          <span
+            className={`text-[28px] leading-[1.1] wght-700 tabular-nums ${
+              isToday ? "text-[var(--color-urgent)]" : "text-[var(--color-apple-ink)]"
+            }`}
+            style={{ letterSpacing: "-0.018em" }}
+          >
+            {d.getFullYear()}년 {monthDay}
+          </span>
+          <span
+            className="mt-1 text-[14px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {WEEKDAYS_FULL[dow]}
+          </span>
+        </div>
         {isToday && (
           <span
-            className="ml-auto text-[11px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-action)]"
-            style={{ letterSpacing: "0.06em" }}
+            className="rounded-full bg-[var(--color-urgent)]/12 px-2 py-1 text-[11px] wght-620 text-[var(--color-urgent)]"
+            style={{ letterSpacing: "-0.012em" }}
           >
             오늘
           </span>
@@ -131,21 +146,38 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
 
       {/* 시간 그리드 */}
       <div ref={scrollRef} className="relative max-h-[640px] overflow-y-auto">
-        <div className="flex" style={{ height: HOUR_HEIGHT_PX * 24 }}>
-          {/* 시간축 */}
+        <div className="flex" style={{ height: gridHeight }}>
+          {/* 시간축 — startHour부터, 현재 시각 슬롯엔 빨간 박스 */}
           <div
             style={{ width: TIME_AXIS_WIDTH_DAY }}
             className="relative shrink-0 border-r border-[var(--color-apple-hairline)]"
           >
-            {Array.from({ length: 24 }, (_, h) => h).map((h) => (
+            {Array.from({ length: visibleHours }, (_, i) => startHour + i).map((h) => {
+              const nowInSlot = nowMin >= h * 60 && nowMin < (h + 1) * 60;
+              if (nowInSlot) return null;
+              return (
+                <div
+                  key={h}
+                  className="absolute right-2 -translate-y-1/2 text-[10px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+                  style={{ top: (h - startHour) * HOUR_HEIGHT_PX, letterSpacing: "-0.006em" }}
+                >
+                  {h === startHour && startHour === 0 ? "" : formatHourLabel(h)}
+                </div>
+              );
+            })}
+            {/* 현재 시각 빨간 박스 (오늘 + 표시 범위 내) */}
+            {isToday && nowMin >= startHour * 60 && (
               <div
-                key={h}
-                className="absolute right-2 -translate-y-1/2 text-[10px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
-                style={{ top: h * HOUR_HEIGHT_PX, letterSpacing: "-0.006em" }}
+                aria-hidden
+                className="absolute right-1 -translate-y-1/2 rounded-[4px] bg-[var(--color-urgent)] px-1.5 py-[1px] text-[10px] wght-700 tabular-nums text-white"
+                style={{
+                  top: (nowMin / 60 - startHour) * HOUR_HEIGHT_PX,
+                  letterSpacing: "-0.006em",
+                }}
               >
-                {h === 0 ? "" : formatHourLabel(h)}
+                {formatNowTime(nowMin)}
               </div>
-            ))}
+            )}
           </div>
 
           {/* 이벤트 영역 */}
@@ -154,18 +186,18 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
             style={{ backgroundColor: isToday ? "var(--color-surface-cream)" : undefined }}
           >
             {/* 시간 hairline */}
-            {Array.from({ length: 24 }, (_, h) => h).map((h) => (
+            {Array.from({ length: visibleHours }, (_, i) => startHour + i).map((h) => (
               <div
                 key={h}
                 className="absolute inset-x-0 border-t border-[var(--color-apple-hairline)]/40"
-                style={{ top: h * HOUR_HEIGHT_PX }}
+                style={{ top: (h - startHour) * HOUR_HEIGHT_PX }}
               />
             ))}
-            {Array.from({ length: 24 }, (_, h) => h).map((h) => (
+            {Array.from({ length: visibleHours }, (_, i) => startHour + i).map((h) => (
               <div
                 key={`half-${h}`}
                 className="absolute inset-x-0 border-t border-[var(--color-apple-hairline-soft)]/40 border-dashed"
-                style={{ top: h * HOUR_HEIGHT_PX + HOUR_HEIGHT_PX / 2 }}
+                style={{ top: (h - startHour) * HOUR_HEIGHT_PX + HOUR_HEIGHT_PX / 2 }}
               />
             ))}
 
@@ -177,18 +209,21 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
                 onClick={(e) => {
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                   const offsetY = e.clientY - rect.top;
-                  const hour = Math.floor(offsetY / HOUR_HEIGHT_PX);
+                  const hour = startHour + Math.floor(offsetY / HOUR_HEIGHT_PX);
                   onSelectEmpty(dateKey, hour);
                 }}
                 className="absolute inset-0 cursor-pointer"
               />
             )}
 
-            {/* 이벤트 카드 — 일 뷰는 폭 넓게 */}
+            {/* 이벤트 카드 — startHour 오프셋 + 반복 아이콘 */}
             {positioned.map(({ event, topPx, heightPx, columnIdx, totalColumns }) => {
               const widthPct = 100 / totalColumns;
               const leftPct = columnIdx * widthPct;
               const color = kindColor(event.kind, event.courseColor);
+              const adjustedTop = topPx - startHour * HOUR_HEIGHT_PX;
+              if (adjustedTop + heightPx < 0) return null;
+              const isRecurring = event.kind === "class";
               return (
                 <button
                   key={event.id}
@@ -201,8 +236,8 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
                   title={formatEventLabel(event)}
                   className="absolute overflow-hidden rounded-[6px] px-2.5 py-1.5 text-left transition-all hover:z-10 hover:brightness-95 hover:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.18)]"
                   style={{
-                    top: topPx,
-                    height: heightPx,
+                    top: Math.max(0, adjustedTop),
+                    height: heightPx + Math.min(0, adjustedTop),
                     left: `calc(${leftPct}% + 6px)`,
                     width: `calc(${widthPct}% - 12px)`,
                     maxWidth: 540,
@@ -212,9 +247,29 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
                     letterSpacing: "-0.012em",
                   }}
                 >
-                  <span className="block truncate text-[13px] wght-620 leading-[1.3]">
-                    {formatEventLabel(event)}
-                  </span>
+                  <div className="flex items-start justify-between gap-1">
+                    <span className="block truncate text-[13px] wght-620 leading-[1.3]">
+                      {formatEventLabel(event)}
+                    </span>
+                    {isRecurring && (
+                      <svg
+                        aria-hidden
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className="mt-[2px] shrink-0 opacity-70"
+                      >
+                        <path
+                          d="M17 2l4 4-4 4M3 11v-1a4 4 0 014-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 01-4 4H3"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
+                  </div>
                   {heightPx >= 38 && event.endsAt && (
                     <span className="block truncate text-[11px] wght-450 tabular-nums opacity-70">
                       {formatTimeRange(event.startsAt, event.endsAt)}
@@ -224,17 +279,14 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
               );
             })}
 
-            {/* 현재 시각 라인 */}
-            {isToday && nowMin >= 0 && (
+            {/* 현재 시각 라인 — startHour 보정 + 좌측 도트 제거 (시간축에 빨간 박스 있음) */}
+            {isToday && nowMin >= startHour * 60 && (
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-x-0 z-20"
-                style={{ top: (nowMin / 60) * HOUR_HEIGHT_PX }}
+                style={{ top: (nowMin / 60 - startHour) * HOUR_HEIGHT_PX }}
               >
-                <div className="relative">
-                  <span className="absolute -left-[5px] -top-[5px] block h-[10px] w-[10px] rounded-full bg-[var(--color-urgent)]" />
-                  <div className="border-t border-[var(--color-urgent)]" />
-                </div>
+                <div className="border-t-[1.5px] border-[var(--color-urgent)]" />
               </div>
             )}
           </div>
@@ -242,6 +294,12 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
       </div>
     </div>
   );
+}
+
+function formatNowTime(minOfDay: number): string {
+  const h = Math.floor(minOfDay / 60);
+  const m = minOfDay % 60;
+  return `${h}:${String(m).padStart(2, "0")}`;
 }
 
 function formatTimeRange(startsAt: string, endsAt: string): string {

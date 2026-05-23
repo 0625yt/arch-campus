@@ -54,11 +54,13 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
     return () => clearInterval(t);
   }, []);
 
-  // 진입 시 08:00 위치로 스크롤 (한 번만)
+  // 진입 시 스크롤 — 시간표 모드(06시 시작)는 그리드 top, 일반 모드는 08시.
+  const startHourForScroll = viewMode === "timetable" ? 6 : 0;
   useEffect(() => {
     if (!mounted || !scrollRef.current) return;
-    scrollRef.current.scrollTop = 8 * HOUR_HEIGHT_PX - 24;
-  }, [mounted, weekStart]);
+    const target = viewMode === "timetable" ? 0 : Math.max(0, (8 - startHourForScroll) * HOUR_HEIGHT_PX - 24);
+    scrollRef.current.scrollTop = target;
+  }, [mounted, weekStart, viewMode, startHourForScroll]);
 
   const dateKeys = weekDateKeys(weekStart);
   const todayKey = isoToKstDateKey(new Date().toISOString());
@@ -81,9 +83,14 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
   const maxAllDay = Math.max(0, ...dateKeys.map((k) => byDate.get(k)?.allDay.length ?? 0));
   const allDayBandHeight = maxAllDay === 0 ? 0 : maxAllDay * (ALL_DAY_ROW_PX + 2) + 8;
 
+  // 시간표만 모드는 06시부터 (새벽은 학생 컨텍스트 X). 일반 모드는 0시부터.
+  const startHour = viewMode === "timetable" ? 6 : 0;
+  const visibleHours = 24 - startHour;
+  const gridHeight = visibleHours * HOUR_HEIGHT_PX;
+
   return (
     <div className="mt-4 overflow-hidden rounded-[10px] border border-[var(--color-apple-hairline)] bg-white">
-      {/* 헤더: 시간축 placeholder + 요일·날짜 */}
+      {/* 헤더: 시간축 placeholder + 요일·날짜 (macOS 톤 "17일 (일)" 한 줄) */}
       <div className="flex border-b border-[var(--color-apple-hairline)] bg-white">
         <div style={{ width: TIME_AXIS_WIDTH_WEEK }} className="shrink-0" />
         {dateKeys.map((key) => {
@@ -91,21 +98,24 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
           const dow = d.getDay();
           const isToday = key === todayKey;
           return (
-            <div key={key} className="flex flex-1 flex-col items-center gap-0.5 py-2">
+            <div key={key} className="flex flex-1 items-baseline justify-center gap-1.5 py-2.5">
               <span
-                className="text-[10.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-                style={{ letterSpacing: "0.06em" }}
-              >
-                {WEEKDAYS_FULL[dow]}
-              </span>
-              <span
-                className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[12px] wght-620 tabular-nums ${
+                className={`tabular-nums text-[15px] wght-620 ${
                   isToday
-                    ? "bg-[var(--color-apple-action)] text-white"
+                    ? "inline-flex h-7 min-w-[28px] items-center justify-center rounded-full bg-[var(--color-urgent)] px-1 text-white"
                     : "text-[var(--color-apple-ink)]"
                 }`}
+                style={{ letterSpacing: "-0.012em" }}
               >
-                {d.getDate()}
+                {d.getDate()}일
+              </span>
+              <span
+                className={`text-[12px] wght-450 ${
+                  isToday ? "text-[var(--color-urgent)] wght-560" : "text-[var(--color-apple-muted)]"
+                }`}
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                ({WEEKDAYS_FULL[dow]})
               </span>
             </div>
           );
@@ -156,21 +166,39 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
 
       {/* 시간 그리드 — 24시간 스크롤 */}
       <div ref={scrollRef} className="relative max-h-[640px] overflow-y-auto">
-        <div className="flex" style={{ height: HOUR_HEIGHT_PX * 24 }}>
-          {/* 시간축 */}
+        <div className="flex" style={{ height: gridHeight }}>
+          {/* 시간축 — startHour부터 표시. 현재 시각은 빨간 박스로 라벨 대체 */}
           <div
             style={{ width: TIME_AXIS_WIDTH_WEEK }}
             className="relative shrink-0 border-r border-[var(--color-apple-hairline)]"
           >
-            {Array.from({ length: 24 }, (_, h) => h).map((h) => (
+            {Array.from({ length: visibleHours }, (_, i) => startHour + i).map((h) => {
+              // 현재 시각이 이 1시간 슬롯 안에 있으면 라벨 숨김 (빨간 박스가 자리 가져감)
+              const nowInSlot = nowMin >= h * 60 && nowMin < (h + 1) * 60;
+              if (nowInSlot) return null;
+              return (
+                <div
+                  key={h}
+                  className="absolute right-2 -translate-y-1/2 text-[10px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+                  style={{ top: (h - startHour) * HOUR_HEIGHT_PX, letterSpacing: "-0.006em" }}
+                >
+                  {h === startHour && startHour === 0 ? "" : formatHourLabel(h)}
+                </div>
+              );
+            })}
+            {/* 현재 시각 빨간 박스 — macOS Calendar 톤 */}
+            {nowMin >= startHour * 60 && (
               <div
-                key={h}
-                className="absolute right-2 -translate-y-1/2 text-[10px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
-                style={{ top: h * HOUR_HEIGHT_PX, letterSpacing: "-0.006em" }}
+                aria-hidden
+                className="absolute right-1 -translate-y-1/2 rounded-[4px] bg-[var(--color-urgent)] px-1.5 py-[1px] text-[10px] wght-700 tabular-nums text-white"
+                style={{
+                  top: (nowMin / 60 - startHour) * HOUR_HEIGHT_PX,
+                  letterSpacing: "-0.006em",
+                }}
               >
-                {h === 0 ? "" : formatHourLabel(h)}
+                {formatNowTime(nowMin)}
               </div>
-            ))}
+            )}
           </div>
 
           {/* 7일 컬럼 */}
@@ -185,19 +213,19 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
                 style={{ backgroundColor: isToday ? "var(--color-surface-cream)" : undefined }}
               >
                 {/* 시간 hairline */}
-                {Array.from({ length: 24 }, (_, h) => h).map((h) => (
+                {Array.from({ length: visibleHours }, (_, i) => startHour + i).map((h) => (
                   <div
                     key={h}
                     className="absolute inset-x-0 border-t border-[var(--color-apple-hairline)]/40"
-                    style={{ top: h * HOUR_HEIGHT_PX }}
+                    style={{ top: (h - startHour) * HOUR_HEIGHT_PX }}
                   />
                 ))}
                 {/* 30분 hairline (옅게) */}
-                {Array.from({ length: 24 }, (_, h) => h).map((h) => (
+                {Array.from({ length: visibleHours }, (_, i) => startHour + i).map((h) => (
                   <div
                     key={`half-${h}`}
                     className="absolute inset-x-0 border-t border-[var(--color-apple-hairline-soft)]/40 border-dashed"
-                    style={{ top: h * HOUR_HEIGHT_PX + HOUR_HEIGHT_PX / 2 }}
+                    style={{ top: (h - startHour) * HOUR_HEIGHT_PX + HOUR_HEIGHT_PX / 2 }}
                   />
                 ))}
 
@@ -209,18 +237,22 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
                     onClick={(e) => {
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                       const offsetY = e.clientY - rect.top;
-                      const hour = Math.floor(offsetY / HOUR_HEIGHT_PX);
+                      const hour = startHour + Math.floor(offsetY / HOUR_HEIGHT_PX);
                       onSelectEmpty(key, hour);
                     }}
                     className="absolute inset-0 cursor-pointer"
                   />
                 )}
 
-                {/* 이벤트 카드들 */}
+                {/* 이벤트 카드들 — startHour 오프셋 보정 */}
                 {positioned.map(({ event, topPx, heightPx, columnIdx, totalColumns }) => {
                   const widthPct = 100 / totalColumns;
                   const leftPct = columnIdx * widthPct;
                   const color = kindColor(event.kind, event.courseColor);
+                  const adjustedTop = topPx - startHour * HOUR_HEIGHT_PX;
+                  // 시작 시간이 startHour 이전이면 그리드에서 숨김 (시간표 모드 06시 이전 X)
+                  if (adjustedTop + heightPx < 0) return null;
+                  const isRecurring = event.kind === "class";
                   return (
                     <button
                       key={event.id}
@@ -233,8 +265,8 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
                       title={formatEventLabel(event)}
                       className="absolute overflow-hidden rounded-[4px] px-1.5 py-[2px] text-left transition-all hover:z-10 hover:brightness-95 hover:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.18)]"
                       style={{
-                        top: topPx,
-                        height: heightPx,
+                        top: Math.max(0, adjustedTop),
+                        height: heightPx + Math.min(0, adjustedTop),
                         left: `calc(${leftPct}% + 2px)`,
                         width: `calc(${widthPct}% - 4px)`,
                         backgroundColor: toAlpha(color, 0.18),
@@ -243,9 +275,29 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
                         letterSpacing: "-0.012em",
                       }}
                     >
-                      <span className="block truncate text-[11px] wght-620 leading-[1.3]">
-                        {formatEventCompact(event)}
-                      </span>
+                      <div className="flex items-start justify-between gap-1">
+                        <span className="block truncate text-[11px] wght-620 leading-[1.3]">
+                          {formatEventCompact(event)}
+                        </span>
+                        {isRecurring && (
+                          <svg
+                            aria-hidden
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            className="mt-[3px] shrink-0 opacity-70"
+                          >
+                            <path
+                              d="M17 2l4 4-4 4M3 11v-1a4 4 0 014-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 01-4 4H3"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </div>
                       {heightPx >= 36 && event.endsAt && (
                         <span className="block truncate text-[10px] wght-450 tabular-nums opacity-70">
                           {formatTimeRange(event.startsAt, event.endsAt)}
@@ -255,16 +307,15 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
                   );
                 })}
 
-                {/* 오늘 컬럼에 현재 시각 라인 */}
-                {isToday && nowMin >= 0 && (
+                {/* 오늘 컬럼에 현재 시각 라인 — 시간 빨간 박스 + 가로선 */}
+                {isToday && nowMin >= 0 && nowMin >= startHour * 60 && (
                   <div
                     aria-hidden
                     className="pointer-events-none absolute inset-x-0 z-20"
-                    style={{ top: (nowMin / 60) * HOUR_HEIGHT_PX }}
+                    style={{ top: (nowMin / 60 - startHour) * HOUR_HEIGHT_PX }}
                   >
                     <div className="relative">
-                      <span className="absolute -left-[5px] -top-[5px] block h-[10px] w-[10px] rounded-full bg-[var(--color-urgent)]" />
-                      <div className="border-t border-[var(--color-urgent)]" />
+                      <div className="border-t-[1.5px] border-[var(--color-urgent)]" />
                     </div>
                   </div>
                 )}
@@ -275,6 +326,13 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
       </div>
     </div>
   );
+}
+
+/** 현재 시각을 "H:MM" 한국어 톤으로. */
+function formatNowTime(minOfDay: number): string {
+  const h = Math.floor(minOfDay / 60);
+  const m = minOfDay % 60;
+  return `${h}:${String(m).padStart(2, "0")}`;
 }
 
 function formatTimeRange(startsAt: string, endsAt: string): string {
