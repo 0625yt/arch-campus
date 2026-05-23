@@ -19,6 +19,7 @@ export function Modal({
   description,
   children,
   size = "md",
+  chromeless = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -26,6 +27,12 @@ export function Modal({
   description?: string;
   children: React.ReactNode;
   size?: "md" | "lg";
+  /**
+   * chromeless: header(타이틀·description·X 버튼) 안 그림.
+   * macOS 새 이벤트 popover처럼 panel 안 콘텐츠가 곧 헤더 역할.
+   * 호출자는 자체 닫기 액션(ESC·외부 클릭)에 의존.
+   */
+  chromeless?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -77,8 +84,9 @@ export function Modal({
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="modal-title"
-      aria-describedby={description ? "modal-description" : undefined}
+      aria-labelledby={chromeless ? undefined : "modal-title"}
+      aria-label={chromeless ? title : undefined}
+      aria-describedby={!chromeless && description ? "modal-description" : undefined}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
     >
       {/* Backdrop */}
@@ -98,48 +106,61 @@ export function Modal({
           size === "lg" && "sm:max-w-[680px]",
         )}
       >
-        {/* Header */}
-        <div className="flex items-baseline justify-between gap-4 border-b border-[var(--color-apple-hairline)] px-5 py-4 sm:px-6 sm:py-5">
-          <div className="min-w-0 flex-1">
-            <h2
-              id="modal-title"
-              className="text-[16px] wght-700 text-[var(--color-apple-ink)] sm:text-[17px]"
-            >
-              {title}
-            </h2>
-            {description && (
-              <p
-                id="modal-description"
-                className="mt-0.5 truncate text-[12px] wght-450 text-[var(--color-apple-muted)]"
-              >
-                {description}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="shrink-0 rounded-md p-1 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+        {chromeless ? (
+          // chromeless — 헤더 없이 body 영역만. 콘텐츠가 곧 헤더 역할.
+          // macOS Calendar 새 이벤트 popover처럼 grain 없는 단일 표면.
+          <div
+            className="overflow-y-auto overscroll-contain"
+            style={{ maxHeight: "85vh" }}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path
-                d="M3.5 3.5l9 9M12.5 3.5l-9 9"
-                stroke="currentColor"
-                strokeWidth={1.4}
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
-        </div>
+            {children}
+          </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div className="flex items-baseline justify-between gap-4 border-b border-[var(--color-apple-hairline)] px-5 py-4 sm:px-6 sm:py-5">
+              <div className="min-w-0 flex-1">
+                <h2
+                  id="modal-title"
+                  className="text-[16px] wght-700 text-[var(--color-apple-ink)] sm:text-[17px]"
+                >
+                  {title}
+                </h2>
+                {description && (
+                  <p
+                    id="modal-description"
+                    className="mt-0.5 truncate text-[12px] wght-450 text-[var(--color-apple-muted)]"
+                  >
+                    {description}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="닫기"
+                className="shrink-0 rounded-md p-1 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                  <path
+                    d="M3.5 3.5l9 9M12.5 3.5l-9 9"
+                    stroke="currentColor"
+                    strokeWidth={1.4}
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
 
-        {/* Body — 자체 스크롤 */}
-        <div
-          className="overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6"
-          style={{ maxHeight: "calc(85vh - 64px)" }}
-        >
-          {children}
-        </div>
+            {/* Body — 자체 스크롤 */}
+            <div
+              className="overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6"
+              style={{ maxHeight: "calc(85vh - 64px)" }}
+            >
+              {children}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

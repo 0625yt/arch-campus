@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/context-menu";
 import { Modal } from "@/components/modal";
 import { Popover } from "@/components/popover";
 import type { EventView } from "@/lib/data/events";
 import { formatEventLabel, formatEventCompact } from "@/lib/format-event";
+import { EventAIDraftPanel } from "./ai-draft-panel";
 
 /**
  * SSR과 client 첫 paint를 일치시키기 위한 mount 플래그.
@@ -66,9 +68,6 @@ interface MonthCell {
   isToday: boolean;
 }
 
-/** 듀얼 뷰 모드 — 시간표(주간 반복 수업)만 보거나, 내 일정(시험·과제·발표·기타)만 보거나, 전체 */
-type ViewMode = "all" | "timetable" | "events";
-
 /** 일/주/월/년 단위로 캘린더 보기 스케일. URL `?scale=`로 영속. */
 export type CalendarScale = "day" | "week" | "month" | "year";
 const SCALE_LABELS: Record<CalendarScale, string> = {
@@ -78,16 +77,6 @@ const SCALE_LABELS: Record<CalendarScale, string> = {
   year: "년",
 };
 const SCALE_ORDER: CalendarScale[] = ["day", "week", "month", "year"];
-
-function isClass(e: EventView): boolean {
-  return e.kind === "class";
-}
-
-function filterByMode(events: EventView[], mode: ViewMode): EventView[] {
-  if (mode === "all") return events;
-  if (mode === "timetable") return events.filter(isClass);
-  return events.filter((e) => !isClass(e));
-}
 
 export function CalendarBoard({
   monthEvents,
@@ -122,7 +111,6 @@ export function CalendarBoard({
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
-  const [mode, setMode] = useState<ViewMode>("all");
   const [selected, setSelected] = useState<EventView | null>(null);
   /** 일정 칩 클릭 시 popover가 자리 잡을 anchor rect. 데스크톱 popover 전용. */
   const [selectedAnchor, setSelectedAnchor] = useState<DOMRect | null>(null);
@@ -309,31 +297,17 @@ export function CalendarBoard({
   const cells = useMemo(() => buildMonthCells(view.year, view.month), [view]);
   const monthLabel = `${view.year}년 ${view.month + 1}월`;
 
-  // 카운트는 토글 라벨에 박을 거라 mode 적용 전 원본으로 계산
-  const counts = useMemo(() => {
-    let cls = 0;
-    let ev = 0;
-    for (const e of monthState) {
-      if (isClass(e)) cls++;
-      else ev++;
-    }
-    return { all: monthState.length, timetable: cls, events: ev };
-  }, [monthState]);
-
-  const filteredMonth = useMemo(() => filterByMode(monthState, mode), [monthState, mode]);
-  const filteredUpcoming = useMemo(() => filterByMode(upcomingState, mode), [upcomingState, mode]);
-
-  // 날짜 → 이벤트 그룹 (mode 적용된 것)
+  // 날짜 → 이벤트 그룹
   const byDate = useMemo(() => {
     const map = new Map<string, EventView[]>();
-    for (const e of filteredMonth) {
+    for (const e of monthState) {
       const key = e.startsAt.slice(0, 10);
       const list = map.get(key) ?? [];
       list.push(e);
       map.set(key, list);
     }
     return map;
-  }, [filteredMonth]);
+  }, [monthState]);
 
   function navigate(delta: number) {
     setView((prev) => {
@@ -390,8 +364,6 @@ export function CalendarBoard({
           </div>
         </div>
 
-        <ViewModeToggle mode={mode} onChange={setMode} counts={counts} className="mt-4" />
-
         {scale === "month" && (
           <>
             <ul className="mt-4 grid grid-cols-7 gap-px text-center text-[10.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
@@ -416,9 +388,10 @@ export function CalendarBoard({
                     isSelected={isSelectedDay}
                     selectedEventId={selected?.id ?? null}
                     isInDragRange={inDrag}
-                    onSelectDay={() => {
+                    onSelectDay={(anchorRect) => {
                       setSelectedDate(cell.iso);
                       setSelected(null);
+                      setSelectedAnchor(anchorRect ?? null);
                     }}
                     onSelectEvent={(e, anchorRect) => {
                       setSelected(e);
@@ -463,21 +436,15 @@ export function CalendarBoard({
       <aside className="flex flex-col gap-4">
         <section className="elev-1 rounded-[14px] bg-white p-5">
           <h3 className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-            {mode === "timetable"
-              ? "이번 주 수업"
-              : mode === "events"
-                ? "다가오는 일정"
-                : "다가오는 일정"}
+            다가오는 일정
           </h3>
-          {filteredUpcoming.length === 0 ? (
+          {upcomingState.length === 0 ? (
             <p className="mt-3 text-[13px] wght-450 text-[var(--color-apple-muted)]">
-              {mode === "timetable"
-                ? "등록된 수업이 없어요. 시간표를 올려주세요."
-                : "예정된 일정이 없어요."}
+              예정된 일정이 없어요
             </p>
           ) : (
             <ul className="mt-3 flex flex-col gap-1">
-              {filteredUpcoming.map((e) => (
+              {upcomingState.map((e) => (
                 <li key={e.id}>
                   <UpcomingRow
                     event={e}
@@ -503,7 +470,7 @@ export function CalendarBoard({
             className="mt-4 text-[10.5px] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            일정을 누르면 모달로 자세한 내용이 떠요.
+            일정을 누르면 상세가 떠요
           </p>
         </section>
       </aside>
@@ -540,9 +507,12 @@ export function CalendarBoard({
           </Popover>
 
           <Popover
-            open={!!selectedDate && !selected}
-            anchorRect={null}
-            onClose={() => setSelectedDate(null)}
+            open={!!selectedDate && !selected && !!selectedAnchor}
+            anchorRect={selectedAnchor}
+            onClose={() => {
+              setSelectedDate(null);
+              setSelectedAnchor(null);
+            }}
             width={360}
           >
             {selectedDate && (
@@ -550,7 +520,10 @@ export function CalendarBoard({
                 dateIso={selectedDate}
                 events={byDate.get(selectedDate) ?? []}
                 kindLabel={kindLabel}
-                onClose={() => setSelectedDate(null)}
+                onClose={() => {
+                  setSelectedDate(null);
+                  setSelectedAnchor(null);
+                }}
                 onSelectEvent={(e) => setSelected(e)}
                 onAddOnDay={() => {
                   setCreatePrefillDate(selectedDate);
@@ -641,58 +614,6 @@ export function CalendarBoard({
         }}
         onClose={() => setConfirmDeleteAll(false)}
       />
-    </div>
-  );
-}
-
-function ViewModeToggle({
-  mode,
-  onChange,
-  counts,
-  className,
-}: {
-  mode: ViewMode;
-  onChange: (m: ViewMode) => void;
-  counts: { all: number; timetable: number; events: number };
-  className?: string;
-}) {
-  const items: { id: ViewMode; label: string; count: number; hint: string }[] = [
-    { id: "all", label: "전체", count: counts.all, hint: "수업 + 시험·과제 다 보기" },
-    { id: "timetable", label: "시간표", count: counts.timetable, hint: "주간 반복 수업만" },
-    { id: "events", label: "내 일정", count: counts.events, hint: "시험·과제·발표·기타" },
-  ];
-  return (
-    <div
-      role="tablist"
-      aria-label="캘린더 보기 모드"
-      className={`inline-flex items-center gap-1 rounded-full bg-[var(--color-apple-pearl)] p-1 ${className ?? ""}`}
-    >
-      {items.map((it) => {
-        const active = mode === it.id;
-        return (
-          <button
-            key={it.id}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            title={it.hint}
-            onClick={() => onChange(it.id)}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] transition-all ${
-              active
-                ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-                : "wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
-            }`}
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            <span>{it.label}</span>
-            <span
-              className={`text-[10.5px] tabular-nums ${active ? "text-[var(--color-apple-muted)]" : "text-[var(--color-apple-muted)]"}`}
-            >
-              {it.count}
-            </span>
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -816,8 +737,8 @@ function DayCell({
   selectedEventId?: string | null;
   /** 드래그로 선택된 범위 안에 들어가있나 — 셀 배경 강조 */
   isInDragRange?: boolean;
-  /** 셀 빈 영역 클릭 — 그 날 일정 모음 패널 열기 */
-  onSelectDay?: () => void;
+  /** 셀 빈 영역 클릭 — 그 날 일정 모음 패널 열기. anchorRect는 데스크톱 popover 자리잡기용. */
+  onSelectDay?: (anchorRect?: DOMRect) => void;
   /** 칩 클릭 — anchorRect는 popover가 옆에 자리 잡는 좌표 */
   onSelectEvent?: (e: EventView, anchorRect: DOMRect) => void;
   /** 셀 빈 영역 우클릭 — "이 날에 일정 추가" 메뉴 */
@@ -838,7 +759,10 @@ function DayCell({
     if (e.target !== e.currentTarget && !(e.target as HTMLElement).closest("[data-day-bg]")) {
       return;
     }
-    onSelectDay?.();
+    // 데스크톱 popover가 이 셀 옆에 자리 잡도록 셀 자체의 DOMRect를 전달.
+    // (anchorRect 없이 호출하면 popover가 화면 밖으로 밀려 빈 셀 클릭 시 안 뜸.)
+    const rect = e.currentTarget.getBoundingClientRect();
+    onSelectDay?.(rect);
   }
 
   function handleDayContext(e: React.MouseEvent) {
@@ -871,7 +795,7 @@ function DayCell({
       onMouseDown={handleMouseDown}
       onMouseEnter={handleMouseEnter}
       onMouseUp={handleMouseUp}
-      className={`flex min-h-[88px] cursor-pointer flex-col gap-1 p-1.5 transition-colors duration-150 sm:min-h-[110px] sm:p-2 ${
+      className={`flex min-h-[88px] cursor-pointer flex-col gap-[1px] px-0.5 pt-0.5 pb-0 transition-colors duration-150 sm:min-h-[110px] sm:px-0.5 sm:pt-1 sm:pb-0.5 ${
         cell.inMonth ? "" : "opacity-40"
       } ${isSelected ? "ring-1 ring-inset ring-[var(--color-apple-action)]" : ""} ${
         isInDragRange ? "ring-2 ring-inset ring-[var(--color-apple-action)]" : ""
@@ -894,24 +818,30 @@ function DayCell({
       >
         {cell.date.getDate()}
       </span>
-      {/* 모바일/아이패드: 색점만 (잘림 없음). 점 → bottom sheet으로 상세 */}
-      <ul className="flex flex-wrap gap-0.5 sm:hidden">
-        {events.slice(0, 4).map((e) => (
-          <li key={e.id}>
-            <ChipButton
-              event={e}
-              onClick={() => onSelectEvent?.(e, new DOMRect(0, 0, 0, 0))}
-              onContext={(pos) => onContextEvent?.(e, pos)}
-              className="block h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: kindColor(e.kind, e.courseColor) }}
-              title={formatEventLabel(e)}
-              ariaLabel={formatEventLabel(e)}
-            />
-          </li>
-        ))}
-        {events.length > 4 && (
-          <li className="text-[9px] wght-560 leading-[1.4] text-[var(--color-apple-muted)]">
-            +{events.length - 4}
+      {/* 모바일: 텍스트 3개 + '외 N' — macOS/구글캘린더 표준 톤 */}
+      <ul className="flex flex-col gap-px sm:hidden">
+        {events.slice(0, 3).map((e) => {
+          const fullLabel = formatEventLabel(e);
+          const shortLabel = formatEventCompact(e);
+          const color = kindColor(e.kind, e.courseColor);
+          return (
+            <li key={e.id}>
+              <EventChip
+                event={e}
+                selected={false}
+                allDay={e.allDay}
+                color={color}
+                label={shortLabel}
+                title={fullLabel}
+                onClick={() => onSelectEvent?.(e, new DOMRect(0, 0, 0, 0))}
+                onContext={(pos) => onContextEvent?.(e, pos)}
+              />
+            </li>
+          );
+        })}
+        {events.length > 3 && (
+          <li className="px-1 text-[10px] wght-560 leading-[1.4] text-[var(--color-apple-muted)]">
+            외 {events.length - 3}
           </li>
         )}
       </ul>
@@ -1048,7 +978,7 @@ function EventChip({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
         title={title}
-        className="block w-full truncate rounded-[6px] px-2 py-[3px] text-left text-[11px] wght-560 leading-[1.35] transition-all duration-150 hover:brightness-105 active:scale-[0.98]"
+        className="block w-full truncate rounded-[4px] px-1 py-0 text-left text-[11px] wght-560 leading-[1.5] transition-all duration-150 hover:brightness-105 active:scale-[0.98]"
         style={{
           backgroundColor: selected ? toAlpha(color, 0.9) : toAlpha(color, 0.18),
           color: selected ? "white" : "var(--color-apple-ink)",
@@ -1070,7 +1000,7 @@ function EventChip({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       title={title}
-      className={`group relative flex w-full items-center truncate rounded-[4px] py-[3px] pl-2 pr-1.5 text-left text-[11px] leading-[1.35] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] ${
+      className={`group relative flex w-full items-center truncate rounded-[4px] py-0 pl-[8px] pr-0.5 text-left text-[11px] leading-[1.5] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] ${
         selected ? "wght-700" : "wght-450"
       }`}
       style={{
@@ -1081,7 +1011,7 @@ function EventChip({
     >
       <span
         aria-hidden
-        className="absolute left-0 top-1/2 h-3 w-[2.5px] -translate-y-1/2 rounded-full"
+        className="absolute left-[2px] top-1/2 h-[8px] w-[2px] -translate-y-1/2 rounded-full"
         style={{ backgroundColor: color }}
       />
       <span className="truncate">{label}</span>
@@ -1112,6 +1042,14 @@ function CalendarInspector({
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
+  // Portal mount는 hydration 안전을 위해 클라이언트에서만.
+  // 이유: 캘린더 board가 `fade-up` 애니메이션 끝에 transform: matrix(...) identity를 남겨
+  // position: fixed의 containing block을 viewport에서 board로 바꿔버림 → 모바일 sheet가
+  // 화면 아래로 밀려나는 버그가 있었음. createPortal로 body 직속 mount해 회피.
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -1119,10 +1057,25 @@ function CalendarInspector({
       if (e.key === "Escape") onClose();
     }
     window.addEventListener("keydown", onKey);
+    // 데스크톱은 사이드 패널이라 body 스크롤 잠금. 모바일은 시트가 화면 절반만
+    // 차지하므로 캘린더 영역이 살아있어야 하고, 거기서 스크롤하면 시트가 닫혀야 함.
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
     const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    if (!isMobile) {
+      document.body.style.overflow = "hidden";
+    }
+    // 모바일: 시트 밖(=캘린더 영역)에서 일어나는 touchmove를 닫힘 신호로 사용.
+    // 시트 내부 스크롤은 sheetRef로 contains 검사해서 제외.
+    function onOutsideTouchMove(e: TouchEvent) {
+      if (!isMobile) return;
+      const target = e.target as Node | null;
+      if (target && sheetRef.current && sheetRef.current.contains(target)) return;
+      onClose();
+    }
+    window.addEventListener("touchmove", onOutsideTouchMove, { passive: true });
     return () => {
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("touchmove", onOutsideTouchMove);
       document.body.style.overflow = prevOverflow;
     };
   }, [open, onClose]);
@@ -1149,41 +1102,49 @@ function CalendarInspector({
     dragStartY.current = null;
   }
 
-  if (!open) return null;
+  if (!open || !portalReady) return null;
 
-  return (
-    <div className="fixed inset-0 z-40" aria-hidden={!open}>
-      {/* Backdrop — 살짝만 dim, blur 없음 */}
+  const overlay = (
+    // pointer-events-none + 자식만 pointer-events-auto — 모바일에서 캘린더 영역
+    // 클릭이 wrapper에 막히지 않게. backdrop·sheet 자식에는 별도 pointer-events-auto.
+    <div className="pointer-events-none fixed inset-0 z-40" aria-hidden={!open}>
+      {/* Backdrop — 데스크톱만. 모바일은 캘린더가 살아 있어야 하므로 backdrop X
+          (캘린더 영역 터치는 그대로 통과, 시트 닫힘은 touchmove 또는 시트 외부 탭으로). */}
       <button
         type="button"
         aria-label="닫기"
         onClick={onClose}
-        className="absolute inset-0 bg-[var(--color-apple-ink)]/15 transition-opacity duration-200"
+        className="pointer-events-auto absolute inset-0 hidden bg-[var(--color-apple-ink)]/15 transition-opacity duration-200 md:block"
       />
 
-      {/* 데스크톱: 우측 float panel */}
+      {/* 데스크톱: 우측 float panel — Apple Inspector 톤. 그릇 그림자 최소화. */}
       <div
-        className="pointer-events-none absolute inset-y-6 right-6 hidden w-[360px] md:block lg:w-[400px]"
+        className="pointer-events-none absolute inset-y-6 right-6 hidden w-[380px] md:block lg:w-[400px]"
       >
-        <div className="pointer-events-auto h-full overflow-y-auto" style={{ animation: "slideInRight 220ms ease-out" }}>
+        <div
+          className="pointer-events-auto h-full overflow-y-auto rounded-[14px] border border-[var(--color-apple-hairline)] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.05)]"
+          style={{ animation: "calInspectorSlideInRight 220ms ease-out" }}
+        >
           {children}
         </div>
       </div>
 
-      {/* 모바일: bottom sheet */}
+      {/* 모바일: bottom sheet — 화면 절반 정도 차지. 캘린더 위쪽이 살아있어 그대로 보임. */}
       <div
         ref={sheetRef}
-        className="absolute inset-x-0 bottom-0 md:hidden"
+        className="pointer-events-auto absolute inset-x-0 bottom-0 md:hidden"
         style={{
           transform: `translateY(${dragOffset}px)`,
           transition: dragOffset === 0 ? "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)" : "none",
+          animation: dragOffset === 0 ? "calInspectorSlideInUp 240ms cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="max-h-[85vh] overflow-y-auto rounded-t-[20px] bg-white shadow-[0_-8px_28px_rgba(0,0,0,0.08)]">
-          {/* Grabber bar — swipe down 힌트 */}
+        <div className="max-h-[60vh] overflow-y-auto rounded-t-[18px] border-t border-[var(--color-apple-hairline)] bg-white shadow-[0_-4px_14px_rgba(0,0,0,0.06)]">
+          {/* Grabber bar — swipe down affordance. 동그라미 점(●) 아니라 가로 bar이므로
+              DESIGN.md §10 가드와 충돌 X (점 금지는 좌측 카테고리 점 패턴 한정). */}
           <div className="flex justify-center pt-2.5 pb-1">
             <span
               aria-hidden
@@ -1195,7 +1156,7 @@ function CalendarInspector({
       </div>
 
       <style jsx>{`
-        @keyframes slideInRight {
+        @keyframes calInspectorSlideInRight {
           from {
             opacity: 0;
             transform: translateX(8px);
@@ -1205,9 +1166,21 @@ function CalendarInspector({
             transform: translateX(0);
           }
         }
+        @keyframes calInspectorSlideInUp {
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
+        }
       `}</style>
     </div>
   );
+
+  // body 직속에 portal — board 그리드의 fade-up transform이 fixed containing block을
+  // 캐치하는 문제를 회피. (Popover와 동일한 패턴.)
+  return createPortal(overlay, document.body);
 }
 
 /**
@@ -1232,78 +1205,7 @@ function toAlpha(input: string, alpha: number): string {
   return hex;
 }
 
-/**
- * 캘린더 칩 공통 — onClick(좌클릭)·onContext(우클릭/long-press) 둘 다.
- * 부모(board)가 받은 좌표로 ContextMenu 위치 잡음.
- */
-function ChipButton({
-  event,
-  onClick,
-  onContext,
-  className,
-  style,
-  title,
-  ariaLabel,
-  children,
-}: {
-  event: EventView;
-  onClick: () => void;
-  onContext?: (pos: { x: number; y: number }) => void;
-  className: string;
-  style?: React.CSSProperties;
-  title?: string;
-  ariaLabel?: string;
-  children?: React.ReactNode;
-}) {
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  void event;
-
-  function handleContext(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    onContext?.({ x: e.clientX, y: e.clientY });
-  }
-
-  function handleTouchStart(e: React.TouchEvent) {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-    const t = e.touches[0];
-    if (!t) return;
-    const x = t.clientX;
-    const y = t.clientY;
-    longPressTimer.current = setTimeout(() => {
-      try {
-        navigator.vibrate?.(8);
-      } catch {
-        /* noop */
-      }
-      onContext?.({ x, y });
-      longPressTimer.current = null;
-    }, 500);
-  }
-  function handleTouchEnd() {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      onContextMenu={handleContext}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onTouchMove={handleTouchEnd}
-      className={className}
-      style={style}
-      title={title}
-      aria-label={ariaLabel}
-    >
-      {children}
-    </button>
-  );
-}
+// ChipButton (구 공통 칩 래퍼) — 모든 호출처가 EventChip으로 통합되어 제거됨 (2026-05-23).
 
 function UpcomingRow({
   event,
@@ -1372,8 +1274,22 @@ function UpcomingRow({
 }
 
 /**
- * 일정 상세 패널 — 캘린더 우측에 sticky로 머무르며 선택된 일정의 본문을 펼친다.
- * Apple 캘린더 inspector 톤: 큰 제목, 시간, 위치/메모/D-day, 코스 점프 링크.
+ * 일정 상세 인스펙터 — Apple Calendar Inspector 톤을 학생 컨텍스트로 재해석.
+ *
+ * 사용자 강요 (2026-05-23): "디자인 완전 혁신적으로 바꿔. 닷 쓰지 마. 모달 그릇 X."
+ *
+ * 재구성된 디자인 결정:
+ *  - kindLabel 뱃지 X — kind는 헤드라인 컬러로만 표현 (정보가 곧 디자인)
+ *  - 좌측 3px 컬러 바 X — 사용자가 "얇은 좌측 바도 의심스러움"이라며 제거 요청
+ *  - 동그라미 점(`●`) 어디에도 X
+ *  - 카드 그릇·헤더·구분선 최소화. 공백으로 그루핑
+ *  - 정보 위계 (위에서 아래로):
+ *      1) 한 줄 헤드라인: "D-3 · 글로컬 영어 I" (kind 색)
+ *      2) display 제목 (22px)
+ *      3) 큰 타이포 시간 (Apple Mail/Calendar Inspector 톤)
+ *      4) 비중 한 줄
+ *      5) 메모 (구분선 없이 공백으로)
+ *  - 액션은 우상단 작은 아이콘 (연필·휴지통). 닫기 버튼 X — popover/sheet 자체가 외부 클릭으로 닫힘
  */
 function EventDetailPanel({
   event,
@@ -1388,10 +1304,14 @@ function EventDetailPanel({
   onDelete: (scope: "this" | "all") => Promise<void> | void;
   onPatched: (patch: Partial<EventView>) => void;
 }) {
+  void kindLabel; // kindLabel은 더 이상 본문에 표시 안 함. 정보 위계로 충분.
+  void onClose; // popover/sheet가 외부 클릭으로 닫혀서 명시 X 버튼 불필요
+
+  const mounted = useMounted();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteScope, setDeleteScope] = useState<"this" | "all">("this");
-  // class kind는 같은 강의·같은 요일·시간 = 매주 반복 수업. scope 묻기.
+
   const isRecurringClass = event.kind === "class" && !!event.courseId;
 
   if (editing) {
@@ -1399,6 +1319,7 @@ function EventDetailPanel({
       <EventEditForm
         event={event}
         isRecurringClass={isRecurringClass}
+        accentColor={kindColor(event.kind, event.courseColor)}
         onCancel={() => setEditing(false)}
         onSaved={(patch) => {
           setEditing(false);
@@ -1408,7 +1329,6 @@ function EventDetailPanel({
     );
   }
 
-  const mounted = useMounted();
   const date = new Date(event.startsAt);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -1416,20 +1336,26 @@ function EventDetailPanel({
   startOfDay.setHours(0, 0, 0, 0);
   const days = Math.round((startOfDay.getTime() - today.getTime()) / 86400000);
   const dDayLabel = !mounted ? "" : days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
-  const tone = !mounted ? "muted" : days <= 0 ? "urgent" : days <= 3 ? "warn" : "muted";
-  const tint = kindTint(event.kind);
-  const dot = kindColor(event.kind, event.courseColor);
+  const accent = kindColor(event.kind, event.courseColor);
 
   const weekday = ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
-  const dateLabel = `${date.getMonth() + 1}월 ${date.getDate()}일 ${weekday}요일`;
-  const timeLabel = event.allDay
+
+  // 시간 — Apple Inspector는 시간을 큰 타이포로 강조. 종일·구간 일정도 같은 자리.
+  const timeStart = event.allDay
     ? "종일"
     : `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-
   const endDate = event.endsAt ? new Date(event.endsAt) : null;
-  const endLabel = endDate && !event.allDay
+  const timeEnd = endDate && !event.allDay
     ? `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`
     : null;
+  const dateLine = `${date.getMonth() + 1}월 ${date.getDate()}일 ${weekday}요일`;
+
+  // 헤드라인 1줄 — 사용자 요청 예시 "D-3 · 글로컬 영어 I". 학생에게 1급 정보.
+  // course 없으면 D-day만, course 있으면 D-day · course.
+  const headlineParts: string[] = [];
+  if (dDayLabel) headlineParts.push(dDayLabel);
+  if (event.courseName) headlineParts.push(event.courseName);
+  const headline = headlineParts.join(" · ");
 
   async function runDelete() {
     const scope = isRecurringClass ? deleteScope : "this";
@@ -1439,129 +1365,131 @@ function EventDetailPanel({
 
   return (
     <>
-      <section className="elev-2 overflow-hidden rounded-[14px] bg-white">
-        {/* 컬러 헤더 — kind 톤. Apple Mail 인스펙터처럼 정보 밀도 + 색의 한 호흡 */}
-        <div
-          className="px-5 pb-4 pt-5"
-          style={{ backgroundColor: tint.bg }}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span
-                aria-hidden
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: dot }}
-              />
-              <span
-                className="text-[11px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-ink)]"
-                style={{ letterSpacing: "0.06em" }}
-              >
-                {kindLabel[event.kind]}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="닫기"
-              className="-mr-1 -mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full text-[14px] text-[var(--color-apple-muted)] transition-colors hover:bg-white hover:text-[var(--color-apple-ink)]"
-            >
-              ×
-            </button>
-          </div>
-          <h3
-            className="mt-3 text-[20px] leading-[1.2] wght-620 text-[var(--color-apple-ink)]"
-            style={{ letterSpacing: "-0.012em" }}
+      <article className="relative">
+        {/* 우상단 액션 — float. 본문 padding 위에 absolute로 띄움 (Apple Mail Inspector 톤). */}
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-0.5">
+          <InspectorIconButton
+            ariaLabel="수정"
+            onClick={() => setEditing(true)}
           >
-            {formatEventLabel(event)}
-          </h3>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <path
+                d="M9.5 2.5l2 2-7 7H2.5v-2l7-7z"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </InspectorIconButton>
+          <InspectorIconButton
+            ariaLabel="삭제"
+            destructive
+            onClick={() => {
+              setDeleteScope("this");
+              setConfirmDelete(true);
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <path
+                d="M3 4h8M5.5 4V2.5h3V4M4 4l.5 8h5L10 4M6 6.5v3.5M8 6.5v3.5"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </InspectorIconButton>
         </div>
 
-        <div className="flex flex-col gap-4 px-5 py-5">
-          <DetailRow label="언제">
-            <span className="text-[13px] wght-560 text-[var(--color-apple-ink)] tabular-nums">
-              {dateLabel}
-            </span>
-            <span className="mt-0.5 text-[12px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
-              {timeLabel}
-              {endLabel && ` – ${endLabel}`}
-            </span>
-          </DetailRow>
-
-          <DetailRow label="D-day">
-            <span
-              className={`text-[13px] wght-700 tabular-nums ${
-                tone === "urgent"
-                  ? "text-[var(--color-urgent)]"
-                  : tone === "warn"
-                    ? "text-[var(--color-apple-action)]"
-                    : "text-[var(--color-apple-ink)]"
-              }`}
-            >
-              {dDayLabel}
-            </span>
-          </DetailRow>
-
-          {event.courseName && (
-            <DetailRow label="과목">
-              <Link
-                href={`/dashboard/study/${encodeURIComponent(event.courseName)}`}
-                className="inline-flex items-center gap-1 text-[13px] wght-560 text-[var(--color-apple-action)] hover:underline"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                {event.courseName} <span aria-hidden>›</span>
-              </Link>
-            </DetailRow>
-          )}
-
-          {event.weightPercent != null && (
-            <DetailRow label="비중">
-              <span className="text-[13px] wght-560 tabular-nums text-[var(--color-apple-ink)]">
-                {event.weightPercent}%
-              </span>
-            </DetailRow>
-          )}
-
-          {event.notes && (
-            <DetailRow label="메모">
-              <p
-                className="whitespace-pre-wrap text-[13px] wght-450 leading-[1.55] text-[var(--color-apple-ink)]"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                {event.notes}
-              </p>
-            </DetailRow>
-          )}
-
-          {event.confidence != null && event.confidence < 0.8 && !event.confirmed && (
+        <div className="flex flex-col px-6 pb-6 pt-6">
+          {/* 헤드라인 한 줄 — kind 컬러로 정체성 표현. 점·뱃지 그릇 X.
+              사용자 명시: "D-3 · 글로컬 영어 I 한 줄 헤드라인". */}
+          {headline && (
             <p
-              className="rounded-[8px] bg-[var(--color-tint-streak)] px-3 py-2 text-[11.5px] wght-560 text-[var(--color-tint-streak-ink)]"
-              style={{ letterSpacing: "-0.012em" }}
+              className="text-[12px] wght-620 tabular-nums"
+              style={{ letterSpacing: "-0.006em", color: accent }}
             >
-              AI 추정 일정이에요. 한번 확인해주세요.
+              {headline}
             </p>
           )}
 
-          <div className="mt-1 flex justify-end gap-1.5 border-t border-[var(--color-apple-hairline)] pt-4">
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="rounded-[8px] px-3 py-1.5 text-[12.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)]"
+          {/* Display 제목 — 위계 가장 강함. Pretendard 가변 폰트 wght-620 + tight letter-spacing. */}
+          <h3
+            className="mt-2 text-[22px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] pr-16"
+            style={{ letterSpacing: "-0.018em" }}
+          >
+            {event.title || formatEventLabel(event)}
+          </h3>
+
+          {/* 시간 — Apple Inspector 톤. 큰 타이포로 본 정보임을 표현. tabular-nums로 정렬. */}
+          <div className="mt-5">
+            <p
+              className="text-[14px] wght-450 text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.012em" }}
             >
-              수정
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setDeleteScope("this");
-                setConfirmDelete(true);
-              }}
-              className="rounded-[8px] px-3 py-1.5 text-[12.5px] wght-560 text-[var(--color-urgent)] transition-colors hover:bg-[var(--color-urgent)]/10"
+              {dateLine}
+            </p>
+            <p
+              className="mt-0.5 text-[28px] leading-[1.05] wght-560 tabular-nums text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.022em" }}
             >
-              삭제
-            </button>
+              {timeEnd ? (
+                <>
+                  {timeStart}
+                  <span className="mx-1.5 text-[var(--color-apple-muted)] wght-450">–</span>
+                  {timeEnd}
+                </>
+              ) : (
+                timeStart
+              )}
+            </p>
           </div>
+
+          {/* 비중·코스 링크 — 라벨 없이. 코스명은 헤드라인에 이미 나왔으니 비중만 (course 링크는 inline action). */}
+          {(event.weightPercent != null || event.courseName) && (
+            <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              {event.weightPercent != null && (
+                <span
+                  className="text-[13px] wght-560 tabular-nums text-[var(--color-apple-ink)]"
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  비중 {event.weightPercent}%
+                </span>
+              )}
+              {event.courseName && (
+                <Link
+                  href={`/dashboard/study/${encodeURIComponent(event.courseName)}`}
+                  className="text-[12.5px] wght-450 text-[var(--color-apple-action)] hover:underline"
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  {event.courseName} 자료 →
+                </Link>
+              )}
+            </div>
+          )}
+
+          {/* 메모 — 라벨·구분선 없이 공백으로 분리. Apple Notes 톤. */}
+          {event.notes && (
+            <p
+              className="mt-6 whitespace-pre-wrap text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              {event.notes}
+            </p>
+          )}
+
+          {/* AI 추정 표시 — 학생에게 정확성 신호 주는 안전판. tint 박스는 §10 라운드 16 이내, 단색. */}
+          {event.confidence != null && event.confidence < 0.8 && !event.confirmed && (
+            <p
+              className="mt-5 rounded-[8px] bg-[var(--color-tint-streak)] px-3 py-2 text-[12px] wght-560 text-[var(--color-tint-streak-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              AI가 추정한 일정이에요. 한번 확인해 주세요
+            </p>
+          )}
         </div>
-      </section>
+      </article>
 
       <ConfirmDialog
         open={confirmDelete}
@@ -1602,10 +1530,52 @@ function EventDetailPanel({
 }
 
 /**
- * 특정 날짜의 모든 일정을 한 번에 보는 패널.
- * - 날짜 셀 좌클릭 시 열림
- * - 일정 클릭 → EventDetailPanel로 전환 (부모 onSelectEvent)
- * - "이 날에 일정 추가" CTA → EventCreateForm prefill
+ * macOS Mail/Calendar inspector 우상단의 작은 아이콘 버튼.
+ * 작고 조용. hover에서만 살짝 옅은 회색 배경. destructive면 hover시 코랄 톤.
+ */
+function InspectorIconButton({
+  children,
+  ariaLabel,
+  onClick,
+  destructive = false,
+}: {
+  children: React.ReactNode;
+  ariaLabel: string;
+  onClick: () => void;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      title={ariaLabel}
+      className={
+        destructive
+          ? "inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-urgent-soft)] hover:text-[var(--color-urgent)]"
+          : "inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+      }
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * 특정 날짜의 모든 일정 인스펙터 — Apple Calendar 톤 재해석.
+ *
+ * 사용자 강요 (2026-05-23):
+ *  - "닷 완전 제거" — 1.5px 동그라미 점 X
+ *  - "모달 그릇 X" — elev-2 + 헤더 + X 버튼 그릇 제거
+ *  - "라벨 없이 정보 위계로" — kindLabel uppercase 라벨 제거
+ *
+ * 재구성:
+ *  - 그릇 없음 (popover/sheet가 이미 그릇 역할)
+ *  - 헤드라인: D-day · 날짜 한 줄 (kind 색 없음, 날짜 자체가 위계 1)
+ *  - 큰 display 날짜 ("5월 19일")
+ *  - 일정 리스트: 시간 (kind 컬러 텍스트) + 제목. 닷 없음, 라벨 없음.
+ *  - 액션: "+ 이 날에 추가" inline link 톤
+ *  - X 버튼 X (popover/sheet 외부 클릭으로 닫힘)
  */
 function DayDetailPanel({
   dateIso,
@@ -1622,7 +1592,9 @@ function DayDetailPanel({
   onSelectEvent: (e: EventView) => void;
   onAddOnDay: () => void;
 }) {
-  // dateIso는 "YYYY-MM-DD". 헤더에 한국어 라벨 표시 — KST 기준 그대로 파싱.
+  void kindLabel; // 더 이상 본문에 라벨 텍스트 표시 안 함 (정보 위계로 충분)
+  void onClose; // popover/sheet가 외부 클릭으로 닫힘
+
   const mounted = useMounted();
   const [y, m, d] = dateIso.split("-").map(Number);
   const localDate = new Date(y, m - 1, d);
@@ -1636,97 +1608,78 @@ function DayDetailPanel({
   const sorted = [...events].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 
   return (
-    <section className="elev-2 sticky top-6 overflow-hidden rounded-[14px] bg-white">
-      <div className="flex items-start justify-between gap-3 border-b border-[var(--color-apple-hairline)] px-5 py-4">
-        <div>
-          <p
-            className="text-[10.5px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-            style={{ letterSpacing: "0.06em" }}
-          >
-            {dDayLabel}
-          </p>
-          <h3
-            className="mt-1 text-[18px] leading-[1.2] wght-620 text-[var(--color-apple-ink)] tabular-nums"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            {y}년 {m}월 {d}일 {weekday}요일
-          </h3>
-          <p className="mt-0.5 text-[12px] wght-450 text-[var(--color-apple-muted)]">
-            {sorted.length === 0 ? "일정 없음" : `${sorted.length}개 일정`}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="닫기"
-          className="-mr-1 -mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[14px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+    <article className="px-6 pb-6 pt-6">
+      {/* 헤드라인 1줄 — D-day(작음) 그리고 큰 날짜 (display).
+          사용자 강요: "라벨 컬럼 만들지 마". 오직 정보 위계로. */}
+      {dDayLabel && (
+        <p
+          className="text-[12px] wght-620 tabular-nums text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.006em" }}
         >
-          ×
-        </button>
-      </div>
+          {dDayLabel}
+        </p>
+      )}
+      <h3
+        className="mt-1 text-[22px] leading-[1.15] wght-700 tabular-nums text-[var(--color-apple-ink)]"
+        style={{ letterSpacing: "-0.018em" }}
+      >
+        {m}월 {d}일
+      </h3>
+      <p
+        className="mt-1 text-[13px] wght-450 text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        {y}년 · {weekday}요일 · {sorted.length === 0 ? "일정 없음" : `${sorted.length}개 일정`}
+      </p>
 
-      <div className="flex flex-col gap-2 px-5 py-4">
-        {sorted.length === 0 ? (
-          <p className="py-4 text-center text-[12.5px] wght-450 text-[var(--color-apple-muted)]">
-            이 날엔 등록된 일정이 없어요.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {sorted.map((e) => {
-              const t = new Date(e.startsAt);
-              const tlabel = e.allDay
-                ? "종일"
-                : `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
-              const tint = kindTint(e.kind);
-              const dot = kindColor(e.kind, e.courseColor);
-              return (
-                <li key={e.id}>
-                  <button
-                    type="button"
-                    onClick={() => onSelectEvent(e)}
-                    className="flex w-full items-baseline gap-3 rounded-[8px] px-2 py-1.5 text-left transition-colors hover:bg-[var(--color-apple-pearl)]"
+      {/* 일정 리스트 — 닷 없음. 시간을 kind 컬러로 표현하면 카테고리 식별과 시간 정보가 한 줄.
+          공백으로 리스트 헤더와 분리 (구분선 X). */}
+      {sorted.length > 0 && (
+        <ul className="mt-5 flex flex-col gap-0.5">
+          {sorted.map((e) => {
+            const t = new Date(e.startsAt);
+            const tlabel = e.allDay
+              ? "종일"
+              : `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+            const accent = kindColor(e.kind, e.courseColor);
+            return (
+              <li key={e.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelectEvent(e)}
+                  className="-mx-2 flex w-[calc(100%+1rem)] items-baseline gap-3 rounded-[7px] px-2 py-1.5 text-left transition-colors hover:bg-[var(--color-apple-pearl)]"
+                >
+                  {/* 시간 — kind 컬러로 본문 텍스트. 닷·라벨 자리를 색이 대신함. */}
+                  <span
+                    className="shrink-0 tabular-nums text-[12px] wght-620 w-[44px]"
+                    style={{ letterSpacing: "-0.012em", color: accent }}
                   >
-                    <span
-                      className="shrink-0 tabular-nums text-[11px] wght-560 text-[var(--color-apple-muted)]"
-                    >
-                      {tlabel}
-                    </span>
-                    <span
-                      aria-hidden
-                      className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: dot }}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className="block truncate text-[13px] wght-560 text-[var(--color-apple-ink)]"
-                        style={{ letterSpacing: "-0.012em" }}
-                      >
-                        {formatEventLabel(e)}
-                      </span>
-                      <span
-                        className="text-[10.5px] wght-450 uppercase tracking-[0.04em]"
-                        style={{ color: tint.fg }}
-                      >
-                        {kindLabel[e.kind]}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                    {tlabel}
+                  </span>
+                  <span
+                    className="min-w-0 flex-1 truncate text-[13.5px] wght-560 text-[var(--color-apple-ink)]"
+                    style={{ letterSpacing: "-0.012em" }}
+                  >
+                    {formatEventLabel(e)}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
-        <button
-          type="button"
-          onClick={onAddOnDay}
-          className="mt-2 inline-flex items-center justify-center gap-1.5 rounded-[8px] border border-dashed border-[var(--color-apple-hairline)] px-3 py-2 text-[12.5px] wght-560 text-[var(--color-apple-action)] transition-colors hover:border-[var(--color-apple-action)] hover:bg-[var(--color-apple-pearl)]"
-        >
-          <span aria-hidden>+</span>
-          이 날에 일정 추가
-        </button>
-      </div>
-    </section>
+      {/* 추가 액션 — Apple식 inline link 톤. 큰 점선 박스 그릇 X. */}
+      <button
+        type="button"
+        onClick={onAddOnDay}
+        className="mt-6 inline-flex items-center gap-1 text-[13px] wght-560 text-[var(--color-apple-action)] transition-opacity hover:opacity-70"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        <span aria-hidden className="text-[15px] leading-none">+</span>
+        이 날에 일정 추가
+      </button>
+    </article>
   );
 }
 
@@ -1755,17 +1708,26 @@ function ScopeBtn({
 }
 
 /**
- * 인라인 편집 폼 — 패널 자리 그대로 차지. 시·분·제목·메모·(class면) scope.
- * 시간만 수정해도 starts/ends 같이 보냄 (서버는 받은 것만 적용).
+ * 인라인 편집 폼 — macOS Calendar inspector 톤 그대로 유지.
+ *
+ * 디자인 결정:
+ *  - 좌측 3px accent 컬러 바 그대로 (상세와 동일 그릇)
+ *  - 큰 제목 위치에 borderless input (Fantastical 패턴 — 헤더처럼 보이게)
+ *  - 날짜·시간은 한 줄에 두 input (제목 아래 같은 자리)
+ *  - 메모는 라벨 없이 자동 grow textarea
+ *  - 우상단 ✓ (저장) / × (취소) 아이콘 버튼 — 상세와 같은 위치라 자연스럽게 토글
+ *  - "일정 수정" 같은 generic 헤더 X — 화면 자체가 폼임을 입력 필드로 표현
  */
 function EventEditForm({
   event,
   isRecurringClass,
+  accentColor,
   onCancel,
   onSaved,
 }: {
   event: EventView;
   isRecurringClass: boolean;
+  accentColor: string;
   onCancel: () => void;
   onSaved: (patch: Partial<EventView>) => void;
 }) {
@@ -1833,135 +1795,142 @@ function EventEditForm({
     }
   }
 
+  // 사용자 강요: 좌측 컬러 바 X. 인스펙터 상세와 일관 — 그릇 없음.
+  void accentColor;
+
   return (
-    <section className="elev-2 overflow-hidden rounded-[14px] bg-white">
-      <div className="flex items-baseline justify-between gap-3 border-b border-[var(--color-apple-hairline)] px-5 py-4">
-        <h3
-          className="text-[15px] wght-700 text-[var(--color-apple-ink)]"
-          style={{ letterSpacing: "-0.012em" }}
+    <form onSubmit={handleSave} className="relative">
+      {/* 우상단 액션 — float. 저장(체크) + 취소(X) 아이콘. 인스펙터 상세와 같은 위치라 자연 토글. */}
+      <div className="absolute right-3 top-3 z-10 flex items-center gap-0.5">
+        <button
+          type="submit"
+          disabled={busy}
+          aria-label="저장"
+          title="저장"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-apple-action)] transition-colors hover:bg-[var(--color-apple-action-soft)] disabled:opacity-40"
         >
-          일정 수정
-        </h3>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <path
+              d="M2.5 7.5l3 3 6-7"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
         <button
           type="button"
           onClick={onCancel}
-          aria-label="닫기"
-          className="-mr-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-[13px] text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+          disabled={busy}
+          aria-label="취소"
+          title="취소"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-40"
         >
-          ×
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <path
+              d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+          </svg>
         </button>
       </div>
 
-      <form onSubmit={handleSave} className="flex flex-col gap-4 px-5 py-5">
-        <FieldLabel label="제목">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            maxLength={120}
-            className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
-          />
-        </FieldLabel>
+      <div className="flex flex-col px-6 pb-6 pt-6">
+        {/* "편집 중" 헤드라인 — 인스펙터 상세의 headline 자리. action 컬러로 위계 1. */}
+        <p
+          className="text-[12px] wght-620"
+          style={{ letterSpacing: "-0.006em", color: "var(--color-apple-action)" }}
+        >
+          편집 중
+        </p>
 
-        <FieldLabel label="시작">
-          <input
-            type="datetime-local"
-            value={startsAt}
-            onChange={(e) => setStartsAt(e.target.value)}
-            required
-            className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] tabular-nums text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
-          />
-        </FieldLabel>
+        {/* 제목 — borderless display input. 상세의 h3 자리 그대로. */}
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+          maxLength={120}
+          autoFocus
+          placeholder="제목"
+          className="mt-2 w-full border-0 bg-transparent p-0 pr-16 text-[22px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
+          style={{ letterSpacing: "-0.018em" }}
+        />
 
-        <FieldLabel label="종료">
-          <input
-            type="datetime-local"
-            value={endsAt}
-            onChange={(e) => setEndsAt(e.target.value)}
-            className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] tabular-nums text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
-          />
-        </FieldLabel>
+        {/* 플로잉 폼 — 라벨 컬럼 X. underline-only 톤. */}
+        <div className="mt-5 flex flex-col">
+          <div className="border-t border-[var(--color-apple-hairline-soft)]">
+            <input
+              type="datetime-local"
+              value={startsAt}
+              onChange={(e) => setStartsAt(e.target.value)}
+              required
+              aria-label="시작 시간"
+              className="w-full border-0 bg-transparent py-3 text-[14px] tabular-nums text-[var(--color-apple-ink)] outline-none"
+              style={{ letterSpacing: "-0.012em" }}
+            />
+          </div>
+          <div className="border-t border-[var(--color-apple-hairline-soft)]">
+            <input
+              type="datetime-local"
+              value={endsAt}
+              onChange={(e) => setEndsAt(e.target.value)}
+              aria-label="종료 시간"
+              placeholder="종료 시간 추가"
+              className="w-full border-0 bg-transparent py-3 text-[14px] tabular-nums text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
+              style={{ letterSpacing: "-0.012em" }}
+            />
+          </div>
+          <div className="border-t border-[var(--color-apple-hairline-soft)]">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              placeholder="메모"
+              className="w-full resize-y border-0 bg-transparent py-3 text-[14px] leading-[1.55] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
+              style={{ letterSpacing: "-0.012em" }}
+            />
+          </div>
+        </div>
 
-        <FieldLabel label="메모">
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            maxLength={2000}
-            className="w-full resize-y rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
-          />
-        </FieldLabel>
-
+        {/* 반복 수업 scope — 라벨 없이 segmented + 설명 한 줄. 인스펙터 톤 유지. */}
         {isRecurringClass && (
-          <FieldLabel label="적용 범위">
-            <div className="flex gap-1.5">
+          <div className="mt-4 flex flex-col gap-1.5">
+            <div className="flex items-center gap-1.5">
               <ScopeBtn label="이 회차만" active={scope === "this"} onClick={() => setScope("this")} />
               <ScopeBtn label="학기 전체" active={scope === "all"} onClick={() => setScope("all")} />
             </div>
-            <p className="mt-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)]">
+            <p className="text-[11px] wght-450 leading-[1.5] text-[var(--color-apple-muted)]">
               {scope === "all"
-                ? "같은 요일·시간의 모든 회차에 동일 변경 적용. 시간 변경 시 시·분만 옮기고 날짜는 회차별로 유지."
-                : "이 회차에만 적용. 다른 주는 그대로."}
+                ? "같은 요일·시간의 모든 회차에 적용"
+                : "이 회차에만 적용, 다른 주는 그대로"}
             </p>
-          </FieldLabel>
+          </div>
         )}
 
         {error && (
-          <p className="rounded-[8px] bg-[var(--color-urgent)]/10 px-3 py-2 text-[12px] wght-560 text-[var(--color-urgent)]">
+          <p className="mt-4 rounded-[8px] bg-[var(--color-urgent-soft)] px-3 py-2 text-[12px] wght-560 text-[var(--color-urgent)]">
             {error}
           </p>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-[var(--color-apple-hairline)] pt-4">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            className="rounded-[8px] px-3 py-1.5 text-[12.5px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
-          >
-            취소
-          </button>
-          <button
-            type="submit"
-            disabled={busy}
-            className="rounded-[8px] bg-[var(--color-apple-ink)] px-3 py-1.5 text-[12.5px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {busy ? "저장 중…" : "저장"}
-          </button>
-        </div>
-      </form>
-    </section>
+        {busy && (
+          <p className="mt-3 text-[11.5px] wght-450 text-[var(--color-apple-muted)]">저장 중…</p>
+        )}
+      </div>
+    </form>
   );
 }
 
-function FieldLabel({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span
-        className="text-[10px] wght-620 uppercase text-[var(--color-apple-muted)]"
-        style={{ letterSpacing: "0.08em" }}
-      >
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span
-        className="text-[10px] wght-620 uppercase text-[var(--color-apple-muted)]"
-        style={{ letterSpacing: "0.08em" }}
-      >
-        {label}
-      </span>
-      <div className="flex flex-col">{children}</div>
-    </div>
-  );
-}
+/**
+ * CompactField (좌측 라벨 컬럼) 폐기 — 사용자 강요 (2026-05-23):
+ *   "라벨 컬럼 만들지 마. Apple식 placeholder-only flowing form으로 가."
+ * EventCreateForm·EventEditForm 모두 borderless underline-only flowing form으로 전환.
+ */
 
 function EmptyState() {
   return (
@@ -2014,15 +1983,6 @@ function isoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** "YYYY-MM-DD" → "5월 18일 월요일" 같은 라벨 */
-function formatDateIsoLabel(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  if (!y || !m || !d) return iso;
-  const dt = new Date(y, m - 1, d);
-  const weekday = ["일", "월", "화", "수", "목", "금", "토"][dt.getDay()];
-  return `${m}월 ${d}일 ${weekday}요일`;
-}
-
 function formatDate(d: Date, allDay: boolean): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -2033,8 +1993,8 @@ function formatDate(d: Date, allDay: boolean): string {
 }
 
 /**
- * 색 점·코스 컬러 fallback — courseColor가 우선, 없으면 kind 기준 채도 낮은 컬러.
- * (칩 배경은 따로 kindTint에서 파스텔로 처리)
+ * 색 fallback — courseColor가 우선, 없으면 kind 기준 채도 낮은 컬러.
+ * (이전 버전의 kindTint/KIND_TINT 파스텔 배경은 인스펙터 재설계에서 닷·뱃지와 함께 제거됨.)
  */
 const KIND_FALLBACK_COLOR: Record<EventView["kind"], string> = {
   exam: "#e0445e",       // coral
@@ -2047,27 +2007,6 @@ const KIND_FALLBACK_COLOR: Record<EventView["kind"], string> = {
 function kindColor(kind: EventView["kind"], courseColor: string | null): string {
   if (courseColor) return courseColor;
   return KIND_FALLBACK_COLOR[kind];
-}
-
-/**
- * 캘린더 칩·뱃지용 파스텔 배경 + 컬러 텍스트.
- * Apple Calendar 톤: 진한 면 X, 종이 위 연한 칩 + 같은 hue 텍스트.
- */
-interface KindTint {
-  bg: string;
-  fg: string;
-}
-
-const KIND_TINT: Record<EventView["kind"], KindTint> = {
-  exam: { bg: "var(--color-tint-exam)", fg: "var(--color-tint-exam-ink)" },
-  assignment: { bg: "var(--color-tint-assign)", fg: "var(--color-tint-assign-ink)" },
-  presentation: { bg: "var(--color-tint-prez)", fg: "var(--color-tint-prez-ink)" },
-  class: { bg: "var(--color-tint-class)", fg: "var(--color-tint-class-ink)" },
-  etc: { bg: "var(--color-tint-etc)", fg: "var(--color-tint-etc-ink)" },
-};
-
-function kindTint(kind: EventView["kind"]): KindTint {
-  return KIND_TINT[kind];
 }
 
 /**
@@ -2111,6 +2050,13 @@ function EventCreateForm({
     }
     return "";
   }, [prefillEndDateIso]);
+
+  // 기본 모드는 AI 입력. prefill (캘린더 셀 클릭 후 추가) 흐름은 수동 폼이 자연스러움.
+  // 사용자가 명시한 날짜에 한 건 추가 의도가 명확하니 AI를 굳이 거치게 하지 않음.
+  const [mode, setMode] = useState<"ai" | "manual">(prefillDateIso ? "manual" : "ai");
+  useEffect(() => {
+    setMode(prefillDateIso ? "manual" : "ai");
+  }, [prefillDateIso]);
 
   // 기본값 강요 X — 사용자가 명시적으로 선택. 그래야 "왜 시험이지?" 같은 어색함이 없음.
   const [kind, setKind] = useState<"exam" | "assignment" | "presentation" | "etc" | "">("");
@@ -2181,6 +2127,12 @@ function EventCreateForm({
     }
   }
 
+  // 선택된 kind의 accent 컬러 (좌측 3px 바와 카테고리 chip active 톤에 사용)
+  const accentColor = kind ? KIND_FALLBACK_COLOR[kind] : "var(--color-apple-hairline)";
+
+  // accentColor는 더 이상 컬러 바에 사용 안 함. 향후 다른 affordance에 쓰일 수 있어 변수 유지.
+  void accentColor;
+
   return (
     <Modal
       open={open}
@@ -2190,104 +2142,147 @@ function EventCreateForm({
           onClose();
         }
       }}
-      title="새 일정"
-      description="강의계획서 없이 직접 추가. 매주 반복 수업은 시간표 업로드를 써주세요."
+      // AI 모드: header 안 그림. 패널 자체가 popover 톤(헤더 X, 본문 padding 자기 책임).
+      // manual 모드: 기존 header 유지 (이 PR 범위 밖).
+      chromeless={mode === "ai"}
+      title={mode === "ai" ? "일정 추가" : "새 일정"}
+      description={
+        mode === "ai"
+          ? undefined
+          : "시험·과제·발표·기타를 추가해요. 매주 반복 수업은 시간표 업로드로 들어와요"
+      }
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <FieldLabel label="제목">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            autoFocus
-            maxLength={120}
-            placeholder="새 이벤트"
-            className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[14px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
-          />
-        </FieldLabel>
+      {mode === "ai" ? (
+        <EventAIDraftPanel
+          courses={courses}
+          onClose={() => {
+            if (busy) return;
+            reset();
+            onClose();
+          }}
+          onDone={() => {
+            reset();
+            onCreated();
+          }}
+          onSwitchToManual={() => setMode("manual")}
+        />
+      ) : (
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {/* 사용자 강요 (2026-05-23): "라벨 컬럼 만들지 마. Apple식 placeholder-only flowing form".
+            Apple Calendar 새 이벤트 popover처럼 — 라벨 없이 placeholder만으로 의도 전달. */}
 
-        <FieldLabel label="어떤 일정이에요?">
-          <div className="flex flex-wrap gap-1.5">
-            {(
-              [
-                ["exam", "시험"],
-                ["assignment", "과제"],
-                ["presentation", "발표"],
-                ["etc", "기타"],
-              ] as const
-            ).map(([k, label]) => (
+        {/* 제목 — borderless display input. 가장 큰 위계. */}
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+          autoFocus
+          maxLength={120}
+          placeholder="새 일정"
+          className="w-full border-0 bg-transparent p-0 text-[20px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
+          style={{ letterSpacing: "-0.018em" }}
+        />
+
+        {/* 카테고리 — 좌측 점·동그라미 없음. 활성시 컬러 채워진 chip, 비활성은 hairline.
+            Apple은 카테고리 별 색을 input 자체에 반영하지만 우리는 학생 톤으로 chip 유지. */}
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              ["exam", "시험"],
+              ["assignment", "과제"],
+              ["presentation", "발표"],
+              ["etc", "기타"],
+            ] as const
+          ).map(([k, label]) => {
+            const c = KIND_FALLBACK_COLOR[k];
+            const isActive = kind === k;
+            return (
               <button
                 key={k}
                 type="button"
                 onClick={() => setKind(k)}
                 className={
-                  kind === k
-                    ? "rounded-full bg-[var(--color-apple-ink)] px-3 py-1 text-[12px] wght-560 text-white"
-                    : "rounded-full border border-[var(--color-apple-hairline)] bg-white px-3 py-1 text-[12px] wght-560 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
+                  isActive
+                    ? "rounded-full px-3 py-[5px] text-[12px] wght-620 text-white transition-colors"
+                    : "rounded-full border border-[var(--color-apple-hairline)] bg-white px-3 py-[5px] text-[12px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-ink)]/30 hover:text-[var(--color-apple-ink)]"
                 }
+                style={isActive ? { backgroundColor: c } : undefined}
               >
                 {label}
               </button>
-            ))}
-          </div>
-        </FieldLabel>
+            );
+          })}
+        </div>
 
-        {courses.length > 0 && (
-          <FieldLabel label="강의 (선택)">
-            <select
-              value={courseId}
-              onChange={(e) => setCourseId(e.target.value)}
-              className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13.5px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
-            >
-              <option value="">강의 없음 (미분류)</option>
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </FieldLabel>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <FieldLabel label="시작">
+        {/* 플로잉 폼 — 라벨 컬럼 X. placeholder가 라벨 역할. 모든 input이 borderless underline.
+            Apple Calendar의 "위치 또는 영상 통화 추가", "2026. 5. 19. ..." 식 placeholder-only. */}
+        <div className="flex flex-col">
+          {/* 시간 시작 */}
+          <div className="border-t border-[var(--color-apple-hairline-soft)]">
             <input
               type="datetime-local"
               value={startsAt}
               onChange={(e) => setStartsAt(e.target.value)}
               required
-              className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] tabular-nums text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+              aria-label="시작 시간"
+              className="w-full border-0 bg-transparent py-3 text-[14px] tabular-nums text-[var(--color-apple-ink)] outline-none"
+              style={{ letterSpacing: "-0.012em" }}
             />
-          </FieldLabel>
-          <FieldLabel label="종료 (선택)">
+          </div>
+          {/* 시간 종료 */}
+          <div className="border-t border-[var(--color-apple-hairline-soft)]">
             <input
               type="datetime-local"
               value={endsAt}
               onChange={(e) => setEndsAt(e.target.value)}
-              className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] tabular-nums text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+              aria-label="종료 시간"
+              placeholder="종료 시간 추가"
+              className="w-full border-0 bg-transparent py-3 text-[14px] tabular-nums text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
+              style={{ letterSpacing: "-0.012em" }}
             />
-          </FieldLabel>
+          </div>
+          {/* 강의 선택 */}
+          {courses.length > 0 && (
+            <div className="border-t border-[var(--color-apple-hairline-soft)]">
+              <select
+                value={courseId}
+                onChange={(e) => setCourseId(e.target.value)}
+                aria-label="강의"
+                className="w-full appearance-none border-0 bg-transparent py-3 text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                <option value="">강의 선택 (선택사항)</option>
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {/* 메모 */}
+          <div className="border-t border-[var(--color-apple-hairline-soft)]">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              placeholder="메모 — 제출 형식·범위·페이지 수 등"
+              className="w-full resize-y border-0 bg-transparent py-3 text-[14px] leading-[1.55] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
+              style={{ letterSpacing: "-0.012em" }}
+            />
+          </div>
         </div>
 
-        <FieldLabel label="메모 (선택)">
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            maxLength={2000}
-            placeholder="제출 형식·범위·페이지 수 등"
-            className="w-full resize-y rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[13px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
-          />
-        </FieldLabel>
-
         {error && (
-          <p className="rounded-[8px] bg-[var(--color-urgent)]/10 px-3 py-2 text-[12px] wght-560 text-[var(--color-urgent)]">
+          <p className="rounded-[8px] bg-[var(--color-urgent-soft)] px-3 py-2 text-[12px] wght-560 text-[var(--color-urgent)]">
             {error}
           </p>
         )}
 
-        <div className="flex justify-end gap-2">
+        {/* 액션 — 우측 정렬. 구분선 없이 공백으로 분리 (Apple 톤). */}
+        <div className="flex items-center justify-end gap-1">
           <button
             type="button"
             onClick={() => {
@@ -2296,19 +2291,22 @@ function EventCreateForm({
               onClose();
             }}
             disabled={busy}
-            className="rounded-[8px] px-3.5 py-2 text-[13px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
+            className="rounded-[8px] px-3.5 py-2 text-[13px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
+            style={{ letterSpacing: "-0.012em" }}
           >
             취소
           </button>
           <button
             type="submit"
-            disabled={busy}
-            className="rounded-[8px] bg-[var(--color-apple-ink)] px-3.5 py-2 text-[13px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            disabled={busy || !kind || !title.trim()}
+            className="rounded-[8px] bg-[var(--color-apple-action)] px-4 py-2 text-[13px] wght-620 text-white transition-opacity hover:bg-[var(--color-apple-action-hover)] disabled:opacity-40"
+            style={{ letterSpacing: "-0.012em" }}
           >
             {busy ? "저장 중…" : "추가"}
           </button>
         </div>
       </form>
+      )}
     </Modal>
   );
 }

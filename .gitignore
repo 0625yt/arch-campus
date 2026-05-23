@@ -47,3 +47,10 @@ next-env.d.ts
 screenshots/
 apple-business-full.png
 apple-home-snapshot.md
+
+# 작업 중 캡처한 audit·검증 스크린샷 — 리포 부풀림 방지
+audit-*.png
+ai-modal-*.png
+cal-*.png
+calendar-mobile-*.png
+verify-*.png

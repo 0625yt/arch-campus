@@ -20,7 +20,8 @@ export type ToolKind =
   | "wizard-cram"
   | "syllabus-extract"
   | "timetable-extract"
-  | "post-mortem";
+  | "post-mortem"
+  | "event-parse";
 
 export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   summarize: MODELS.haiku,
@@ -33,6 +34,8 @@ export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   // 시간표는 격자 vision 정확도가 사활. 학기당 1~2번이므로 sonnet 감수.
   "timetable-extract": MODELS.sonnet,
   "post-mortem": MODELS.haiku,
+  // 자연어 → 일정 JSON. 짧고 정형이라 Haiku 충분.
+  "event-parse": MODELS.haiku,
 };
 
 /**

@@ -118,7 +118,10 @@ export function Popover({
       ref={panelRef}
       role="dialog"
       aria-modal="false"
-      className={`fixed z-50 overflow-hidden rounded-[14px] bg-white shadow-[0_12px_32px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.06)] ${className ?? ""}`}
+      // Apple Inspector 톤 — shadow 거의 제거. 배경과의 분리는 hairline + 살짝의 elevation tint.
+      // 사용자 강요: "Apple은 inspector에 그림자 거의 없음, 배경과 분리만". 기존 12px/32px shadow는
+      // shadcn 톤이라 거짓 분리감을 만들어 → 미니멀 elevation으로 교체.
+      className={`fixed z-50 overflow-hidden rounded-[12px] border border-[var(--color-apple-hairline)] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.05)] ${className ?? ""}`}
       style={{
         top: finalTop,
         left: finalLeft,

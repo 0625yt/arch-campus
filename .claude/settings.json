@@ -6,7 +6,14 @@
       "WebFetch(domain:github.com)",
       "WebSearch",
       "Bash(npm run *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "Bash(git -C /Users/hong-yuntaeg/개발/arch-campus show HEAD:src/app/dashboard/calendar/calendar-board.tsx)",
+      "mcp__playwright__browser_evaluate",
+      "Bash(echo \"EXIT $?\")"
     ]
   },
   "enabledPlugins": {
