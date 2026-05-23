@@ -485,7 +485,11 @@ function CtaCard({
 
   return (
     <section className="mt-14 fade-up fade-up-4 sm:mt-20">
-      <div className="elev-1 rounded-[18px] bg-white px-7 py-9 sm:px-12 sm:py-12">
+      {/* 캘린더 EventChip 톤 — 좌측 컬러 ribbon + hover 시 살짝 글로우. dotColor가 카테고리 단서. */}
+      <div
+        className="card-glow-ribbon elev-1 relative overflow-hidden rounded-[18px] bg-white px-7 py-9 sm:px-12 sm:py-12"
+        style={{ ["--ribbon-color" as string]: dotColor }}
+      >
         <p
           className="text-[12px] wght-560 uppercase tracking-[0.06em]"
           style={{ color: dotColor, letterSpacing: "0.06em" }}

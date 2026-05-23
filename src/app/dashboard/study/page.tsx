@@ -286,15 +286,13 @@ function CourseCard({ course }: { course: CourseListItem }) {
       />
 
       <div className="relative pr-10">
-        <div className="flex items-center gap-2.5">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dotColor }} />
-          <span
-            className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            {isPersonal ? "개인 공부" : (course.professor ?? "교수 미정")}
-          </span>
-        </div>
+        {/* 카드 좌측 ribbon이 이미 dotColor 단서 역할. DESIGN.md §10 금지 — 별도 동그라미 점 X. */}
+        <span
+          className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          {isPersonal ? "개인 공부" : (course.professor ?? "교수 미정")}
+        </span>
         <h3
           className="mt-4 text-[28px] leading-[1.05] wght-620 text-[var(--color-apple-ink)] sm:text-[32px]"
           style={{ letterSpacing: "-0.012em" }}
