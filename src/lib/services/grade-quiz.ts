@@ -51,15 +51,21 @@ export function gradeQuiz(
 ): GradedQuiz {
   const submittedMap = new Map<number, Choice>(answers.map((a) => [a.questionId, a.choice]));
 
+  // 채점은 객관식만 — kind=short-answer/essay는 자동 채점 X (이번 sprint 범위).
+  // total도 객관식만 카운트 — UI에서 score/total이 어긋나면 사용자가 혼란.
+  const mcQuestions = questions.filter(
+    (q) => (q.kind ?? "multiple-choice") === "multiple-choice",
+  );
+
   let score = 0;
-  const results: GradedResult[] = questions.map((q) => {
+  const results: GradedResult[] = mcQuestions.map((q) => {
     const submitted = submittedMap.get(q.id) ?? null;
     const correct = submitted !== null && submitted === q.answer;
     if (correct) score++;
     return {
       questionId: q.id,
       correct,
-      answer: q.answer,
+      answer: q.answer as Choice,
       submitted,
       explanation: q.explanation,
       evidence: q.evidence ?? "",
@@ -67,5 +73,5 @@ export function gradeQuiz(
     };
   });
 
-  return { score, total: questions.length, results };
+  return { score, total: mcQuestions.length, results };
 }

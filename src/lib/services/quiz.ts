@@ -26,6 +26,8 @@ import { breakdown } from "@/lib/tokens";
 
 export type Difficulty = "쉬움" | "보통" | "어려움";
 
+export type QuestionKind = "multiple-choice" | "short-answer" | "essay";
+
 export interface QuizGenerateInput {
   ownerId: string;
   materialId: string;
@@ -38,6 +40,10 @@ export interface QuizGenerateInput {
   parserWarnings: string[];
   difficulty: Difficulty;
   requestedCount: number;
+  /** 학생이 form에서 고른 문제 종류 (1~3개). 빈 배열·undefined면 객관식만 (종전 동작). */
+  kinds?: QuestionKind[];
+  /** 출제 범위 자유 텍스트 (예: "1~3장만", "p.10~30 위주"). 빈 문자열이면 무시. */
+  scope?: string;
 }
 
 export type QuizGenerateResult =
@@ -88,6 +94,8 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     classification,
     fullText: input.sanitizedText,
     subject,
+    kinds: input.kinds,
+    scope: input.scope,
   });
   if (process.env.NODE_ENV !== "production") {
     console.log("[quiz] dynamicContext 첫 1500자:\n" + dynamicContext.slice(0, 1500));
@@ -192,6 +200,12 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   };
 }
 
+const KIND_LABEL: Record<QuestionKind, string> = {
+  "multiple-choice": "객관식 (4지선다)",
+  "short-answer": "단답형",
+  essay: "서술형",
+};
+
 function buildDynamicContext(meta: {
   title: string;
   type: string;
@@ -203,6 +217,8 @@ function buildDynamicContext(meta: {
   classification: Classification | null;
   fullText: string;
   subject: ReturnType<typeof detectSubject>;
+  kinds?: QuestionKind[];
+  scope?: string;
 }): string {
   const detected = detectForeignLanguage(meta.fullText);
 
@@ -256,6 +272,29 @@ function buildDynamicContext(meta: {
     if (section) {
       lines.push("", `(영역: ${SUBJECT_LABEL[meta.subject]})`, section);
     }
+  }
+
+  // 학생이 form에서 선택한 문제 종류 — kind 분기 활성화
+  if (meta.kinds && meta.kinds.length > 0) {
+    const labelList = meta.kinds.map((k) => KIND_LABEL[k]).join(", ");
+    lines.push(
+      "",
+      "## 요청된 문제 종류",
+      `학생이 선택한 종류: **${labelList}**`,
+      "각 종류를 questions 배열 안에 섞어 출제. 비율은 골고루.",
+      "각 문제에 \"kind\" 필드를 \"multiple-choice\" | \"short-answer\" | \"essay\" 중 하나로 명시.",
+      "출력 규칙은 시스템 프롬프트의 'kind 분기' 섹션을 따른다.",
+    );
+  }
+
+  // 학생이 지정한 출제 범위 — 자유 텍스트
+  if (meta.scope && meta.scope.trim()) {
+    lines.push(
+      "",
+      "## 출제 범위",
+      `학생이 지정한 범위: **${meta.scope.trim()}**`,
+      "위 범위에서 핵심을 우선 출제. 범위 밖 내용은 보조용으로만 사용.",
+    );
   }
 
   if (meta.isMetadataOnly) {

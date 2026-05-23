@@ -56,11 +56,28 @@ export const SummarizeOutput = z.object({
 });
 export type SummarizeOutputT = z.infer<typeof SummarizeOutput>;
 
+/**
+ * 퀴즈 한 문제.
+ *
+ * kind는 옵션 — 미지정·미저장은 "multiple-choice"로 해석 (기존 데이터 호환).
+ * 출제 시 generate-form에서 multi-select로 골라온 종류 중 하나가 박힘.
+ *
+ * 종류별 필드 사용:
+ *   - multiple-choice: choices 4개 + answer ("A"~"D")
+ *   - short-answer:    choices null + answer (정답 텍스트)
+ *   - essay:           choices null + answer (모범답안 핵심 키워드/방향)
+ *
+ * 풀이 UI는 이번 sprint에선 객관식만 동작. short-answer/essay는 placeholder.
+ */
 export const QuizQuestion = z.object({
   id: z.number().int().positive(),
+  kind: z
+    .enum(["multiple-choice", "short-answer", "essay"])
+    .default("multiple-choice"),
   difficulty: z.enum(["쉬움", "보통", "어려움"]),
   topic: z.string().min(1).max(60),
   stem: z.string().min(15).max(400),
+  // 객관식이 아니면 null. zod default가 풀어주므로 호출자는 null 또는 undefined 둘 다 OK.
   choices: z
     .array(
       z.object({
@@ -68,8 +85,11 @@ export const QuizQuestion = z.object({
         text: z.string().min(1).max(300),
       }),
     )
-    .length(4),
-  answer: z.enum(["A", "B", "C", "D"]),
+    .length(4)
+    .nullable()
+    .optional(),
+  // 객관식이면 "A"~"D" 한 글자. 단답/서술이면 자유 텍스트.
+  answer: z.string().min(1).max(2000),
   explanation: z.string().min(20).max(500),
   evidence: z.string().min(0).max(2000),
   evidencePage: z.number().int().nullable().optional(),

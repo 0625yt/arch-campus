@@ -16,10 +16,12 @@ interface QuizResponseOk {
   pageCount?: number;
   questions: Array<{
     id: number;
+    kind: "multiple-choice" | "short-answer" | "essay";
     difficulty: string;
     topic: string;
     stem: string;
-    choices: { key: "A" | "B" | "C" | "D"; text: string }[];
+    // 객관식 외에는 null
+    choices: { key: "A" | "B" | "C" | "D"; text: string }[] | null;
     hint?: string;
   }>;
   total: number;
@@ -78,6 +80,14 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
     Math.max(parseInt(String(form.get("count") ?? "5"), 10) || 5, 1),
     10,
   );
+  // kinds는 콤마 구분, scope는 자유 텍스트. 화이트리스트 검증 필수 — prompt injection 방지
+  const KIND_ALLOWED = ["multiple-choice", "short-answer", "essay"] as const;
+  const kinds = String(form.get("kinds") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s): s is (typeof KIND_ALLOWED)[number] => (KIND_ALLOWED as readonly string[]).includes(s))
+    .slice(0, 3);
+  const scope = String(form.get("scope") ?? "").trim().slice(0, 200);
 
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ ok: false, error: "file 필드가 비어있어요" }, { status: 400 });
@@ -168,6 +178,8 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
     parserWarnings: parsed.warnings,
     difficulty,
     requestedCount,
+    kinds,
+    scope,
   });
 
   if (!result.ok) {
@@ -185,10 +197,11 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
     pageCount: parsed.pageCount,
     questions: result.quiz.questions.map((q) => ({
       id: q.id,
+      kind: q.kind,
       difficulty: q.difficulty,
       topic: q.topic,
       stem: q.stem,
-      choices: q.choices,
+      choices: q.choices ?? null,
       hint: q.hint,
     })),
     total: result.quiz.questions.length,

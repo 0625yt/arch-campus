@@ -46,6 +46,8 @@ export interface AttemptSummary {
   score: number;
   total: number;
   watermark: string;
+  // 풀이 다시보기는 객관식만 지원. 단답/서술은 이번 sprint 범위 밖이라
+  // 저장은 되지만 다시보기에는 안 잡힘 (filter로 빼냄).
   questions: Array<{
     id: number;
     topic: string;
@@ -100,22 +102,30 @@ export async function getAttemptSummary(opts: {
     score: data.score,
     total: data.total,
     watermark: data.watermark,
-    questions: questionsParsed.data.map((q) => {
-      const r = resultsByQid.get(q.id);
-      return {
-        id: q.id,
-        topic: q.topic,
-        difficulty: q.difficulty,
-        stem: q.stem,
-        choices: q.choices,
-        answer: q.answer,
-        explanation: q.explanation,
-        evidence: q.evidence ?? "",
-        evidencePage: q.evidencePage ?? null,
-        submitted: r?.submitted ?? null,
-        correct: r?.correct ?? false,
-      };
-    }),
+    // 다시보기에 단답/서술은 안 잡힘 — choices 없거나 answer가 A~D가 아니면 제외
+    questions: questionsParsed.data
+      .filter(
+        (q): q is typeof q & { choices: { key: "A" | "B" | "C" | "D"; text: string }[] } =>
+          (q.kind ?? "multiple-choice") === "multiple-choice" &&
+          Array.isArray(q.choices) &&
+          (q.answer === "A" || q.answer === "B" || q.answer === "C" || q.answer === "D"),
+      )
+      .map((q) => {
+        const r = resultsByQid.get(q.id);
+        return {
+          id: q.id,
+          topic: q.topic,
+          difficulty: q.difficulty,
+          stem: q.stem,
+          choices: q.choices,
+          answer: q.answer as "A" | "B" | "C" | "D",
+          explanation: q.explanation,
+          evidence: q.evidence ?? "",
+          evidencePage: q.evidencePage ?? null,
+          submitted: r?.submitted ?? null,
+          correct: r?.correct ?? false,
+        };
+      }),
   };
 }
 

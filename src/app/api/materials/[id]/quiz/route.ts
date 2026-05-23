@@ -11,6 +11,9 @@ export const maxDuration = 300;
 const RequestBody = z.object({
   difficulty: z.enum(["쉬움", "보통", "어려움"]).default("보통"),
   count: z.number().int().min(1).max(10).default(5),
+  // kinds·scope는 옵션 — 빈 배열·빈 문자열이면 종전 동작(객관식만, 자료 전체)
+  kinds: z.array(z.enum(["multiple-choice", "short-answer", "essay"])).max(3).default([]),
+  scope: z.string().max(200).default(""),
 });
 
 /**
@@ -65,7 +68,7 @@ export async function POST(
 
   const fullText = material.full_text ?? "";
 
-  // 작업 큐 등록 (난이도·개수 다른 요청도 같은 자료면 1개만)
+  // 작업 큐 등록 (난이도·개수·kinds·scope 다른 요청도 같은 자료면 1개만)
   const { job, isNew } = await enqueueJob({
     ownerId,
     materialId: material.id,
@@ -74,6 +77,8 @@ export async function POST(
       materialId: material.id,
       difficulty: body.difficulty,
       count: body.count,
+      kinds: body.kinds,
+      scope: body.scope,
     },
   });
 
@@ -96,6 +101,8 @@ export async function POST(
         parserWarnings: [],
         difficulty: body.difficulty,
         requestedCount: body.count,
+        kinds: body.kinds,
+        scope: body.scope,
       });
 
       if (!result.ok) {

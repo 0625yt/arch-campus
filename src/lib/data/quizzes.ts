@@ -23,7 +23,8 @@ export interface QuizSolveView {
   title: string;
   difficulty: "쉬움" | "보통" | "어려움";
   watermark: string;
-  // 풀이 단계에선 정답·해설·증거 빠짐 — 서버에서 안 내려감
+  // 풀이 단계에선 정답·해설·증거 빠짐 — 서버에서 안 내려감.
+  // 솔버는 객관식만 처리. 단답/서술은 getQuizForSolving 안에서 미리 걸러진 채로 들어온다.
   questions: Array<{
     id: number;
     difficulty: string;
@@ -59,9 +60,12 @@ export async function getQuizForSolving(opts: {
   }
 
   const filterSet = opts.onlyQuestionIds ? new Set(opts.onlyQuestionIds) : null;
-  const filtered = filterSet
+  // 풀이 UI는 이번 sprint에서 객관식만 동작. short-answer/essay는 자동 채점·풀이 화면이
+  // 아직 없어서 솔버에 넣으면 깨짐. 추출된 quiz row 안에 섞여 있어도 솔버는 객관식만 본다.
+  const filtered = (filterSet
     ? parsed.data.filter((q) => filterSet.has(q.id))
-    : parsed.data;
+    : parsed.data
+  ).filter((q) => (q.kind ?? "multiple-choice") === "multiple-choice");
 
   // 강의명도 같이 — material detail 라우트가 슬러그를 path에 받는다.
   let courseName: string | null = null;
@@ -88,7 +92,8 @@ export async function getQuizForSolving(opts: {
       difficulty: q.difficulty,
       topic: q.topic,
       stem: q.stem,
-      choices: q.choices,
+      // filter에서 객관식만 통과시켰으니 q.choices는 length-4 array 보장
+      choices: q.choices ?? [],
       hint: q.hint,
     })),
     total: filtered.length,

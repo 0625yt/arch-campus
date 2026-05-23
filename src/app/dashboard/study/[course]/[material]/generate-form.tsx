@@ -7,8 +7,15 @@ import { useJob } from "@/lib/hooks/use-job";
 import { cn } from "@/lib/utils";
 
 type Difficulty = "쉬움" | "보통" | "어려움";
+type Kind = "multiple-choice" | "short-answer" | "essay";
 
 const COUNT_OPTIONS = [1, 3, 5, 10];
+
+const KIND_OPTIONS: Array<{ value: Kind; label: string; subtitle: string }> = [
+  { value: "multiple-choice", label: "객관식", subtitle: "4지선다" },
+  { value: "short-answer", label: "단답형", subtitle: "단어·구·수식" },
+  { value: "essay", label: "서술형", subtitle: "모범답안 비교" },
+];
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -22,9 +29,21 @@ export function GenerateForm({
   const router = useRouter();
   const [difficulty, setDifficulty] = useState<Difficulty>("보통");
   const [count, setCount] = useState(5);
+  // kinds 빈 배열이면 객관식만 (종전 동작). 학생이 chip 토글하면 활성화.
+  const [kinds, setKinds] = useState<Set<Kind>>(new Set());
+  const [scope, setScope] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const { job, error: pollError } = useJob(jobId);
+
+  function toggleKind(k: Kind) {
+    setKinds((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }
 
   const isReal = UUID_RE.test(materialId);
   const busy = jobId !== null && job?.status !== "done" && job?.status !== "error";
@@ -43,7 +62,12 @@ export function GenerateForm({
       const res = await fetch(`/api/materials/${materialId}/quiz`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ difficulty, count }),
+        body: JSON.stringify({
+          difficulty,
+          count,
+          kinds: Array.from(kinds),
+          scope: scope.trim(),
+        }),
       });
       const json = (await res.json()) as { ok: boolean; jobId?: string; error?: string };
       if (!res.ok || !json.ok || !json.jobId) {
@@ -117,6 +141,61 @@ export function GenerateForm({
             );
           })}
         </ul>
+      </FieldGroup>
+
+      <FieldGroup
+        label="문제 종류"
+        hint={kinds.size === 0 ? "기본: 객관식만" : `${kinds.size}/3 선택`}
+        className="mt-7"
+      >
+        <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
+          {KIND_OPTIONS.map(({ value, label, subtitle }) => {
+            const active = kinds.has(value);
+            // 단답·서술은 풀이 UI가 아직 객관식만 동작 → 안내
+            const isSolveSupported = value === "multiple-choice";
+            return (
+              <li key={value}>
+                <button
+                  type="button"
+                  onClick={() => toggleKind(value)}
+                  aria-pressed={active}
+                  className={cn(
+                    "inline-flex items-baseline gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] transition-colors",
+                    active
+                      ? "wght-560 bg-[var(--color-apple-ink)] text-white"
+                      : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
+                  )}
+                  title={
+                    !isSolveSupported
+                      ? "단답·서술은 생성은 되지만, 자동 풀이는 곧 추가될 예정이에요."
+                      : undefined
+                  }
+                >
+                  {label}
+                  <span
+                    className={cn(
+                      "text-[10.5px] wght-450 tabular-nums",
+                      active ? "text-white/65" : "text-[var(--color-apple-muted)]/65",
+                    )}
+                  >
+                    {subtitle}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </FieldGroup>
+
+      <FieldGroup label="출제 범위" hint="선택 — 비워두면 자료 전체" className="mt-7">
+        <input
+          type="text"
+          value={scope}
+          onChange={(e) => setScope(e.target.value.slice(0, 200))}
+          placeholder="예: 1~3장만 / p.10~30 위주"
+          className="w-full rounded-full border border-[var(--color-apple-hairline)] bg-white px-4 py-2 text-[13px] wght-450 text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)] placeholder:text-[var(--color-apple-muted)]/55"
+          style={{ letterSpacing: "-0.012em" }}
+        />
       </FieldGroup>
 
       {errorMsg && (
