@@ -79,6 +79,21 @@ function Empty({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Activity kind → 컬러. study/RecentActivity와 같은 매핑.
+ * 화면 간 같은 활동이 같은 색으로 보이게 일관 유지.
+ */
+function activityColor(kind: Activity["kind"]): string {
+  switch (kind) {
+    case "summarize": return "#7aa6d6"; // cobalt
+    case "quiz": return "#e0445e"; // coral
+    case "syllabus": return "#7fb38c"; // sage
+    case "presentation": return "#7aa6d6"; // cobalt
+    case "wizard": return "#a08bc4"; // mauve
+    case "attempt": return "#cca06b"; // mustard
+  }
+}
+
 function ActivityList({ activities, className }: { activities: Activity[]; className?: string }) {
   const byDate = new Map<string, Activity[]>();
   for (const a of activities) {
@@ -98,39 +113,53 @@ function ActivityList({ activities, className }: { activities: Activity[]; class
               {formatDayLabel(day)}
             </p>
             <ul className="mt-3 overflow-hidden rounded-[12px] border border-[var(--color-apple-hairline)] bg-white">
-              {byDate.get(day)!.map((a, idx, arr) => (
-                <li
-                  key={a.id}
-                  className={
-                    idx !== arr.length - 1 ? "border-b border-[var(--color-apple-hairline-soft)]" : ""
-                  }
-                >
-                  <Link
-                    href={a.href}
-                    className="grid grid-cols-[60px_1fr_auto] items-center gap-4 px-5 py-[18px] transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[80px_1fr_auto] sm:gap-5 sm:px-7"
+              {byDate.get(day)!.map((a, idx, arr) => {
+                const accent = activityColor(a.kind);
+                return (
+                  <li
+                    key={a.id}
+                    className={
+                      idx !== arr.length - 1
+                        ? "border-b border-[var(--color-apple-hairline-soft)]"
+                        : ""
+                    }
                   >
-                    <span className="text-[11px] wght-450 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-                      {a.kindLabel}
-                    </span>
-                    <span className="min-w-0">
+                    <Link
+                      href={a.href}
+                      className="group relative grid grid-cols-[60px_1fr_auto] items-center gap-4 px-5 py-[18px] transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[80px_1fr_auto] sm:gap-5 sm:px-7"
+                    >
+                      {/* 좌측 컬러 단서 — 평소 작고 hover에서 늘어남 */}
                       <span
-                        className="block truncate text-[14px] wght-560 text-[var(--color-apple-ink)]"
-                        style={{ letterSpacing: "-0.012em" }}
+                        aria-hidden
+                        className="absolute left-0 top-1/2 h-[8px] w-[2px] -translate-y-1/2 rounded-full transition-all duration-200 group-hover:h-[24px] group-hover:w-[2.5px]"
+                        style={{ backgroundColor: accent }}
+                      />
+                      <span
+                        className="text-[11px] wght-620 uppercase tabular-nums"
+                        style={{ letterSpacing: "0.06em", color: accent }}
                       >
-                        {a.title}
+                        {a.kindLabel}
                       </span>
-                      {a.detail && (
-                        <span className="mt-1 block truncate text-[12px] wght-450 text-[var(--color-apple-muted)]">
-                          {a.detail}
+                      <span className="min-w-0">
+                        <span
+                          className="block truncate text-[14px] wght-560 text-[var(--color-apple-ink)]"
+                          style={{ letterSpacing: "-0.012em" }}
+                        >
+                          {a.title}
                         </span>
-                      )}
-                    </span>
-                    <span className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
-                      {formatTime(a.createdAt)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
+                        {a.detail && (
+                          <span className="mt-1 block truncate text-[12px] wght-450 text-[var(--color-apple-muted)]">
+                            {a.detail}
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)] transition-colors group-hover:text-[var(--color-apple-ink)]">
+                        {formatTime(a.createdAt)}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
