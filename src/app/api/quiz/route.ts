@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { parseDocument, ParserRejectedError } from "@/lib/parsers";
-import { guardRateLimit } from "@/lib/ratelimit";
+import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
 import { runQuizGeneration, type Difficulty } from "@/lib/services/quiz";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { storeMaterialFile } from "@/lib/storage";
@@ -46,7 +46,7 @@ interface QuizResponseErr {
  * 신규 파일 업로드 + 첫 퀴즈. 라우트의 책임은 인증 + 파일 → materials 행까지.
  * 모델 호출·검증·저장은 lib/services/quiz.ts에 위임.
  */
-export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | QuizResponseErr>> {
+export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | QuizResponseErr | RateLimitErrBody>> {
   let ownerId: string;
   try {
     ownerId = await getOwnerId();
@@ -57,9 +57,9 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
     throw e;
   }
 
-  const uploadBlock = await guardRateLimit<QuizResponseOk | QuizResponseErr>("upload", ownerId);
+  const uploadBlock = await guardRateLimit("upload", ownerId);
   if (uploadBlock) return uploadBlock;
-  const aiBlock = await guardRateLimit<QuizResponseOk | QuizResponseErr>("ai", ownerId);
+  const aiBlock = await guardRateLimit("ai", ownerId);
   if (aiBlock) return aiBlock;
 
   const contentType = req.headers.get("content-type") ?? "";

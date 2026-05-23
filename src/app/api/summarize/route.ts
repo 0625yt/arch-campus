@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { parseDocument, ParserRejectedError } from "@/lib/parsers";
-import { guardRateLimit } from "@/lib/ratelimit";
+import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
 import { runSummarize } from "@/lib/services/summarize";
 import { type SummarizeOutputT } from "@/lib/schemas";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -42,7 +42,7 @@ interface SummarizeResponseError {
  */
 export async function POST(
   req: Request,
-): Promise<NextResponse<SummarizeResponseOk | SummarizeResponseError>> {
+): Promise<NextResponse<SummarizeResponseOk | SummarizeResponseError | RateLimitErrBody>> {
   let ownerId: string;
   try {
     ownerId = await getOwnerId();
@@ -54,9 +54,9 @@ export async function POST(
   }
 
   // 신규 업로드 + AI 호출 — upload·ai 둘 다 캡. 둘 중 먼저 hit하는 게 작동.
-  const uploadBlock = await guardRateLimit<SummarizeResponseOk | SummarizeResponseError>("upload", ownerId);
+  const uploadBlock = await guardRateLimit("upload", ownerId);
   if (uploadBlock) return uploadBlock;
-  const aiBlock = await guardRateLimit<SummarizeResponseOk | SummarizeResponseError>("ai", ownerId);
+  const aiBlock = await guardRateLimit("ai", ownerId);
   if (aiBlock) return aiBlock;
 
   const contentType = req.headers.get("content-type") ?? "";

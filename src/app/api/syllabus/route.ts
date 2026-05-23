@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { parseDocument, ParserRejectedError } from "@/lib/parsers";
-import { guardRateLimit } from "@/lib/ratelimit";
+import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
 import { inferSemester } from "@/lib/semester";
 import { runSyllabusExtraction } from "@/lib/services/syllabus";
 import { type SyllabusOutputT } from "@/lib/schemas";
@@ -31,7 +31,7 @@ interface ErrResponse {
  * 강의계획서 파일 업로드 → AI 파싱 → courses upsert → events 후보 반환.
  * 후보는 즉시 DB에 박지 않음 (사용자 검토 후 /api/syllabus/confirm).
  */
-export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrResponse>> {
+export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrResponse | RateLimitErrBody>> {
   let ownerId: string;
   try {
     ownerId = await getOwnerId();
@@ -42,9 +42,9 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     throw e;
   }
 
-  const uploadBlock = await guardRateLimit<OkResponse | ErrResponse>("upload", ownerId);
+  const uploadBlock = await guardRateLimit("upload", ownerId);
   if (uploadBlock) return uploadBlock;
-  const aiBlock = await guardRateLimit<OkResponse | ErrResponse>("ai", ownerId);
+  const aiBlock = await guardRateLimit("ai", ownerId);
   if (aiBlock) return aiBlock;
 
   let form: FormData;

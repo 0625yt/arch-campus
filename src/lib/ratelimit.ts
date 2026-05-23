@@ -145,10 +145,21 @@ import { NextResponse } from "next/server";
  * 429 body는 `{ ok:false, error, retryAfterSec }`로 통일 — 라우트의 ErrResponse가
  * 이를 표현 못 해도 T로 캐스팅해 컴파일 통과 (런타임은 그대로).
  */
-export async function guardRateLimit<T = unknown>(
+/**
+ * 429 응답 body의 정확한 형태 — 클라이언트가 안전하게 타이핑 가능.
+ * 라우트별 ErrResponse union에 이 타입을 추가해 사용.
+ */
+export interface RateLimitErrBody {
+  ok: false;
+  kind: string;
+  error: string;
+  retryAfterSec: number;
+}
+
+export async function guardRateLimit(
   kind: keyof typeof POLICIES | string,
   identifier: string,
-): Promise<NextResponse<T> | null> {
+): Promise<NextResponse<RateLimitErrBody> | null> {
   const { success, headers } = await checkRateLimit(kind, identifier);
   if (success) return null;
   // kind를 error 메시지·body에 포함 — 클라이언트가 어떤 limit에 걸렸는지 분기 가능
@@ -160,13 +171,11 @@ export async function guardRateLimit<T = unknown>(
         : kind === "login"
           ? "로그인 시도"
           : "요청";
-  return NextResponse.json(
-    {
-      ok: false,
-      kind,
-      error: `${friendlyKind} 횟수가 한도를 넘었어요. 잠시 후 다시 시도해주세요.`,
-      retryAfterSec: Number(headers["Retry-After"] ?? 60),
-    },
-    { status: 429, headers },
-  ) as NextResponse<T>;
+  const body: RateLimitErrBody = {
+    ok: false,
+    kind: String(kind),
+    error: `${friendlyKind} 횟수가 한도를 넘었어요. 잠시 후 다시 시도해주세요.`,
+    retryAfterSec: Number(headers["Retry-After"] ?? 60),
+  };
+  return NextResponse.json(body, { status: 429, headers });
 }
