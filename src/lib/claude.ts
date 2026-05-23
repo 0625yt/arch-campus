@@ -84,6 +84,63 @@ const ANTHROPIC_CACHE_1H = {
   anthropic: { cacheControl: { type: "ephemeral", ttl: "1h" } as const },
 };
 
+/**
+ * Anthropic prompt caching 최소 토큰 — 미만이면 cache_control 무시.
+ *   - Haiku 4.5: 4096 토큰
+ *   - Sonnet 4.6: 1024 토큰
+ *   - Opus  계열: 1024 토큰
+ *
+ * (2026-01 docs)
+ */
+const CACHE_MIN_TOKENS = {
+  haiku: 4096,
+  sonnet: 1024,
+  opus: 1024,
+} as const;
+
+/**
+ * rulePrompt가 캐시 최소 토큰을 충족할지 거칠게 추정.
+ *
+ * 한국어/영어 혼합 자료에서 정확한 토큰 수는 Anthropic count_tokens API로만
+ * 알 수 있다. 여기선 dev 환경 경고용으로만 쓰는 거친 추정.
+ *
+ *   - 한국어/한자 1자 ≈ 1 token (보수적)
+ *   - 영문 1단어 ≈ 1.3 token, char 4개 ≈ 1 token
+ *   - 그래서 "char count / 2.5" 정도면 token 수 근사치
+ *
+ * 실측이 필요한 경우 generate() 호출 후 result.usage로 검증.
+ */
+function estimateTokensFromChars(text: string): number {
+  return Math.ceil(text.length / 2.5);
+}
+
+function modelTier(modelId: string): "haiku" | "sonnet" | "opus" {
+  if (modelId.includes("haiku")) return "haiku";
+  if (modelId.includes("opus")) return "opus";
+  return "sonnet";
+}
+
+/**
+ * dev 환경에서 한 번씩 경고. prod엔 노이즈만 키우니까 NODE_ENV 가드.
+ * 같은 tool은 한 번만 경고하도록 cache로 dedupe.
+ */
+const warnedCacheMissTools = new Set<ToolKind>();
+function warnIfBelowCacheMin(tool: ToolKind, modelId: string, rulePrompt: string): void {
+  if (process.env.NODE_ENV === "production") return;
+  if (warnedCacheMissTools.has(tool)) return;
+  const tier = modelTier(modelId);
+  const min = CACHE_MIN_TOKENS[tier];
+  const est = estimateTokensFromChars(rulePrompt);
+  if (est < min) {
+    warnedCacheMissTools.add(tool);
+    console.warn(
+      `[claude.cache] tool="${tool}" model=${tier} rulePrompt ≈${est}t < ${min}t. ` +
+        `prompt caching 비활성 가능 — 매 호출 정가 청구. ` +
+        `프롬프트를 늘리거나 같은 tier 안에서 모델 격상 고려.`,
+    );
+  }
+}
+
 export interface GenerateInput {
   tool: ToolKind;
   rulePrompt: string;
@@ -138,6 +195,9 @@ export async function generate({
   temperature = 0.4,
 }: GenerateInput): Promise<GenerateResult> {
   const model = resolveModel(tool);
+  const modelId =
+    typeof model === "object" && "modelId" in model ? (model.modelId as string) : String(model);
+  warnIfBelowCacheMin(tool, modelId, rulePrompt);
   const wrappedUserInput = `<user_input>\n${userInput}\n</user_input>`;
 
   const messages: ModelMessage[] = [
@@ -166,19 +226,41 @@ export async function generate({
   const meta = (result.providerMetadata?.anthropic ?? {}) as Record<string, unknown>;
   const cacheRead = Number(meta.cacheReadInputTokens ?? 0);
   const cacheCreation = Number(meta.cacheCreationInputTokens ?? 0);
-  const modelId =
-    typeof model === "object" && "modelId" in model ? (model.modelId as string) : String(model);
+  const inputTokens = result.usage.inputTokens ?? 0;
+  const outputTokens = result.usage.outputTokens ?? 0;
+  logCacheStats(tool, modelId, { inputTokens, outputTokens, cacheRead, cacheCreation });
 
   return {
     text: result.text,
     modelId,
     usage: {
-      inputTokens: result.usage.inputTokens ?? 0,
-      outputTokens: result.usage.outputTokens ?? 0,
+      inputTokens,
+      outputTokens,
       cacheReadTokens: cacheRead,
       cacheCreationTokens: cacheCreation,
     },
   };
+}
+
+/**
+ * dev 환경에서 매 호출의 캐시 stats를 한 줄로 표시 — 어디가 캐시 hit 안 하는지 즉시 보이게.
+ *   - hit: 캐시 읽기 비율 (cacheRead / (inputTokens + cacheRead)) — 높을수록 좋음
+ *   - 정가 input 비율이 높으면 prompt 구조 점검 필요
+ */
+function logCacheStats(
+  tool: ToolKind,
+  modelId: string,
+  s: { inputTokens: number; outputTokens: number; cacheRead: number; cacheCreation: number },
+): void {
+  if (process.env.NODE_ENV === "production") return;
+  const totalCached = s.cacheRead + s.cacheCreation;
+  const hitRate = totalCached > 0 ? (s.cacheRead / totalCached) * 100 : 0;
+  const tier = modelTier(modelId);
+  console.log(
+    `[claude.usage] ${tool} (${tier})  ` +
+      `in=${s.inputTokens} out=${s.outputTokens}  ` +
+      `cache: read=${s.cacheRead} write=${s.cacheCreation} hit=${hitRate.toFixed(0)}%`,
+  );
 }
 
 /**
@@ -196,6 +278,9 @@ export async function generateWithFile({
   temperature = 0.1,
 }: GenerateVisionInput): Promise<GenerateResult> {
   const model = resolveModel(tool);
+  const modelId =
+    typeof model === "object" && "modelId" in model ? (model.modelId as string) : String(model);
+  warnIfBelowCacheMin(tool, modelId, rulePrompt);
 
   // AI SDK는 PDF·이미지를 모두 같은 file 블록으로 받는다.
   // - mediaType="application/pdf" → Anthropic provider가 document(pdfs-2024-09-25)로 변환
@@ -235,15 +320,16 @@ export async function generateWithFile({
   const meta = (result.providerMetadata?.anthropic ?? {}) as Record<string, unknown>;
   const cacheRead = Number(meta.cacheReadInputTokens ?? 0);
   const cacheCreation = Number(meta.cacheCreationInputTokens ?? 0);
-  const modelId =
-    typeof model === "object" && "modelId" in model ? (model.modelId as string) : String(model);
+  const inputTokens = result.usage.inputTokens ?? 0;
+  const outputTokens = result.usage.outputTokens ?? 0;
+  logCacheStats(tool, modelId, { inputTokens, outputTokens, cacheRead, cacheCreation });
 
   return {
     text: result.text,
     modelId,
     usage: {
-      inputTokens: result.usage.inputTokens ?? 0,
-      outputTokens: result.usage.outputTokens ?? 0,
+      inputTokens,
+      outputTokens,
       cacheReadTokens: cacheRead,
       cacheCreationTokens: cacheCreation,
     },
