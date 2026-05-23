@@ -12,6 +12,9 @@ import type { EventView } from "@/lib/data/events";
 import { formatEventLabel, formatEventCompact } from "@/lib/format-event";
 import { AiEntryCard } from "./ai-entry-card";
 import { EventAIDraftPanel } from "./ai-draft-panel";
+import { DayView } from "./views/day-view";
+import { startOfWeekKst } from "./views/shared/time-grid";
+import { WeekView } from "./views/week-view";
 
 /**
  * SSR과 client 첫 paint를 일치시키기 위한 mount 플래그.
@@ -90,9 +93,42 @@ export function CalendarBoard({
     if (raw === "day" || raw === "week" || raw === "month" || raw === "year") return raw;
     return "month";
   })();
-  // scale은 URL ?scale=day|week|month|year로 진입 시에만 변경됨. 토글 UI 제거
-  // (2026-05-23) — 일/주/년 뷰가 미구현이라 사용자에게 노출 X.
-  const [scale] = useState<CalendarScale>(initialScale);
+  // scale 토글 부활 (2026-05-23) — 일/주/월 3옵션 (년은 식갑 숨김).
+  // URL ?scale= 동기화로 새로고침·외부 진입 모두 유지.
+  const [scale, setScaleState] = useState<CalendarScale>(initialScale);
+  function setScale(next: CalendarScale) {
+    setScaleState(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "month") params.delete("scale");
+    else params.set("scale", next);
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : "?");
+  }
+
+  // viewMode: "all" 또는 "timetable" (class 이벤트만). 시간표보기는 주 뷰 의미라
+  // 토글 클릭 시 자동으로 scale도 "week"로 전환 (사용자 합의 ㄱ).
+  const initialViewMode: "all" | "timetable" =
+    searchParams.get("view") === "timetable" ? "timetable" : "all";
+  const [viewMode, setViewModeState] = useState<"all" | "timetable">(initialViewMode);
+  // 일/주 뷰의 anchor 날짜 (ISO date key "YYYY-MM-DD"). 월 뷰는 view.year/month 사용.
+  const [focusDate, setFocusDate] = useState<string>(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  });
+  function setViewMode(next: "all" | "timetable") {
+    setViewModeState(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "all") params.delete("view");
+    else params.set("view", "timetable");
+    // 시간표보기 ON이면 자동 주 뷰. 이미 주/일이면 그대로.
+    if (next === "timetable" && scale !== "week") {
+      setScaleState("week");
+      params.set("scale", "week");
+    }
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : "?");
+  }
   const [view, setView] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -281,7 +317,22 @@ export function CalendarBoard({
       : [];
 
   const cells = useMemo(() => buildMonthCells(view.year, view.month), [view]);
-  const monthLabel = `${view.year}년 ${view.month + 1}월`;
+  const monthLabel = useMemo(() => {
+    if (scale === "month") return `${view.year}년 ${view.month + 1}월`;
+    const d = new Date(`${focusDate}T00:00:00+09:00`);
+    if (scale === "day") return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+    // 주 뷰: 주 시작일 ~ 끝일
+    const dow = d.getDay();
+    const start = new Date(d);
+    start.setDate(d.getDate() - dow);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const sameMonth = start.getMonth() === end.getMonth();
+    if (sameMonth) {
+      return `${start.getFullYear()}년 ${start.getMonth() + 1}월 ${start.getDate()}–${end.getDate()}일`;
+    }
+    return `${start.getMonth() + 1}월 ${start.getDate()}일 – ${end.getMonth() + 1}월 ${end.getDate()}일`;
+  }, [scale, view, focusDate]);
 
   // 날짜 → 이벤트 그룹
   const byDate = useMemo(() => {
@@ -296,17 +347,30 @@ export function CalendarBoard({
   }, [monthState]);
 
   function navigate(delta: number) {
-    setView((prev) => {
-      const m = prev.month + delta;
-      const year = prev.year + Math.floor(m / 12);
-      const month = ((m % 12) + 12) % 12;
-      return { year, month };
-    });
+    if (scale === "month") {
+      setView((prev) => {
+        const m = prev.month + delta;
+        const year = prev.year + Math.floor(m / 12);
+        const month = ((m % 12) + 12) % 12;
+        return { year, month };
+      });
+      return;
+    }
+    // 일 뷰: 1일씩. 주 뷰: 7일씩.
+    const step = scale === "day" ? delta : delta * 7;
+    const d = new Date(`${focusDate}T00:00:00+09:00`);
+    d.setDate(d.getDate() + step);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    setFocusDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
   }
 
   function goToday() {
     const now = new Date();
-    setView({ year: now.getFullYear(), month: now.getMonth() });
+    if (scale === "month") {
+      setView({ year: now.getFullYear(), month: now.getMonth() });
+    }
+    const pad = (n: number) => String(n).padStart(2, "0");
+    setFocusDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
   }
 
   if (monthEvents.length === 0 && upcoming.length === 0) {
@@ -338,11 +402,15 @@ export function CalendarBoard({
             <NavButton onClick={() => navigate(1)} aria-label="다음 달">
               ›
             </NavButton>
+            {/* 스케일 토글 — 일/주/월. 년은 식갑 숨김 (?scale=year 외부 진입은 placeholder). */}
+            <ScaleToggle scale={scale} onChange={setScale} className="ml-2" />
+            {/* 뷰 모드 토글 — 시간표만 vs 내 일정. 시간표만 클릭 시 자동 주 뷰. */}
+            <ViewModeToggle mode={viewMode} onChange={setViewMode} className="ml-1" />
             {/* hairline 구분자 — 자주 안 쓰는 액션과 시각적 분리 */}
             <span aria-hidden className="mx-1 h-4 w-px bg-[var(--color-apple-hairline)]" />
             <Link
               href="/dashboard/calendar/import?kind=timetable"
-              className="rounded-full px-2.5 py-1 text-[12px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+              className="rounded-full px-2.5 py-1 text-[13px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
               시간표 다시 올리기
@@ -416,9 +484,44 @@ export function CalendarBoard({
           </>
         )}
 
-        {scale !== "month" && (
-          <ScalePlaceholder scale={scale} className="mt-6" />
+        {scale === "week" && (
+          <WeekView
+            weekStart={startOfWeekKst(focusDate)}
+            events={monthState}
+            viewMode={viewMode}
+            onSelectEvent={(e, rect) => {
+              setSelected(e);
+              setSelectedAnchor(rect);
+              setSelectedDate(null);
+            }}
+            onSelectEmpty={(dateKey, hour) => {
+              setCreatePrefillDate(dateKey);
+              setCreatePrefillEndDate(null);
+              setCreating(true);
+              void hour; // 시간 prefill은 EventCreateForm prop 확장 필요 — 별도 sprint
+            }}
+          />
         )}
+
+        {scale === "day" && (
+          <DayView
+            dateKey={focusDate}
+            events={monthState}
+            onSelectEvent={(e, rect) => {
+              setSelected(e);
+              setSelectedAnchor(rect);
+              setSelectedDate(null);
+            }}
+            onSelectEmpty={(dateKey, hour) => {
+              setCreatePrefillDate(dateKey);
+              setCreatePrefillEndDate(null);
+              setCreating(true);
+              void hour;
+            }}
+          />
+        )}
+
+        {scale === "year" && <ScalePlaceholder scale={scale} className="mt-6" />}
       </section>
 
       {/* 데스크톱: 칩 옆 popover. 모바일: bottom sheet.
@@ -592,6 +695,100 @@ function ScalePlaceholder({ scale, className }: { scale: CalendarScale; classNam
       >
         곧 일·주·년 보기도 같은 톤으로 채워드릴게요. 지금은 월 보기로 전환해서 사용해 주세요.
       </p>
+    </div>
+  );
+}
+
+/**
+ * 일/주/월 스케일 토글 — segmented control (DESIGN §10 풀-라운드 pill 무분별 X 룰 준수).
+ * rounded-md 컨테이너 + 활성만 흰 배경 + 작은 그림자.
+ */
+function ScaleToggle({
+  scale,
+  onChange,
+  className,
+}: {
+  scale: CalendarScale;
+  onChange: (s: CalendarScale) => void;
+  className?: string;
+}) {
+  const opts: Array<{ value: CalendarScale; label: string }> = [
+    { value: "day", label: "일" },
+    { value: "week", label: "주" },
+    { value: "month", label: "월" },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label="보기 스케일"
+      className={`inline-flex items-center gap-0.5 rounded-[8px] bg-[var(--color-apple-pearl)] p-0.5 ${className ?? ""}`}
+    >
+      {opts.map((o) => {
+        const active = scale === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(o.value)}
+            className={`inline-flex h-6 min-w-[26px] items-center justify-center rounded-[6px] px-2 text-[12px] transition-all ${
+              active
+                ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+                : "wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
+            }`}
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * 시간표보기 / 내 일정 다 보기 토글. 시간표보기 클릭 시 부모가 자동으로 주 뷰로 전환.
+ */
+function ViewModeToggle({
+  mode,
+  onChange,
+  className,
+}: {
+  mode: "all" | "timetable";
+  onChange: (m: "all" | "timetable") => void;
+  className?: string;
+}) {
+  const opts: Array<{ value: "all" | "timetable"; label: string }> = [
+    { value: "all", label: "내 일정" },
+    { value: "timetable", label: "시간표만" },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label="보기 모드"
+      className={`inline-flex items-center gap-0.5 rounded-[8px] bg-[var(--color-apple-pearl)] p-0.5 ${className ?? ""}`}
+    >
+      {opts.map((o) => {
+        const active = mode === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(o.value)}
+            className={`inline-flex h-6 items-center justify-center rounded-[6px] px-2.5 text-[12px] transition-all ${
+              active
+                ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+                : "wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
+            }`}
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -1824,7 +2021,7 @@ function isoDate(d: Date): string {
  * 색 fallback — courseColor가 우선, 없으면 kind 기준 채도 낮은 컬러.
  * (이전 버전의 kindTint/KIND_TINT 파스텔 배경은 인스펙터 재설계에서 닷·뱃지와 함께 제거됨.)
  */
-const KIND_FALLBACK_COLOR: Record<EventView["kind"], string> = {
+export const KIND_FALLBACK_COLOR: Record<EventView["kind"], string> = {
   exam: "#e0445e",       // coral
   assignment: "#cca06b", // mustard
   presentation: "#7aa6d6", // cobalt
@@ -1832,7 +2029,7 @@ const KIND_FALLBACK_COLOR: Record<EventView["kind"], string> = {
   etc: "#a08bc4",        // mauve
 };
 
-function kindColor(kind: EventView["kind"], courseColor: string | null): string {
+export function kindColor(kind: EventView["kind"], courseColor: string | null): string {
   if (courseColor) return courseColor;
   return KIND_FALLBACK_COLOR[kind];
 }
