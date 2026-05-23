@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChatComposer } from "./chat-composer";
 import { ChatMessageList, type ChatBubble } from "./chat-message-list";
 import { ChatEmptyState } from "./chat-empty-state";
+import { ChatThreadMenu, type ChatThreadSummary } from "./chat-thread-menu";
 
 /**
  * 자료 상세 페이지의 우측 사이드 챗 패널.
@@ -35,6 +36,7 @@ export function ChatPanel({
   onJumpPage: (page: number) => void;
 }) {
   const [threadId, setThreadId] = useState<string | null>(null);
+  const [threads, setThreads] = useState<ChatThreadSummary[]>([]);
   const [messages, setMessages] = useState<ChatBubble[]>([]);
   const [pendingAssistant, setPendingAssistant] = useState<string>("");
   const [busy, setBusy] = useState(false);
@@ -43,7 +45,23 @@ export function ChatPanel({
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // open 시점에 기존 thread 목록 fetch → 가장 최근 하나 선택. 없으면 빈 상태.
+  // 특정 thread의 메시지 로드 — 선택 변경 시 재사용
+  const loadMessagesFor = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/chat/threads/${id}/messages`);
+      const body = (await res.json()) as {
+        ok: boolean;
+        messages?: ChatBubble[];
+        error?: string;
+      };
+      if (body.ok) setMessages(body.messages ?? []);
+    } catch {
+      // 일시 오류는 빈 상태로 둠
+      setMessages([]);
+    }
+  }, []);
+
+  // open 시점에 기존 thread 목록 fetch → 가장 최근 하나 자동 선택
   useEffect(() => {
     if (!open || hydrated) return;
     let cancelled = false;
@@ -52,7 +70,7 @@ export function ChatPanel({
         const res = await fetch(`/api/chat/threads?materialId=${materialId}`);
         const body = (await res.json()) as {
           ok: boolean;
-          threads?: Array<{ id: string }>;
+          threads?: ChatThreadSummary[];
           error?: string;
         };
         if (cancelled) return;
@@ -61,19 +79,12 @@ export function ChatPanel({
           setHydrated(true);
           return;
         }
-        const recent = body.threads?.[0];
+        const list = body.threads ?? [];
+        setThreads(list);
+        const recent = list[0];
         if (recent) {
           setThreadId(recent.id);
-          // 해당 thread 메시지 로드
-          const msgRes = await fetch(`/api/chat/threads/${recent.id}/messages`);
-          const msgBody = (await msgRes.json()) as {
-            ok: boolean;
-            messages?: ChatBubble[];
-            error?: string;
-          };
-          if (!cancelled && msgBody.ok) {
-            setMessages(msgBody.messages ?? []);
-          }
+          await loadMessagesFor(recent.id);
         }
         setHydrated(true);
       } catch (e) {
@@ -86,7 +97,74 @@ export function ChatPanel({
     return () => {
       cancelled = true;
     };
-  }, [open, materialId, hydrated]);
+  }, [open, materialId, hydrated, loadMessagesFor]);
+
+  // thread 선택 — 다른 대화로 전환
+  const selectThread = useCallback(
+    async (id: string) => {
+      if (id === threadId) return;
+      setThreadId(id);
+      setMessages([]);
+      setPendingAssistant("");
+      setError(null);
+      await loadMessagesFor(id);
+    },
+    [threadId, loadMessagesFor],
+  );
+
+  // 새 대화 시작 — thread 없는 상태로 reset. 첫 메시지 보낼 때 POST /threads로 생성됨.
+  const startNewThread = useCallback(() => {
+    setThreadId(null);
+    setMessages([]);
+    setPendingAssistant("");
+    setError(null);
+  }, []);
+
+  const renameThread = useCallback(async (id: string, nextTitle: string) => {
+    try {
+      const res = await fetch(`/api/chat/threads/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: nextTitle }),
+      });
+      const body = (await res.json()) as { ok: boolean; error?: string };
+      if (!body.ok) {
+        setError(body.error ?? "이름 변경 실패");
+        return;
+      }
+      setThreads((prev) => prev.map((t) => (t.id === id ? { ...t, title: nextTitle } : t)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "네트워크 오류");
+    }
+  }, []);
+
+  const deleteThread = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(`/api/chat/threads/${id}`, { method: "DELETE" });
+        const body = (await res.json()) as { ok: boolean; error?: string };
+        if (!body.ok) {
+          setError(body.error ?? "삭제 실패");
+          return;
+        }
+        setThreads((prev) => prev.filter((t) => t.id !== id));
+        // 지금 보고 있던 thread가 삭제됐으면 다른 thread로 이동 또는 빈 상태
+        if (id === threadId) {
+          const next = threads.find((t) => t.id !== id);
+          if (next) {
+            setThreadId(next.id);
+            await loadMessagesFor(next.id);
+          } else {
+            setThreadId(null);
+            setMessages([]);
+          }
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "네트워크 오류");
+      }
+    },
+    [threadId, threads, loadMessagesFor],
+  );
 
   // 새 메시지 들어올 때마다 스크롤 내림
   useEffect(() => {
@@ -113,6 +191,7 @@ export function ChatPanel({
           const body = (await res.json()) as {
             ok: boolean;
             threadId?: string;
+            title?: string;
             error?: string;
           };
           if (!body.ok || !body.threadId) {
@@ -122,6 +201,16 @@ export function ChatPanel({
           }
           useThreadId = body.threadId;
           setThreadId(useThreadId);
+          // 목록 맨 앞에 새 thread 박음 — 메뉴 즉시 반영
+          setThreads((prev) => [
+            {
+              id: body.threadId!,
+              title: body.title ?? "새 대화",
+              last_message_at: null,
+              created_at: new Date().toISOString(),
+            },
+            ...prev,
+          ]);
         } catch (e) {
           setError(e instanceof Error ? e.message : "네트워크 오류");
           setBusy(false);
@@ -230,30 +319,42 @@ export function ChatPanel({
         className="fixed inset-0 z-50 flex flex-col bg-white md:inset-y-0 md:right-0 md:left-auto md:w-[380px] md:border-l md:border-[var(--color-apple-hairline)] md:shadow-xl"
         aria-label="자료 챗"
       >
-        <header className="flex items-center justify-between border-b border-[var(--color-apple-hairline)] px-5 py-3.5">
-          <div className="min-w-0">
-            <p
-              className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-              style={{ letterSpacing: "0.06em" }}
+        <header className="border-b border-[var(--color-apple-hairline)] px-5 py-3.5">
+          <div className="flex items-start justify-between">
+            <div className="min-w-0">
+              <p
+                className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
+                style={{ letterSpacing: "0.06em" }}
+              >
+                이 자료 같이 보기
+              </p>
+              <h2
+                className="mt-0.5 truncate text-[14px] wght-620 text-[var(--color-apple-ink)]"
+                style={{ letterSpacing: "-0.012em" }}
+                title={materialTitle}
+              >
+                {materialTitle}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="ml-3 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-surface,#f5f5f7)] hover:text-[var(--color-apple-ink)]"
+              aria-label="닫기"
             >
-              이 자료 같이 보기
-            </p>
-            <h2
-              className="mt-0.5 truncate text-[14px] wght-620 text-[var(--color-apple-ink)]"
-              style={{ letterSpacing: "-0.012em" }}
-              title={materialTitle}
-            >
-              {materialTitle}
-            </h2>
+              ✕
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ml-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-surface,#f5f5f7)] hover:text-[var(--color-apple-ink)]"
-            aria-label="닫기"
-          >
-            ✕
-          </button>
+          <div className="mt-2 flex justify-end">
+            <ChatThreadMenu
+              threads={threads}
+              currentId={threadId}
+              onSelect={(id) => void selectThread(id)}
+              onCreateNew={startNewThread}
+              onRename={renameThread}
+              onDelete={deleteThread}
+            />
+          </div>
         </header>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">

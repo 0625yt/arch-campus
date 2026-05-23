@@ -194,7 +194,25 @@ export function ChatView() {
   return (
     <div className="relative min-h-full bg-[var(--color-apple-pearl)]">
       <div className="mx-auto flex w-full max-w-[820px] flex-col px-4 sm:px-10 md:px-12">
-        <div className="flex-1 pb-[200px] pt-10 sm:pt-14">
+        {/* 자료 기반 챗 안내 — 정책상 진짜 RAG 챗은 자료 페이지에서 열림.
+            이 페이지는 "어디로 가면 되는지" 안내 라우터 역할. */}
+        <div className="mt-8 rounded-[12px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3 sm:mt-10">
+          <p
+            className="text-[12.5px] leading-[1.5] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.022em" }}
+          >
+            본격 자료 챗은{" "}
+            <Link
+              href="/dashboard/study"
+              className="wght-560 text-[var(--color-apple-action)] hover:underline"
+            >
+              공부 → 강의 → 자료
+            </Link>{" "}
+            안에서 열려요. 자료 본문 인용·페이지 점프까지 같이.
+          </p>
+        </div>
+
+        <div className="flex-1 pb-[200px] pt-6 sm:pt-8">
           {messages.length === 0 ? (
             <EmptyHint
               onPick={(q) => {
