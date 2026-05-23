@@ -152,9 +152,15 @@ export function useActiveJobs() {
     // Realtime — jobs 테이블 INSERT/UPDATE/DELETE 시 debounce 후 refetch.
     // 필터 X (사용자 본인 owner_id row만 RLS에 의해 도달).
     // polling은 그대로 유지 — Realtime 끊긴 짧은 구간의 안전망.
+    //
+    // 채널 이름 unique: 같은 페이지에서 hook이 두 번 마운트되거나 (StrictMode 또는 dock과 다른
+    // 컴포넌트가 동시에 호출) supabase-js가 같은 채널을 재사용해서 subscribe() 후 .on()을
+    // 박으려 하면 throw — "cannot add postgres_changes callbacks ... after subscribe()".
+    // 매 instance마다 별도 채널 이름을 줘서 충돌 봉인.
     const supabase = getBrowserSupabase();
+    const channelName = `active-jobs:${typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`;
     const channel = supabase
-      .channel("active-jobs")
+      .channel(channelName)
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, () => {
         debouncedPing();
       })
