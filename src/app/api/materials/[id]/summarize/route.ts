@@ -3,6 +3,11 @@ import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
 import { runSummarize } from "@/lib/services/summarize";
 import { getAdminSupabase } from "@/lib/supabase/admin";
+import {
+  type SummaryStyle,
+  STYLE_ORDER,
+  MAX_STYLES_PER_REQUEST,
+} from "@/lib/material-policy";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -20,7 +25,7 @@ export const maxDuration = 300;
  * 폴링: GET /api/jobs/{jobId}
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   let ownerId: string;
@@ -34,6 +39,24 @@ export async function POST(
   }
 
   const { id: materialId } = await params;
+
+  // body는 옵션 — { styles?: string[] } 또는 빈 body 모두 허용
+  let styles: SummaryStyle[] = [];
+  try {
+    const raw = await req.text();
+    if (raw.trim()) {
+      const parsed = JSON.parse(raw) as { styles?: unknown };
+      if (Array.isArray(parsed.styles)) {
+        styles = parsed.styles
+          .filter((s): s is SummaryStyle =>
+            typeof s === "string" && (STYLE_ORDER as readonly string[]).includes(s),
+          )
+          .slice(0, MAX_STYLES_PER_REQUEST);
+      }
+    }
+  } catch {
+    // body 파싱 실패해도 styles 기본값(빈 배열)로 진행 — 종전 동작과 동일
+  }
 
   const admin = getAdminSupabase();
   const { data: material, error: fetchErr } = await admin
@@ -55,12 +78,17 @@ export async function POST(
     );
   }
 
-  // 작업 큐 등록
+  // 작업 큐 등록 — styles도 inputParams에 넣어 jobs 디버깅에 도움
   const { job, isNew } = await enqueueJob({
     ownerId,
     materialId: material.id,
     tool: "summarize",
-    inputParams: { materialId: material.id, title: material.title, type: material.type },
+    inputParams: {
+      materialId: material.id,
+      title: material.title,
+      type: material.type,
+      styles,
+    },
   });
 
   // 이미 진행 중인 작업이면 재실행 안 하고 같은 jobId 반환
@@ -86,6 +114,7 @@ export async function POST(
         sanitizedText: fullText,
         pageCount: material.page_count ?? null,
         parserWarnings: [],
+        styles,
       });
 
       if (!result.ok) {

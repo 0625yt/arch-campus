@@ -1,6 +1,11 @@
 import "server-only";
 import { generate, estimateCost } from "@/lib/claude";
 import { classifyMaterial, classificationToContext, type Classification } from "@/lib/classify-material";
+import {
+  type SummaryStyle,
+  STYLE_LABEL,
+  MAX_STYLES_PER_REQUEST,
+} from "@/lib/material-policy";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -49,6 +54,12 @@ export interface SummarizeInput {
   sanitizedText: string;
   pageCount: number | null;
   parserWarnings: string[];
+  /**
+   * 요청된 요약 스타일 (C 단계, 사용자가 picker로 선택).
+   * 미지정·빈 배열이면 일반 요약 (기존 동작).
+   * 다중 선택 시 한 호출 안에서 모두 반영 (비용 통제).
+   */
+  styles?: SummaryStyle[];
 }
 
 export async function runSummarize(input: SummarizeInput): Promise<SummarizeResult> {
@@ -67,6 +78,8 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
 
   // 룰 + 동적 컨텍스트
   const rulePrompt = loadPrompt("summarize");
+  // 스타일 4개 max — UI에서 제한하지만 서버에서도 한 번 더 cap
+  const styles = (input.styles ?? []).slice(0, MAX_STYLES_PER_REQUEST);
   const dynamicContext = buildDynamicContext({
     title: input.title,
     type: input.type,
@@ -74,6 +87,7 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     isMetadataOnly,
     parserWarnings: input.parserWarnings,
     classification,
+    styles,
   });
   const tokenBudget = breakdown({
     rule: rulePrompt,
@@ -172,6 +186,7 @@ function buildDynamicContext(meta: {
   isMetadataOnly?: boolean;
   parserWarnings?: string[];
   classification?: Classification | null;
+  styles?: SummaryStyle[];
 }): string {
   const lines: string[] = [`자료 메타:`, `- 제목: ${meta.title}`, `- 종류: ${meta.type}`];
   if (meta.pageCount) lines.push(`- 분량: ${meta.pageCount}쪽`);
@@ -181,6 +196,20 @@ function buildDynamicContext(meta: {
   if (meta.classification) {
     lines.push("", classificationToContext(meta.classification));
   }
+
+  // 요청된 요약 스타일 — 한 호출 안에서 모두 반영. 섹션으로 나눠 출력.
+  // 스타일별 출력 가이드는 src/prompts/summarize.md의 "## 요청된 스타일 분기" 섹션이 처리.
+  if (meta.styles && meta.styles.length > 0) {
+    const labelList = meta.styles.map((s) => STYLE_LABEL[s]).join(", ");
+    lines.push(
+      "",
+      "## 요청된 요약 스타일",
+      `학생이 선택한 스타일: **${labelList}**`,
+      "각 스타일을 blocks 안에서 h2 섹션으로 나눠 모두 반영. 한 스타일이 다른 스타일을 잠식하지 않게 골고루.",
+      "스타일별 출력 규칙은 시스템 프롬프트의 '요청된 스타일 분기' 섹션을 따른다.",
+    );
+  }
+
   if (meta.isMetadataOnly) {
     lines.push(
       "",

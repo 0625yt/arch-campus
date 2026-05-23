@@ -5,15 +5,17 @@ import { tryGetOwnerId } from "@/lib/auth";
 import { getLatestJob } from "@/lib/data/jobs";
 import { getMaterialDetail, type MaterialDetail } from "@/lib/data/materials";
 import { getExtractedExam } from "@/lib/data/quizzes";
+import { getDefaultStyles, type SummaryStyle } from "@/lib/material-policy";
 import type { SummarizeOutputT } from "@/lib/schemas";
 import { createSignedReadUrl } from "@/lib/storage";
+import { detectSubject } from "@/lib/subject-detector";
 import { ExtractExamButton } from "./extract-exam-button";
 import { ExtractExamView } from "./extract-exam-view";
 import { GenerateButton } from "./generate-button";
 import { MaterialView } from "./material-view";
 import { SplitWithConvertingLeft, SplitWithFailedLeft } from "./pdf-convert-states";
-import { SummarizeNowButton } from "./summarize-now-button";
 import { SummaryLoading } from "./summary-loading";
+import { SummarizeWithStyles } from "./summarize-with-styles";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -86,6 +88,16 @@ export default async function MaterialDetailPage({
     ? await getLatestJob({ ownerId, materialId: detail.id, tool: "exam-extract" })
     : null;
 
+  // 요약 스타일 default — 강의명·자료 제목에서 과목 추론 후 type별 추천 (2~3개)
+  // exam은 빈 배열 — picker 자체를 안 보임
+  const subject = detectSubject({
+    courseName: detail.course?.name ?? null,
+    materialTitle: detail.title,
+  });
+  const defaultStyles: SummaryStyle[] = isExamType
+    ? []
+    : getDefaultStyles(detail.type, subject);
+
   return (
     <div>
       <div className="mx-auto w-full max-w-[920px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:max-w-[1400px] md:px-12">
@@ -142,13 +154,16 @@ export default async function MaterialDetailPage({
             summarizeError={summarizeError}
             convertFailed={convertFailed}
             convertErrorMessage={convertErrorMessage}
+            defaultStyles={defaultStyles}
             className="mt-14 fade-up fade-up-3 sm:mt-16"
           />
         ) : (
           <SummaryLoading
             materialId={detail.id}
             className="mt-14 fade-up fade-up-3 sm:mt-16"
-            fallback={<EmptySummary materialId={detail.id} />}
+            fallback={
+              <EmptySummary materialId={detail.id} defaultStyles={defaultStyles} />
+            }
           />
         )}
 
@@ -339,7 +354,15 @@ function ExtractExamErrorCard({
   );
 }
 
-function EmptySummary({ materialId, className }: { materialId: string; className?: string }) {
+function EmptySummary({
+  materialId,
+  defaultStyles,
+  className,
+}: {
+  materialId: string;
+  defaultStyles: SummaryStyle[];
+  className?: string;
+}) {
   return (
     <section className={className}>
       <div className="elev-1 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
@@ -356,7 +379,7 @@ function EmptySummary({ materialId, className }: { materialId: string; className
           자료 본문을 읽어 핵심 단원·키워드·복습 포인트를 정리해드려요. 30~60초 정도 걸려요.
         </p>
         <div className="mt-7 flex justify-center">
-          <SummarizeNowButton materialId={materialId} />
+          <SummarizeWithStyles materialId={materialId} defaultStyles={defaultStyles} />
         </div>
       </div>
     </section>
@@ -377,6 +400,7 @@ function SummaryErrorCard({
   summarizeError,
   convertFailed,
   convertErrorMessage,
+  defaultStyles,
   className,
 }: {
   materialId: string;
@@ -384,6 +408,7 @@ function SummaryErrorCard({
   summarizeError: string | null;
   convertFailed: boolean;
   convertErrorMessage: string | null;
+  defaultStyles: SummaryStyle[];
   className?: string;
 }) {
   const title = convertFailed
@@ -425,8 +450,8 @@ function SummaryErrorCard({
             {convertErrorMessage}
           </p>
         )}
-        <div className="mt-7 flex flex-wrap items-center gap-2">
-          <SummarizeNowButton materialId={materialId} />
+        <div className="mt-7 flex flex-wrap items-start gap-4">
+          <SummarizeWithStyles materialId={materialId} defaultStyles={defaultStyles} />
           <Link
             href="/dashboard/study"
             className="rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3.5 py-2 text-[13px] wght-560 text-[var(--color-apple-ink)] hover:border-[var(--color-apple-action)] hover:text-[var(--color-apple-action)]"

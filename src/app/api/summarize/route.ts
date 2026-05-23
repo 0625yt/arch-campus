@@ -5,6 +5,11 @@ import { runSummarize } from "@/lib/services/summarize";
 import { type SummarizeOutputT } from "@/lib/schemas";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { storeMaterialFile } from "@/lib/storage";
+import {
+  type SummaryStyle,
+  STYLE_ORDER,
+  MAX_STYLES_PER_REQUEST,
+} from "@/lib/material-policy";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -64,6 +69,14 @@ export async function POST(
   const courseId = (form.get("courseId") ?? "") as string;
   const titleField = (form.get("title") ?? "") as string;
   const typeField = (form.get("type") ?? "lecture") as string;
+  const stylesField = (form.get("styles") ?? "") as string;
+
+  // styles는 콤마 구분 문자열로 받음 (예: "core,memorize,understand"). 모르는 코드는 버림.
+  const styles: SummaryStyle[] = stylesField
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s): s is SummaryStyle => (STYLE_ORDER as readonly string[]).includes(s))
+    .slice(0, MAX_STYLES_PER_REQUEST);
 
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ ok: false, error: "file 필드가 비어있어요" }, { status: 400 });
@@ -152,6 +165,7 @@ export async function POST(
     sanitizedText: parsed.sanitizedText,
     pageCount: parsed.pageCount ?? null,
     parserWarnings: parsed.warnings,
+    styles,
   });
 
   if (!result.ok) {

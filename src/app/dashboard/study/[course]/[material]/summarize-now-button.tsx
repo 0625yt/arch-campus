@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useJob } from "@/lib/hooks/use-job";
+import type { SummaryStyle } from "@/lib/material-policy";
 
 /**
  * "요약 만들기" — 비동기.
@@ -15,7 +16,14 @@ import { useJob } from "@/lib/hooks/use-job";
  * 작업 중 사용자가 다른 페이지로 나가도 백그라운드에서 계속 진행됨.
  * 페이지로 돌아오면 server-side에서 자료의 summary_payload를 직접 읽어 보임 (jobId 안 잡혀도 OK).
  */
-export function SummarizeNowButton({ materialId }: { materialId: string }) {
+export function SummarizeNowButton({
+  materialId,
+  styles,
+}: {
+  materialId: string;
+  /** picker에서 고른 스타일 코드들. 없으면 server가 기존 동작 (자동 판단). */
+  styles?: SummaryStyle[];
+}) {
   const router = useRouter();
   const [jobId, setJobId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -24,7 +32,11 @@ export function SummarizeNowButton({ materialId }: { materialId: string }) {
   async function handle() {
     setSubmitError(null);
     try {
-      const res = await fetch(`/api/materials/${materialId}/summarize`, { method: "POST" });
+      const res = await fetch(`/api/materials/${materialId}/summarize`, {
+        method: "POST",
+        headers: styles && styles.length > 0 ? { "content-type": "application/json" } : undefined,
+        body: styles && styles.length > 0 ? JSON.stringify({ styles }) : undefined,
+      });
       const json = (await res.json()) as {
         ok: boolean;
         jobId?: string;
