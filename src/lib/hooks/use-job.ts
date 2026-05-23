@@ -43,6 +43,11 @@ export function useJob(jobId: string | null) {
   const [loading, setLoading] = useState<boolean>(Boolean(jobId));
   const [error, setError] = useState<string | null>(null);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Realtime channel은 inner async에서 만들어지므로 ref로 보관 → effect cleanup에서 제거.
+  // 이걸 안 하면 jobId 변경·언마운트 시 channel이 누적돼 누수.
+  const channelRef = useRef<ReturnType<ReturnType<typeof getBrowserSupabase>["channel"]> | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!jobId) {
@@ -103,7 +108,9 @@ export function useJob(jobId: string | null) {
         return;
       }
 
-      // 2) Realtime 구독
+      if (cancelled) return;
+
+      // 2) Realtime 구독 — channelRef에 박아두면 effect cleanup이 안전하게 해제
       const supabase = getBrowserSupabase();
       const channel = supabase
         .channel(`job:${jobId}`)
@@ -116,7 +123,6 @@ export function useJob(jobId: string | null) {
             filter: `id=eq.${jobId}`,
           },
           (payload) => {
-            // payload.new는 jobs row의 raw 컬럼명. ClientJobView로 매핑.
             const r = payload.new as Record<string, unknown>;
             const next: ClientJobView = {
               id: String(r.id),
@@ -133,14 +139,10 @@ export function useJob(jobId: string | null) {
           },
         )
         .subscribe();
+      channelRef.current = channel;
 
       // 3) Realtime 안전망 — 4초 polling fallback
       scheduleFallbackPoll();
-
-      // cleanup
-      return () => {
-        supabase.removeChannel(channel);
-      };
     })().catch(() => {});
 
     return () => {
@@ -148,6 +150,11 @@ export function useJob(jobId: string | null) {
       if (fallbackTimerRef.current) {
         clearTimeout(fallbackTimerRef.current);
         fallbackTimerRef.current = null;
+      }
+      if (channelRef.current) {
+        const supabase = getBrowserSupabase();
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
     };
   }, [jobId]);

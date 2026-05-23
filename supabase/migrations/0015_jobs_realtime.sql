@@ -16,5 +16,3 @@
 alter table public.jobs replica identity full;
 
 alter publication supabase_realtime add table public.jobs;
-
-notify pgrst, 'reload schema';

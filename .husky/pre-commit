@@ -1,0 +1,15 @@
+# gitleaks — staged 변경에서 secret(.env·API key 등) 패턴 검출.
+# 미설치 시 자동 skip (CI에서만 강제하고 싶은 팀원 대비).
+# 설치: brew install gitleaks
+#
+# 예외가 필요한 false-positive는 .gitleaks.toml 또는 git commit --no-verify (비추, 명시적 우회)
+if command -v gitleaks >/dev/null 2>&1; then
+  echo "[pre-commit] gitleaks scan..."
+  gitleaks protect --staged --redact --no-banner || {
+    echo "[pre-commit] secret 패턴 검출! 위 출력 확인 후 .env / 키 파일 제거."
+    echo "절대 우회하지 마세요 — push 후엔 GitHub 캐시·fork에 영원히 남습니다."
+    exit 1
+  }
+else
+  echo "[pre-commit] gitleaks 미설치 — secret scan 건너뜀. 'brew install gitleaks' 권장."
+fi

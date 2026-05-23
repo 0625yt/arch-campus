@@ -131,20 +131,32 @@ export function useActiveJobs() {
     }
     refetchListeners.add(pingNow);
 
+    // Realtime burst (한 자료 처리 중 잡이 pending→running→done 3번 update)에 매번 refetch 가지 않게
+    // 300ms 안에 들어온 추가 트리거는 한 번으로 합침.
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    function debouncedPing() {
+      if (cancelled || stoppedRef.current) return;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        pingNow();
+      }, 300);
+    }
+
     function syncOptimistic(rows: OptimisticJob[]) {
       if (cancelled) return;
       setOptimistic(rows);
     }
     optimisticListeners.add(syncOptimistic);
 
-    // Realtime — jobs 테이블 INSERT/UPDATE/DELETE 시 즉시 refetch.
+    // Realtime — jobs 테이블 INSERT/UPDATE/DELETE 시 debounce 후 refetch.
     // 필터 X (사용자 본인 owner_id row만 RLS에 의해 도달).
     // polling은 그대로 유지 — Realtime 끊긴 짧은 구간의 안전망.
     const supabase = getBrowserSupabase();
     const channel = supabase
       .channel("active-jobs")
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, () => {
-        pingNow();
+        debouncedPing();
       })
       .subscribe();
 
@@ -155,6 +167,7 @@ export function useActiveJobs() {
       refetchListeners.delete(pingNow);
       optimisticListeners.delete(syncOptimistic);
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
   }, []);
