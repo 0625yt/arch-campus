@@ -245,8 +245,8 @@ function UrgentCard({ wizard }: { wizard: Wizard }) {
   const dotColor = CATEGORY[wizard.category];
 
   return (
-    <Link
-      href={wizardHref(wizard)}
+    <WizardLinkWrap
+      wizard={wizard}
       className="group elev-hover-2 flex min-h-[200px] flex-col justify-between rounded-[18px] bg-white p-7"
     >
       <div>
@@ -284,7 +284,7 @@ function UrgentCard({ wizard }: { wizard: Wizard }) {
           ›
         </span>
       </div>
-    </Link>
+    </WizardLinkWrap>
   );
 }
 
@@ -365,8 +365,8 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
   const tint = categoryTint(wizard.category);
 
   return (
-    <Link
-      href={wizardHref(wizard)}
+    <WizardLinkWrap
+      wizard={wizard}
       className="group elev-hover-2 relative flex h-full flex-col overflow-hidden rounded-[12px] bg-white p-5 sm:p-6"
     >
       {/* 좌측 카테고리 리본 — 평소 거의 안 보이다가 hover에 살짝 더 진해짐 */}
@@ -431,7 +431,7 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
           ›
         </span>
       </div>
-    </Link>
+    </WizardLinkWrap>
   );
 }
 
@@ -455,6 +455,37 @@ function wizardHref(wizard: Wizard) {
   if (wizard.slug === "exam-cram") return "/dashboard/tools/exam-cram";
   if (wizard.slug === "report-checklist") return "/dashboard/tools/report-checklist";
   return `/dashboard/chat?q=${encodeURIComponent(wizard.query)}`;
+}
+
+/**
+ * 준비된 위저드만 Link, 아니면 div + 비활성 톤.
+ * "준비 중" 카드를 클릭하면 mock 챗 페이지로 이동해 사용자가 혼란해 함 — 클릭 자체 봉인.
+ */
+function WizardLinkWrap({
+  wizard,
+  className,
+  children,
+}: {
+  wizard: Wizard;
+  className: string;
+  children: React.ReactNode;
+}) {
+  if (wizard.ready) {
+    return (
+      <Link href={wizardHref(wizard)} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <div
+      className={`${className} cursor-not-allowed opacity-60`}
+      aria-disabled="true"
+      title="준비 중인 위저드예요"
+    >
+      {children}
+    </div>
+  );
 }
 
 /**

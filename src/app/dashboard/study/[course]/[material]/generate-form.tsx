@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Arrow } from "@/components/primitives";
@@ -90,6 +91,13 @@ export function GenerateForm({
 
   const errorMsg =
     submitError ?? pollError ?? (job?.status === "error" ? job.errorMessage : null);
+
+  // 새 퀴즈 done 상태인데 자동 navigate가 실패했을 때 (브라우저 prefetch 취소·focus 잃음 등)
+  // 사용자가 직접 클릭할 수 있는 Link도 박는다.
+  const doneQuizId =
+    job?.status === "done"
+      ? ((job.result as { quizId?: string } | null)?.quizId ?? null)
+      : null;
 
   void courseSlug; // future: log course context
 
@@ -208,21 +216,32 @@ export function GenerateForm({
       )}
 
       <div className="sticky bottom-0 -mx-5 -mb-5 mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-apple-hairline)] bg-white px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5">
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={busy}
-          className={cn(
-            "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13.5px] wght-560 transition-all duration-[var(--duration-fast)]",
-            busy
-              ? "cursor-wait bg-[var(--color-apple-pearl)] text-[var(--color-apple-muted)]"
-              : "bg-[var(--color-apple-ink)] text-white hover:opacity-90",
-          )}
-        >
-          {busy && <Spinner />}
-          {busy ? "AI가 만들고 있어요…" : `${count}문제 만들기`}
-          {!busy && <Arrow className="text-[12px] transition-transform group-hover:translate-x-0.5" />}
-        </button>
+        {doneQuizId ? (
+          <Link
+            href={`/dashboard/quiz/${doneQuizId}`}
+            className="group inline-flex items-center gap-2 rounded-full bg-[var(--color-apple-ink)] px-5 py-2.5 text-[13.5px] wght-560 text-white transition-opacity hover:opacity-90"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            새 문제 풀러가기
+            <Arrow className="text-[12px] transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={busy}
+            className={cn(
+              "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13.5px] wght-560 transition-all duration-[var(--duration-fast)]",
+              busy
+                ? "cursor-wait bg-[var(--color-apple-pearl)] text-[var(--color-apple-muted)]"
+                : "bg-[var(--color-apple-ink)] text-white hover:opacity-90",
+            )}
+          >
+            {busy && <Spinner />}
+            {busy ? "AI가 만들고 있어요…" : `${count}문제 만들기`}
+            {!busy && <Arrow className="text-[12px] transition-transform group-hover:translate-x-0.5" />}
+          </button>
+        )}
 
         {busy ? (
           <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)]">
