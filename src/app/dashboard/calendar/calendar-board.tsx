@@ -10,6 +10,7 @@ import { Modal } from "@/components/modal";
 import { Popover } from "@/components/popover";
 import type { EventView } from "@/lib/data/events";
 import { formatEventLabel, formatEventCompact } from "@/lib/format-event";
+import { AiEntryCard } from "./ai-entry-card";
 import { EventAIDraftPanel } from "./ai-draft-panel";
 
 /**
@@ -314,33 +315,7 @@ export function CalendarBoard({
 
   return (
     <div className="mt-8 fade-up fade-up-1">
-      {/* AI 자연어 검색바 — 헤더 아래 1급 진입점. 클릭하면 AI 모드 모달 열림.
-          학생이 페이지 진입 즉시 "여기 AI 되네" 인지하도록 search-bar 톤. */}
-      <button
-        type="button"
-        onClick={() => setCreating(true)}
-        className="group mb-6 flex w-full items-center gap-3 rounded-[14px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3.5 text-left transition-all hover:border-[var(--color-apple-action)]/40 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] sm:px-5 sm:py-4"
-      >
-        <span
-          aria-hidden
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-apple-action)]/10 text-[14px] text-[var(--color-apple-action)] transition-colors group-hover:bg-[var(--color-apple-action)] group-hover:text-white"
-        >
-          ✨
-        </span>
-        <span
-          className="flex-1 text-[14px] wght-450 text-[var(--color-apple-muted)] sm:text-[15px]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          일정을 자유롭게 적어보세요 — <span className="text-[var(--color-apple-ink)]/60">다음 주 화 3시 영어 과제</span>
-        </span>
-        <span
-          aria-hidden
-          className="hidden shrink-0 rounded-full bg-[var(--color-apple-pearl)] px-2.5 py-1 text-[11px] wght-560 text-[var(--color-apple-muted)] sm:inline-flex"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          ⌘ K
-        </span>
-      </button>
+      <AiEntryCard onOpen={() => setCreating(true)} />
       <section className="elev-1 rounded-[18px] bg-white p-5 sm:p-7">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2
@@ -363,6 +338,15 @@ export function CalendarBoard({
             <NavButton onClick={() => navigate(1)} aria-label="다음 달">
               ›
             </NavButton>
+            {/* hairline 구분자 — 자주 안 쓰는 액션과 시각적 분리 */}
+            <span aria-hidden className="mx-1 h-4 w-px bg-[var(--color-apple-hairline)]" />
+            <Link
+              href="/dashboard/calendar/import?kind=timetable"
+              className="rounded-full px-2.5 py-1 text-[12px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              시간표 다시 올리기
+            </Link>
             {/* 일/주/년 뷰는 별도 sprint에서 구현 예정. 토글 노출 X — 동작 안 하는 옵션
                 보이면 사용자가 헷갈림. setScale은 외부 trigger용(URL ?scale=...)으로 유지. */}
           </div>
