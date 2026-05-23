@@ -104,14 +104,14 @@ const CACHE_MIN_TOKENS = {
  * 한국어/영어 혼합 자료에서 정확한 토큰 수는 Anthropic count_tokens API로만
  * 알 수 있다. 여기선 dev 환경 경고용으로만 쓰는 거친 추정.
  *
- *   - 한국어/한자 1자 ≈ 1 token (보수적)
+ *   - 한국어 조사 결합형은 1자가 2~3 토큰으로 분할되기도 함 (보수적)
  *   - 영문 1단어 ≈ 1.3 token, char 4개 ≈ 1 token
- *   - 그래서 "char count / 2.5" 정도면 token 수 근사치
+ *   - "char / 2" 계수면 미달 경고가 누락되지 않게 보수적 (false positive ↑, false negative ↓)
  *
- * 실측이 필요한 경우 generate() 호출 후 result.usage로 검증.
+ * 실측은 generate() 호출 후 result.usage.inputTokens / cacheRead로 검증.
  */
 function estimateTokensFromChars(text: string): number {
-  return Math.ceil(text.length / 2.5);
+  return Math.ceil(text.length / 2);
 }
 
 function modelTier(modelId: string): "haiku" | "sonnet" | "opus" {

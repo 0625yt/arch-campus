@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
@@ -27,18 +27,23 @@ interface ToolStat {
 }
 
 export default async function CacheStatsPage() {
+  // prod 빌드에 포함되지만 dev 전용 — code-review critical fix.
+  // 일반 사용자가 URL 알면 자신의 비용·토큰 통계를 볼 수 있어 dev/ 경로는 prod에서 404.
+  if (process.env.NODE_ENV === "production") notFound();
+
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
 
   const admin = getAdminSupabase();
-  // 최근 30일만 — generations는 누적되면 큼
+  // 최근 30일만 — generations 누적 시 폭주 방지 위해 limit 가드.
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const { data: rows, error } = await admin
     .from("generations")
     .select("tool, model_id, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, cost_usd, status")
     .eq("owner_id", ownerId)
     .gte("created_at", since)
-    .eq("status", "ok");
+    .eq("status", "ok")
+    .limit(5000);
 
   if (error) {
     return (
