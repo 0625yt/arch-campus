@@ -16,6 +16,10 @@ export interface WizardHistoryItem {
   detail: string | null;
   createdAt: string;
   href: string;
+  /** 어느 위저드에서 나온 결과인지 — 사이드바 필터/뱃지용. tool DB 값 그대로. */
+  tool: string;
+  /** UI 표시용 위저드 라벨 (예: "발표", "리포트 구조", "시험 벼락치기", "리포트 체크") */
+  toolLabel: string;
 }
 
 interface GenerationRow {
@@ -46,13 +50,59 @@ export async function listWizardHistory(opts: {
 
   if (error || !data) return [];
 
-  return (data as unknown as GenerationRow[]).map((row) => ({
+  return (data as unknown as GenerationRow[]).map(toItem);
+}
+
+/**
+ * 한 사용자의 모든 위저드 결과를 합쳐서 최근 N건. 사이드바에서 ChatGPT처럼 한눈에.
+ * tool은 위저드 4종만 — chat-free·summarize 같은 비-위저드 결과는 제외.
+ */
+export async function listAllWizardHistory(opts: {
+  ownerId: string;
+  limit?: number;
+}): Promise<WizardHistoryItem[]> {
+  const limit = opts.limit ?? 30;
+  const admin = getAdminSupabase();
+  const { data, error } = await admin
+    .from("generations")
+    .select("id, tool, payload, created_at")
+    .eq("owner_id", opts.ownerId)
+    .in("tool", ["presentation", "wizard-cram", "report-structure", "report-checklist", "wizard-assignment"])
+    .eq("status", "ok")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) return [];
+
+  return (data as unknown as GenerationRow[]).map(toItem);
+}
+
+function toItem(row: GenerationRow): WizardHistoryItem {
+  return {
     id: row.id,
     title: titleFor(row),
     detail: detailFor(row),
     createdAt: row.created_at,
     href: `/dashboard/history/${row.id}`,
-  }));
+    tool: row.tool,
+    toolLabel: toolLabelFor(row.tool),
+  };
+}
+
+function toolLabelFor(tool: string): string {
+  switch (tool) {
+    case "presentation":
+      return "발표";
+    case "wizard-cram":
+      return "시험 벼락치기";
+    case "report-structure":
+      return "리포트 구조";
+    case "report-checklist":
+    case "wizard-assignment":
+      return "리포트 체크";
+    default:
+      return tool;
+  }
 }
 
 function titleFor(row: GenerationRow): string {

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { WizardHistoryStrip } from "@/components/wizard-history-strip";
+import { WizardHistorySidebar } from "@/components/wizard-history-sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
-import { listWizardHistory } from "@/lib/data/wizard-history";
+import { listAllWizardHistory } from "@/lib/data/wizard-history";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { Wizard, type CourseOption, type MaterialOption } from "./wizard";
 
@@ -26,7 +26,7 @@ export default async function ReportStructurePage() {
       .eq("owner_id", ownerId)
       .order("uploaded_at", { ascending: false })
       .limit(80),
-    listWizardHistory({ ownerId, tool: "report-structure" }),
+    listAllWizardHistory({ ownerId }),
   ]);
 
   const courses: CourseOption[] = (coursesRaw ?? []).map((c) => ({
@@ -43,7 +43,8 @@ export default async function ReportStructurePage() {
   }));
 
   return (
-    <div>
+    <div className="lg:pl-[280px]">
+      <WizardHistorySidebar items={history} pageTitle="리포트 구조 설계" />
       <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
         <header className="fade-up flex items-baseline justify-between gap-3">
           <Link
@@ -80,12 +81,6 @@ export default async function ReportStructurePage() {
             본문은 본인이 직접 써야 학습이 돼요. 우리는 흐름·각 섹션 핵심 질문·체크리스트만 잡아드려요.
           </p>
         </section>
-
-        {history.length > 0 && (
-          <div className="mt-10 fade-up fade-up-2 sm:mt-12">
-            <WizardHistoryStrip items={history} />
-          </div>
-        )}
 
         <div className="mt-12 fade-up fade-up-3 sm:mt-14">
           <Wizard courses={courses} materials={materials} />

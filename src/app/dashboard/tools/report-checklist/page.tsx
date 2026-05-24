@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { WizardHistoryStrip } from "@/components/wizard-history-strip";
+import { WizardHistorySidebar } from "@/components/wizard-history-sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
-import { listWizardHistory } from "@/lib/data/wizard-history";
+import { listAllWizardHistory } from "@/lib/data/wizard-history";
 import { ReportChecklistWizard } from "./wizard";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +11,11 @@ export default async function ReportChecklistPage() {
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
 
-  // service가 jobs/generations에 tool="wizard-assignment"로 박음 — 그쪽으로 조회.
-  const history = await listWizardHistory({ ownerId, tool: "wizard-assignment" });
+  const history = await listAllWizardHistory({ ownerId });
 
   return (
-    <div>
+    <div className="lg:pl-[280px]">
+      <WizardHistorySidebar items={history} pageTitle="교수 요구사항 체크" />
       <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
         <header className="fade-up flex items-baseline justify-between gap-3">
           <Link
@@ -51,12 +51,6 @@ export default async function ReportChecklistPage() {
             정리해드려요. 본문은 본인이 직접 씁니다.
           </p>
         </section>
-
-        {history.length > 0 && (
-          <div className="mt-10 fade-up fade-up-2 sm:mt-12">
-            <WizardHistoryStrip items={history} />
-          </div>
-        )}
 
         <div className="mt-12 fade-up fade-up-3 sm:mt-14">
           <ReportChecklistWizard />

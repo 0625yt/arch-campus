@@ -104,7 +104,7 @@ export function MaterialView({
       : view === "summary-only"
         ? { gridTemplateColumns: "0fr 0px 1fr" }
         : {
-            gridTemplateColumns: `${ratio}fr 12px ${1 - ratio}fr`,
+            gridTemplateColumns: `${ratio}fr 16px ${1 - ratio}fr`,
           };
 
   return (
@@ -137,7 +137,7 @@ export function MaterialView({
           </div>
         </div>
 
-        {/* 드래그 핸들 — 8px 폭 hairline. 호버하면 액션 컬러 강조 */}
+        {/* 드래그 핸들 — 16px 폭. 호버하면 액션 컬러 강조. hit-area는 ::before로 좌우 8px씩 추가 확장 */}
         <div
           role="separator"
           aria-orientation="vertical"
@@ -145,21 +145,25 @@ export function MaterialView({
           onPointerDown={startDrag}
           onDoubleClick={() => setRatio(0.5)}
           title="드래그해서 너비 조절 · 더블클릭하면 5:5"
-          className={`group sticky top-4 z-10 h-[calc(100vh-2rem)] cursor-col-resize ${
+          className={`group sticky top-4 z-20 h-[calc(100vh-2rem)] cursor-col-resize touch-none select-none before:absolute before:inset-y-0 before:-left-2 before:-right-2 before:content-[''] ${
             view === "split" ? "" : "pointer-events-none opacity-0"
           }`}
         >
           {/* 가운데 1px 라인 + 호버 시 강조 */}
           <span
-            className={`absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 transition-colors ${
+            className={`pointer-events-none absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 transition-colors ${
               dragging
                 ? "bg-[var(--color-apple-action)]"
                 : "bg-[var(--color-apple-hairline)] group-hover:bg-[var(--color-apple-action)]"
             }`}
           />
-          {/* 가운데 가벼운 grip 인디케이터 */}
+          {/* 가운데 grip 인디케이터 — 항상 옅게 보이고, 호버하면 진해짐 */}
           <span
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] wght-560 text-[var(--color-apple-muted)] opacity-0 transition-opacity group-hover:opacity-100"
+            className={`pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[11px] wght-560 transition-all ${
+              dragging
+                ? "text-[var(--color-apple-action)] opacity-100"
+                : "text-[var(--color-apple-muted)] opacity-40 group-hover:opacity-100 group-hover:text-[var(--color-apple-action)]"
+            }`}
             aria-hidden
           >
             ⋮⋮

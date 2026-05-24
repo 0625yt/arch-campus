@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { WizardHistoryStrip } from "@/components/wizard-history-strip";
+import { WizardHistorySidebar } from "@/components/wizard-history-sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
-import { listWizardHistory } from "@/lib/data/wizard-history";
+import { listAllWizardHistory } from "@/lib/data/wizard-history";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { ExamCramWizard, type CourseOption, type MaterialOption } from "./wizard";
 
@@ -26,7 +26,7 @@ export default async function ExamCramPage() {
       .eq("owner_id", ownerId)
       .order("uploaded_at", { ascending: false })
       .limit(80),
-    listWizardHistory({ ownerId, tool: "wizard-cram" }),
+    listAllWizardHistory({ ownerId }),
   ]);
 
   const courses: CourseOption[] = (coursesRaw ?? []).map((c) => ({
@@ -43,7 +43,8 @@ export default async function ExamCramPage() {
   }));
 
   return (
-    <div>
+    <div className="lg:pl-[280px]">
+      <WizardHistorySidebar items={history} pageTitle="시험 벼락치기" />
       <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
         <header className="fade-up flex items-baseline justify-between gap-3">
           <Link
@@ -80,12 +81,6 @@ export default async function ExamCramPage() {
             올린 자료에서 단원 우선순위 + 시간 블록 + 자기 점검 질문까지. 평균 1분 안쪽.
           </p>
         </section>
-
-        {history.length > 0 && (
-          <div className="mt-10 fade-up fade-up-2 sm:mt-12">
-            <WizardHistoryStrip items={history} />
-          </div>
-        )}
 
         <div className="mt-12 fade-up fade-up-3 sm:mt-14">
           <ExamCramWizard courses={courses} materials={materials} />
