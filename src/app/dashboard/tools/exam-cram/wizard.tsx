@@ -110,7 +110,7 @@ export function ExamCramWizard({
 
   // 결과 도착하면 결과 화면. resetToForm()으로 다시 폼.
   if (output) {
-    return <ResultCard output={output} onRestart={resetToForm} />;
+    return <ExamCramResultCard output={output} onRestart={resetToForm} />;
   }
 
   return (
@@ -498,12 +498,12 @@ function StepThree({
 
 /* ─────────── 결과 카드 ─────────── */
 
-function ResultCard({
+export function ExamCramResultCard({
   output,
   onRestart,
 }: {
   output: ExamCramOutputT;
-  onRestart: () => void;
+  onRestart?: () => void;
 }) {
   if (output.rejected) {
     return (
@@ -519,9 +519,11 @@ function ResultCard({
         >
           {output.reason}
         </h2>
-        <div className="mt-7">
-          <PrimaryButton onClick={onRestart}>다시 시도 →</PrimaryButton>
-        </div>
+        {onRestart && (
+          <div className="mt-7">
+            <PrimaryButton onClick={onRestart}>다시 시도 →</PrimaryButton>
+          </div>
+        )}
       </div>
     );
   }
@@ -672,7 +674,7 @@ function ResultCard({
         <div className="flex-1">
           <WizardWatermark modelText={output.watermark} />
         </div>
-        <SecondaryButton onClick={onRestart}>다시 짜기</SecondaryButton>
+        {onRestart && <SecondaryButton onClick={onRestart}>다시 짜기</SecondaryButton>}
       </div>
     </div>
   );

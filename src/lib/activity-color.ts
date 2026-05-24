@@ -19,6 +19,12 @@ export function activityColor(kind: Activity["kind"]): string {
       return "#7fb38c"; // sage
     case "presentation":
       return "#7aa6d6"; // cobalt
+    case "exam-cram":
+      return "#e0445e"; // coral (시험 톤)
+    case "report-checklist":
+      return "#cca06b"; // mustard (과제 톤)
+    case "chat":
+      return "#a08bc4"; // mauve (AI 톤)
     case "wizard":
       return "#a08bc4"; // mauve
     case "attempt":

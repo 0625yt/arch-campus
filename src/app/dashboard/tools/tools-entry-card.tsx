@@ -79,6 +79,24 @@ export function ToolsEntryCard() {
     }
   }
 
+  /**
+   * 카드 전체 클릭 — placeholder 애니메이션 보고 "이거 누르면 챗으로 가나?" 기대.
+   *
+   * 정책:
+   *   - 입력 있으면 그 입력으로 챗 이동 (submit)
+   *   - 입력 비었으면 빈 챗 페이지로 이동 — placeholder 문구를 자동 send하지 X.
+   *     (사용자가 placeholder를 의도된 질문으로 본 게 아니라 안내 텍스트로만 보는 경우가 더 많음)
+   *
+   * input·버튼 자체 클릭은 stopPropagation으로 이중 발화 방지.
+   */
+  function onCardClick() {
+    if (value.length > 0) {
+      submit(value);
+      return;
+    }
+    router.push("/dashboard/chat");
+  }
+
   const showTyping = value.length === 0;
 
   return (
@@ -93,7 +111,10 @@ export function ToolsEntryCard() {
         }}
       />
       <div
-        className="group/card relative flex w-full items-center gap-3.5 overflow-hidden rounded-[14px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3.5 transition-all duration-200 focus-within:-translate-y-px focus-within:border-[var(--color-apple-action)]/40 focus-within:shadow-[0_8px_24px_-12px_rgba(0,113,227,0.22)] hover:-translate-y-px hover:border-[var(--color-apple-action)]/35 hover:shadow-[0_8px_24px_-12px_rgba(0,113,227,0.18)] sm:px-5 sm:py-4"
+        onClick={onCardClick}
+        role="button"
+        tabIndex={-1}
+        className="group/card relative flex w-full cursor-pointer items-center gap-3.5 overflow-hidden rounded-[14px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3.5 transition-all duration-200 focus-within:-translate-y-px focus-within:border-[var(--color-apple-action)]/40 focus-within:shadow-[0_8px_24px_-12px_rgba(0,113,227,0.22)] hover:-translate-y-px hover:border-[var(--color-apple-action)]/35 hover:shadow-[0_8px_24px_-12px_rgba(0,113,227,0.18)] sm:px-5 sm:py-4"
       >
         {/* 아이콘 — 컬러 그라데이션 원형. Sparkles */}
         <span
@@ -122,6 +143,7 @@ export function ToolsEntryCard() {
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={onKeyDown}
+              onClick={(e) => e.stopPropagation()}
               maxLength={200}
               aria-label="막힌 상황을 적으면 도구를 추천해드려요"
               className="w-full border-0 bg-transparent p-0 text-[12.5px] wght-450 text-[var(--color-apple-ink)] outline-none sm:text-[13px]"
@@ -143,7 +165,10 @@ export function ToolsEntryCard() {
         {/* 우측 화살표 — 클릭하면 submit */}
         <button
           type="button"
-          onClick={() => submit(value)}
+          onClick={(e) => {
+            e.stopPropagation();
+            submit(value);
+          }}
           aria-label="채팅으로 보내기"
           className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-all duration-200 hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-action)]"
         >

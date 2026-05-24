@@ -6,7 +6,7 @@ import { Wizard, type CourseOption, type MaterialOption } from "./wizard";
 
 export const dynamic = "force-dynamic";
 
-export default async function PresentationWizardPage() {
+export default async function ReportStructurePage() {
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
 
@@ -42,7 +42,6 @@ export default async function PresentationWizardPage() {
   return (
     <div>
       <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
-        {/* Top bar */}
         <header className="fade-up flex items-baseline justify-between gap-3">
           <Link
             href="/dashboard/tools"
@@ -53,30 +52,29 @@ export default async function PresentationWizardPage() {
             도구
           </Link>
           <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-            발표 · 5단계
+            과제 · 4단계
           </span>
         </header>
 
-        {/* Hero */}
         <section className="mt-10 fade-up fade-up-1 sm:mt-14">
           <p
             className="text-[12px] wght-560 uppercase tracking-[0.06em]"
-            style={{ color: "var(--color-apple-cobalt)" }}
+            style={{ color: "var(--color-apple-warn)" }}
           >
-            발표자료 구조화
+            리포트 구조 설계
           </p>
           <h1
             className="mt-3 text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[44px] md:text-[52px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            5단계로 답하면 <span className="text-[var(--color-apple-muted)]">발표 한 세트가</span>{" "}
-            만들어져요.
+            본문 쓰기 전,{" "}
+            <span className="text-[var(--color-apple-muted)]">목차부터 잡아드릴게요.</span>
           </h1>
           <p
-            className="mt-4 max-w-[560px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
+            className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            슬라이드 구조 · 스피커 노트 · 예상 질문 5개까지. 자료 올린 거 있으면 슬라이드 인용도 박혀요.
+            본문은 본인이 직접 써야 학습이 돼요. 우리는 흐름·각 섹션 핵심 질문·체크리스트만 잡아드려요.
           </p>
         </section>
 

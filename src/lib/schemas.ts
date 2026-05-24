@@ -365,6 +365,55 @@ export const ChecklistOutput = z.union([
 ]);
 export type ChecklistOutputT = z.infer<typeof ChecklistOutput>;
 
+/**
+ * 리포트 구조 설계 — 학생이 리포트 본문 쓰기 전에 목차·섹션별 가이드를 잡는다.
+ *
+ * 사활: CLAUDE.md §4 — 본문 작성 X. 우리는 "어떤 흐름으로 쓸지" 가이드만.
+ *
+ * 검증:
+ *  - sections[].keyQuestions가 "본인이 답할 질문" 형태 (서술 문장 X)
+ *  - sections[].purpose가 모두 다름 (중복 X)
+ *  - 총 분량 합이 사용자 입력 targetPages와 ±25% 일치
+ */
+export const ReportSection = z.object({
+  /** 섹션 번호 — 1부터 N까지 연속 */
+  order: z.number().int().positive(),
+  /** 섹션 제목 — "서론", "분석 1: ..." 같이 */
+  title: z.string().min(2).max(80),
+  /** 이 섹션의 목적 한 문장 — "독자가 무엇을 얻는지" */
+  purpose: z.string().min(10).max(160),
+  /** 학생이 글 쓰기 전 스스로 답할 핵심 질문 3~5개. 답은 학생이 쓴다. */
+  keyQuestions: z.array(z.string().min(10).max(200)).min(3).max(5),
+  /** 권장 분량 (단어 수 또는 쪽 비중) — 1.0이 한 페이지 기준 */
+  estimatedPages: z.number().min(0.25).max(10),
+  /** 자료 인용이 필요하면 어디서 — substring 매칭 검증 */
+  citationHint: z.string().min(0).max(300).optional(),
+});
+export type ReportSectionT = z.infer<typeof ReportSection>;
+
+export const ReportStructureOutput = z.union([
+  z.object({
+    /** 한 줄 요약 — "OO 주제 4쪽 분석 리포트, 4개 섹션" */
+    headline: z.string().min(10).max(200),
+    /** 리포트 전체 톤·접근 — "이 글은 ~ 흐름으로 진행" */
+    thesis: z.string().min(20).max(400),
+    /** 섹션 4~7개. 권장 페이지 합이 targetPages ±25% */
+    sections: z.array(ReportSection).min(3).max(8),
+    /** 본문 쓰기 전 학생이 스스로 체크할 항목 */
+    preWriteChecks: z.array(z.string().min(10).max(200)).min(3).max(6),
+    /** 자주 빠지는 함정 — "이건 빼먹기 쉬워요" */
+    commonPitfalls: z.array(z.string().min(10).max(200)).min(2).max(5),
+    rejected: z.literal(false).optional(),
+    watermark: z.string().min(10),
+  }),
+  z.object({
+    rejected: z.literal(true),
+    reason: z.string().min(10).max(400),
+    watermark: z.string().min(10),
+  }),
+]);
+export type ReportStructureOutputT = z.infer<typeof ReportStructureOutput>;
+
 export const BANNED_WORDS: ReadonlyArray<readonly [RegExp, string]> = [
   [/효과적인/g, "좋은"],
   [/체계적인/g, "차근차근"],

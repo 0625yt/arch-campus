@@ -72,7 +72,7 @@ export function ReportChecklistWizard() {
   }
 
   if (output) {
-    return <ResultCard output={output} onRestart={resetToForm} />;
+    return <ReportChecklistResultCard output={output} onRestart={resetToForm} />;
   }
 
   return (
@@ -287,12 +287,12 @@ function RunningStep({
 
 /* ─────────── Result Card ─────────── */
 
-function ResultCard({
+export function ReportChecklistResultCard({
   output,
   onRestart,
 }: {
   output: ChecklistOutputT;
-  onRestart: () => void;
+  onRestart?: () => void;
 }) {
   if (output.rejected) {
     return (
@@ -306,9 +306,11 @@ function ResultCard({
         >
           {output.reason}
         </h2>
-        <div className="mt-7">
-          <PrimaryButton onClick={onRestart}>다시 입력 →</PrimaryButton>
-        </div>
+        {onRestart && (
+          <div className="mt-7">
+            <PrimaryButton onClick={onRestart}>다시 입력 →</PrimaryButton>
+          </div>
+        )}
       </div>
     );
   }
@@ -454,7 +456,7 @@ function ResultCard({
         <div className="flex-1">
           <WizardWatermark modelText={output.watermark} />
         </div>
-        <SecondaryButton onClick={onRestart}>다른 과제 →</SecondaryButton>
+        {onRestart && <SecondaryButton onClick={onRestart}>다른 과제 →</SecondaryButton>}
       </div>
     </div>
   );

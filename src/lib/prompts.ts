@@ -22,9 +22,11 @@ export type PromptName =
   | "timetable"
   | "exam-cram"
   | "report-checklist"
+  | "report-structure"
   | "event-parse"
   | "exam-extract"
-  | "chat";
+  | "chat"
+  | "chat-free";
 
 export function loadPrompt(name: PromptName): string {
   const persona = read(join(SHARED_DIR, "persona-schema.md"));

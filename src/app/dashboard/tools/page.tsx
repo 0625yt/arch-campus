@@ -23,6 +23,14 @@ interface Wizard {
   minutes: number;
   ready?: boolean;
   query: string;
+  /**
+   * 별도 위저드 페이지가 없지만 다른 진짜 기능으로 라우팅하는 경우.
+   * 예: exam-questions는 자료 페이지의 generate-form이 처리 → /dashboard/study
+   *     exam-wrong은 quiz wrong 페이지 → /dashboard/review
+   * 설정되면 ready=true 취급되고 클릭 시 이 경로로.
+   */
+  redirectTo?: string;
+  redirectHint?: string;
 }
 
 const WIZARDS: Wizard[] = [
@@ -44,6 +52,8 @@ const WIZARDS: Wizard[] = [
     output: "질문 10개 + 답변 방향",
     minutes: 3,
     query: "내 발표 내용 기준으로 예상 질문과 답변 방향을 만들어줘",
+    redirectTo: "/dashboard/tools/presentation",
+    redirectHint: "발표 위저드가 Q&A 5개도 같이 만들어줘요",
   },
   {
     slug: "report-structure",
@@ -52,6 +62,7 @@ const WIZARDS: Wizard[] = [
     situation: "본문을 쓰기 전에 목차가 안 잡힐 때",
     output: "목차 + 섹션별 작성 가이드",
     minutes: 4,
+    ready: true,
     query: "리포트 주제와 분량 기준으로 목차와 섹션별 작성 가이드를 만들어줘",
   },
   {
@@ -72,6 +83,8 @@ const WIZARDS: Wizard[] = [
     output: "객관식·주관식·서술형 문제",
     minutes: 4,
     query: "업로드한 강의자료에서 시험에 나올 만한 문제를 만들어줘",
+    redirectTo: "/dashboard/study",
+    redirectHint: "자료 페이지에서 '문제 만들기' 누르면 바로 동작해요",
   },
   {
     slug: "exam-wrong",
@@ -81,6 +94,8 @@ const WIZARDS: Wizard[] = [
     output: "오답 유형 + 보완 개념",
     minutes: 3,
     query: "내 오답을 보고 왜 틀렸는지와 다시 볼 개념을 정리해줘",
+    redirectTo: "/dashboard/review",
+    redirectHint: "복습 페이지에서 최근 오답을 모아 봐요",
   },
   {
     slug: "exam-cram",
@@ -257,7 +272,7 @@ function UrgentCard({ wizard }: { wizard: Wizard }) {
           >
             {wizard.category}
           </span>
-          <ReadyBadge ready={wizard.ready} />
+          <ReadyBadge wizard={wizard} />
         </div>
         <h3
           className="mt-3 text-[22px] leading-[1.15] wght-620 text-[var(--color-apple-ink)]"
@@ -397,7 +412,7 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
           {wizard.category}
         </span>
         <span className="inline-flex items-center gap-2">
-          <ReadyBadge ready={wizard.ready} />
+          <ReadyBadge wizard={wizard} />
           <span
             className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
@@ -450,16 +465,20 @@ function categoryTint(category: Category): string {
   }
 }
 
-function wizardHref(wizard: Wizard) {
+function wizardHref(wizard: Wizard): string | null {
+  // redirectTo가 있으면 그쪽으로 (기존 진짜 동작이 다른 페이지에 있는 경우)
+  if (wizard.redirectTo) return wizard.redirectTo;
   if (wizard.slug === "presentation") return "/dashboard/tools/presentation";
   if (wizard.slug === "exam-cram") return "/dashboard/tools/exam-cram";
   if (wizard.slug === "report-checklist") return "/dashboard/tools/report-checklist";
-  return `/dashboard/chat?q=${encodeURIComponent(wizard.query)}`;
+  if (wizard.slug === "report-structure") return "/dashboard/tools/report-structure";
+  return null;
 }
 
 /**
- * 준비된 위저드만 Link, 아니면 div + 비활성 톤.
- * "준비 중" 카드를 클릭하면 mock 챗 페이지로 이동해 사용자가 혼란해 함 — 클릭 자체 봉인.
+ * 클릭 가능 여부:
+ *   - ready 또는 redirectTo가 있으면 → Link
+ *   - 그 외(준비 중인 미구현 위저드) → div + 비활성
  */
 function WizardLinkWrap({
   wizard,
@@ -470,9 +489,10 @@ function WizardLinkWrap({
   className: string;
   children: React.ReactNode;
 }) {
-  if (wizard.ready) {
+  const href = wizardHref(wizard);
+  if (href) {
     return (
-      <Link href={wizardHref(wizard)} className={className}>
+      <Link href={href} className={className} title={wizard.redirectHint}>
         {children}
       </Link>
     );
@@ -494,8 +514,8 @@ function WizardLinkWrap({
  *
  * 라벨 없이 카드만 똑같이 생기면 "발표 위저드" 클릭했는데 채팅창 떠서 사용자 혼란.
  */
-function ReadyBadge({ ready }: { ready?: boolean }) {
-  if (ready) {
+function ReadyBadge({ wizard }: { wizard: Wizard }) {
+  if (wizard.ready) {
     return (
       <span
         className="inline-flex items-center gap-1 rounded-full bg-[var(--color-tint-class)] px-2 py-0.5 text-[10px] wght-620 text-[var(--color-tint-class-ink)]"
@@ -505,12 +525,22 @@ function ReadyBadge({ ready }: { ready?: boolean }) {
       </span>
     );
   }
+  if (wizard.redirectTo) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-[var(--color-apple-pearl)] px-2 py-0.5 text-[10px] wght-560 text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "0.02em" }}
+      >
+        연결
+      </span>
+    );
+  }
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full border border-[var(--color-apple-hairline)] bg-white px-2 py-0.5 text-[10px] wght-560 text-[var(--color-apple-muted)]"
       style={{ letterSpacing: "0.02em" }}
     >
-      채팅으로
+      준비 중
     </span>
   );
 }

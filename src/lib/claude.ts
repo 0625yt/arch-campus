@@ -18,12 +18,14 @@ export type ToolKind =
   | "wizard-assignment"
   | "wizard-exam"
   | "wizard-cram"
+  | "report-structure"
   | "syllabus-extract"
   | "timetable-extract"
   | "post-mortem"
   | "event-parse"
   | "exam-extract"
-  | "chat";
+  | "chat"
+  | "chat-free";
 
 export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   summarize: MODELS.haiku,
@@ -32,6 +34,9 @@ export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   "wizard-assignment": MODELS.sonnet,
   "wizard-exam": MODELS.sonnet,
   "wizard-cram": MODELS.sonnet,
+  // 리포트 구조 설계 — 학기당 1~3건이라 Sonnet OK.
+  // 본문 X·질문만 가드가 강해야 해서 품질 중요.
+  "report-structure": MODELS.sonnet,
   "syllabus-extract": MODELS.haiku,
   // 시간표는 격자 vision 정확도가 사활. 학기당 1~2번이므로 sonnet 감수.
   "timetable-extract": MODELS.sonnet,
@@ -46,6 +51,10 @@ export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   // 본문 90% 할인. 답변 품질은 자료 인용 위주라 Haiku로 충분.
   // CHAT_MODEL=sonnet env로 격상 가능.
   chat: MODELS.haiku,
+  // 자유 텍스트 챗 (자료에 매여있지 않음) — 빈도 더 높고 자료 컨텍스트 없어
+  // 환각 위험이 자료 챗의 두 배라 가드가 강해야. Haiku로 충분, 굳이 Sonnet 비용 X.
+  // CHAT_FREE_MODEL=sonnet env로 격상 가능.
+  "chat-free": MODELS.haiku,
 };
 
 /**
@@ -73,6 +82,11 @@ function resolveModel(tool: ToolKind): LanguageModel {
   }
   if (tool === "chat") {
     const override = process.env.CHAT_MODEL?.toLowerCase();
+    if (override === "haiku") return MODELS.haiku;
+    if (override === "sonnet") return MODELS.sonnet;
+  }
+  if (tool === "chat-free") {
+    const override = process.env.CHAT_FREE_MODEL?.toLowerCase();
     if (override === "haiku") return MODELS.haiku;
     if (override === "sonnet") return MODELS.sonnet;
   }
@@ -393,7 +407,14 @@ export async function generateWithFile({
  * 두 번째 turn부터 system 1·2가 cache hit → 자료 본문 90% 할인.
  */
 export interface StreamChatInput {
+  /**
+   * 어느 챗 tool인지 — 모델 라우팅·로그 키 분리.
+   * - "chat": 자료 챗 (thread 모델, materialBlock 필수)
+   * - "chat-free": 자유 챗 (자료 없음, materialBlock은 빈 컨텍스트)
+   */
+  tool?: "chat" | "chat-free";
   rulePrompt: string;
+  /** 자료 본문 또는 학생 컨텍스트 블록 — cache 가능한 시스템 블록 */
   materialBlock: string;
   dynamicContext: string;
   history: Array<{ role: "user" | "assistant"; content: string }>;
@@ -416,10 +437,11 @@ export interface StreamChatResult {
 }
 
 export function streamChatReply(input: StreamChatInput): StreamChatResult {
-  const model = resolveModel("chat");
+  const tool = input.tool ?? "chat";
+  const model = resolveModel(tool);
   const modelId =
     typeof model === "object" && "modelId" in model ? (model.modelId as string) : String(model);
-  warnIfBelowCacheMin("chat", modelId, input.rulePrompt);
+  warnIfBelowCacheMin(tool, modelId, input.rulePrompt);
 
   const messages: ModelMessage[] = [
     {
@@ -459,7 +481,7 @@ export function streamChatReply(input: StreamChatInput): StreamChatResult {
         ?.inputTokenDetails;
       const cacheRead = details?.cacheReadTokens ?? 0;
       const cacheCreation = details?.cacheWriteTokens ?? 0;
-      logCacheStats("chat", modelId, {
+      logCacheStats(tool, modelId, {
         inputTokens,
         outputTokens,
         cacheRead,

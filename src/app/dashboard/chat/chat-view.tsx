@@ -1,143 +1,68 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 
 type Role = "user" | "assistant";
 
-type Suggestion = {
-  label: string;
-  href: string;
-  meta?: string;
-  dot?: string;
-};
-
 type Message = {
   id: string;
   role: Role;
   text: string;
-  suggestions?: Suggestion[];
   pending?: boolean;
 };
 
-interface ChatCourse {
-  id: string;
-  name: string;
-  color: string | null;
-  materialCount: number;
-}
-
-const COURSE_KEYWORDS: Record<string, string[]> = {
-  운영체제: ["운영체제", "os", "프로세스", "스레드", "스케줄", "동기화"],
-  자료구조: ["자료구조", "트리", "그래프", "스택", "큐", "해시"],
-  선형대수: ["선형대수", "행렬", "벡터", "고유값", "선형"],
-  데이터베이스: ["데이터베이스", "디비", "db", "sql", "정규화", "트랜잭션"],
-};
-
-const TOOL_KEYWORDS: { match: string[]; href: string; label: string }[] = [
-  {
-    match: ["발표", "ppt", "슬라이드", "프레젠테이션"],
-    href: "/dashboard/tools/presentation",
-    label: "발표 위저드",
-  },
-  { match: ["과제", "리포트", "보고서"], href: "/dashboard/tools", label: "과제 위저드 (전체)" },
-  { match: ["자기소개서", "자소서"], href: "/dashboard/tools", label: "자기소개서 위저드 (전체)" },
-];
-
-function generateMockReply(
-  input: string,
-  courses: ChatCourse[],
-): { text: string; suggestions?: Suggestion[] } {
-  const q = input.toLowerCase();
-
-  for (const c of courses) {
-    const keys = COURSE_KEYWORDS[c.name] ?? [c.name.toLowerCase()];
-    if (keys.some((k) => q.includes(k))) {
-      return {
-        text: `${c.name} 관련해서 도와드릴게요. 지금 학기에 업로드된 자료가 ${c.materialCount}개 있어요.`,
-        suggestions: [
-          {
-            label: `${c.name} 강의 페이지로`,
-            href: `/dashboard/study/${encodeURIComponent(c.name)}`,
-            meta: "강의",
-            dot: c.color ?? undefined,
-          },
-        ],
-      };
-    }
-  }
-
-  for (const t of TOOL_KEYWORDS) {
-    if (t.match.some((k) => q.includes(k))) {
-      return {
-        text: `${t.label}로 안내드릴게요. 5단계 입력만 거치면 슬라이드·대본·예상 질문까지 정리해 드려요. 학습 보조용 출력이라 본인이 검토·수정해서 쓰셔야 해요.`,
-        suggestions: [{ label: `${t.label} 시작`, href: t.href, meta: "위저드" }],
-      };
-    }
-  }
-
-  if (/(일정|마감|언제|시험|과제 마감|캘린더)/.test(q)) {
-    return {
-      text: "이번 주 일정은 수업, 과제, 시험, 팀플, 개인 약속을 한 화면에서 볼 수 있어요. 강의계획서와 과제 안내를 올리면 시험·과제·발표 일정이 먼저 정리돼요.",
-      suggestions: [
-        { label: "지금 할 일 보기", href: "/dashboard/today", meta: "지금" },
-        { label: "일정 보기", href: "/dashboard/calendar", meta: "일정" },
-      ],
-    };
-  }
-
-  if (/(히스토리|기록|활동|뭐했|뭐 했)/.test(q)) {
-    return {
-      text: "지금까지 만든 요약·문제·발표 자료를 시간순으로 보실 수 있어요.",
-      suggestions: [{ label: "기록 열기", href: "/dashboard/history", meta: "활동" }],
-    };
-  }
-
-  return {
-    text: "네, 이렇게 해보면 어떨까요. 지금 학기 자료를 업로드해 두셨다면 강의명을 알려주시면 거기 자료로 요약·문제 만들어 드릴 수 있어요. 발표·과제 위저드도 바로 시작할 수 있어요.",
-    suggestions: [
-      { label: "지금 할 일 보기", href: "/dashboard/today", meta: "지금" },
-      { label: "발표 흐름 잡기", href: "/dashboard/tools/presentation", meta: "도구" },
-      { label: "공부 상태 보기", href: "/dashboard/study", meta: "공부" },
-    ],
-  };
-}
-
 export function ChatView() {
+  const router = useRouter();
   const params = useSearchParams();
   const initialQ = params.get("q")?.trim() ?? "";
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [courses, setCourses] = useState<ChatCourse[]>([]);
 
   const listEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const submittedInitial = useRef(false);
 
+  // 마운트 시 강제 reset.
+  //
+  // 진짜 원인: Next.js App Router에서 다른 페이지 갔다 챗 페이지로 돌아왔을 때,
+  // 브라우저 bfcache 또는 React/Next 캐시 때문에 useState 초기값이 다시 안 박힘.
+  // user 메시지·pending 상태 그대로 — typing dots가 도는 듯 보임.
+  // → 컴포넌트 마운트마다 명시적으로 한 번 다 비움. deps [] 라서 매 새 인스턴스에 1회.
+  // `?q=` 자동 send는 다음 useEffect가 같은 마운트 사이클에서 처리.
   useEffect(() => {
-    let aborted = false;
-    fetch("/api/courses")
-      .then((r) => r.json())
-      .then((j) => {
-        if (!aborted && j?.ok && Array.isArray(j.courses)) setCourses(j.courses);
-      })
-      .catch(() => {});
-    return () => {
-      aborted = true;
-    };
+    setDraft("");
+    setMessages([]);
+    setSubmitting(false);
+    submittedInitial.current = false;
   }, []);
 
+  // `?q=...`로 진입 시 1회 자동 send + 즉시 URL에서 q 제거.
   useEffect(() => {
     if (submittedInitial.current) return;
     if (!initialQ) return;
     submittedInitial.current = true;
+    router.replace("/dashboard/chat", { scroll: false });
     void send(initialQ);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQ]);
+
+  // bfcache 복원 시에도 동일하게 비우기.
+  useEffect(() => {
+    function onPageShow(e: PageTransitionEvent) {
+      if (e.persisted) {
+        setDraft("");
+        setMessages([]);
+        submittedInitial.current = false;
+      }
+    }
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   useLayoutEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -157,6 +82,13 @@ export function ChatView() {
 
       const uid = crypto.randomUUID();
       const aid = crypto.randomUUID();
+
+      // history = 지금 화면에 떠있는 user+assistant 페어. 새 user 메시지는 별도로 보냄.
+      // pending 중인 assistant 메시지는 제외.
+      const historyForApi: { role: "user" | "assistant"; content: string }[] = messages
+        .filter((m) => !m.pending && m.text.length > 0)
+        .map((m) => ({ role: m.role, content: m.text }));
+
       setMessages((prev) => [
         ...prev,
         { id: uid, role: "user", text: trimmed },
@@ -165,18 +97,82 @@ export function ChatView() {
       setDraft("");
       setSubmitting(true);
 
-      await new Promise((r) => setTimeout(r, 520));
-      const reply = generateMockReply(trimmed, courses);
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === aid
-            ? { ...m, text: reply.text, suggestions: reply.suggestions, pending: false }
-            : m,
-        ),
-      );
-      setSubmitting(false);
+      try {
+        const res = await fetch("/api/chat/free", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: trimmed, history: historyForApi }),
+        });
+
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aid
+                ? {
+                    ...m,
+                    text: `오류 (${res.status}) — ${body.error ?? "다시 시도해 주세요"}`,
+                    pending: false,
+                  }
+                : m,
+            ),
+          );
+          return;
+        }
+
+        if (!res.body) return;
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = "";
+
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          // toUIMessageStreamResponse SSE 라인 파싱 — 자료 챗 panel과 동일 패턴
+          const lines = chunk.split("\n");
+          for (const line of lines) {
+            if (!line) continue;
+            if (line.startsWith("data: ")) {
+              const payload = line.slice(6).trim();
+              if (payload === "[DONE]") continue;
+              try {
+                const obj = JSON.parse(payload) as {
+                  type?: string;
+                  delta?: string;
+                  textDelta?: string;
+                };
+                const delta = obj.textDelta ?? obj.delta;
+                if (typeof delta === "string") accumulated += delta;
+              } catch {
+                if (!payload.startsWith("{")) accumulated += payload;
+              }
+            } else {
+              accumulated += line;
+            }
+            const snapshot = accumulated;
+            setMessages((prev) =>
+              prev.map((m) => (m.id === aid ? { ...m, text: snapshot, pending: true } : m)),
+            );
+          }
+        }
+
+        // stream 완료
+        setMessages((prev) =>
+          prev.map((m) => (m.id === aid ? { ...m, text: accumulated, pending: false } : m)),
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "네트워크 오류";
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === aid ? { ...m, text: `네트워크 오류 — ${msg}`, pending: false } : m,
+          ),
+        );
+      } finally {
+        setSubmitting(false);
+      }
     },
-    [submitting, courses],
+    [submitting, messages],
   );
 
   const onSubmit = (e: React.FormEvent) => {
@@ -194,21 +190,20 @@ export function ChatView() {
   return (
     <div className="relative min-h-full bg-[var(--color-apple-pearl)]">
       <div className="mx-auto flex w-full max-w-[820px] flex-col px-4 sm:px-10 md:px-12">
-        {/* 자료 기반 챗 안내 — 정책상 진짜 RAG 챗은 자료 페이지에서 열림.
-            이 페이지는 "어디로 가면 되는지" 안내 라우터 역할. */}
+        {/* 자료 인용까지 필요한 경우 안내 — 자유 챗은 학생 컨텍스트 기반, 인용은 자료 챗. */}
         <div className="mt-8 rounded-[12px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3 sm:mt-10">
           <p
             className="text-[12.5px] leading-[1.5] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            본격 자료 챗은{" "}
+            자료 본문 인용·페이지 점프가 필요하면{" "}
             <Link
               href="/dashboard/study"
               className="wght-560 text-[var(--color-apple-action)] hover:underline"
             >
               공부 → 강의 → 자료
             </Link>{" "}
-            안에서 열려요. 자료 본문 인용·페이지 점프까지 같이.
+            안의 자료 챗에서 열어 주세요. 여기는 자료 없이도 막힌 부분을 같이 풀어보는 코치 챗.
           </p>
         </div>
 
@@ -249,6 +244,9 @@ export function ChatView() {
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onKeyDown}
                 rows={1}
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="무엇이든 물어보세요"
                 className="flex-1 resize-none bg-transparent px-1 py-1 text-[15px] wght-450 text-[var(--color-apple-ink)] placeholder:text-[var(--color-apple-muted)] focus:outline-none focus-visible:outline-none"
                 style={{ letterSpacing: "-0.012em" }}
@@ -344,42 +342,6 @@ function AssistantBubble({ m }: { m: Message }) {
           >
             {m.text}
           </p>
-        )}
-        {!m.pending && m.suggestions && m.suggestions.length > 0 && (
-          <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {m.suggestions.map((s) => {
-              const accent = s.dot ?? "var(--color-apple-hairline)";
-              return (
-                <li key={s.href + s.label}>
-                  <Link
-                    href={s.href}
-                    className="group card-glow-ribbon relative flex items-center gap-3 overflow-hidden rounded-[12px] bg-white pl-4 pr-3 py-3"
-                    style={{ ["--ribbon-color" as string]: accent }}
-                  >
-                    <div className="relative flex min-w-0 flex-1 flex-col">
-                      <span
-                        className="truncate text-[13.5px] wght-560 text-[var(--color-apple-ink)]"
-                        style={{ letterSpacing: "-0.012em" }}
-                      >
-                        {s.label}
-                      </span>
-                      {s.meta && (
-                        <span
-                          className="text-[10.5px] wght-620 uppercase tracking-[0.06em]"
-                          style={{ color: accent }}
-                        >
-                          {s.meta}
-                        </span>
-                      )}
-                    </div>
-                    <span className="relative shrink-0 text-[14px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
-                      ›
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
         )}
       </div>
     </div>

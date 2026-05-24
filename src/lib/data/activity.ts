@@ -8,7 +8,16 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export interface Activity {
   id: string;
-  kind: "summarize" | "quiz" | "syllabus" | "presentation" | "wizard" | "attempt";
+  kind:
+    | "summarize"
+    | "quiz"
+    | "syllabus"
+    | "presentation"
+    | "exam-cram"
+    | "report-checklist"
+    | "chat"
+    | "wizard"
+    | "attempt";
   kindLabel: string;
   title: string;
   detail: string | null;
@@ -24,7 +33,12 @@ interface GenerationRow {
   status: string;
   payload: Record<string, unknown>;
   created_at: string;
-  materials: { id: string; title: string; course_id: string | null } | null;
+  materials: {
+    id: string;
+    title: string;
+    course_id: string | null;
+    courses: { name: string } | null;
+  } | null;
 }
 
 interface AttemptRow {
@@ -44,7 +58,10 @@ const GENERATION_LABEL: Record<string, string> = {
   "wizard-assignment": "과제",
   "wizard-exam": "시험",
   "wizard-cram": "벼락치기",
+  "report-checklist": "과제 체크",
   "post-mortem": "회고",
+  chat: "자료 챗",
+  "chat-free": "코치 챗",
 };
 
 const KIND_FOR_TOOL: Record<string, Activity["kind"]> = {
@@ -52,6 +69,10 @@ const KIND_FOR_TOOL: Record<string, Activity["kind"]> = {
   quiz: "quiz",
   syllabus: "syllabus",
   presentation: "presentation",
+  "wizard-cram": "exam-cram",
+  "report-checklist": "report-checklist",
+  chat: "chat",
+  "chat-free": "chat",
 };
 
 export async function getRecentActivities(opts: {
@@ -65,7 +86,7 @@ export async function getRecentActivities(opts: {
     admin
       .from("generations")
       .select(
-        "id, tool, material_id, cost_usd, status, payload, created_at, materials(id, title, course_id)",
+        "id, tool, material_id, cost_usd, status, payload, created_at, materials(id, title, course_id, courses(name))",
       )
       .eq("owner_id", opts.ownerId)
       .eq("status", "ok")
@@ -95,10 +116,8 @@ export async function getRecentActivities(opts: {
 function mapGeneration(row: GenerationRow): Activity {
   const kind = KIND_FOR_TOOL[row.tool] ?? "wizard";
   const kindLabel = GENERATION_LABEL[row.tool] ?? row.tool;
-  const title = row.materials?.title ?? "(자료 없음)";
-  const href = row.materials
-    ? `/dashboard/study/${encodeURIComponent("자료")}/${row.materials.id}`
-    : "/dashboard/history";
+  const title = titleFor(row);
+  const href = hrefFor(row);
 
   return {
     id: `gen-${row.id}`,
@@ -109,6 +128,49 @@ function mapGeneration(row: GenerationRow): Activity {
     createdAt: row.created_at,
     href,
   };
+}
+
+function titleFor(row: GenerationRow): string {
+  // 위저드는 payload에 입력 메타가 있음 — 자료 제목 대신 사용자 입력 요약 보여줌
+  if (row.tool === "presentation") {
+    const topic = typeof row.payload?.topic === "string" ? row.payload.topic : null;
+    if (topic) return topic;
+  }
+  if (row.tool === "wizard-cram") {
+    const subject = typeof row.payload?.subject === "string" ? row.payload.subject : null;
+    if (subject) return subject;
+  }
+  if (row.tool === "report-checklist") {
+    const assignmentTitle =
+      typeof row.payload?.assignmentTitle === "string" ? row.payload.assignmentTitle : null;
+    if (assignmentTitle) return assignmentTitle;
+  }
+  if (row.tool === "chat-free") {
+    const userMessage = typeof row.payload?.userMessage === "string" ? row.payload.userMessage : null;
+    if (userMessage) return userMessage.slice(0, 80);
+  }
+  return row.materials?.title ?? "(자료 없음)";
+}
+
+function hrefFor(row: GenerationRow): string {
+  // 자유 챗 — 챗 페이지로
+  if (row.tool === "chat-free") return "/dashboard/chat";
+  // 위저드 — 결과 재방문 페이지로
+  const WIZARDS = new Set([
+    "presentation",
+    "wizard-cram",
+    "wizard-assignment",
+    "wizard-exam",
+    "report-checklist",
+    "post-mortem",
+  ]);
+  if (WIZARDS.has(row.tool)) return `/dashboard/history/${row.id}`;
+  // 자료 기반(summarize·quiz·자료 챗) — 자료 페이지로
+  const courseName = row.materials?.courses?.name;
+  if (courseName && row.materials) {
+    return `/dashboard/study/${encodeURIComponent(courseName)}/${row.materials.id}`;
+  }
+  return `/dashboard/history/${row.id}`;
 }
 
 function mapAttempt(row: AttemptRow): Activity {
@@ -132,6 +194,23 @@ function detailFromPayload(tool: string, payload: Record<string, unknown>): stri
   }
   if (tool === "syllabus" && typeof payload.eventCount === "number") {
     return `일정 ${payload.eventCount}개 추출`;
+  }
+  if (tool === "presentation") {
+    const audience = typeof payload.audience === "string" ? payload.audience : null;
+    const durationMin = typeof payload.durationMin === "number" ? payload.durationMin : null;
+    if (audience && durationMin) return `${durationMin}분 · 청중 ${audience}`;
+  }
+  if (tool === "wizard-cram") {
+    const remainingMin = typeof payload.remainingMin === "number" ? payload.remainingMin : null;
+    if (remainingMin) {
+      const h = Math.floor(remainingMin / 60);
+      const m = remainingMin % 60;
+      const label = h === 0 ? `${m}분` : m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+      return `남은 ${label} 기준 계획`;
+    }
+  }
+  if (tool === "report-checklist") {
+    return "교수 공지 체크리스트";
   }
   return null;
 }

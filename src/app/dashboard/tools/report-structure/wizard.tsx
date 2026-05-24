@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Kbd } from "@/components/primitives";
 import { WizardWatermark } from "@/components/wizard-shell";
 import { useJob } from "@/lib/hooks/use-job";
-import type { PresentationOutputT } from "@/lib/schemas";
+import type { ReportStructureOutputT } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 
 export interface CourseOption {
@@ -21,24 +21,37 @@ export interface MaterialOption {
   pageCount: number | null;
 }
 
-type Audience = "교수님" | "동기" | "신입생" | "외부";
-type Goal = "이해" | "설득" | "공유" | "토론 유도";
-type Duration = 5 | 10 | 15 | 20;
+type ReportType = "분석" | "비평" | "주장" | "비교" | "사례 연구" | "조사 보고";
+type Audience = "교수님" | "조교" | "학우 발표용";
 
-const AUDIENCE_OPTIONS: Audience[] = ["교수님", "동기", "신입생", "외부"];
-const GOAL_OPTIONS: Goal[] = ["이해", "설득", "공유", "토론 유도"];
-const DURATION_OPTIONS: Duration[] = [5, 10, 15, 20];
+const TYPE_OPTIONS: ReportType[] = ["분석", "비평", "주장", "비교", "사례 연구", "조사 보고"];
+const TYPE_HINT: Record<ReportType, string> = {
+  분석: "현상 → 원인 → 영향",
+  비평: "대상 요약 → 강점·약점 → 평가",
+  주장: "주장 → 근거 → 반론 → 재반박",
+  비교: "기준 → A → B → 종합",
+  "사례 연구": "사례 → 맥락 → 분석 → 일반화",
+  "조사 보고": "목적 → 방법 → 결과 → 시사점",
+};
+
+const PAGE_PRESETS = [1, 2, 3, 4, 6, 8] as const;
+const AUDIENCE_OPTIONS: Audience[] = ["교수님", "조교", "학우 발표용"];
+const AUDIENCE_HINT: Record<Audience, string> = {
+  교수님: "비판 수용·반론 자세",
+  조교: "채점 기준 충족 우선",
+  "학우 발표용": "짧고 명확하게",
+};
 
 interface Answers {
   topic: string;
-  durationMin: Duration;
+  reportType: ReportType | null;
+  targetPages: number;
   audience: Audience | null;
-  goal: Goal | null;
   constraints: string;
   materialIds: Set<string>;
 }
 
-const STEP_LABELS = ["주제", "시간·청중", "목적·제약", "참고 자료"] as const;
+const STEP_LABELS = ["주제", "타입·분량", "청중·제약", "참고 자료"] as const;
 
 export function Wizard({
   courses,
@@ -50,9 +63,9 @@ export function Wizard({
   const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
   const [answers, setAnswers] = useState<Answers>({
     topic: "",
-    durationMin: 10,
+    reportType: null,
+    targetPages: 4,
     audience: null,
-    goal: null,
     constraints: "",
     materialIds: new Set(),
   });
@@ -84,29 +97,29 @@ export function Wizard({
   const isDone = job?.status === "done";
 
   const output = isDone
-    ? ((job.result as { output?: PresentationOutputT } | null)?.output ?? null)
+    ? ((job.result as { output?: ReportStructureOutputT } | null)?.output ?? null)
     : null;
   const errorMsg = submitError ?? pollError ?? (job?.status === "error" ? job.errorMessage : null);
 
   const canStep1 = answers.topic.trim().length >= 2;
-  const canStep2 = answers.audience !== null;
-  const canStep3 = answers.goal !== null;
+  const canStep2 = answers.reportType !== null;
+  const canStep3 = answers.audience !== null;
 
   async function handleSubmit() {
     setSubmitError(null);
-    if (!answers.audience || !answers.goal) {
-      setSubmitError("청중·목적을 골라주세요");
+    if (!answers.reportType || !answers.audience) {
+      setSubmitError("타입·청중을 골라주세요");
       return;
     }
     try {
-      const res = await fetch("/api/wizards/presentation", {
+      const res = await fetch("/api/wizards/report-structure", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic: answers.topic.trim(),
+          reportType: answers.reportType,
+          targetPages: answers.targetPages,
           audience: answers.audience,
-          durationMin: answers.durationMin,
-          goal: answers.goal,
           constraints: answers.constraints.trim() || undefined,
           materialIds: Array.from(answers.materialIds),
         }),
@@ -138,14 +151,14 @@ export function Wizard({
   }
 
   if (output) {
-    if (answers.audience && answers.goal) {
+    if (answers.reportType && answers.audience) {
       return (
-        <PresentationResultCard
+        <ReportStructureResultCard
           output={output}
           topic={answers.topic}
-          durationMin={answers.durationMin}
+          reportType={answers.reportType}
+          targetPages={answers.targetPages}
           audience={answers.audience}
-          goal={answers.goal}
           onRestart={resetToForm}
         />
       );
@@ -171,11 +184,11 @@ export function Wizard({
       )}
 
       {step === 1 && (
-        <StepTimeAudience
-          durationMin={answers.durationMin}
-          setDuration={(v) => setAnswers((p) => ({ ...p, durationMin: v }))}
-          audience={answers.audience}
-          setAudience={(v) => setAnswers((p) => ({ ...p, audience: v }))}
+        <StepTypePages
+          reportType={answers.reportType}
+          setReportType={(v) => setAnswers((p) => ({ ...p, reportType: v }))}
+          targetPages={answers.targetPages}
+          setTargetPages={(v) => setAnswers((p) => ({ ...p, targetPages: v }))}
           onBack={() => setStep(0)}
           onNext={() => canStep2 && setStep(2)}
           canNext={canStep2}
@@ -183,9 +196,9 @@ export function Wizard({
       )}
 
       {step === 2 && (
-        <StepGoalConstraints
-          goal={answers.goal}
-          setGoal={(v) => setAnswers((p) => ({ ...p, goal: v }))}
+        <StepAudienceConstraints
+          audience={answers.audience}
+          setAudience={(v) => setAnswers((p) => ({ ...p, audience: v }))}
           constraints={answers.constraints}
           setConstraints={(v) => setAnswers((p) => ({ ...p, constraints: v }))}
           constraintsInputRef={constraintsInputRef}
@@ -211,7 +224,7 @@ export function Wizard({
   );
 }
 
-/* ─────────── Step 0: 주제 ─────────── */
+/* ─── steps ─────────────────────────── */
 
 function StepTopic({
   topic,
@@ -228,7 +241,10 @@ function StepTopic({
 }) {
   return (
     <>
-      <StepQuestion question="어떤 주제로 발표하나요?" hint="한 줄로. 예: 'BST의 균형 유지 알고리즘'" />
+      <StepQuestion
+        question="리포트 주제는 무엇인가요?"
+        hint="한 줄로. 예: '조선 후기 실학의 사회 변화 분석'"
+      />
       <input
         ref={inputRef}
         type="text"
@@ -237,7 +253,7 @@ function StepTopic({
         onKeyDown={(e) => {
           if (e.key === "Enter" && canNext) onNext();
         }}
-        placeholder="발표 주제를 한 줄로"
+        placeholder="리포트 주제를 한 줄로"
         maxLength={200}
         className="mt-8 w-full border-b border-[var(--color-apple-hairline)] bg-transparent pb-3 text-[18px] wght-560 text-[var(--color-apple-ink)] placeholder:wght-450 placeholder:text-[var(--color-apple-muted)] focus:border-[var(--color-apple-action)] focus-visible:outline-none sm:text-[20px]"
         style={{ letterSpacing: "-0.012em" }}
@@ -255,21 +271,19 @@ function StepTopic({
   );
 }
 
-/* ─────────── Step 1: 시간 + 청중 ─────────── */
-
-function StepTimeAudience({
-  durationMin,
-  setDuration,
-  audience,
-  setAudience,
+function StepTypePages({
+  reportType,
+  setReportType,
+  targetPages,
+  setTargetPages,
   onBack,
   onNext,
   canNext,
 }: {
-  durationMin: Duration;
-  setDuration: (v: Duration) => void;
-  audience: Audience | null;
-  setAudience: (v: Audience) => void;
+  reportType: ReportType | null;
+  setReportType: (v: ReportType) => void;
+  targetPages: number;
+  setTargetPages: (v: number) => void;
   onBack: () => void;
   onNext: () => void;
   canNext: boolean;
@@ -277,19 +291,35 @@ function StepTimeAudience({
   return (
     <>
       <StepQuestion
-        question="발표 시간과 청중을 알려주세요"
-        hint="시간으로 슬라이드 수가, 청중으로 어휘·예시 톤이 정해져요"
+        question="어떤 종류의 리포트인가요?"
+        hint="타입으로 섹션 흐름이, 분량으로 섹션 수가 정해져요"
       />
       <div className="mt-8 flex flex-col gap-7">
-        <FieldGroup label="발표 시간">
+        <FieldGroup label="리포트 타입">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {TYPE_OPTIONS.map((opt) => {
+              const active = reportType === opt;
+              return (
+                <ChoiceButton key={opt} active={active} onClick={() => setReportType(opt)}>
+                  <span className="wght-560">{opt}</span>
+                  <span className="text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
+                    {TYPE_HINT[opt]}
+                  </span>
+                </ChoiceButton>
+              );
+            })}
+          </div>
+        </FieldGroup>
+
+        <FieldGroup label="목표 분량">
           <div className="flex flex-wrap gap-2">
-            {DURATION_OPTIONS.map((d) => {
-              const active = durationMin === d;
+            {PAGE_PRESETS.map((p) => {
+              const active = targetPages === p;
               return (
                 <button
-                  key={d}
+                  key={p}
                   type="button"
-                  onClick={() => setDuration(d)}
+                  onClick={() => setTargetPages(p)}
                   className={cn(
                     "rounded-full px-4 py-2 text-[13px] wght-560 transition-all",
                     active
@@ -297,15 +327,51 @@ function StepTimeAudience({
                       : "border border-[var(--color-apple-hairline)] text-[var(--color-apple-muted)] hover:border-[var(--color-apple-ink)] hover:text-[var(--color-apple-ink)]",
                   )}
                 >
-                  {d}분
+                  {p}쪽
                 </button>
               );
             })}
           </div>
         </FieldGroup>
+      </div>
+      <ActionRow>
+        <SecondaryButton onClick={onBack}>← 이전</SecondaryButton>
+        <PrimaryButton onClick={onNext} disabled={!canNext}>
+          다음 단계
+        </PrimaryButton>
+      </ActionRow>
+    </>
+  );
+}
 
+function StepAudienceConstraints({
+  audience,
+  setAudience,
+  constraints,
+  setConstraints,
+  constraintsInputRef,
+  onBack,
+  onNext,
+  canNext,
+}: {
+  audience: Audience | null;
+  setAudience: (v: Audience) => void;
+  constraints: string;
+  setConstraints: (v: string) => void;
+  constraintsInputRef: React.RefObject<HTMLInputElement | null>;
+  onBack: () => void;
+  onNext: () => void;
+  canNext: boolean;
+}) {
+  return (
+    <>
+      <StepQuestion
+        question="누가 읽나요? 평가 기준은요?"
+        hint="청중으로 톤·깊이가, 제약으로 가점 포인트가 정해져요"
+      />
+      <div className="mt-8 flex flex-col gap-7">
         <FieldGroup label="청중">
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-3">
             {AUDIENCE_OPTIONS.map((opt) => {
               const active = audience === opt;
               return (
@@ -319,69 +385,8 @@ function StepTimeAudience({
             })}
           </div>
         </FieldGroup>
-      </div>
-      <ActionRow>
-        <SecondaryButton onClick={onBack}>← 이전</SecondaryButton>
-        <PrimaryButton onClick={onNext} disabled={!canNext}>
-          다음 단계
-        </PrimaryButton>
-      </ActionRow>
-    </>
-  );
-}
 
-const AUDIENCE_HINT: Record<Audience, string> = {
-  교수님: "격식 + 깊이",
-  동기: "친근 + 공감",
-  신입생: "비유 풍부",
-  외부: "배경부터 설명",
-};
-
-/* ─────────── Step 2: 목적 + 제약 ─────────── */
-
-function StepGoalConstraints({
-  goal,
-  setGoal,
-  constraints,
-  setConstraints,
-  constraintsInputRef,
-  onBack,
-  onNext,
-  canNext,
-}: {
-  goal: Goal | null;
-  setGoal: (v: Goal) => void;
-  constraints: string;
-  setConstraints: (v: string) => void;
-  constraintsInputRef: React.RefObject<HTMLInputElement | null>;
-  onBack: () => void;
-  onNext: () => void;
-  canNext: boolean;
-}) {
-  return (
-    <>
-      <StepQuestion
-        question="발표의 목적·제약은요?"
-        hint="목적은 슬라이드 구조 방향을, 제약은 평가 기준에 들어가요"
-      />
-      <div className="mt-8 flex flex-col gap-7">
-        <FieldGroup label="목적">
-          <div className="grid gap-2 sm:grid-cols-2">
-            {GOAL_OPTIONS.map((opt) => {
-              const active = goal === opt;
-              return (
-                <ChoiceButton key={opt} active={active} onClick={() => setGoal(opt)}>
-                  <span className="wght-560">{opt}</span>
-                  <span className="text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
-                    {GOAL_HINT[opt]}
-                  </span>
-                </ChoiceButton>
-              );
-            })}
-          </div>
-        </FieldGroup>
-
-        <FieldGroup label="평가 기준·제약 (선택)">
+        <FieldGroup label="제약·평가 기준 (선택)">
           <input
             ref={constraintsInputRef}
             type="text"
@@ -390,13 +395,13 @@ function StepGoalConstraints({
             onKeyDown={(e) => {
               if (e.key === "Enter" && canNext) onNext();
             }}
-            placeholder="예: 실제 사례 30%, 비판적 시각 강조, 슬라이드 8장 이내"
+            placeholder="예: 1차 사료 3건 이상, Chicago 양식, 비판적 시각 강조"
             maxLength={400}
             className="h-11 w-full rounded-[10px] border border-[var(--color-apple-hairline)] px-3.5 text-[14px] wght-450 text-[var(--color-apple-ink)] placeholder:text-[var(--color-apple-muted)] focus:border-[var(--color-apple-action)] focus:outline-none"
             style={{ letterSpacing: "-0.012em" }}
           />
           <p className="mt-1.5 text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
-            교수님이 강조하신 평가 기준을 그대로 넣으면 가점 슬라이드가 만들어져요.
+            교수님이 강조한 기준을 그대로 적으면 가점 섹션이 나와요.
           </p>
         </FieldGroup>
       </div>
@@ -409,15 +414,6 @@ function StepGoalConstraints({
     </>
   );
 }
-
-const GOAL_HINT: Record<Goal, string> = {
-  이해: "개념 전달 위주",
-  설득: "주장 + 근거 흐름",
-  공유: "리포트·결과 보고",
-  "토론 유도": "쟁점 + 열린 질문",
-};
-
-/* ─────────── Step 3: 자료 + 제출 ─────────── */
 
 function StepMaterials({
   groupedMaterials,
@@ -444,13 +440,13 @@ function StepMaterials({
     <>
       <StepQuestion
         question="참고 자료를 선택해 주세요"
-        hint="고른 자료의 본문을 인용해 슬라이드 근거가 박혀요. 없어도 진행 가능."
+        hint="고른 자료에서 인용할 위치까지 박아드려요. 없어도 진행 가능."
       />
 
       {hasMaterials ? (
         <div className="mt-8 flex flex-col gap-5">
           <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-            최대 3개 · 발표는 자료 1~2개가 가장 좋아요
+            최대 3개
           </p>
           <div className="flex flex-col gap-5">
             {groupedMaterials.map(([courseId, list]) => {
@@ -526,15 +522,7 @@ function StepMaterials({
             className="text-[13px] wght-450 leading-[1.6] text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            업로드된 자료가 아직 없어요. 자료 없이도 발표 구조는 짤 수 있지만,
-            인용 슬라이드가 빠집니다. 자료 올리고 싶으면{" "}
-            <a
-              href="/dashboard/study"
-              className="wght-560 text-[var(--color-apple-action)] hover:underline"
-            >
-              공부 페이지
-            </a>
-            로 가서 추가해 주세요.
+            업로드된 자료가 없어요. 자료 없이도 구조는 짜드리지만 인용 단서가 빠집니다.
           </p>
         </div>
       )}
@@ -549,8 +537,8 @@ function StepMaterials({
         <SecondaryButton onClick={onBack}>← 이전</SecondaryButton>
         <PrimaryButton onClick={onSubmit}>
           {selectedIds.size > 0
-            ? `${selectedIds.size}개 자료로 만들기 →`
-            : "자료 없이 만들기 →"}
+            ? `${selectedIds.size}개 자료로 구조 짜기 →`
+            : "자료 없이 구조 짜기 →"}
         </PrimaryButton>
       </ActionRow>
     </>
@@ -569,20 +557,18 @@ function SummaryBox({ summary }: { summary: Answers }) {
           {summary.topic || "—"}
         </li>
         <li>
-          <span className="text-[var(--color-apple-muted)]">시간·청중 </span>
-          {summary.durationMin}분 · {summary.audience ?? "—"}
+          <span className="text-[var(--color-apple-muted)]">타입·분량 </span>
+          {summary.reportType ?? "—"} · {summary.targetPages}쪽
         </li>
         <li>
-          <span className="text-[var(--color-apple-muted)]">목적 </span>
-          {summary.goal ?? "—"}
+          <span className="text-[var(--color-apple-muted)]">청중 </span>
+          {summary.audience ?? "—"}
           {summary.constraints && ` · ${summary.constraints}`}
         </li>
       </ul>
     </div>
   );
 }
-
-/* ─────────── Running ─────────── */
 
 function RunningCard({ topic }: { topic: string }) {
   return (
@@ -594,7 +580,7 @@ function RunningCard({ topic }: { topic: string }) {
         className="mt-2 text-[20px] leading-[1.3] wght-620 text-[var(--color-apple-ink)] sm:text-[22px]"
         style={{ letterSpacing: "-0.012em" }}
       >
-        {topic} 발표 구조를 짜고 있어요
+        {topic} 리포트 구조를 짜고 있어요
       </h2>
       <div className="mt-6 flex items-center gap-3">
         <Spinner />
@@ -602,38 +588,59 @@ function RunningCard({ topic }: { topic: string }) {
           className="text-[13px] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          청중에 맞춰 슬라이드 흐름·스피커 노트·예상 질문까지. 40초~1분쯤 걸려요.
+          섹션별 흐름·각 섹션 핵심 질문·체크리스트까지. 40초~1분쯤 걸려요.
         </span>
       </div>
     </div>
   );
 }
 
-/* ─────────── Result ─────────── */
+/* ─── Result Card (export — history detail이 재사용) ─── */
 
-export function PresentationResultCard({
+export function ReportStructureResultCard({
   output,
   topic,
-  durationMin,
+  reportType,
+  targetPages,
   audience,
-  goal,
   onRestart,
 }: {
-  output: PresentationOutputT;
+  output: ReportStructureOutputT;
   topic: string;
-  durationMin: Duration;
+  reportType: ReportType;
+  targetPages: number;
   audience: Audience;
-  goal: Goal;
   onRestart?: () => void;
 }) {
-  const totalSec = output.outline.reduce((a, s) => a + s.estimatedSec, 0);
+  if (output.rejected) {
+    return (
+      <div className="rounded-[18px] bg-white p-7 sm:p-9">
+        <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]">
+          구조 추천 불가
+        </p>
+        <h2
+          className="mt-3 text-[22px] leading-[1.2] wght-620 text-[var(--color-apple-ink)] sm:text-[26px]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          {output.reason}
+        </h2>
+        {onRestart && (
+          <div className="mt-7">
+            <SecondaryButton onClick={onRestart}>다시 시도 →</SecondaryButton>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const totalPages = output.sections.reduce((a, s) => a + s.estimatedPages, 0);
 
   return (
     <div className="fade-up flex flex-col gap-6">
       {/* Hero */}
       <section className="rounded-[18px] bg-white p-7 sm:p-9">
         <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]">
-          발표 구조 · {output.outline.length}장 · 약 {formatSec(totalSec)}
+          리포트 구조 · {output.sections.length}섹션 · 약 {totalPages.toFixed(1)}쪽
         </p>
         <h2
           className="mt-3 text-[24px] leading-[1.2] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
@@ -645,26 +652,39 @@ export function PresentationResultCard({
           className="mt-2 text-[13px] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          {durationMin}분 · 청중 {audience} · 목적 {goal}
+          {reportType} · {targetPages}쪽 · 청중 {audience}
         </p>
       </section>
 
-      {/* Outline */}
+      {/* Thesis */}
+      <section className="rounded-[18px] bg-white p-7 sm:p-9">
+        <h3 className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+          전체 흐름
+        </h3>
+        <p
+          className="mt-3 text-[15px] leading-[1.6] wght-450 text-[var(--color-apple-ink)] sm:text-[16px]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          {output.thesis}
+        </p>
+      </section>
+
+      {/* Sections */}
       <section className="rounded-[18px] bg-white p-7 sm:p-9">
         <h3
           className="text-[18px] wght-620 text-[var(--color-apple-ink)] sm:text-[20px]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          슬라이드 흐름
+          섹션별 가이드
         </h3>
         <ol className="mt-6 flex flex-col gap-7">
-          {output.outline.map((s) => (
-            <li key={s.slideNo} className="flex gap-4">
+          {output.sections.map((s) => (
+            <li key={s.order} className="flex gap-4">
               <span
                 className="w-9 shrink-0 text-[22px] wght-620 tabular-nums text-[var(--color-apple-hairline)]"
                 style={{ letterSpacing: "-0.024em" }}
               >
-                {String(s.slideNo).padStart(2, "0")}
+                {String(s.order).padStart(2, "0")}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -675,7 +695,7 @@ export function PresentationResultCard({
                     {s.title}
                   </h4>
                   <span className="text-[11px] wght-560 tabular-nums text-[var(--color-apple-muted)]">
-                    {formatSec(s.estimatedSec)}
+                    약 {s.estimatedPages.toFixed(1)}쪽
                   </span>
                 </div>
                 <p
@@ -683,113 +703,103 @@ export function PresentationResultCard({
                 >
                   {s.purpose}
                 </p>
-                <ul
-                  className="mt-3 flex flex-col gap-1.5 text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-ink)]"
-                  style={{ letterSpacing: "-0.012em" }}
-                >
-                  {s.structure.map((line, i) => (
-                    <li key={i} className="flex gap-2">
-                      <span className="mt-[10px] h-1 w-1 shrink-0 rounded-full bg-[var(--color-apple-muted)]" />
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-3 rounded-[8px] border-l-2 border-[var(--color-apple-action)] bg-[var(--color-apple-pearl)] px-3 py-2">
+                <div className="mt-3">
                   <p className="text-[10.5px] wght-700 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-                    스피커 노트
+                    본인이 답할 질문
                   </p>
-                  <p
-                    className="mt-0.5 text-[12.5px] wght-450 leading-[1.55] text-[var(--color-apple-ink)]"
+                  <ul
+                    className="mt-2 flex flex-col gap-1.5 text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-ink)]"
                     style={{ letterSpacing: "-0.012em" }}
                   >
-                    {s.speakerNote}
-                  </p>
+                    {s.keyQuestions.map((q, i) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="shrink-0 wght-560 text-[var(--color-apple-action)]">
+                          {i + 1}.
+                        </span>
+                        <span>{q}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
+                {s.citationHint && (
+                  <div className="mt-3 rounded-[8px] border-l-2 border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)] px-3 py-2">
+                    <p className="text-[10.5px] wght-700 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+                      인용 단서
+                    </p>
+                    <p
+                      className="mt-0.5 text-[12.5px] wght-450 leading-[1.55] text-[var(--color-apple-ink)]"
+                      style={{ letterSpacing: "-0.012em" }}
+                    >
+                      {s.citationHint}
+                    </p>
+                  </div>
+                )}
               </div>
             </li>
           ))}
         </ol>
       </section>
 
-      {/* Q&A bank */}
+      {/* Pre-write checks */}
       <section className="rounded-[18px] bg-white p-7 sm:p-9">
         <h3
           className="text-[18px] wght-620 text-[var(--color-apple-ink)] sm:text-[20px]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          예상 질문
+          본문 쓰기 전 체크
         </h3>
-        <ul className="mt-5 flex flex-col gap-5">
-          {output.qaBank.map((q, i) => (
+        <ul className="mt-4 flex flex-col gap-2.5">
+          {output.preWriteChecks.map((c, i) => (
             <li
               key={i}
-              className="border-b border-[var(--color-apple-hairline-soft)] pb-5 last:border-0 last:pb-0"
+              className="flex gap-2 text-[13.5px] wght-450 leading-[1.6] text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
             >
-              <div className="flex items-baseline gap-2">
-                <span className="shrink-0 wght-620 tabular-nums text-[var(--color-apple-action)]">
-                  Q{i + 1}
-                </span>
-                <h4
-                  className="flex-1 text-[14px] wght-620 leading-[1.5] text-[var(--color-apple-ink)]"
-                  style={{ letterSpacing: "-0.012em" }}
-                >
-                  {q.question}
-                </h4>
-              </div>
-              <p
-                className="mt-2 text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-              >
-                의도 · {q.intent}
-              </p>
-              <p
-                className="mt-2 text-[13px] wght-450 leading-[1.6] text-[var(--color-apple-ink)]"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                {q.answerHint}
-              </p>
+              <span aria-hidden className="text-[var(--color-apple-action)]">
+                →
+              </span>
+              <span>{c}</span>
             </li>
           ))}
         </ul>
       </section>
 
-      {/* Delivery tips */}
-      {output.deliveryTips && output.deliveryTips.length > 0 && (
-        <section className="rounded-[18px] bg-white p-7 sm:p-9">
-          <h3
-            className="text-[18px] wght-620 text-[var(--color-apple-ink)] sm:text-[20px]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            발표 직전 팁
-          </h3>
-          <ul className="mt-4 flex flex-col gap-2.5">
-            {output.deliveryTips.map((t, i) => (
-              <li
-                key={i}
-                className="flex gap-2 text-[13.5px] wght-450 leading-[1.6] text-[var(--color-apple-ink)]"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                <span aria-hidden className="text-[var(--color-apple-action)]">
-                  →
-                </span>
-                <span>{t}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {/* Pitfalls */}
+      <section className="rounded-[18px] bg-white p-7 sm:p-9">
+        <h3
+          className="text-[18px] wght-620 text-[var(--color-apple-ink)] sm:text-[20px]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          자주 빠지는 함정
+        </h3>
+        <ul className="mt-4 flex flex-col gap-2.5">
+          {output.commonPitfalls.map((p, i) => (
+            <li
+              key={i}
+              className="flex gap-2 text-[13.5px] wght-450 leading-[1.6] text-[var(--color-apple-ink)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              <span aria-hidden className="text-[var(--color-urgent)]">
+                ⚠
+              </span>
+              <span>{p}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-      {/* Watermark + 다시 */}
+      {/* Watermark + restart */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1">
           <WizardWatermark modelText={output.watermark} />
         </div>
-        {onRestart && <SecondaryButton onClick={onRestart}>다시 만들기</SecondaryButton>}
+        {onRestart && <SecondaryButton onClick={onRestart}>다른 리포트 →</SecondaryButton>}
       </div>
     </div>
   );
 }
 
-/* ─────────── shared primitives ─────────── */
+/* ─── shared primitives ─── */
 
 function ProgressHeader({ step }: { step: 0 | 1 | 2 | 3 }) {
   const progress = (step + 1) / STEP_LABELS.length;
@@ -997,11 +1007,4 @@ function CheckIcon() {
       />
     </svg>
   );
-}
-
-function formatSec(sec: number): string {
-  if (sec < 60) return `${sec}초`;
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return s === 0 ? `${m}분` : `${m}분 ${s}초`;
 }
