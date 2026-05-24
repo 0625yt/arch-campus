@@ -434,17 +434,17 @@ function StepThree({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <Field label="약점·중점 (선택)">
+      <Field label="추가 요청 사항 (선택)">
         <textarea
           value={weakSpots}
           onChange={(e) => setWeakSpots(e.target.value)}
-          placeholder="예: 동기화 단원 약해요. 수식 풀이가 헷갈려요."
+          placeholder="예: 동기화 단원 약해요. 수식 풀이 위주로. 객관식 위주로 보고 싶어요."
           rows={3}
           maxLength={800}
           className={`${inputClass} resize-none py-3`}
         />
         <p className="mt-1.5 text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
-          비워도 돼요. 적으면 그 단원의 priority가 올라가요.
+          비워두면 위 자료 기준으로만 짜요. 약점·중점·문제 유형 등을 적으면 결과에 반영돼요.
         </p>
       </Field>
 

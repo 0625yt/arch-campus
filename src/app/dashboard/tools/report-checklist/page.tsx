@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { WizardHistoryStrip } from "@/components/wizard-history-strip";
 import { tryGetOwnerId } from "@/lib/auth";
+import { listWizardHistory } from "@/lib/data/wizard-history";
 import { ReportChecklistWizard } from "./wizard";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +10,9 @@ export const dynamic = "force-dynamic";
 export default async function ReportChecklistPage() {
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
+
+  // service가 jobs/generations에 tool="wizard-assignment"로 박음 — 그쪽으로 조회.
+  const history = await listWizardHistory({ ownerId, tool: "wizard-assignment" });
 
   return (
     <div>
@@ -47,7 +52,13 @@ export default async function ReportChecklistPage() {
           </p>
         </section>
 
-        <div className="mt-12 fade-up fade-up-2 sm:mt-14">
+        {history.length > 0 && (
+          <div className="mt-10 fade-up fade-up-2 sm:mt-12">
+            <WizardHistoryStrip items={history} />
+          </div>
+        )}
+
+        <div className="mt-12 fade-up fade-up-3 sm:mt-14">
           <ReportChecklistWizard />
         </div>
       </div>

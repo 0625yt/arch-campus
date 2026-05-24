@@ -48,6 +48,8 @@ interface Answers {
   targetPages: number;
   audience: Audience | null;
   constraints: string;
+  /** 마지막 단계 자유 입력. constraints에 합쳐서 전송. */
+  additionalRequest: string;
   materialIds: Set<string>;
 }
 
@@ -67,6 +69,7 @@ export function Wizard({
     targetPages: 4,
     audience: null,
     constraints: "",
+    additionalRequest: "",
     materialIds: new Set(),
   });
   const [jobId, setJobId] = useState<string | null>(null);
@@ -111,6 +114,9 @@ export function Wizard({
       setSubmitError("타입·청중을 골라주세요");
       return;
     }
+    const mergedConstraints = [answers.constraints.trim(), answers.additionalRequest.trim()]
+      .filter(Boolean)
+      .join(" / ");
     try {
       const res = await fetch("/api/wizards/report-structure", {
         method: "POST",
@@ -120,7 +126,7 @@ export function Wizard({
           reportType: answers.reportType,
           targetPages: answers.targetPages,
           audience: answers.audience,
-          constraints: answers.constraints.trim() || undefined,
+          constraints: mergedConstraints || undefined,
           materialIds: Array.from(answers.materialIds),
         }),
       });
@@ -214,6 +220,8 @@ export function Wizard({
           courseMap={courseMap}
           selectedIds={answers.materialIds}
           toggleMaterial={toggleMaterial}
+          additionalRequest={answers.additionalRequest}
+          setAdditionalRequest={(v) => setAnswers((p) => ({ ...p, additionalRequest: v }))}
           summary={answers}
           onBack={() => setStep(2)}
           onSubmit={handleSubmit}
@@ -420,6 +428,8 @@ function StepMaterials({
   courseMap,
   selectedIds,
   toggleMaterial,
+  additionalRequest,
+  setAdditionalRequest,
   summary,
   onBack,
   onSubmit,
@@ -429,6 +439,8 @@ function StepMaterials({
   courseMap: Map<string, CourseOption>;
   selectedIds: Set<string>;
   toggleMaterial: (id: string) => void;
+  additionalRequest: string;
+  setAdditionalRequest: (v: string) => void;
   summary: Answers;
   onBack: () => void;
   onSubmit: () => void;
@@ -527,6 +539,12 @@ function StepMaterials({
         </div>
       )}
 
+      <AdditionalRequestField
+        value={additionalRequest}
+        onChange={setAdditionalRequest}
+        placeholder="예: 본인 관점 명확히, 통계 인용 2건 이상, 결론에 한계 한 줄"
+      />
+
       <SummaryBox summary={summary} />
 
       {errorMsg && (
@@ -542,6 +560,39 @@ function StepMaterials({
         </PrimaryButton>
       </ActionRow>
     </>
+  );
+}
+
+/**
+ * 마지막 단계의 자유 입력 — "추가 요청 사항". constraints에 합쳐서 모델에 전달.
+ */
+function AdditionalRequestField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="mt-6 flex flex-col gap-2">
+      <label className="flex items-center gap-1.5 text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+        추가 요청 사항 (선택)
+      </label>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={3}
+        maxLength={500}
+        className="w-full resize-none rounded-[10px] border border-[var(--color-apple-hairline)] bg-white px-3.5 py-2.5 text-[13.5px] wght-450 text-[var(--color-apple-ink)] placeholder:text-[var(--color-apple-muted)] focus:border-[var(--color-apple-action)] focus:outline-none"
+        style={{ letterSpacing: "-0.012em" }}
+      />
+      <p className="text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
+        비워두면 위 입력만으로 만들어요. 적으면 그 강조가 결과에 반영돼요.
+      </p>
+    </div>
   );
 }
 

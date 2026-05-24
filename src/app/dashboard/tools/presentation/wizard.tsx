@@ -35,6 +35,8 @@ interface Answers {
   audience: Audience | null;
   goal: Goal | null;
   constraints: string;
+  /** 마지막 단계 자유 입력 — 사용자가 추가로 강조하고 싶은 점. constraints에 합쳐서 전송. */
+  additionalRequest: string;
   materialIds: Set<string>;
 }
 
@@ -54,6 +56,7 @@ export function Wizard({
     audience: null,
     goal: null,
     constraints: "",
+    additionalRequest: "",
     materialIds: new Set(),
   });
   const [jobId, setJobId] = useState<string | null>(null);
@@ -98,6 +101,11 @@ export function Wizard({
       setSubmitError("청중·목적을 골라주세요");
       return;
     }
+    // 평가 기준(Step 2)과 마지막 추가 요청(Step 3)을 한 줄로 합쳐 모델에 전달.
+    // 학생 입장에선 다른 시점에 적은 다른 의도지만, 모델은 한 묶음으로 보는 게 깔끔.
+    const mergedConstraints = [answers.constraints.trim(), answers.additionalRequest.trim()]
+      .filter(Boolean)
+      .join(" / ");
     try {
       const res = await fetch("/api/wizards/presentation", {
         method: "POST",
@@ -107,7 +115,7 @@ export function Wizard({
           audience: answers.audience,
           durationMin: answers.durationMin,
           goal: answers.goal,
-          constraints: answers.constraints.trim() || undefined,
+          constraints: mergedConstraints || undefined,
           materialIds: Array.from(answers.materialIds),
         }),
       });
@@ -201,6 +209,8 @@ export function Wizard({
           courseMap={courseMap}
           selectedIds={answers.materialIds}
           toggleMaterial={toggleMaterial}
+          additionalRequest={answers.additionalRequest}
+          setAdditionalRequest={(v) => setAnswers((p) => ({ ...p, additionalRequest: v }))}
           summary={answers}
           onBack={() => setStep(2)}
           onSubmit={handleSubmit}
@@ -424,6 +434,8 @@ function StepMaterials({
   courseMap,
   selectedIds,
   toggleMaterial,
+  additionalRequest,
+  setAdditionalRequest,
   summary,
   onBack,
   onSubmit,
@@ -433,6 +445,8 @@ function StepMaterials({
   courseMap: Map<string, CourseOption>;
   selectedIds: Set<string>;
   toggleMaterial: (id: string) => void;
+  additionalRequest: string;
+  setAdditionalRequest: (v: string) => void;
   summary: Answers;
   onBack: () => void;
   onSubmit: () => void;
@@ -539,6 +553,12 @@ function StepMaterials({
         </div>
       )}
 
+      <AdditionalRequestField
+        value={additionalRequest}
+        onChange={setAdditionalRequest}
+        placeholder="예: 도입에 본인 경험 한 줄, 청중과 시선 자주 맞추기 강조"
+      />
+
       <SummaryBox summary={summary} />
 
       {errorMsg && (
@@ -554,6 +574,41 @@ function StepMaterials({
         </PrimaryButton>
       </ActionRow>
     </>
+  );
+}
+
+/**
+ * 마지막 단계의 자유 입력 — "추가 요청 사항".
+ * 모델은 위에서 받은 메타(주제·청중·평가 기준 등) 외에 학생이 마지막에 한 번 더 강조하고 싶은
+ * 내용을 자유롭게 받는다. 비어도 됨.
+ */
+function AdditionalRequestField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="mt-6 flex flex-col gap-2">
+      <label className="flex items-center gap-1.5 text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+        추가 요청 사항 (선택)
+      </label>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={3}
+        maxLength={500}
+        className="w-full resize-none rounded-[10px] border border-[var(--color-apple-hairline)] bg-white px-3.5 py-2.5 text-[13.5px] wght-450 text-[var(--color-apple-ink)] placeholder:text-[var(--color-apple-muted)] focus:border-[var(--color-apple-action)] focus:outline-none"
+        style={{ letterSpacing: "-0.012em" }}
+      />
+      <p className="text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
+        비워두면 위 입력만으로 만들어요. 적으면 그 강조가 결과에 반영돼요.
+      </p>
+    </div>
   );
 }
 

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { WizardHistoryStrip } from "@/components/wizard-history-strip";
 import { tryGetOwnerId } from "@/lib/auth";
+import { listWizardHistory } from "@/lib/data/wizard-history";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { Wizard, type CourseOption, type MaterialOption } from "./wizard";
 
@@ -11,7 +13,7 @@ export default async function PresentationWizardPage() {
   if (!ownerId) redirect("/login");
 
   const admin = getAdminSupabase();
-  const [{ data: coursesRaw }, { data: materialsRaw }] = await Promise.all([
+  const [{ data: coursesRaw }, { data: materialsRaw }, history] = await Promise.all([
     admin
       .from("courses")
       .select("id, name, color")
@@ -24,6 +26,7 @@ export default async function PresentationWizardPage() {
       .eq("owner_id", ownerId)
       .order("uploaded_at", { ascending: false })
       .limit(80),
+    listWizardHistory({ ownerId, tool: "presentation" }),
   ]);
 
   const courses: CourseOption[] = (coursesRaw ?? []).map((c) => ({
@@ -80,7 +83,13 @@ export default async function PresentationWizardPage() {
           </p>
         </section>
 
-        <div className="mt-12 fade-up fade-up-2 sm:mt-14">
+        {history.length > 0 && (
+          <div className="mt-10 fade-up fade-up-2 sm:mt-12">
+            <WizardHistoryStrip items={history} />
+          </div>
+        )}
+
+        <div className="mt-12 fade-up fade-up-3 sm:mt-14">
           <Wizard courses={courses} materials={materials} />
         </div>
       </div>

@@ -216,15 +216,18 @@ function FormStep(props: {
         </p>
       </Field>
 
-      <Field label="강의 중 추가 메모 (선택)">
+      <Field label="추가 요청 사항 (선택)">
         <textarea
           value={props.extraNotes}
           onChange={(e) => props.setExtraNotes(e.target.value)}
-          placeholder="예: 교수님이 강의 끝에 '인용 양식 꼭 Chicago' 강조"
+          placeholder="예: 강의 끝에 '인용 양식 꼭 Chicago' 강조, 분량 엄격, 표 1개 이상"
           rows={3}
           maxLength={2000}
           className={`${inputClass} resize-none py-3`}
         />
+        <p className="mt-1.5 text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
+          비워두면 위 공지만으로 만들어요. 교수님 구두 강조·본인 강조하고 싶은 점을 적으면 체크리스트에 반영돼요.
+        </p>
       </Field>
 
       {props.errorMsg && (
