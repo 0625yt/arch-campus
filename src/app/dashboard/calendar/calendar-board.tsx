@@ -398,6 +398,29 @@ export function CalendarBoard({
             {monthLabel}
           </h2>
           <div className="flex items-center gap-1">
+            {/* 모바일 전용 — 자연어 AI 일정 추가. 데스크톱은 본문 상단 AiEntryCard가 1급 자리. */}
+            <button
+              type="button"
+              onClick={() => {
+                setCreatePrefillDate(null);
+                setCreatePrefillEndDate(null);
+                setCreating(true);
+              }}
+              aria-label="AI로 일정 추가"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--color-apple-action)] px-3 text-[12px] wght-560 text-white shadow-[0_2px_8px_-2px_rgba(0,113,227,0.35)] transition-transform active:scale-95 sm:hidden"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                <path
+                  d="M6 1.5l1 2.3 2.5.5-1.8 1.7.4 2.5L6 7.3l-2.2 1.2.4-2.5L2.5 4.3l2.5-.5L6 1.5z"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinejoin="round"
+                  fill="currentColor"
+                />
+              </svg>
+              AI 추가
+            </button>
             <NavButton onClick={() => navigate(-1)} aria-label="이전 달">
               ‹
             </NavButton>
@@ -416,8 +439,30 @@ export function CalendarBoard({
             {/* 뷰 모드 토글 — 시간표만 vs 내 일정. 시간표만 클릭 시 자동 주 뷰.
                 모바일에선 공간 부족으로 숨김 — Phase 2 mobile 전용 UI에서 재배치 예정. */}
             <ViewModeToggle mode={viewMode} onChange={setViewMode} className="ml-1 hidden sm:inline-flex" />
-            {/* 데스크톱에서만: 시간표 다시 올리기 (자주 쓰는 액션 아님 + 모바일은 다른 진입점 충분) */}
+            {/* 시간표 다시 올리기 — 데스크톱은 텍스트 링크, 모바일은 아이콘 버튼 */}
             <span aria-hidden className="mx-1 hidden h-4 w-px bg-[var(--color-apple-hairline)] sm:inline-block" />
+            <Link
+              href="/dashboard/calendar/import?kind=timetable"
+              aria-label="시간표 다시 올리기"
+              title="시간표 다시 올리기"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] sm:hidden"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path
+                  d="M8 11V3.5M8 3.5l-2.5 2.5M8 3.5l2.5 2.5"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M3 11.5v.5c0 .8.7 1.5 1.5 1.5h7c.8 0 1.5-.7 1.5-1.5v-.5"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </Link>
             <Link
               href="/dashboard/calendar/import?kind=timetable"
               className="hidden rounded-full px-3.5 py-1.5 text-[15px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] sm:inline-block"
@@ -1091,11 +1136,11 @@ function EventChip({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
         title={title}
-        className="block w-full truncate rounded-[4px] px-1 py-0 text-left text-[12px] wght-560 leading-[1.55] transition-all duration-150 hover:brightness-105 active:scale-[0.98]"
+        className="block w-full truncate rounded-[3px] px-[3px] py-0 text-left text-[11px] wght-560 leading-[1.4] transition-all duration-150 hover:brightness-105 active:scale-[0.98] sm:rounded-[4px] sm:px-1 sm:text-[12px] sm:leading-[1.55]"
         style={{
           backgroundColor: selected ? toAlpha(color, 0.9) : toAlpha(color, 0.18),
           color: selected ? "white" : "var(--color-apple-ink)",
-          letterSpacing: "-0.012em",
+          letterSpacing: "-0.03em",
         }}
       >
         {label}
@@ -1113,18 +1158,18 @@ function EventChip({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       title={title}
-      className={`group relative flex w-full items-center truncate rounded-[4px] py-0 pl-[8px] pr-0.5 text-left text-[12px] leading-[1.55] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] ${
+      className={`group relative flex w-full items-center truncate rounded-[3px] py-0 pl-[5px] pr-0.5 text-left text-[11px] leading-[1.4] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] sm:rounded-[4px] sm:pl-[8px] sm:text-[12px] sm:leading-[1.55] ${
         selected ? "wght-700" : "wght-450"
       }`}
       style={{
         backgroundColor: selected ? toAlpha(color, 0.12) : "transparent",
         color: "var(--color-apple-ink)",
-        letterSpacing: "-0.012em",
+        letterSpacing: "-0.03em",
       }}
     >
       <span
         aria-hidden
-        className="absolute left-[2px] top-1/2 h-[10px] w-[2px] -translate-y-1/2 rounded-full"
+        className="absolute left-[1px] top-1/2 h-[8px] w-[2px] -translate-y-1/2 rounded-full sm:left-[2px] sm:h-[10px]"
         style={{ backgroundColor: color }}
       />
       <span className="truncate">{label}</span>

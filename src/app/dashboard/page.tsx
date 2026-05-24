@@ -72,12 +72,37 @@ export default async function DashboardHomePage() {
 function Hero({ greeting, semesterLabel }: { greeting: string; semesterLabel: string }) {
   return (
     <header className="fade-up fade-up-1">
-      <p
-        className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]"
-        style={{ letterSpacing: "0.06em" }}
-      >
-        {semesterLabel}
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <p
+          className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]"
+          style={{ letterSpacing: "0.06em" }}
+        >
+          {semesterLabel}
+        </p>
+        {/* 학기 시작·시간표 변경 시 자주 쓰는 진입점 — Hero 우상단에 미니멀하게 */}
+        <Link
+          href="/dashboard/calendar/import?kind=timetable"
+          className="group inline-flex items-center gap-1 rounded-full border border-[var(--color-apple-hairline)] bg-white px-3 py-1.5 text-[11.5px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)] sm:text-[12px]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path
+              d="M8 11V3.5M8 3.5l-2.5 2.5M8 3.5l2.5 2.5"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M3 11.5v.5c0 .8.7 1.5 1.5 1.5h7c.8 0 1.5-.7 1.5-1.5v-.5"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+          </svg>
+          시간표 다시 올리기
+        </Link>
+      </div>
       <h1
         className="mt-4 text-[40px] leading-[1.04] wght-700 text-[var(--color-apple-ink)] sm:text-[56px] md:text-[64px]"
         style={{ letterSpacing: "-0.022em" }}
