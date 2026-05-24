@@ -43,7 +43,7 @@ export default async function PresentationWizardPage() {
   }));
 
   return (
-    <div className="lg:pl-[280px]">
+    <div className="lg:pr-[280px]">
       <WizardHistorySidebar items={history} pageTitle="발표자료 구조화" />
       <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
         {/* Top bar */}

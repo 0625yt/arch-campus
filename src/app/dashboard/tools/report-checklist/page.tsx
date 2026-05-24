@@ -14,7 +14,7 @@ export default async function ReportChecklistPage() {
   const history = await listAllWizardHistory({ ownerId });
 
   return (
-    <div className="lg:pl-[280px]">
+    <div className="lg:pr-[280px]">
       <WizardHistorySidebar items={history} pageTitle="교수 요구사항 체크" />
       <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
         <header className="fade-up flex items-baseline justify-between gap-3">

@@ -43,7 +43,7 @@ export default async function ExamCramPage() {
   }));
 
   return (
-    <div className="lg:pl-[280px]">
+    <div className="lg:pr-[280px]">
       <WizardHistorySidebar items={history} pageTitle="시험 벼락치기" />
       <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
         <header className="fade-up flex items-baseline justify-between gap-3">

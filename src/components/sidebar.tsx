@@ -153,11 +153,65 @@ const NAV = [
   { href: "/dashboard/history", label: "기록", Icon: IconHistory },
 ] as const;
 
+const COLLAPSE_KEY = "arch.sidebar.collapsed";
+
 export function Sidebar() {
+  // SSR-safe: 첫 렌더 펼침. 마운트 후 localStorage 반영.
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(COLLAPSE_KEY);
+      if (raw === "1") setCollapsed(true);
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  function toggle() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      } catch {
+        /* noop */
+      }
+      return next;
+    });
+  }
+
   return (
-    <aside className="hidden h-screen-safe w-[228px] shrink-0 flex-col border-r border-[var(--color-apple-hairline)] bg-white md:flex">
-      <SidebarBody />
-    </aside>
+    <>
+      <aside
+        className={cn(
+          "hidden h-screen-safe shrink-0 flex-col overflow-hidden border-r border-[var(--color-apple-hairline)] bg-white transition-[width] duration-300 ease-out md:flex",
+          collapsed ? "w-0 border-r-0" : "w-[228px]",
+        )}
+      >
+        <div className="w-[228px] shrink-0">
+          <SidebarBody onToggleCollapse={toggle} />
+        </div>
+      </aside>
+
+      {/* 접혔을 때만 보이는 펼치기 핸들 — 화면 좌상단에 고정. md+ 전용 */}
+      {collapsed && (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label="사이드바 열기"
+          className="fixed top-3 left-3 z-50 hidden h-9 w-9 items-center justify-center rounded-[10px] border border-[var(--color-apple-hairline)] bg-white/95 text-[var(--color-apple-muted)] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] backdrop-blur-md transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)] md:inline-flex"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path
+              d="M2.5 4h11M2.5 8h11M2.5 12h11"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      )}
+    </>
   );
 }
 
@@ -165,13 +219,20 @@ export function Sidebar() {
  * 사이드바 내용. 데스크톱 aside / 모바일 drawer 양쪽에서 같은 마크업 재사용.
  * @param onNavigate - 모바일 drawer에서 link 클릭 시 drawer 닫기 콜백
  */
-export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
+export function SidebarBody({
+  onNavigate,
+  onToggleCollapse,
+}: {
+  onNavigate?: () => void;
+  /** 데스크톱 사이드바 접기 콜백. 있으면 헤더 우측에 접기 버튼 노출. */
+  onToggleCollapse?: () => void;
+} = {}) {
   const pathname = usePathname();
 
   return (
     <div className="flex h-full flex-col">
-      {/* Wordmark — 클릭 시 시작 화면으로 */}
-      <div className="flex h-14 items-center px-5">
+      {/* Wordmark — 클릭 시 시작 화면으로. 우측에 접기 토글(데스크톱만) */}
+      <div className="flex h-14 items-center justify-between gap-2 px-5">
         <Link
           href="/dashboard"
           onClick={onNavigate}
@@ -185,6 +246,24 @@ export function SidebarBody({ onNavigate }: { onNavigate?: () => void } = {}) {
             arch
           </span>
         </Link>
+        {onToggleCollapse && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-label="사이드바 닫기"
+            className="-mr-1 inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path
+                d="M10 4l-4 4 4 4"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Cmd+K 진입점 */}

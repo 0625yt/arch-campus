@@ -89,12 +89,12 @@ export function WizardHistorySidebar({
         />
       )}
 
-      {/* 사이드바 본체 */}
+      {/* 사이드바 본체 — 우측 고정 (좌측은 대시보드 전역 사이드바가 차지) */}
       <aside
-        className={`fixed top-0 left-0 z-40 h-screen border-r border-[var(--color-apple-hairline)] bg-white transition-[width,transform] duration-300 ease-out ${
+        className={`fixed top-0 right-0 z-40 h-screen border-l border-[var(--color-apple-hairline)] bg-white transition-[width,transform] duration-300 ease-out ${
           open
             ? "w-[280px] translate-x-0"
-            : "w-[280px] -translate-x-full lg:w-0 lg:translate-x-0"
+            : "w-[280px] translate-x-full lg:w-0 lg:translate-x-0"
         }`}
       >
         <div
@@ -116,7 +116,7 @@ export function WizardHistorySidebar({
               aria-label="사이드바 닫기"
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
             >
-              {/* 좌측 화살표 / 햄버거 */}
+              {/* 우측 화살표 — 사이드바가 우측이라 닫으면 오른쪽으로 사라짐 */}
               <svg
                 width="16"
                 height="16"
@@ -125,7 +125,7 @@ export function WizardHistorySidebar({
                 aria-hidden
               >
                 <path
-                  d="M10 4l-4 4 4 4"
+                  d="M6 4l4 4-4 4"
                   stroke="currentColor"
                   strokeWidth="1.5"
                   strokeLinecap="round"
@@ -215,13 +215,13 @@ export function WizardHistorySidebar({
         </div>
       </aside>
 
-      {/* 사이드바가 접혔을 때 노출되는 펼치기 핸들 — 화면 좌측에 고정 */}
+      {/* 사이드바가 접혔을 때 노출되는 펼치기 핸들 — 화면 우측에 고정 */}
       {mounted && !open && (
         <button
           type="button"
           onClick={toggle}
           aria-label="사이드바 열기"
-          className="fixed top-4 left-4 z-40 inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-[var(--color-apple-hairline)] bg-white/95 backdrop-blur-md text-[var(--color-apple-muted)] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)]"
+          className="fixed top-4 right-4 z-40 inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-[var(--color-apple-hairline)] bg-white/95 backdrop-blur-md text-[var(--color-apple-muted)] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)]"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
             <path
