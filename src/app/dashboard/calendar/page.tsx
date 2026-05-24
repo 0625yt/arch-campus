@@ -42,7 +42,9 @@ export default async function CalendarPage() {
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[1280px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12">
+      {/* 모바일: 페이지 전체 padding·max-width 제거 → 캘린더가 화면 꽉 채움.
+          sm+: 기존 컨테이너 톤 유지. */}
+      <div className="mx-auto w-full max-w-[1280px] px-0 pb-0 pt-0 sm:px-10 sm:pb-40 sm:pt-12">
         <Header />
         <CalendarBoard
           monthEvents={monthEvents}
@@ -56,8 +58,10 @@ export default async function CalendarPage() {
 }
 
 function Header() {
+  // 모바일에선 헤더 숨김 — 캘린더가 본문 전체를 차지하도록.
+  // 월 라벨은 CalendarBoard 안에서 한 번 더 나오므로 정보 손실 없음.
   return (
-    <header className="fade-up flex items-start justify-between gap-3">
+    <header className="fade-up hidden items-start justify-between gap-3 sm:flex">
       <div className="min-w-0 flex-1">
         <p
           className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
@@ -72,8 +76,6 @@ function Header() {
           이번 학기 일정
         </h1>
       </div>
-      {/* "시간표 다시 올리기"는 캘린더 그리드 우상단 ‹ 오늘 › 옆으로 이동.
-          "학교 자료 등록"은 헤더에서 제거 (다른 진입점이 충분함). */}
     </header>
   );
 }

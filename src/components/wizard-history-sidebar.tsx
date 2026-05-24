@@ -40,7 +40,7 @@ export function WizardHistorySidebar({
   /** 사이드바 헤더에 표시할 도구 이름 (예: "발표자료 구조화") */
   pageTitle: string;
 }) {
-  const [open, setOpen] = useState<boolean>(true);
+  const [open, setOpen] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<TabKey>("all");
 
@@ -51,16 +51,21 @@ export function WizardHistorySidebar({
     return items.filter((it) => set.has(it.tool));
   }, [items, tab]);
 
-  // SSR-safe: 첫 렌더는 기본 open=true, 마운트 후 localStorage 반영
+  // SSR-safe: 첫 렌더 open=false → mount 후 viewport·localStorage 보고 결정.
+  // 데스크톱(lg+)은 기본 열림 / 모바일·태블릿은 기본 닫힘. 모바일에서 페이지 열자마자
+  // 오버레이가 깜빡 떴다 닫히는 깨짐 방지.
   useEffect(() => {
     setMounted(true);
+    let initial: boolean;
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw === "0") setOpen(false);
-      else if (raw === "1") setOpen(true);
+      if (raw === "0") initial = false;
+      else if (raw === "1") initial = true;
+      else initial = window.matchMedia("(min-width: 1024px)").matches;
     } catch {
-      /* noop */
+      initial = window.matchMedia("(min-width: 1024px)").matches;
     }
+    setOpen(initial);
   }, []);
 
   function toggle() {
@@ -76,11 +81,14 @@ export function WizardHistorySidebar({
   }
 
   if (items.length === 0) return null;
+  // mount 전엔 통째로 안 그림 — 모바일에서 SSR open=true로 깜빡이는 문제 차단.
+  // 데스크톱 첫 페이지 로드에서 약 1프레임 사이드바 비어보이는 건 hydration mismatch 회피값.
+  if (!mounted) return null;
 
   return (
     <>
       {/* 모바일 오버레이 — 열렸을 때만 */}
-      {mounted && open && (
+      {open && (
         <button
           type="button"
           aria-label="사이드바 닫기"
@@ -215,13 +223,13 @@ export function WizardHistorySidebar({
         </div>
       </aside>
 
-      {/* 사이드바가 접혔을 때 노출되는 펼치기 핸들 — 화면 우측에 고정 */}
-      {mounted && !open && (
+      {/* 펼치기 핸들 — 데스크톱(lg+) 전용. 우상단 36x36 아이콘 버튼. */}
+      {!open && (
         <button
           type="button"
           onClick={toggle}
-          aria-label="사이드바 열기"
-          className="fixed top-4 right-4 z-40 inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-[var(--color-apple-hairline)] bg-white/95 backdrop-blur-md text-[var(--color-apple-muted)] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)]"
+          aria-label="이전에 만든 것 열기"
+          className="fixed top-4 right-4 z-40 hidden h-9 w-9 items-center justify-center rounded-[10px] border border-[var(--color-apple-hairline)] bg-white/95 text-[var(--color-apple-muted)] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] backdrop-blur-md transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)] lg:inline-flex"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
             <path
@@ -231,6 +239,38 @@ export function WizardHistorySidebar({
               strokeLinecap="round"
             />
           </svg>
+        </button>
+      )}
+
+      {/* 모바일·태블릿 전용 — 우하단 pill 버튼. MobileTabBar(h-14) 위에 떠서 겹치지 않게.
+          MobileTopbar 검색 버튼과 충돌하는 우상단 위치를 피함. */}
+      {!open && (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label="이전에 만든 것 열기"
+          className="fixed right-4 bottom-[72px] z-40 inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--color-apple-hairline)] bg-white/95 px-3.5 text-[12px] wght-560 text-[var(--color-apple-ink)] shadow-[0_4px_12px_-2px_rgba(0,0,0,0.12)] backdrop-blur-md transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)] lg:hidden"
+          style={{
+            letterSpacing: "-0.012em",
+            bottom: "calc(72px + env(safe-area-inset-bottom))",
+          }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden
+            className="shrink-0 text-[var(--color-apple-muted)]"
+          >
+            <path
+              d="M2.5 4h11M2.5 8h11M2.5 12h11"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+          이전 기록 {items.length}
         </button>
       )}
     </>

@@ -384,9 +384,12 @@ export function CalendarBoard({
   }
 
   return (
-    <div className="mt-8 fade-up fade-up-1">
-      <AiEntryCard onOpen={() => setCreating(true)} />
-      <section className="elev-1 rounded-[18px] bg-white p-5 sm:p-7">
+    <div className="fade-up fade-up-1 sm:mt-8">
+      {/* AiEntryCard는 데스크톱에서만. 모바일은 캘린더 자체에 집중 + 우하단 FAB로 추가 */}
+      <div className="hidden sm:block">
+        <AiEntryCard onOpen={() => setCreating(true)} />
+      </div>
+      <section className="bg-white p-3 sm:elev-1 sm:rounded-[18px] sm:p-7">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2
             className="text-[20px] wght-620 text-[var(--color-apple-ink)] sm:text-[22px]"
@@ -410,19 +413,18 @@ export function CalendarBoard({
             </NavButton>
             {/* 스케일 토글 — 일/주/월. 년은 식갑 숨김 (?scale=year 외부 진입은 placeholder). */}
             <ScaleToggle scale={scale} onChange={setScale} className="ml-2" />
-            {/* 뷰 모드 토글 — 시간표만 vs 내 일정. 시간표만 클릭 시 자동 주 뷰. */}
-            <ViewModeToggle mode={viewMode} onChange={setViewMode} className="ml-1" />
-            {/* hairline 구분자 — 자주 안 쓰는 액션과 시각적 분리 */}
-            <span aria-hidden className="mx-1 h-4 w-px bg-[var(--color-apple-hairline)]" />
+            {/* 뷰 모드 토글 — 시간표만 vs 내 일정. 시간표만 클릭 시 자동 주 뷰.
+                모바일에선 공간 부족으로 숨김 — Phase 2 mobile 전용 UI에서 재배치 예정. */}
+            <ViewModeToggle mode={viewMode} onChange={setViewMode} className="ml-1 hidden sm:inline-flex" />
+            {/* 데스크톱에서만: 시간표 다시 올리기 (자주 쓰는 액션 아님 + 모바일은 다른 진입점 충분) */}
+            <span aria-hidden className="mx-1 hidden h-4 w-px bg-[var(--color-apple-hairline)] sm:inline-block" />
             <Link
               href="/dashboard/calendar/import?kind=timetable"
-              className="rounded-full px-3.5 py-1.5 text-[15px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+              className="hidden rounded-full px-3.5 py-1.5 text-[15px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] sm:inline-block"
               style={{ letterSpacing: "-0.012em" }}
             >
               시간표 다시 올리기
             </Link>
-            {/* 일/주/년 뷰는 별도 sprint에서 구현 예정. 토글 노출 X — 동작 안 하는 옵션
-                보이면 사용자가 헷갈림. setScale은 외부 trigger용(URL ?scale=...)으로 유지. */}
           </div>
         </div>
 
@@ -542,6 +544,29 @@ export function CalendarBoard({
           />
         )}
       </section>
+
+      {/* 모바일 전용 FAB — 일정 추가. AiEntryCard 자리를 대체.
+          MobileTabBar(h-14) 위에 떠서 겹치지 않게 bottom 계산. */}
+      <button
+        type="button"
+        onClick={() => {
+          setCreatePrefillDate(null);
+          setCreatePrefillEndDate(null);
+          setCreating(true);
+        }}
+        aria-label="일정 추가"
+        className="fixed right-4 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-apple-action)] text-white shadow-[0_6px_20px_-4px_rgba(0,113,227,0.5)] transition-transform active:scale-95 sm:hidden"
+        style={{ bottom: "calc(72px + env(safe-area-inset-bottom))" }}
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+          <path
+            d="M10 4v12M4 10h12"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
 
       {/* 데스크톱: 칩 옆 popover. 모바일: bottom sheet.
           isDesktop으로 한쪽만 렌더 — popover portal이라 CSS hidden 안 먹음. */}
