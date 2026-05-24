@@ -261,10 +261,13 @@ export function MaterialView({
 }
 
 function PdfViewer({ src, page }: { src: string; page: number }) {
+  // #view=FitH — 페이지 가로 너비에 자동 맞춤. 컬럼 너비 바뀌어도 비례.
+  // 일부 브라우저(Chrome 내장 뷰어)는 toolbar 표시 영역 때문에 약간 작게 잡히므로
+  // FitH가 안 먹는 경우 사용자가 뷰어 줌으로 직접 조정.
   return (
     <iframe
       key={page}
-      src={`${src}#page=${page}`}
+      src={`${src}#page=${page}&view=FitH`}
       title="자료 원본 PDF"
       className="h-full w-full"
     />
