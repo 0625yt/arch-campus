@@ -309,30 +309,40 @@ P0 핵심 5개 + P1 결정 동력 3개. 나머지는 Phase 2 이후.
 요약/문제/일정/위저드 결과 생성 → 검증 → 사용자 노출
 ```
 
-### 3-2. 기술 선택 (확인 필요, 최종 검토 필요)
-| 영역 | 권장 |
-|---|---|
-| 디지털 PDF 파싱 | PyMuPDF + pdfplumber |
-| 스캔 OCR | PaddleOCR (PP-StructureV3) 또는 업스테이지 Document Parse |
-| HWPX 파싱 | python-hwpx |
-| 임베딩 | OpenAI text-embedding-3-small ($0.02/1M tokens) |
-| 생성 모델 (저비용) | GPT-4.1 mini ($0.40 입력 / $1.60 출력) |
-| 생성 모델 (고품질) | Claude Sonnet 4.6 또는 GPT-4.1 (위저드 결과물) |
-| 벡터 DB | Supabase pgvector ($25/월~) |
-| 문서 저장 | Cloudflare R2 또는 S3 |
-| 백엔드 | Next.js + Supabase 또는 FastAPI + PostgreSQL |
-| 프론트엔드 | Next.js — **반응형 웹 1급 (Mobile · iPad · Desktop 동등 지원)**. React Native 네이티브 앱은 Phase 4+ 재검토 |
+### 3-2. 기술 선택
 
-### 3-3. 모델 라우팅 전략
+> 아래는 초기 리서치(권장안)이고, **실제 채택 스택은 별도 표기**한다. 코드 기준 현황은 [STATUS.md](STATUS.md).
+
+| 영역 | 초기 권장 | **실제 채택 (2026-05)** |
+|---|---|---|
+| 디지털 PDF 파싱 | PyMuPDF + pdfplumber | `unpdf` (Node) |
+| DOCX·Office 파싱 | — | `mammoth` · `officeparser` · `exceljs` |
+| HWPX 파싱 | python-hwpx | 별도 LibreOffice 변환 서비스 (services/hwp-converter) |
+| 임베딩 | OpenAI text-embedding-3-small | **미사용** (RAG는 풀텍스트 기반) |
+| 생성 모델 (저비용) | GPT-4.1 mini | **Claude Haiku 4.5** |
+| 생성 모델 (고품질) | Claude Sonnet 4.6 | **Claude Sonnet 4.6** |
+| 벡터 DB | Supabase pgvector | **미사용** |
+| 문서 저장 | R2 / S3 | **Supabase Storage** |
+| 백엔드 | Next.js + Supabase 또는 FastAPI | **Next.js 16 + Supabase** |
+| AI 호출 | — | **Vercel AI SDK v6 + @ai-sdk/anthropic** |
+| 레이트리밋 | — | **Upstash Redis** |
+| 프론트엔드 | Next.js — 반응형 1급 (Mobile · iPad · Desktop) | 동일 |
+
+> OpenAI 계열(GPT-4.1·임베딩)은 결국 채택하지 않고 **Claude 단일 벤더**로 갔다. 비용·라우팅은 Haiku/Sonnet 2종으로 통제.
+
+### 3-3. 모델 라우팅 전략 (실제)
+
+코드 기준 매핑은 [src/lib/claude.ts](../src/lib/claude.ts) `TOOL_MODEL`.
+
 | 작업 | 모델 | 이유 |
 |---|---|---|
-| 문서요약 | GPT-4.1 mini | 비용 |
-| 문제 생성 | GPT-4.1 mini | 비용 |
-| 발표·과제 위저드 | Claude Sonnet 4.6 또는 GPT-4.1 | 품질 |
-| 강의계획서 파싱 | GPT-4.1 mini + 자체 규칙 | 정확도 |
-| 임베딩 | text-embedding-3-small | 비용 |
+| 문서요약 · 강의계획서 추출 · 자연어 파싱 · 챗 | Claude Haiku 4.5 | 비용·빈도 |
+| 문제 생성(퀴즈) | Claude Sonnet 4.6 | 품질 |
+| 발표 · 리포트 구조 · 벼락치기 위저드 | Claude Sonnet 4.6 | 품질 |
+| 시간표 추출 (Vision) | Claude Sonnet 4.6 | 표 격자 정확도 |
+| 기출 추출 | Claude Haiku 4.5 (env로 Sonnet 승격 가능) | 추출만 |
 
-→ **무분별한 상위 모델 사용 시 무료 사용자 1인당 월 5,000원 적자 발생 가능**. 라우팅 필수.
+→ **무분별한 Sonnet 사용 시 무료 사용자 1인당 월 5,000원 적자 발생 가능**. 라우팅 필수. 도구별 env override(`QUIZ_MODEL` 등)로 실험 가능.
 
 ### 3-4. 데이터 자산 보호 설계
 | 자산 | 정책 |

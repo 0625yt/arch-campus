@@ -29,12 +29,12 @@
 
 - **Next.js 16.2.4 + React 19.2.4 (App Router)** — breaking change 큼. 라우팅·서버 컴포넌트·캐싱 코드 작성 전에 `node_modules/next/dist/docs/` 먼저 읽는다.
 - **Tailwind v4** (`@tailwindcss/postcss`) — 외부 폰트(Pretendard CDN)는 `@import "tailwindcss"` 앞에 와야 함.
-- **Anthropic SDK** — `claude-sonnet-4-6` + prompt caching (`cache_control: { type: "ephemeral", ttl: "1h" }`). 캐시 = 정적 룰, 비캐시 = 사용자 입력. 새 도구는 [src/lib/claude.ts](src/lib/claude.ts) 패턴 복제.
-- **모델 라우팅** — 무분별한 Sonnet 사용 시 무료 사용자 1인당 월 5,000원 적자.
-  - 요약·문제 생성: GPT-4.1 mini 또는 Haiku 4.5
-  - 발표·과제 위저드 (품질 중요): Claude Sonnet 4.6
-  - 임베딩: `text-embedding-3-small`
-- **Supabase** (Auth + Postgres + pgvector + Storage). RLS 켜둠, 어드민 작업은 service-role로 우회 + userId를 세션과 재검증.
+- **AI SDK** — Vercel AI SDK v6 (`ai`) + `@ai-sdk/anthropic`. Claude만 사용 (OpenAI·임베딩 없음). prompt caching (`cache_control: { type: "ephemeral", ttl: "1h" }`), 캐시 = 정적 룰, 비캐시 = 사용자 입력. 새 도구는 [src/lib/claude.ts](src/lib/claude.ts) 패턴 복제.
+- **모델 라우팅** (★ 비용 통제) — 무분별한 Sonnet 사용 시 무료 사용자 1인당 월 5,000원 적자. 실제 매핑은 `TOOL_MODEL`.
+  - **Haiku 4.5** (`claude-haiku-4-5`): 요약·추출·자연어 파싱·챗 (빈도 높음) — summarize, syllabus-extract, exam-extract, event-parse, post-mortem, chat, chat-free
+  - **Sonnet 4.6** (`claude-sonnet-4-6`): 품질 중요한 위저드 — quiz, presentation, wizard-cram, report-structure, timetable-extract(Vision)
+  - 도구별 env override: `QUIZ_MODEL`·`EXTRACT_MODEL`·`CHAT_MODEL`·`CHAT_FREE_MODEL` (`haiku`|`sonnet`)
+- **Supabase** (Auth + Postgres + Storage + Realtime). RLS 켜둠, 어드민 작업은 service-role로 우회 + userId를 세션과 재검증. (pgvector·임베딩 미사용 — RAG는 풀텍스트 기반.)
 - **Remotion 사용 X** — 이전 프로젝트와 혼동 주의. 영상 생성 없음.
 - **언어**: UI·콘텐츠·프롬프트 한국어. 변수명·함수명·주석 영어.
 - **반응형 1급**: Mobile (<640) · iPad (768~1024) · Desktop (≥1280) **동등 지원**. 상세 [DESIGN.md §13](docs/design/DESIGN.md#13-반응형-전략--1급-시민).
@@ -44,12 +44,16 @@
 ## 2. 명령어
 
 ```bash
-npm run dev        # Next dev :3000 — Turbopack
-npm run build      # 프로덕션 빌드 + 타입 검증
-npx tsc --noEmit   # 빠른 타입 체크
+npm run dev          # Next dev :3000
+npm run build        # 프로덕션 빌드 + 타입 검증
+npm run typecheck    # tsc --noEmit (빠른 타입 체크)
+npm run check        # Biome lint + format
+npm run check:fix    # Biome lint + format --write
+npm run test         # Vitest 1회
+npm run verify:env   # .env.local 환경변수 누락 검사
 ```
 
-ESLint·테스트 러너 없음. UI 검증은 [docs/ARCHITECTURE.md §10](docs/ARCHITECTURE.md#10-디자인-검증-워크플로-ui-작업-끝낼-때마다).
+린트·포맷은 **Biome**, 테스트는 **Vitest**. UI 검증은 [docs/ARCHITECTURE.md §10](docs/ARCHITECTURE.md#10-디자인-검증-워크플로-ui-작업-끝낼-때마다).
 
 ---
 

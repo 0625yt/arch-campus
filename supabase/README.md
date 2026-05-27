@@ -1,6 +1,9 @@
 # Supabase 마이그레이션
 
-이 폴더의 SQL 파일은 **순서대로** 실행되어야 합니다 (`0001_init.sql` → `0002_storage.sql` → ...).
+이 폴더의 SQL 파일은 **순서대로** 실행되어야 합니다 (`0001_init.sql` → `0002_storage.sql` → … → `0020_*`).
+
+> 현재 테이블 전체 목록과 무엇이 살아있는지는 [docs/STATUS.md](../docs/STATUS.md) 참고.
+> 아래 RLS 표는 0001~0002 초기 테이블 기준이며, 이후 `quizzes`·`events`·`jobs`·`chat_threads`·`audit_log` 등이 같은 owner_id 격리 패턴으로 추가됐습니다.
 
 ## 적용 방법 — 둘 중 하나
 
