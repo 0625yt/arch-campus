@@ -1,11 +1,11 @@
 import "server-only";
-import { generate, estimateCost } from "@/lib/claude";
+import { estimateCost, generate, getModelVendor } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
 import {
   ExamCramOutput,
+  type ExamCramOutputT,
   evidenceMatches,
   parseModelJson,
-  type ExamCramOutputT,
 } from "@/lib/schemas";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { breakdown } from "@/lib/tokens";
@@ -349,6 +349,7 @@ async function logGeneration(opts: {
     owner_id: opts.ownerId,
     tool: "wizard-cram",
     model_id: opts.modelId,
+    model_provider: getModelVendor(opts.modelId),
     input_tokens: opts.usage?.inputTokens ?? 0,
     output_tokens: opts.usage?.outputTokens ?? 0,
     cache_read_tokens: opts.usage?.cacheReadTokens ?? 0,

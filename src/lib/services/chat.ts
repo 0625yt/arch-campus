@@ -1,6 +1,6 @@
 import "server-only";
+import { type GenerateUsage, streamChatReply } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
-import { streamChatReply, type GenerateUsage } from "@/lib/claude";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 /**
@@ -80,21 +80,23 @@ async function fetchThreadWithOwnerGuard(
 ): Promise<ChatThreadRow | null> {
   const admin = getAdminSupabase();
   // service-role이라 RLS 우회 — owner_id .eq() 가드 필수 (CLAUDE.md §6 admin.ts §4-1)
-  const { data, error } = await (admin as unknown as {
-    from: (t: string) => {
-      select: (cols: string) => {
-        eq: (
-          c: string,
-          v: string,
-        ) => {
+  const { data, error } = await (
+    admin as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
           eq: (
             c: string,
             v: string,
-          ) => { maybeSingle: () => Promise<{ data: ChatThreadRow | null; error: unknown }> };
+          ) => {
+            eq: (
+              c: string,
+              v: string,
+            ) => { maybeSingle: () => Promise<{ data: ChatThreadRow | null; error: unknown }> };
+          };
         };
       };
-    };
-  })
+    }
+  )
     .from("chat_threads")
     .select(
       "id, owner_id, material_id, course_id, title, material_full_text, material_snapshot_chars",
@@ -133,28 +135,28 @@ async function fetchRecentMessages(
   limit: number,
 ): Promise<Array<{ role: "user" | "assistant"; content: string }>> {
   const admin = getAdminSupabase();
-  const { data, error } = await (admin as unknown as {
-    from: (t: string) => {
-      select: (cols: string) => {
-        eq: (
-          c: string,
-          v: string,
-        ) => {
-          order: (
+  const { data, error } = await (
+    admin as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (
             c: string,
-            opts: { ascending: boolean },
+            v: string,
           ) => {
-            limit: (
-              n: number,
-            ) => Promise<{
-              data: Array<{ role: "user" | "assistant"; content: string }> | null;
-              error: unknown;
-            }>;
+            order: (
+              c: string,
+              opts: { ascending: boolean },
+            ) => {
+              limit: (n: number) => Promise<{
+                data: Array<{ role: "user" | "assistant"; content: string }> | null;
+                error: unknown;
+              }>;
+            };
           };
         };
       };
-    };
-  })
+    }
+  )
     .from("chat_messages")
     .select("role, content")
     .eq("thread_id", threadId)
@@ -225,11 +227,13 @@ export async function startChatTurn(input: StartChatTurnInput): Promise<StartCha
 
   // user turn을 먼저 INSERT — 응답이 끊겨도 사용자 입력은 기록 유지
   const admin = getAdminSupabase();
-  const { error: userInsertErr } = await (admin as unknown as {
-    from: (t: string) => {
-      insert: (row: Record<string, unknown>) => Promise<{ error: unknown }>;
-    };
-  })
+  const { error: userInsertErr } = await (
+    admin as unknown as {
+      from: (t: string) => {
+        insert: (row: Record<string, unknown>) => Promise<{ error: unknown }>;
+      };
+    }
+  )
     .from("chat_messages")
     .insert({
       thread_id: input.threadId,
@@ -284,11 +288,13 @@ interface PersistAssistantInput {
 
 async function persistAssistantMessage(input: PersistAssistantInput): Promise<void> {
   const admin = getAdminSupabase();
-  const { error } = await (admin as unknown as {
-    from: (t: string) => {
-      insert: (row: Record<string, unknown>) => Promise<{ error: unknown }>;
-    };
-  })
+  const { error } = await (
+    admin as unknown as {
+      from: (t: string) => {
+        insert: (row: Record<string, unknown>) => Promise<{ error: unknown }>;
+      };
+    }
+  )
     .from("chat_messages")
     .insert({
       thread_id: input.threadId,

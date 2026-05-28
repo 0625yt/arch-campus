@@ -1,5 +1,5 @@
 import "server-only";
-import { type GenerateUsage, streamChatReply } from "@/lib/claude";
+import { type GenerateUsage, getModelVendor, streamChatReply } from "@/lib/claude";
 import { getRecentActivities } from "@/lib/data/activity";
 import { listUpcomingEvents } from "@/lib/data/events";
 import { listCoursesWithMaterialCount } from "@/lib/data/materials";
@@ -222,6 +222,7 @@ async function logGeneration(opts: {
     owner_id: opts.ownerId,
     tool: "chat-free",
     model_id: opts.modelId,
+    model_provider: getModelVendor(opts.modelId),
     input_tokens: opts.usage.inputTokens,
     output_tokens: opts.usage.outputTokens,
     cache_read_tokens: opts.usage.cacheReadTokens,

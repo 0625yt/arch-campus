@@ -1,12 +1,12 @@
 import "server-only";
-import { generate, estimateCost } from "@/lib/claude";
+import { estimateCost, generate, getModelVendor } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
 import {
-  parseModelJson,
+  type ExamExtractedQuestionT,
   ExamExtractOutput,
   type ExamExtractOutputT,
-  type ExamExtractedQuestionT,
   hasWatermark,
+  parseModelJson,
 } from "@/lib/schemas";
 import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
 import { buildPlaybookSection } from "@/lib/subject-playbook";
@@ -309,6 +309,7 @@ async function logGeneration(opts: {
     material_id: opts.materialId,
     tool: "exam-extract",
     model_id: opts.modelId,
+    model_provider: getModelVendor(opts.modelId),
     input_tokens: opts.usage?.inputTokens ?? 0,
     output_tokens: opts.usage?.outputTokens ?? 0,
     cache_read_tokens: opts.usage?.cacheReadTokens ?? 0,

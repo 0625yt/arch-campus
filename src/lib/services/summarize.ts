@@ -1,11 +1,11 @@
 import "server-only";
-import { generate, estimateCost } from "@/lib/claude";
 import {
-  classifyMaterial,
-  classificationToContext,
   type Classification,
+  classificationToContext,
+  classifyMaterial,
 } from "@/lib/classify-material";
-import { type SummaryStyle, STYLE_LABEL, MAX_STYLES_PER_REQUEST } from "@/lib/material-policy";
+import { estimateCost, generate, getModelVendor } from "@/lib/claude";
+import { MAX_STYLES_PER_REQUEST, STYLE_LABEL, type SummaryStyle } from "@/lib/material-policy";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
 import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
@@ -288,6 +288,7 @@ async function logGeneration(opts: {
     material_id: opts.materialId,
     tool: "summarize",
     model_id: opts.modelId,
+    model_provider: getModelVendor(opts.modelId),
     input_tokens: opts.usage?.inputTokens ?? 0,
     output_tokens: opts.usage?.outputTokens ?? 0,
     cache_read_tokens: opts.usage?.cacheReadTokens ?? 0,

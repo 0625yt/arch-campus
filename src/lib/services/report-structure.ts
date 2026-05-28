@@ -1,5 +1,5 @@
 import "server-only";
-import { estimateCost, generate } from "@/lib/claude";
+import { estimateCost, generate, getModelVendor } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, ReportStructureOutput, type ReportStructureOutputT } from "@/lib/schemas";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -319,6 +319,7 @@ async function logGeneration(opts: {
     owner_id: opts.ownerId,
     tool: "report-structure",
     model_id: opts.modelId,
+    model_provider: getModelVendor(opts.modelId),
     input_tokens: opts.usage?.inputTokens ?? 0,
     output_tokens: opts.usage?.outputTokens ?? 0,
     cache_read_tokens: opts.usage?.cacheReadTokens ?? 0,

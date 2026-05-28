@@ -5,6 +5,7 @@ import {
   generate,
   generateWithFile,
   getModelIdFor,
+  getModelVendor,
 } from "@/lib/claude";
 import { extractPdfTablesByHeader } from "@/lib/parsers/pdf-grid";
 import { loadPrompt } from "@/lib/prompts";
@@ -563,6 +564,7 @@ async function logGeneration(opts: {
     material_id: opts.materialId,
     tool: "syllabus",
     model_id: opts.modelId,
+    model_provider: getModelVendor(opts.modelId),
     input_tokens: opts.usage?.inputTokens ?? 0,
     output_tokens: opts.usage?.outputTokens ?? 0,
     cache_read_tokens: opts.usage?.cacheReadTokens ?? 0,

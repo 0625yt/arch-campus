@@ -1,6 +1,6 @@
 import "server-only";
 import type { GenerateUsage } from "@/lib/claude";
-import { estimateCost, generate, generateWithFile } from "@/lib/claude";
+import { estimateCost, generate, generateWithFile, getModelVendor } from "@/lib/claude";
 import { extractTimetableGrid } from "@/lib/parsers/pdf-grid";
 import { extractTimetableGridFromXlsx } from "@/lib/parsers/xlsx-grid";
 import { loadPrompt } from "@/lib/prompts";
@@ -519,6 +519,7 @@ async function logGeneration(opts: {
     material_id: opts.materialId,
     tool: "timetable",
     model_id: opts.modelId,
+    model_provider: getModelVendor(opts.modelId),
     input_tokens: opts.usage?.inputTokens ?? 0,
     output_tokens: opts.usage?.outputTokens ?? 0,
     cache_read_tokens: opts.usage?.cacheReadTokens ?? 0,
