@@ -8,6 +8,8 @@
 >
 > **2026-05-28 갱신**: 비로그인 랜딩 페이지·약관/개인정보 페이지 신설, 내 캠퍼스 홈을
 > '학기 안전망' 중심으로 개편, 시간표·강의계획서 import 플로우 강화(syllabus-extract Haiku→Sonnet).
+>
+> **2026-05-28 후속**: AI Gateway 도입(`anthropic/...`·`google/...` slug 라우팅). `QUIZ_MODEL_VENDOR`·`SUMMARY_MODEL_VENDOR=google`로 Gemini 2.5 Flash A/B 가능(기본 OFF). `generations.model_provider` 컬럼 추가(마이그레이션 0021). PRICING.haiku 단가 보정($0.8/$4→$1/$5).
 
 ## 라이브 데모
 

@@ -4,7 +4,7 @@ import {
   classificationToContext,
   classifyMaterial,
 } from "@/lib/classify-material";
-import { estimateCost, generate, getModelIdFor } from "@/lib/claude";
+import { estimateCost, generate, getModelIdFor, getModelVendor } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, QuizOutput, type QuizOutputT, type QuizQuestionT } from "@/lib/schemas";
 import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
@@ -391,6 +391,8 @@ async function logGeneration(opts: {
     material_id: opts.materialId,
     tool: "quiz",
     model_id: opts.modelId,
+    // 2026-05-28: AI Gateway 도입으로 vendor 라벨도 같이 기록. 다른 도구도 후속 PR로 동일 패턴 적용 예정.
+    model_provider: getModelVendor(opts.modelId),
     input_tokens: opts.usage?.inputTokens ?? 0,
     output_tokens: opts.usage?.outputTokens ?? 0,
     cache_read_tokens: opts.usage?.cacheReadTokens ?? 0,

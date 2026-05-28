@@ -1,14 +1,24 @@
-import { anthropic } from "@ai-sdk/anthropic";
-import { generateText, type LanguageModel, type ModelMessage, streamText } from "ai";
+import type { ProviderOptions } from "@ai-sdk/provider-utils";
+import { generateText, type ModelMessage, streamText } from "ai";
 
-const apiKey = process.env.ANTHROPIC_API_KEY;
-if (!apiKey && process.env.NODE_ENV === "production") {
-  throw new Error("ANTHROPIC_API_KEY is required in production");
-}
-
+/**
+ * 모델 라우팅 — Vercel AI Gateway 경유.
+ *
+ * 변경 (2026-05-28):
+ *   - AI SDK v6의 vendor-prefixed slug 라우팅 채택 (`anthropic/...`, `google/...`)
+ *   - Anthropic SDK 직접 wrap (`anthropic("…")`)을 걷어내고 Gateway가 vendor 분기 담당
+ *   - 인증: VERCEL_OIDC_TOKEN (prod 자동) 또는 AI_GATEWAY_API_KEY (dev/CI)
+ *   - 키 모두 없으면 AI SDK가 ANTHROPIC_API_KEY로 직접 호출 fallback (안전망 유지)
+ *
+ * 비용 통제 (CLAUDE.md §1):
+ *   - 기본은 Anthropic (Sonnet·Haiku).
+ *   - env 플래그(`QUIZ_MODEL_VENDOR=google`·`SUMMARY_MODEL_VENDOR=google`)가 켜진 도구만 Gemini 2.5 Flash로.
+ *   - 플래그 끄면 100% 기존 동작 — 안전한 롤백.
+ */
 export const MODELS = {
-  sonnet: anthropic("claude-sonnet-4-6"),
-  haiku: anthropic("claude-haiku-4-5"),
+  sonnet: "anthropic/claude-sonnet-4.6",
+  haiku: "anthropic/claude-haiku-4.5",
+  geminiFlash: "google/gemini-2.5-flash",
 } as const;
 
 export type ToolKind =
@@ -27,7 +37,8 @@ export type ToolKind =
   | "chat"
   | "chat-free";
 
-export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
+/** 도구별 기본 모델 (Anthropic). vendor 플래그로 일부를 Gemini로 우회 가능. */
+export const TOOL_MODEL: Record<ToolKind, string> = {
   summarize: MODELS.haiku,
   quiz: MODELS.sonnet,
   presentation: MODELS.sonnet,
@@ -59,19 +70,52 @@ export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   "chat-free": MODELS.haiku,
 };
 
+export type ModelVendor = "anthropic" | "google";
+
+/**
+ * 슬러그 → vendor 추출.
+ * `anthropic/claude-sonnet-4.6` → "anthropic"
+ * `google/gemini-2.5-flash`   → "google"
+ */
+export function getModelVendor(modelId: string): ModelVendor {
+  if (modelId.startsWith("google/")) return "google";
+  if (modelId.startsWith("anthropic/")) return "anthropic";
+  // 슬러그 prefix가 없는 레거시 표기는 'claude-' 포함 여부로 추정.
+  // Gemini만 단독으로 들어올 일은 우리 코드에선 없음.
+  if (modelId.includes("gemini")) return "google";
+  return "anthropic";
+}
+
+/** "google" 또는 "gemini" 둘 다 같은 의미로 받는다. 빈 문자열·undefined는 false. */
+function envSaysGoogle(raw: string | undefined): boolean {
+  const v = raw?.trim().toLowerCase();
+  return v === "google" || v === "gemini";
+}
+
 /**
  * 런타임 모델 override.
  *
- * 환경변수로 특정 tool의 모델을 일시 교체한다. 적자 통제 실험·롤백용
- * (CLAUDE.md §1, 진단 리포트 P0 quiz 모델 재평가).
+ * 2층 우선순위:
+ *   1) vendor 분기 — `*_MODEL_VENDOR=google` 켜진 도구는 Gemini Flash로 (tier override 무시)
+ *   2) tier 분기 — Anthropic 안에서 `QUIZ_MODEL=haiku|sonnet` 같은 도구별 격상/격하
  *
- *  - `QUIZ_MODEL=haiku` → quiz만 Haiku로
- *  - `QUIZ_MODEL=sonnet` (또는 unset) → 기본값(Sonnet)
+ * 예:
+ *   QUIZ_MODEL_VENDOR=google             → quiz는 Gemini Flash (QUIZ_MODEL 무시)
+ *   QUIZ_MODEL_VENDOR=anthropic (기본)   → quiz는 Anthropic, QUIZ_MODEL=haiku면 Haiku
+ *   SUMMARY_MODEL_VENDOR=google          → summarize만 Gemini Flash
  *
- * 다른 tool은 영향 X. prod에서 한 줄 env로 즉시 롤백 가능.
  * 미지정·미인식 값이면 TOOL_MODEL 기본값 그대로.
  */
-function resolveModel(tool: ToolKind): LanguageModel {
+function resolveModel(tool: ToolKind): string {
+  // 1) Vendor 분기 — Gemini로 우회할 도구
+  if (tool === "quiz" && envSaysGoogle(process.env.QUIZ_MODEL_VENDOR)) {
+    return MODELS.geminiFlash;
+  }
+  if (tool === "summarize" && envSaysGoogle(process.env.SUMMARY_MODEL_VENDOR)) {
+    return MODELS.geminiFlash;
+  }
+
+  // 2) Anthropic 안의 tier 분기
   if (tool === "quiz") {
     const override = process.env.QUIZ_MODEL?.toLowerCase();
     if (override === "haiku") return MODELS.haiku;
@@ -105,14 +149,24 @@ function resolveModel(tool: ToolKind): LanguageModel {
  * AI 호출 자체가 throw하면 result.modelId를 못 받으므로 호출 전에 박아둔다.
  */
 export function getModelIdFor(tool: ToolKind): string {
-  const model = resolveModel(tool);
-  return typeof model === "object" && "modelId" in model
-    ? (model.modelId as string)
-    : String(model);
+  return resolveModel(tool);
 }
 
-const ANTHROPIC_CACHE_1H = {
-  anthropic: { cacheControl: { type: "ephemeral", ttl: "1h" } as const },
+const ANTHROPIC_CACHE_1H: ProviderOptions = {
+  anthropic: { cacheControl: { type: "ephemeral", ttl: "1h" } },
+};
+
+/**
+ * Gemini 2.5 Flash 안전 옵션.
+ *
+ * thinking 토큰이 maxOutputTokens 풀을 잠식해서 본문이 빈 응답으로 끊기는 함정이
+ * 커뮤니티에 다수 보고됨. 우리는 evidence-grounded(자료 본문 인용) 작업이라
+ * reasoning 깊이가 크게 필요 없어 0으로 끈다.
+ *
+ * A/B에서 품질 격차 나오면 한 줄로 켜본다 — `{ thinkingBudget: 1024 }`.
+ */
+const GOOGLE_FLASH_NO_THINKING: ProviderOptions = {
+  google: { thinkingConfig: { thinkingBudget: 0 } },
 };
 
 /**
@@ -172,27 +226,32 @@ function estimateTokensFromChars(text: string): number {
   return Math.ceil(text.length / 2);
 }
 
-function modelTier(modelId: string): "haiku" | "sonnet" | "opus" {
+/** Anthropic 안의 tier. Google은 별도. */
+function modelTier(modelId: string): "haiku" | "sonnet" | "opus" | "flash" {
   if (modelId.includes("haiku")) return "haiku";
   if (modelId.includes("opus")) return "opus";
+  if (modelId.includes("gemini")) return "flash";
   return "sonnet";
 }
 
 /**
  * dev 환경에서 한 번씩 경고. prod엔 노이즈만 키우니까 NODE_ENV 가드.
  * 같은 tool은 한 번만 경고하도록 cache로 dedupe.
+ *
+ * Google은 캐시 의미가 달라 이 경고 대상에서 제외. Gemini는 첫 호출 풀 비용으로 봄.
  */
 const warnedCacheMissTools = new Set<ToolKind>();
 function warnIfBelowCacheMin(tool: ToolKind, modelId: string, rulePrompt: string): void {
   if (process.env.NODE_ENV === "production") return;
   if (warnedCacheMissTools.has(tool)) return;
   const tier = modelTier(modelId);
+  if (tier === "flash") return; // Gemini는 별도 캐시 정책
   const min = CACHE_MIN_TOKENS[tier];
   const est = estimateTokensFromChars(rulePrompt);
   if (est < min) {
     warnedCacheMissTools.add(tool);
     console.warn(
-      `[claude.cache] tool="${tool}" model=${tier} rulePrompt ≈${est}t < ${min}t. ` +
+      `[llm.cache] tool="${tool}" model=${tier} rulePrompt ≈${est}t < ${min}t. ` +
         `prompt caching 비활성 가능 — 매 호출 정가 청구. ` +
         `프롬프트를 늘리거나 같은 tier 안에서 모델 격상 고려.`,
     );
@@ -244,6 +303,18 @@ export interface GenerateResult {
   modelId: string;
 }
 
+/** vendor에 따라 system 블록의 providerOptions(캐시·thinking)를 분기. */
+function systemProviderOptions(vendor: ModelVendor): ProviderOptions | undefined {
+  if (vendor === "anthropic") return ANTHROPIC_CACHE_1H;
+  return undefined; // Google은 system providerOptions 캐시 없음
+}
+
+/** vendor에 따라 호출 전체에 적용할 providerOptions(thinking·캐시 정책 등). */
+function callProviderOptions(vendor: ModelVendor): ProviderOptions | undefined {
+  if (vendor === "google") return GOOGLE_FLASH_NO_THINKING;
+  return undefined;
+}
+
 export async function generate({
   tool,
   rulePrompt,
@@ -252,9 +323,8 @@ export async function generate({
   maxTokens = 4096,
   temperature = 0.4,
 }: GenerateInput): Promise<GenerateResult> {
-  const model = resolveModel(tool);
-  const modelId =
-    typeof model === "object" && "modelId" in model ? (model.modelId as string) : String(model);
+  const modelId = resolveModel(tool);
+  const vendor = getModelVendor(modelId);
   warnIfBelowCacheMin(tool, modelId, rulePrompt);
   const wrappedUserInput = `<user_input>\n${userInput}\n</user_input>`;
 
@@ -263,7 +333,7 @@ export async function generate({
       role: "system",
       // INJECTION_GUARD를 rulePrompt 앞에 prepend — 캐시 boundary 안에 포함돼 hit률 보존
       content: INJECTION_GUARD + rulePrompt,
-      providerOptions: ANTHROPIC_CACHE_1H,
+      providerOptions: systemProviderOptions(vendor),
     },
     {
       role: "system",
@@ -276,28 +346,28 @@ export async function generate({
   ];
 
   const result = await generateText({
-    model,
+    model: modelId,
     maxOutputTokens: maxTokens,
     temperature,
     messages,
+    providerOptions: callProviderOptions(vendor),
   });
 
-  const meta = (result.providerMetadata?.anthropic ?? {}) as Record<string, unknown>;
-  const cacheRead = Number(meta.cacheReadInputTokens ?? 0);
-  const cacheCreation = Number(meta.cacheCreationInputTokens ?? 0);
-  const inputTokens = result.usage.inputTokens ?? 0;
-  const outputTokens = result.usage.outputTokens ?? 0;
-  logCacheStats(tool, modelId, { inputTokens, outputTokens, cacheRead, cacheCreation });
+  // Gemini가 출력 한도에 닿아 잘렸으면 dev/prod 모두 경고. jobs payload에 곧바로 안 박지만
+  // 로그로 잡혀서 휴리스틱·chunking 분기 시점을 알아챌 수 있다.
+  if (result.finishReason === "length") {
+    console.warn(
+      `[llm] ${tool} hit maxOutputTokens — output truncated. model=${modelId} max=${maxTokens}`,
+    );
+  }
+
+  const usage = extractUsage(result, vendor);
+  logLlmStats(tool, modelId, usage);
 
   return {
     text: result.text,
     modelId,
-    usage: {
-      inputTokens,
-      outputTokens,
-      cacheReadTokens: cacheRead,
-      cacheCreationTokens: cacheCreation,
-    },
+    usage,
   };
 }
 
@@ -305,26 +375,56 @@ export async function generate({
  * dev 환경에서 매 호출의 캐시 stats를 한 줄로 표시 — 어디가 캐시 hit 안 하는지 즉시 보이게.
  *   - hit: 캐시 읽기 비율 (cacheRead / (inputTokens + cacheRead)) — 높을수록 좋음
  *   - 정가 input 비율이 높으면 prompt 구조 점검 필요
+ *
+ * Google은 cache 필드가 0으로만 잡힘 (의미 다름) — vendor 라벨 같이 찍어 구분 가능.
  */
-function logCacheStats(
-  tool: ToolKind,
-  modelId: string,
-  s: { inputTokens: number; outputTokens: number; cacheRead: number; cacheCreation: number },
-): void {
+function logLlmStats(tool: ToolKind, modelId: string, usage: GenerateUsage): void {
   if (process.env.NODE_ENV === "production") return;
-  const totalCached = s.cacheRead + s.cacheCreation;
-  const hitRate = totalCached > 0 ? (s.cacheRead / totalCached) * 100 : 0;
+  const totalCached = usage.cacheReadTokens + usage.cacheCreationTokens;
+  const hitRate = totalCached > 0 ? (usage.cacheReadTokens / totalCached) * 100 : 0;
   const tier = modelTier(modelId);
+  const vendor = getModelVendor(modelId);
   console.log(
-    `[claude.usage] ${tool} (${tier})  ` +
-      `in=${s.inputTokens} out=${s.outputTokens}  ` +
-      `cache: read=${s.cacheRead} write=${s.cacheCreation} hit=${hitRate.toFixed(0)}%`,
+    `[llm.usage] ${tool} (${vendor}/${tier})  ` +
+      `in=${usage.inputTokens} out=${usage.outputTokens}  ` +
+      `cache: read=${usage.cacheReadTokens} write=${usage.cacheCreationTokens} hit=${hitRate.toFixed(0)}%`,
   );
+}
+
+/**
+ * vendor별 usage 메타 추출. Anthropic은 providerMetadata.anthropic에 캐시 토큰이 분리돼 옴.
+ * Google은 캐시 의미가 달라 보수적으로 0 처리 (첫 호출 풀 비용).
+ */
+function extractUsage(
+  result: Awaited<ReturnType<typeof generateText>>,
+  vendor: ModelVendor,
+): GenerateUsage {
+  const inputTokens = result.usage.inputTokens ?? 0;
+  const outputTokens = result.usage.outputTokens ?? 0;
+  if (vendor === "anthropic") {
+    const meta = (result.providerMetadata?.anthropic ?? {}) as Record<string, unknown>;
+    const cacheRead = Number(meta.cacheReadInputTokens ?? 0);
+    const cacheCreation = Number(meta.cacheCreationInputTokens ?? 0);
+    return {
+      inputTokens,
+      outputTokens,
+      cacheReadTokens: cacheRead,
+      cacheCreationTokens: cacheCreation,
+    };
+  }
+  // Google — 명시 캐시 API 안 쓰는 한 0. cachedContentTokenCount가 있으면 차감 고려 (추후).
+  return {
+    inputTokens,
+    outputTokens,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+  };
 }
 
 /**
  * 파일 1개 + 지시 텍스트로 vision 모델 호출.
  * Anthropic은 PDF·이미지를 모두 file content block으로 받는다.
+ * Google도 동일 패턴 — AI SDK가 file 블록을 vendor별로 알맞게 변환.
  */
 export async function generateWithFile({
   tool,
@@ -336,9 +436,8 @@ export async function generateWithFile({
   maxTokens = 4096,
   temperature = 0.1,
 }: GenerateVisionInput): Promise<GenerateResult> {
-  const model = resolveModel(tool);
-  const modelId =
-    typeof model === "object" && "modelId" in model ? (model.modelId as string) : String(model);
+  const modelId = resolveModel(tool);
+  const vendor = getModelVendor(modelId);
   warnIfBelowCacheMin(tool, modelId, rulePrompt);
 
   // AI SDK는 PDF·이미지를 모두 같은 file 블록으로 받는다.
@@ -355,7 +454,7 @@ export async function generateWithFile({
       role: "system",
       // vision도 LLM01 인젝션 가드 동일 적용 — 시간표 이미지에 글자로 박힌 jailbreak 시도 차단
       content: INJECTION_GUARD + rulePrompt,
-      providerOptions: ANTHROPIC_CACHE_1H,
+      providerOptions: systemProviderOptions(vendor),
     },
     {
       role: "system",
@@ -371,28 +470,26 @@ export async function generateWithFile({
   ];
 
   const result = await generateText({
-    model,
+    model: modelId,
     maxOutputTokens: maxTokens,
     temperature,
     messages,
+    providerOptions: callProviderOptions(vendor),
   });
 
-  const meta = (result.providerMetadata?.anthropic ?? {}) as Record<string, unknown>;
-  const cacheRead = Number(meta.cacheReadInputTokens ?? 0);
-  const cacheCreation = Number(meta.cacheCreationInputTokens ?? 0);
-  const inputTokens = result.usage.inputTokens ?? 0;
-  const outputTokens = result.usage.outputTokens ?? 0;
-  logCacheStats(tool, modelId, { inputTokens, outputTokens, cacheRead, cacheCreation });
+  if (result.finishReason === "length") {
+    console.warn(
+      `[llm] ${tool} (vision) hit maxOutputTokens — truncated. model=${modelId} max=${maxTokens}`,
+    );
+  }
+
+  const usage = extractUsage(result, vendor);
+  logLlmStats(tool, modelId, usage);
 
   return {
     text: result.text,
     modelId,
-    usage: {
-      inputTokens,
-      outputTokens,
-      cacheReadTokens: cacheRead,
-      cacheCreationTokens: cacheCreation,
-    },
+    usage,
   };
 }
 
@@ -404,7 +501,7 @@ export async function generateWithFile({
  *   2) 메시지 구조 자유 (history N-turn 포함)
  *   3) onFinish 콜백에서 호출자가 DB 저장·후처리
  *
- * Cache boundary 전략:
+ * Cache boundary 전략 (Anthropic만 의미 있음):
  *   - 시스템 블록 1: rulePrompt (INJECTION_GUARD + chat.md). cache_control 1h.
  *   - 시스템 블록 2: 자료 본문 snapshot (thread당 immutable). cache_control 1h.
  *   - 시스템 블록 3: dynamicContext (자료 메타 — title/type/page). 가변, no cache.
@@ -412,6 +509,7 @@ export async function generateWithFile({
  *   - user: 현재 turn, 가변.
  *
  * 두 번째 turn부터 system 1·2가 cache hit → 자료 본문 90% 할인.
+ * Google은 캐시 의미가 달라 providerOptions가 무시되지만 messages 구조는 그대로 동작.
  */
 export interface StreamChatInput {
   /**
@@ -445,21 +543,20 @@ export interface StreamChatResult {
 
 export function streamChatReply(input: StreamChatInput): StreamChatResult {
   const tool = input.tool ?? "chat";
-  const model = resolveModel(tool);
-  const modelId =
-    typeof model === "object" && "modelId" in model ? (model.modelId as string) : String(model);
+  const modelId = resolveModel(tool);
+  const vendor = getModelVendor(modelId);
   warnIfBelowCacheMin(tool, modelId, input.rulePrompt);
 
   const messages: ModelMessage[] = [
     {
       role: "system",
       content: INJECTION_GUARD + input.rulePrompt,
-      providerOptions: ANTHROPIC_CACHE_1H,
+      providerOptions: systemProviderOptions(vendor),
     },
     {
       role: "system",
       content: input.materialBlock,
-      providerOptions: ANTHROPIC_CACHE_1H,
+      providerOptions: systemProviderOptions(vendor),
     },
     {
       role: "system",
@@ -476,10 +573,11 @@ export function streamChatReply(input: StreamChatInput): StreamChatResult {
   ];
 
   const result = streamText({
-    model,
+    model: modelId,
     maxOutputTokens: input.maxTokens ?? 1500,
     temperature: input.temperature ?? 0.3,
     messages,
+    providerOptions: callProviderOptions(vendor),
     async onFinish(event) {
       // AI SDK v6 onFinish: { text, usage } — usage는 inputTokenDetails로 캐시 분리
       const inputTokens = event.usage?.inputTokens ?? 0;
@@ -489,20 +587,15 @@ export function streamChatReply(input: StreamChatInput): StreamChatResult {
           inputTokenDetails?: { cacheReadTokens?: number; cacheWriteTokens?: number };
         }
       )?.inputTokenDetails;
-      const cacheRead = details?.cacheReadTokens ?? 0;
-      const cacheCreation = details?.cacheWriteTokens ?? 0;
-      logCacheStats(tool, modelId, {
-        inputTokens,
-        outputTokens,
-        cacheRead,
-        cacheCreation,
-      });
+      const cacheRead = vendor === "anthropic" ? (details?.cacheReadTokens ?? 0) : 0;
+      const cacheCreation = vendor === "anthropic" ? (details?.cacheWriteTokens ?? 0) : 0;
       const usage: GenerateUsage = {
         inputTokens,
         outputTokens,
         cacheReadTokens: cacheRead,
         cacheCreationTokens: cacheCreation,
       };
+      logLlmStats(tool, modelId, usage);
       const costUsd = estimateCost(usage, modelId);
       try {
         await input.onFinish?.({ text: event.text, usage, modelId, costUsd });
@@ -519,18 +612,27 @@ export function streamChatReply(input: StreamChatInput): StreamChatResult {
   };
 }
 
+/**
+ * Per-1M-token 단가 (USD).
+ *
+ * 2026-05-28 갱신:
+ *   - Haiku 4.5 단가 보정 ($0.8/$4 → $1/$5) — Anthropic 공식 단가 반영, 기존 ~20% 과소 추정 해소
+ *   - Gemini 2.5 Flash 추가 ($0.30 입력 / $2.50 출력). 캐시는 명시 캐시 API 안 쓰면 0 처리.
+ */
 const PRICING = {
   sonnet: { input: 3, cacheWrite1h: 6, cacheRead: 0.3, output: 15 },
-  haiku: { input: 0.8, cacheWrite1h: 1.6, cacheRead: 0.08, output: 4 },
+  haiku: { input: 1, cacheWrite1h: 2, cacheRead: 0.1, output: 5 },
+  flash: { input: 0.3, cacheWrite1h: 0, cacheRead: 0, output: 2.5 },
 } as const;
 
 export function estimateCost(usage: GenerateUsage, modelId: string): number {
-  const tier = modelId.includes("haiku") ? PRICING.haiku : PRICING.sonnet;
+  const tier = modelTier(modelId);
+  const rate = tier === "haiku" ? PRICING.haiku : tier === "flash" ? PRICING.flash : PRICING.sonnet; // opus는 단가가 sonnet과 같거나 더 비싸지만 우리 라우팅에 없음
   const M = 1_000_000;
   return (
-    (usage.inputTokens * tier.input) / M +
-    (usage.cacheCreationTokens * tier.cacheWrite1h) / M +
-    (usage.cacheReadTokens * tier.cacheRead) / M +
-    (usage.outputTokens * tier.output) / M
+    (usage.inputTokens * rate.input) / M +
+    (usage.cacheCreationTokens * rate.cacheWrite1h) / M +
+    (usage.cacheReadTokens * rate.cacheRead) / M +
+    (usage.outputTokens * rate.output) / M
   );
 }

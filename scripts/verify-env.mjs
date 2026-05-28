@@ -16,8 +16,8 @@ function record(name, ok, detail) {
 async function main() {
   console.log("\n── 환경변수 ──────────────────────────────────────");
   const env = process.env;
+  // 필수 키
   for (const key of [
-    "ANTHROPIC_API_KEY",
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
     "SUPABASE_SERVICE_ROLE_KEY",
@@ -25,30 +25,65 @@ async function main() {
   ]) {
     record(key, Boolean(env[key]), env[key] ? `${env[key].slice(0, 8)}…` : "비어있음");
   }
+  // LLM 라우팅 — 둘 중 하나는 있어야 모델 호출이 가능.
+  // - AI_GATEWAY_API_KEY (권장, Vercel AI Gateway 경유)
+  // - ANTHROPIC_API_KEY (fallback, Anthropic SDK 직접 호출)
+  const hasGateway = Boolean(env.AI_GATEWAY_API_KEY) || Boolean(env.VERCEL_OIDC_TOKEN);
+  const hasAnthropic = Boolean(env.ANTHROPIC_API_KEY);
+  record(
+    "AI_GATEWAY_API_KEY 또는 VERCEL_OIDC_TOKEN",
+    hasGateway,
+    hasGateway ? "있음" : "비어있음 — Gateway 라우팅 비활성",
+  );
+  record(
+    "ANTHROPIC_API_KEY (Gateway 없을 때 fallback)",
+    hasAnthropic,
+    hasAnthropic ? `${env.ANTHROPIC_API_KEY.slice(0, 8)}…` : "비어있음",
+  );
+  if (!hasGateway && !hasAnthropic) {
+    record("LLM 라우팅", false, "Gateway·Anthropic 둘 다 없음 — 모든 AI 호출 실패");
+  }
+  // vendor 라우팅 플래그 — 비어있어도 정상(기본은 Anthropic)
+  if (env.QUIZ_MODEL_VENDOR || env.SUMMARY_MODEL_VENDOR) {
+    console.log(
+      `  ↳ vendor 플래그: quiz=${env.QUIZ_MODEL_VENDOR ?? "anthropic"} ` +
+        `summary=${env.SUMMARY_MODEL_VENDOR ?? "anthropic"}`,
+    );
+  }
 
-  console.log("\n── Anthropic ─────────────────────────────────────");
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5",
-        max_tokens: 30,
-        messages: [{ role: "user", content: "한 단어로만 답해: 안녕" }],
-      }),
-    });
-    const json = await res.json();
-    if (res.ok && json.content?.[0]?.text) {
-      record("API 호출", true, `응답 "${json.content[0].text.trim().slice(0, 30)}"`);
-    } else {
-      record("API 호출", false, `HTTP ${res.status} ${JSON.stringify(json).slice(0, 120)}`);
+  // Anthropic 직접 ping은 ANTHROPIC_API_KEY가 있을 때만 (fallback 동작 확인용).
+  // Gateway 자체 ping은 OIDC 토큰 만료 등 false-positive가 흔해 생략.
+  if (env.ANTHROPIC_API_KEY) {
+    console.log("\n── Anthropic 직접 호출 (fallback 경로) ───────────");
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": env.ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5",
+          max_tokens: 30,
+          messages: [{ role: "user", content: "한 단어로만 답해: 안녕" }],
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.content?.[0]?.text) {
+        record("Anthropic API 호출", true, `응답 "${json.content[0].text.trim().slice(0, 30)}"`);
+      } else {
+        record(
+          "Anthropic API 호출",
+          false,
+          `HTTP ${res.status} ${JSON.stringify(json).slice(0, 120)}`,
+        );
+      }
+    } catch (err) {
+      record("Anthropic API 호출", false, err.message);
     }
-  } catch (err) {
-    record("API 호출", false, err.message);
+  } else {
+    console.log("\n── Anthropic 직접 호출 — skip (Gateway 단독 운영) ─");
   }
 
   console.log("\n── Supabase (anon, RLS 적용) ─────────────────────");

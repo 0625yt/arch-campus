@@ -211,6 +211,8 @@ export interface Database {
           material_id: string | null;
           tool: string;
           model_id: string;
+          // 2026-05-28 추가: AI Gateway 도입으로 vendor 라벨 분리 추적. 기존 row는 NULL.
+          model_provider: "anthropic" | "google" | null;
           input_tokens: number;
           output_tokens: number;
           cache_read_tokens: number;
@@ -227,6 +229,7 @@ export interface Database {
           material_id?: string | null;
           tool: string;
           model_id: string;
+          model_provider?: "anthropic" | "google" | null;
           input_tokens?: number;
           output_tokens?: number;
           cache_read_tokens?: number;
