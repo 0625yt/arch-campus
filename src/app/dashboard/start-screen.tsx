@@ -1,8 +1,9 @@
 "use client";
 
+import { CalendarRange, Library, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
 
 /**
  * Dashboard 1급 진입 — "막힌 걸 그대로 적으면 공부 순서로 바꿔드려요" 카피의 챗 입구.
@@ -74,14 +75,6 @@ export function StartScreen() {
     setPhase("typing");
   }, [typed, phase, promptIdx, draft]);
 
-  // textarea 자동 grow
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 200) + "px";
-  }, [draft]);
-
   const submit = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -103,14 +96,50 @@ export function StartScreen() {
   const showTyping = draft.length === 0;
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col justify-start px-5 pb-10 pt-12 sm:px-7 sm:py-14 md:px-12 md:py-20">
+    <div className="mx-auto flex min-h-full w-full max-w-[980px] flex-col justify-start px-5 pb-10 pt-10 sm:px-7 sm:py-12 md:px-10 md:py-14">
+      <section className="fade-up fade-up-1 relative overflow-hidden rounded-[20px] border border-[var(--color-apple-hairline)] bg-[#0b1220] p-5 shadow-[0_28px_80px_-44px_rgba(4,16,40,0.75)] sm:p-6">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-70"
+          style={{
+            background:
+              "radial-gradient(100% 120% at 8% 10%, rgba(0,163,255,.26), transparent 55%), radial-gradient(80% 100% at 96% 0%, rgba(164,105,255,.22), transparent 48%), linear-gradient(180deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,0) 22%)",
+          }}
+        />
+
+        <div className="relative z-10 grid gap-3 sm:grid-cols-3">
+          <PreviewTile
+            href="/dashboard"
+            title="학기 대시보드"
+            subtitle="위험 일정·핵심 우선순위"
+            icon={<Sparkles className="h-[14px] w-[14px]" strokeWidth={2.1} />}
+          />
+          <PreviewTile
+            href="/dashboard/calendar"
+            title="캘린더"
+            subtitle="시간표·강의계획서 통합"
+            icon={<CalendarRange className="h-[14px] w-[14px]" strokeWidth={2.1} />}
+          />
+          <PreviewTile
+            href="/dashboard/study"
+            title="스터디"
+            subtitle="요약·퀴즈·오답 루프"
+            icon={<Library className="h-[14px] w-[14px]" strokeWidth={2.1} />}
+          />
+        </div>
+      </section>
+
       {/* eyebrow — Sparkles 톤. 헤드라인이 살아있다는 신호. */}
-      <p className="fade-up flex items-center gap-1.5 text-[12px] wght-560 text-[var(--color-apple-muted)]">
-        <Sparkles className="h-[12px] w-[12px] text-[var(--color-apple-action)]" strokeWidth={2.4} />
+      <p className="fade-up mt-8 flex items-center gap-1.5 text-[12px] wght-560 text-[var(--color-apple-muted)]">
+        <Sparkles
+          className="h-[12px] w-[12px] text-[var(--color-apple-action)]"
+          strokeWidth={2.4}
+        />
         <span style={{ letterSpacing: "-0.012em" }}>새로 물어보기</span>
       </p>
 
-      <h1 className="mt-3 fade-up fade-up-1 text-[27px] leading-[1.24] wght-700 text-[var(--color-apple-ink)] sm:text-[32px] md:text-[36px]"
+      <h1
+        className="mt-3 fade-up fade-up-1 text-[27px] leading-[1.24] wght-700 text-[var(--color-apple-ink)] sm:text-[32px] md:text-[36px]"
         style={{ letterSpacing: "-0.018em" }}
       >
         막힌 걸 그대로 적으면, 공부 순서로 바꿔드려요
@@ -123,7 +152,7 @@ export function StartScreen() {
         형태로 쪼갭니다.
       </p>
 
-      <form onSubmit={onSubmit} className="relative mt-8 fade-up fade-up-2 w-full">
+      <form onSubmit={onSubmit} className="relative mt-7 fade-up fade-up-2 w-full max-w-[720px]">
         {/* gradient glow — 카드 뒤로 번지는 컬러. focus·hover 시 강해짐 */}
         <div
           aria-hidden
@@ -151,10 +180,14 @@ export function StartScreen() {
             <textarea
               ref={inputRef}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                const el = e.target;
+                setDraft(el.value);
+                el.style.height = "auto";
+                el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+              }}
               onKeyDown={onKeyDown}
               rows={1}
-              autoFocus
               className="relative z-10 w-full resize-none bg-transparent px-2 py-1.5 text-[14.5px] wght-450 text-[var(--color-apple-ink)] focus:outline-none focus-visible:outline-none"
               style={{ letterSpacing: "-0.012em" }}
             />
@@ -181,7 +214,7 @@ export function StartScreen() {
         </div>
       </form>
 
-      <ul className="mt-6 fade-up fade-up-3 grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
+      <ul className="mt-6 fade-up fade-up-3 grid w-full max-w-[720px] grid-cols-1 gap-2 sm:grid-cols-2">
         {PROMPT_CHIPS.map((c) => (
           <li key={c.label}>
             <button
@@ -212,9 +245,47 @@ export function StartScreen() {
   );
 }
 
+function PreviewTile({
+  href,
+  title,
+  subtitle,
+  icon,
+}: {
+  href: string;
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group relative overflow-hidden rounded-[12px] border border-white/15 bg-white/[0.06] p-3.5 transition-all hover:-translate-y-px hover:bg-white/[0.1]"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-white">
+          {icon}
+        </div>
+        <span className="text-[11px] wght-620 text-white/55 transition-colors group-hover:text-white/80">
+          열기
+        </span>
+      </div>
+      <p className="mt-3 text-[14px] wght-620 text-white" style={{ letterSpacing: "-0.012em" }}>
+        {title}
+      </p>
+      <p
+        className="mt-1.5 text-[12px] leading-[1.45] wght-450 text-white/72"
+        style={{ letterSpacing: "-0.01em" }}
+      >
+        {subtitle}
+      </p>
+    </Link>
+  );
+}
+
 function SendIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <title>전송</title>
       <path
         d="M8 13V3M8 3L4 7M8 3l4 4"
         stroke="currentColor"

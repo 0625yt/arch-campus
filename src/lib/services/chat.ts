@@ -1,6 +1,7 @@
 import "server-only";
 import { type GenerateUsage, streamChatReply } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
+import { extractRelevantChunks, formatChunksAsHint } from "@/lib/rag/extract-relevant";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 /**
@@ -180,13 +181,35 @@ function buildMaterialBlock(thread: ChatThreadRow, meta: MaterialMeta): string {
   ].join("\n");
 }
 
-function buildDynamicContext(thread: ChatThreadRow, meta: MaterialMeta): string {
-  return [
+/**
+ * dynamicContext에 가벼운 RAG hint 추가.
+ *   - materialBlock(전체 본문)은 그대로 두고 캐시 hit 보존.
+ *   - 사용자 질문의 키워드로 본문에서 가장 관련 깊은 청크 1~3개를 발췌해
+ *     "## 관련 발췌" 섹션으로 모델 attention을 끌어줌.
+ *   - 자료가 짧거나 매칭이 없으면 hint 자체 생략 — 노이즈 X.
+ *   - userMessage가 없으면(첫 메시지 전) hint 없음.
+ */
+function buildDynamicContext(
+  thread: ChatThreadRow,
+  meta: MaterialMeta,
+  userMessage: string,
+): string {
+  const base = [
     "## 현재 컨텍스트",
     `스레드: ${thread.title}`,
     `자료 본문 ${thread.material_snapshot_chars.toLocaleString()}자 (snapshot)`,
     `자료 종류: ${meta.type}`,
-  ].join("\n");
+  ];
+
+  if (userMessage && thread.material_full_text) {
+    const chunks = extractRelevantChunks(thread.material_full_text, userMessage, { topN: 3 });
+    const hint = formatChunksAsHint(chunks);
+    if (hint) {
+      base.push("", hint);
+    }
+  }
+
+  return base.join("\n");
 }
 
 export interface StartChatTurnInput {
@@ -248,7 +271,8 @@ export async function startChatTurn(input: StartChatTurnInput): Promise<StartCha
 
   const rulePrompt = loadPrompt("chat");
   const materialBlock = buildMaterialBlock(thread, meta);
-  const dynamicContext = buildDynamicContext(thread, meta);
+  // userMessage 기반 RAG hint를 dynamicContext에 추가 — materialBlock(캐시 대상)은 그대로
+  const dynamicContext = buildDynamicContext(thread, meta, input.userMessage);
 
   const result = streamChatReply({
     rulePrompt,
