@@ -121,7 +121,11 @@ export async function runExamCram(input: ExamCramInput): Promise<ExamCramResult>
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });
-    return { ok: false, stage: "ai", error: "AI 호출 실패" };
+    return {
+      ok: false,
+      stage: "ai",
+      error: "벼락치기 계획을 만들지 못했어요. 잠시 후 다시 시도해주세요.",
+    };
   }
 
   let output: ExamCramOutputT;
@@ -140,7 +144,7 @@ export async function runExamCram(input: ExamCramInput): Promise<ExamCramResult>
     return {
       ok: false,
       stage: "validation",
-      error: "AI 출력이 형식에 안 맞아요. 다시 시도해주세요.",
+      error: "학습 계획 형식이 맞지 않았어요. 다시 시도해주세요.",
     };
   }
 

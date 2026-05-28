@@ -33,7 +33,7 @@ interface Command {
   hint?: string;
   /** 검색 매칭용 추가 키워드 */
   keywords?: string;
-  /** 좌측 미니 라벨 (강의 이름, 위저드 카테고리 등) */
+  /** 좌측 미니 라벨 (강의 이름, 5분 흐름 카테고리 등) */
   meta?: string;
   /** 좌측 마커 색 (강의별 점) */
   dotColor?: string;
@@ -46,7 +46,7 @@ const PAGES: { href: string; label: string; hint: string }[] = [
   { href: "/dashboard/today", label: "지금", hint: "다음 90분 실행 순서" },
   { href: "/dashboard/study", label: "공부", hint: "과목별 자료와 약점" },
   { href: "/dashboard/calendar", label: "일정", hint: "수업·마감·개인 일정" },
-  { href: "/dashboard/tools", label: "도구", hint: "발표·과제·팀플 해결책" },
+  { href: "/dashboard/tools", label: "도구", hint: "발표·과제·시험 5분 흐름" },
   { href: "/dashboard/history", label: "약점 로그", hint: "오답과 학습 리듬" },
 ];
 
@@ -57,7 +57,7 @@ const WIZARD_ACTIONS: { label: string; hint: string; href: string }[] = [
     href: "/dashboard/tools/presentation",
   },
   {
-    label: "기출형 문제 만들기",
+    label: "기출형 문제 점검",
     hint: "내 자료로 객관식·주관식·서술형",
     href: "/dashboard/tools",
   },
@@ -127,8 +127,12 @@ export function CommandPalette() {
     if (!open) return;
     let aborted = false;
     Promise.all([
-      fetch("/api/courses").then((r) => r.json()).catch(() => null),
-      fetch("/api/activity").then((r) => r.json()).catch(() => null),
+      fetch("/api/courses")
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch("/api/activity")
+        .then((r) => r.json())
+        .catch(() => null),
     ]).then(([c, a]) => {
       if (aborted) return;
       if (c?.ok && Array.isArray(c.courses)) setCourses(c.courses);
@@ -173,7 +177,7 @@ export function CommandPalette() {
         kind: "액션",
         label: w.label,
         hint: w.hint,
-        meta: "위저드",
+        meta: "5분 흐름",
         run: () => router.push(w.href),
       });
     }
@@ -277,7 +281,7 @@ export function CommandPalette() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="강의·자료·위저드 검색하거나 어디로 갈지 입력하세요"
+            placeholder="강의·자료·도구 검색하거나 어디로 갈지 입력하세요"
             className="flex-1 bg-transparent text-[14px] wght-450 text-[var(--color-apple-ink)] placeholder:wght-380 placeholder:text-[var(--color-apple-muted)] focus-visible:outline-none"
           />
           <Kbd>ESC</Kbd>
@@ -291,7 +295,7 @@ export function CommandPalette() {
                 "{query}"에 해당하는 항목이 없어요
               </p>
               <p className="mt-1 text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
-                강의명·자료명·위저드 이름으로 다시 검색해보세요
+                강의명·자료명·도구 이름으로 다시 검색해보세요
               </p>
             </div>
           ) : (

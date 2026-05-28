@@ -34,6 +34,7 @@ export default async function TodayPage() {
   ]);
 
   const focus = pickFocus(upcoming);
+  const nextAfterFocus = focus ? (upcoming.find((event) => event.id !== focus.id) ?? null) : null;
   const showStudyRow = wrongStats.totalWrong > 0 || recentAttempts.length > 0;
 
   return (
@@ -42,7 +43,12 @@ export default async function TodayPage() {
         <TopBar />
 
         {focus ? (
-          <TodayHero focus={focus} kindLabel={KIND_LABEL} className="mt-10 fade-up fade-up-1 sm:mt-14" />
+          <TodayHero
+            focus={focus}
+            nextEvent={nextAfterFocus}
+            kindLabel={KIND_LABEL}
+            className="mt-10 fade-up fade-up-1 sm:mt-14"
+          />
         ) : (
           <NoFocus className="mt-10 fade-up fade-up-1 sm:mt-14" />
         )}
@@ -91,9 +97,7 @@ function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
   if (wrongStats.totalWrong === 0) {
     return (
       <article className="elev-1 rounded-[18px] bg-white p-6">
-        <p
-          className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]"
-        >
+        <p className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]">
           오답 없음
         </p>
         <h2
@@ -154,7 +158,10 @@ function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
 
 function ResumeAttemptCard({ attempt }: { attempt: RecentAttempt }) {
   const ratio = attempt.total > 0 ? Math.round((attempt.score / attempt.total) * 100) : 0;
-  const minutesAgo = Math.max(0, Math.floor((Date.now() - new Date(attempt.attemptedAt).getTime()) / 60000));
+  const minutesAgo = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(attempt.attemptedAt).getTime()) / 60000),
+  );
   const hoursAgo = Math.floor(minutesAgo / 60);
   const ago =
     minutesAgo < 60
@@ -334,7 +341,6 @@ function UpcomingCard({
       className="group card-glow-ribbon elev-hover-2 relative overflow-hidden rounded-[14px] bg-white p-5 sm:p-6"
       style={{ ["--ribbon-color" as string]: tint.bar }}
     >
-
       <div className="relative flex items-center justify-between gap-3">
         <span
           className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] wght-620 tracking-[-0.012em]"
@@ -442,7 +448,9 @@ function RecentSection({ activities, className }: { activities: Activity[]; clas
           <li
             key={a.id}
             className={
-              idx !== activities.length - 1 ? "border-b border-[var(--color-apple-hairline-soft)]" : ""
+              idx !== activities.length - 1
+                ? "border-b border-[var(--color-apple-hairline-soft)]"
+                : ""
             }
           >
             <Link

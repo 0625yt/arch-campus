@@ -1,5 +1,5 @@
-import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listWrongItems } from "@/lib/data/attempts";
 import { getQuizForSolving } from "@/lib/data/quizzes";
@@ -37,7 +37,11 @@ export default async function QuizWrongOnlyPage({
     return (
       <div>
         <div className="mx-auto w-full max-w-[760px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12">
-          <EmptyWrong quizTitle={exists.title} materialId={exists.materialId} />
+          <EmptyWrong
+            quizTitle={exists.title}
+            materialId={exists.materialId}
+            courseName={exists.courseName}
+          />
         </div>
       </div>
     );
@@ -57,9 +61,7 @@ export default async function QuizWrongOnlyPage({
           >
             ← 오답 복습
           </Link>
-          <span
-            className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]"
-          >
+          <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]">
             오답만 {quiz.questions.length}문제
           </span>
         </header>
@@ -69,12 +71,18 @@ export default async function QuizWrongOnlyPage({
   );
 }
 
-function EmptyWrong({ quizTitle, materialId }: { quizTitle: string; materialId: string | null }) {
+function EmptyWrong({
+  quizTitle,
+  materialId,
+  courseName,
+}: {
+  quizTitle: string;
+  materialId: string | null;
+  courseName: string | null;
+}) {
   return (
     <section className="rounded-[18px] bg-white p-10 text-center fade-up">
-      <p
-        className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]"
-      >
+      <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]">
         오답 없음
       </p>
       <h1
@@ -87,13 +95,13 @@ function EmptyWrong({ quizTitle, materialId }: { quizTitle: string; materialId: 
         이 퀴즈를 한 번 더 풀거나 자료로 돌아가세요.
       </p>
       <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-        <Link
-          href={`/dashboard/quiz/${encodeURIComponent("자료")}`}
-          className="hidden"
-        />
         {materialId && (
           <Link
-            href={`/dashboard/study/${encodeURIComponent("자료")}/${materialId}`}
+            href={
+              courseName
+                ? `/dashboard/study/${encodeURIComponent(courseName)}/${materialId}`
+                : "/dashboard/study"
+            }
             className="inline-flex h-[44px] items-center justify-center rounded-full bg-[var(--color-apple-ink)] px-6 text-[14px] wght-560 text-white hover:opacity-90"
           >
             자료로 돌아가기

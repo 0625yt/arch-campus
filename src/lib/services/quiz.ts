@@ -1,8 +1,12 @@
 import "server-only";
-import { generate, estimateCost, getModelIdFor } from "@/lib/claude";
-import { classifyMaterial, classificationToContext, type Classification } from "@/lib/classify-material";
+import {
+  type Classification,
+  classificationToContext,
+  classifyMaterial,
+} from "@/lib/classify-material";
+import { estimateCost, generate, getModelIdFor } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
-import { parseModelJson, QuizOutput, type QuizOutputT } from "@/lib/schemas";
+import { parseModelJson, QuizOutput, type QuizOutputT, type QuizQuestionT } from "@/lib/schemas";
 import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
 import { buildPlaybookSection } from "@/lib/subject-playbook";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -97,10 +101,6 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     kinds: input.kinds,
     scope: input.scope,
   });
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[quiz] dynamicContext 첫 1500자:\n" + dynamicContext.slice(0, 1500));
-  }
-
   const tokenBudget = breakdown({
     rule: rulePrompt,
     dynamic: dynamicContext,
@@ -128,7 +128,11 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });
-    return { ok: false, status: 502, error: "AI 호출 실패" };
+    return {
+      ok: false,
+      status: 502,
+      error: "자료를 문제로 바꾸지 못했어요. 잠시 후 다시 시도해주세요.",
+    };
   }
 
   let parsedQuiz: QuizOutputT;
@@ -145,12 +149,14 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       errorMessage: `Zod 검증 실패: ${e instanceof Error ? e.message : String(e)}`,
       payload: { rawText: result.text.slice(0, 4000) },
     });
-    return { ok: false, status: 502, error: "AI 출력이 형식에 안 맞아요. 다시 시도해주세요." };
+    return { ok: false, status: 502, error: "문제 형식이 맞지 않았어요. 다시 시도해주세요." };
   }
 
   if (parsedQuiz.rejected) {
     return { ok: false, status: 422, error: parsedQuiz.reason };
   }
+
+  const normalizedQuestions = normalizeQuizQuestions(parsedQuiz.questions);
 
   // quizzes 저장 — owner_id 강제, RLS 정책과 같은 키
   const admin = getAdminSupabase();
@@ -163,8 +169,8 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       course_id: input.courseId,
       title: input.title,
       difficulty: input.difficulty,
-      question_count: parsedQuiz.questions.length,
-      questions: parsedQuiz.questions,
+      question_count: normalizedQuestions.length,
+      questions: normalizedQuestions,
       watermark: parsedQuiz.watermark,
       model_id: result.modelId,
     })
@@ -186,13 +192,13 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     usage: result.usage,
     cost: costUsd,
     status: "ok",
-    payload: { quizId: quizRow.id, questionCount: parsedQuiz.questions.length },
+    payload: { quizId: quizRow.id, questionCount: normalizedQuestions.length },
   });
 
   return {
     ok: true,
     quizId: quizRow.id,
-    quiz: parsedQuiz,
+    quiz: { ...parsedQuiz, questions: normalizedQuestions },
     modelId: result.modelId,
     usage: result.usage,
     costUsd,
@@ -205,6 +211,22 @@ const KIND_LABEL: Record<QuestionKind, string> = {
   "short-answer": "단답형",
   essay: "서술형",
 };
+
+function normalizeQuizQuestions(questions: QuizQuestionT[]): QuizQuestionT[] {
+  return questions.map((question, index) => {
+    const kind = question.kind ?? "multiple-choice";
+    return {
+      ...question,
+      id: index + 1,
+      kind,
+      answer: question.answer.trim(),
+      evidence: question.evidence?.trim() ?? "",
+      explanation: question.explanation.trim(),
+      hint: question.hint?.trim(),
+      choices: kind === "multiple-choice" ? (question.choices ?? null) : null,
+    };
+  });
+}
 
 function buildDynamicContext(meta: {
   title: string;
@@ -282,13 +304,13 @@ function buildDynamicContext(meta: {
       "## 요청된 문제 종류",
       `학생이 선택한 종류: **${labelList}**`,
       "각 종류를 questions 배열 안에 섞어 출제. 비율은 골고루.",
-      "각 문제에 \"kind\" 필드를 \"multiple-choice\" | \"short-answer\" | \"essay\" 중 하나로 명시.",
+      '각 문제에 "kind" 필드를 "multiple-choice" | "short-answer" | "essay" 중 하나로 명시.',
       "출력 규칙은 시스템 프롬프트의 'kind 분기' 섹션을 따른다.",
     );
   }
 
   // 학생이 지정한 출제 범위 — 자유 텍스트
-  if (meta.scope && meta.scope.trim()) {
+  if (meta.scope?.trim()) {
     lines.push(
       "",
       "## 출제 범위",
@@ -332,7 +354,12 @@ async function logGeneration(opts: {
   ownerId: string;
   materialId: string;
   modelId: string;
-  usage?: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number };
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheCreationTokens: number;
+  };
   cost?: number;
   status: "ok" | "rejected" | "error";
   errorMessage?: string;

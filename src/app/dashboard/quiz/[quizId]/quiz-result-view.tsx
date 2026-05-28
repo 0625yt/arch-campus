@@ -5,15 +5,17 @@ import { WizardWatermark } from "@/components/wizard-shell";
 
 export interface ResultQuestion {
   id: number;
+  kind: "multiple-choice" | "short-answer" | "essay";
   topic: string;
   stem: string;
-  choices: { key: "A" | "B" | "C" | "D"; text: string }[];
-  answer: "A" | "B" | "C" | "D";
-  submitted: "A" | "B" | "C" | "D" | null;
+  choices: { key: "A" | "B" | "C" | "D"; text: string }[] | null;
+  answer: string;
+  submitted: string | null;
   correct: boolean;
   explanation: string;
   evidence: string;
   evidencePage: number | null;
+  gradingNote?: string;
 }
 
 export interface ResultViewProps {
@@ -30,6 +32,7 @@ export interface ResultViewProps {
   quizId: string;
   /** 화면에 들어왔을 때 스크롤 헤더 */
   showHero?: boolean;
+  durationLabel?: string;
 }
 
 /**
@@ -50,27 +53,67 @@ export function QuizResultView({
   courseName,
   quizId,
   showHero = true,
+  durationLabel,
 }: ResultViewProps) {
   const wrongCount = questions.filter((q) => !q.correct).length;
   const ratio = total > 0 ? Math.round((score / total) * 100) : 0;
+  const weakTopics = Array.from(
+    new Set(questions.filter((q) => !q.correct).map((q) => q.topic)),
+  ).slice(0, 3);
 
   return (
     <section className="flex flex-col gap-6 fade-up">
       {showHero && (
-        <header className="rounded-[14px] bg-white p-8 text-center">
+        <header className="rounded-[24px] border border-[var(--color-apple-hairline)] bg-white/96 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:p-8">
           <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
             {title}
           </p>
-          <p
-            className="mt-3 text-[64px] wght-620 tabular-nums leading-none text-[var(--color-apple-ink)]"
-            style={{ letterSpacing: "-0.024em" }}
-          >
-            {score}
-            <span className="text-[var(--color-apple-muted)]">/{total}</span>
-          </p>
-          <p className="mt-2 text-[14px] wght-450 text-[var(--color-apple-muted)]">
-            정답률 {ratio}% · 오답 {wrongCount}문제
-          </p>
+          <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p
+                className="text-[54px] wght-620 tabular-nums leading-none text-[var(--color-apple-ink)] sm:text-[64px]"
+                style={{ letterSpacing: "-0.024em" }}
+              >
+                {score}
+                <span className="text-[var(--color-apple-muted)]">/{total}</span>
+              </p>
+              <p className="mt-3 text-[14px] wght-450 text-[var(--color-apple-muted)]">
+                정답률 {ratio}% · 오답 {wrongCount}문제
+                {durationLabel ? ` · ${durationLabel}` : ""}
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[360px]">
+              <InsightCard
+                label="지금 상태"
+                value={wrongCount === 0 ? "안정" : wrongCount <= 2 ? "복습 필요" : "다시 점검"}
+                tone={wrongCount === 0 ? "good" : wrongCount <= 2 ? "neutral" : "bad"}
+              />
+              <InsightCard
+                label="헷갈린 주제"
+                value={weakTopics[0] ?? "없음"}
+                tone={weakTopics.length > 0 ? "neutral" : "good"}
+              />
+              <InsightCard
+                label="다음 행동"
+                value={wrongCount > 0 ? "오답만 다시" : "새 문제 더"}
+                tone={wrongCount > 0 ? "bad" : "good"}
+              />
+            </div>
+          </div>
+
+          {weakTopics.length > 0 && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {weakTopics.map((topic) => (
+                <span
+                  key={topic}
+                  className="inline-flex rounded-full bg-[color:rgba(255,159,10,0.14)] px-3 py-1.5 text-[12px] wght-560 text-[color:rgb(180,83,9)]"
+                >
+                  취약: {topic}
+                </span>
+              ))}
+            </div>
+          )}
         </header>
       )}
 
@@ -119,7 +162,7 @@ export function QuizResultView({
 function ResultCard({ q, idx }: { q: ResultQuestion; idx: number }) {
   return (
     <article
-      className={`rounded-[14px] bg-white p-6 ${
+      className={`rounded-[24px] border border-[var(--color-apple-hairline)] bg-white/96 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.05)] ${
         q.correct ? "" : "ring-1 ring-[var(--color-urgent-soft)]"
       }`}
     >
@@ -138,46 +181,66 @@ function ResultCard({ q, idx }: { q: ResultQuestion; idx: number }) {
       <p className="mt-3 text-[15px] leading-[1.55] wght-560 text-[var(--color-apple-ink)]">
         {q.stem}
       </p>
-      <div className="mt-4 flex flex-col gap-2">
-        {q.choices.map((c) => {
-          const isAnswer = c.key === q.answer;
-          const isSubmitted = c.key === q.submitted;
-          const wrongPick = isSubmitted && !q.correct;
-          return (
-            <div
-              key={c.key}
-              className={`flex items-start gap-3 rounded-[10px] px-4 py-3 text-[14px] leading-[1.5] ${
-                isAnswer
-                  ? "bg-[color:rgba(52,199,89,0.12)] text-[var(--color-apple-ink)]"
-                  : wrongPick
-                    ? "bg-[var(--color-urgent-soft)] text-[var(--color-urgent)]"
-                    : "bg-[var(--color-apple-pearl)] text-[var(--color-apple-muted)]"
-              }`}
-            >
-              <span className="wght-620">{c.key}.</span>
-              <span className="flex-1">{c.text}</span>
-              {isAnswer && (
-                <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]">
-                  정답
-                </span>
-              )}
-              {wrongPick && (
-                <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]">
-                  내 답
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {q.kind === "multiple-choice" && q.choices ? (
+        <div className="mt-4 flex flex-col gap-2">
+          {q.choices.map((c) => {
+            const isAnswer = c.key === q.answer;
+            const isSubmitted = c.key === q.submitted;
+            const wrongPick = isSubmitted && !q.correct;
+            return (
+              <div
+                key={c.key}
+                className={`flex items-start gap-3 rounded-[16px] px-4 py-3 text-[14px] leading-[1.5] ${
+                  isAnswer
+                    ? "bg-[color:rgba(52,199,89,0.12)] text-[var(--color-apple-ink)]"
+                    : wrongPick
+                      ? "bg-[var(--color-urgent-soft)] text-[var(--color-urgent)]"
+                      : "bg-[var(--color-apple-pearl)] text-[var(--color-apple-muted)]"
+                }`}
+              >
+                <span className="wght-620">{c.key}.</span>
+                <span className="flex-1">{c.text}</span>
+                {isAnswer && (
+                  <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]">
+                    정답
+                  </span>
+                )}
+                {wrongPick && (
+                  <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]">
+                    내 답
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <AnswerBox
+            label="내가 적은 답"
+            value={q.submitted ?? "미응답"}
+            tone={q.correct ? "good" : "neutral"}
+          />
+          <AnswerBox
+            label={q.kind === "essay" ? "비교 기준" : "정답 표현"}
+            value={q.answer}
+            tone="neutral"
+          />
+        </div>
+      )}
 
-      <div className="mt-4 rounded-[10px] bg-[var(--color-apple-pearl)] p-4">
+      <div className="mt-4 rounded-[18px] bg-[var(--color-apple-pearl)] p-4">
         <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
           풀이
         </p>
         <p className="mt-2 text-[13px] leading-[1.6] text-[var(--color-apple-ink)]">
           {q.explanation}
         </p>
+        {q.gradingNote && (
+          <p className="mt-3 rounded-[14px] bg-white/80 px-3.5 py-3 text-[12.5px] leading-[1.55] text-[var(--color-apple-muted)]">
+            {q.gradingNote}
+          </p>
+        )}
         {q.evidence && (
           <p className="mt-3 border-t border-[var(--color-apple-hairline)] pt-3 text-[12px] wght-450 italic leading-[1.5] text-[var(--color-apple-muted)]">
             자료 인용: &quot;{q.evidence}&quot;
@@ -186,5 +249,54 @@ function ResultCard({ q, idx }: { q: ResultQuestion; idx: number }) {
         )}
       </div>
     </article>
+  );
+}
+
+function InsightCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "good" | "neutral" | "bad";
+}) {
+  const toneClass =
+    tone === "good"
+      ? "bg-[color:rgba(52,199,89,0.10)] text-[var(--color-apple-success)]"
+      : tone === "bad"
+        ? "bg-[var(--color-urgent-soft)] text-[var(--color-urgent)]"
+        : "bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)]";
+
+  return (
+    <div className={`rounded-[18px] px-4 py-3 ${toneClass}`}>
+      <p className="text-[11px] wght-560 uppercase tracking-[0.06em] opacity-75">{label}</p>
+      <p className="mt-2 text-[13px] leading-[1.45] wght-620">{value}</p>
+    </div>
+  );
+}
+
+function AnswerBox({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "good" | "neutral";
+}) {
+  return (
+    <div
+      className={`rounded-[16px] px-4 py-3 ${
+        tone === "good" ? "bg-[color:rgba(52,199,89,0.10)]" : "bg-[color:rgba(59,130,246,0.06)]"
+      }`}
+    >
+      <p className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+        {label}
+      </p>
+      <p className="mt-2 text-[13.5px] leading-[1.6] text-[var(--color-apple-ink)] whitespace-pre-line">
+        {value}
+      </p>
+    </div>
   );
 }

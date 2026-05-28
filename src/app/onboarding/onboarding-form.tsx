@@ -100,7 +100,7 @@ export function OnboardingForm({
           {pending ? "저장 중…" : "시작하기 →"}
         </button>
         <p className="text-center text-[12px] wght-450 text-[var(--color-apple-muted)]">
-          수강 과목은 시간표 또는 강의계획서를 올리면 자동으로 채워져요.
+          수강 과목은 시간표 또는 강의계획서를 올리면 한 번에 채워져요.
         </p>
       </div>
     </form>

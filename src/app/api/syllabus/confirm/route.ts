@@ -25,6 +25,8 @@ const RequestBody = z.object({
 interface OkResponse {
   ok: true;
   inserted: number;
+  skippedClassOverlap?: number;
+  skippedDuplicates?: number;
 }
 
 interface ErrResponse {
@@ -76,7 +78,58 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     return NextResponse.json({ ok: true, inserted: 0 });
   }
 
-  const rows = body.events.map((e) => ({
+  // 시간표(반복 class)가 이미 있는 과목이면, 강의계획서 class는 중복으로 간주하고 스킵.
+  const { data: classProbe } = await admin
+    .from("events")
+    .select("id")
+    .eq("owner_id", ownerId)
+    .eq("course_id", body.courseId)
+    .eq("kind", "class")
+    .limit(1);
+  const hasTimetableClass = (classProbe?.length ?? 0) > 0;
+
+  const afterClassPolicy = hasTimetableClass
+    ? body.events.filter((e) => e.kind !== "class")
+    : body.events;
+  const skippedClassOverlap = body.events.length - afterClassPolicy.length;
+  if (afterClassPolicy.length === 0) {
+    return NextResponse.json({ ok: true, inserted: 0, skippedClassOverlap, skippedDuplicates: 0 });
+  }
+
+  const dateKeys = afterClassPolicy.map((e) => isoToKstDateKey(e.startsAt)).filter(Boolean);
+  const minDate = dateKeys.sort()[0];
+  const maxDate = dateKeys.sort()[dateKeys.length - 1];
+  const fromDate = minDate ? shiftDateKey(minDate, -1) : null;
+  const toDate = maxDate ? shiftDateKey(maxDate, 1) : null;
+
+  let existing: Array<{ kind: string; title: string; starts_at: string }> = [];
+  if (fromDate && toDate) {
+    const { data } = await admin
+      .from("events")
+      .select("kind, title, starts_at")
+      .eq("owner_id", ownerId)
+      .eq("course_id", body.courseId)
+      .gte("starts_at", `${fromDate}T00:00:00+09:00`)
+      .lte("starts_at", `${toDate}T23:59:59+09:00`)
+      .in("kind", Array.from(new Set(afterClassPolicy.map((e) => e.kind))));
+    existing = data ?? [];
+  }
+
+  const existingSignatures = new Set(
+    existing.map((row) => makeSignature(row.kind, row.title, row.starts_at)),
+  );
+  const deduped = afterClassPolicy.filter((e) => {
+    const sig = makeSignature(e.kind, e.title, e.startsAt);
+    if (existingSignatures.has(sig)) return false;
+    existingSignatures.add(sig);
+    return true;
+  });
+  const skippedDuplicates = afterClassPolicy.length - deduped.length;
+  if (deduped.length === 0) {
+    return NextResponse.json({ ok: true, inserted: 0, skippedClassOverlap, skippedDuplicates });
+  }
+
+  const rows = deduped.map((e) => ({
     owner_id: ownerId,
     course_id: body.courseId,
     source_material_id: body.sourceMaterialId ?? null,
@@ -99,5 +152,38 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     );
   }
 
-  return NextResponse.json({ ok: true, inserted: rows.length });
+  return NextResponse.json({
+    ok: true,
+    inserted: rows.length,
+    skippedClassOverlap,
+    skippedDuplicates,
+  });
+}
+
+function makeSignature(kind: string, title: string, startsAt: string): string {
+  const dateKey = isoToKstDateKey(startsAt) ?? "";
+  return `${kind}|${normalizeTitle(title)}|${dateKey}`;
+}
+
+function normalizeTitle(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+function isoToKstDateKey(iso: string): string | null {
+  if (!iso) return null;
+  if (!iso.includes("T")) return /^\d{4}-\d{2}-\d{2}/.test(iso) ? iso.slice(0, 10) : null;
+  const date = new Date(iso);
+  if (!Number.isFinite(date.getTime())) return null;
+  const kst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, "0")}-${String(kst.getUTCDate()).padStart(2, "0")}`;
+}
+
+function shiftDateKey(dateKey: string, deltaDays: number): string {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + deltaDays);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }

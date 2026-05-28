@@ -508,7 +508,8 @@ function CtaCard({
           className="mt-4 max-w-[520px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)] sm:text-[15px]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          4지선다 문제를 1~10개까지 만들 수 있어요. 모든 문제는 이 자료의 문장에서만 나와요.
+          객관식, 단답형, 서술형까지 이 자료 기준으로 바로 점검할 수 있어요. 모든 문제는 이
+          자료의 문장에서만 나와요.
         </p>
 
         <div className="mt-7">

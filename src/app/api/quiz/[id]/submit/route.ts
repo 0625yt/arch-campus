@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { QuizQuestion } from "@/lib/schemas";
-import { gradeQuiz, type Choice } from "@/lib/services/grade-quiz";
+import { gradeQuiz } from "@/lib/services/grade-quiz";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -10,10 +10,16 @@ export const runtime = "nodejs";
 const SubmitBody = z.object({
   answers: z
     .array(
-      z.object({
-        questionId: z.number().int(),
-        choice: z.enum(["A", "B", "C", "D"]),
-      }),
+      z.union([
+        z.object({
+          questionId: z.number().int(),
+          choice: z.enum(["A", "B", "C", "D"]),
+        }),
+        z.object({
+          questionId: z.number().int(),
+          response: z.string().max(4000),
+        }),
+      ]),
     )
     .min(1)
     .max(20),
@@ -27,12 +33,14 @@ interface SubmitOk {
   total: number;
   results: Array<{
     questionId: number;
+    kind: "multiple-choice" | "short-answer" | "essay";
     correct: boolean;
-    answer: Choice;
-    submitted: Choice | null;
+    answer: string;
+    submitted: string | null;
     explanation: string;
     evidence?: string;
     evidencePage?: number | null;
+    gradingNote?: string;
   }>;
   watermark: string;
 }
@@ -66,7 +74,10 @@ export async function POST(
     body = SubmitBody.parse(json);
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: `요청 본문 형식이 잘못됐어요: ${e instanceof Error ? e.message : "unknown"}` },
+      {
+        ok: false,
+        error: `요청 본문 형식이 잘못됐어요: ${e instanceof Error ? e.message : "unknown"}`,
+      },
       { status: 400 },
     );
   }
@@ -121,12 +132,14 @@ export async function POST(
     total: graded.total,
     results: graded.results.map((r) => ({
       questionId: r.questionId,
+      kind: r.kind,
       correct: r.correct,
       answer: r.answer,
       submitted: r.submitted,
       explanation: r.explanation,
       evidence: r.evidence,
       evidencePage: r.evidencePage,
+      gradingNote: r.gradingNote,
     })),
     watermark: quiz.watermark,
   });

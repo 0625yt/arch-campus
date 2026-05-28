@@ -71,9 +71,7 @@ export type SummarizeOutputT = z.infer<typeof SummarizeOutput>;
  */
 export const QuizQuestion = z.object({
   id: z.number().int().positive(),
-  kind: z
-    .enum(["multiple-choice", "short-answer", "essay"])
-    .default("multiple-choice"),
+  kind: z.enum(["multiple-choice", "short-answer", "essay"]).default("multiple-choice"),
   difficulty: z.enum(["쉬움", "보통", "어려움"]),
   topic: z.string().min(1).max(60),
   stem: z.string().min(15).max(400),
@@ -96,6 +94,7 @@ export const QuizQuestion = z.object({
   trapAnalysis: z.string().optional(),
   hint: z.string().min(5).max(200).optional(),
 });
+export type QuizQuestionT = z.infer<typeof QuizQuestion>;
 
 export const QuizOutput = z.union([
   z.object({

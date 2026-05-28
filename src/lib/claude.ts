@@ -1,5 +1,5 @@
 import { anthropic } from "@ai-sdk/anthropic";
-import { generateText, streamText, type LanguageModel, type ModelMessage } from "ai";
+import { generateText, type LanguageModel, type ModelMessage, streamText } from "ai";
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey && process.env.NODE_ENV === "production") {
@@ -37,7 +37,9 @@ export const TOOL_MODEL: Record<ToolKind, LanguageModel> = {
   // 리포트 구조 설계 — 학기당 1~3건이라 Sonnet OK.
   // 본문 X·질문만 가드가 강해야 해서 품질 중요.
   "report-structure": MODELS.sonnet,
-  "syllabus-extract": MODELS.haiku,
+  // 강의계획서는 한 번 틀리면 일정 신뢰도가 무너진다.
+  // 업로드 빈도는 낮으니 비용보다 정확도를 우선한다.
+  "syllabus-extract": MODELS.sonnet,
   // 시간표는 격자 vision 정확도가 사활. 학기당 1~2번이므로 sonnet 감수.
   "timetable-extract": MODELS.sonnet,
   "post-mortem": MODELS.haiku,
@@ -77,6 +79,11 @@ function resolveModel(tool: ToolKind): LanguageModel {
   }
   if (tool === "exam-extract") {
     const override = process.env.EXTRACT_MODEL?.toLowerCase();
+    if (override === "haiku") return MODELS.haiku;
+    if (override === "sonnet") return MODELS.sonnet;
+  }
+  if (tool === "syllabus-extract") {
+    const override = process.env.SYLLABUS_MODEL?.toLowerCase();
     if (override === "haiku") return MODELS.haiku;
     if (override === "sonnet") return MODELS.sonnet;
   }
@@ -477,8 +484,11 @@ export function streamChatReply(input: StreamChatInput): StreamChatResult {
       // AI SDK v6 onFinish: { text, usage } — usage는 inputTokenDetails로 캐시 분리
       const inputTokens = event.usage?.inputTokens ?? 0;
       const outputTokens = event.usage?.outputTokens ?? 0;
-      const details = (event.usage as { inputTokenDetails?: { cacheReadTokens?: number; cacheWriteTokens?: number } })
-        ?.inputTokenDetails;
+      const details = (
+        event.usage as {
+          inputTokenDetails?: { cacheReadTokens?: number; cacheWriteTokens?: number };
+        }
+      )?.inputTokenDetails;
       const cacheRead = details?.cacheReadTokens ?? 0;
       const cacheCreation = details?.cacheWriteTokens ?? 0;
       logCacheStats(tool, modelId, {

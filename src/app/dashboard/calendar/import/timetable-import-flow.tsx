@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useJob } from "@/lib/hooks/use-job";
 
 type Phase = "upload" | "extracting" | "review" | "saving" | "done";
 
@@ -22,8 +23,14 @@ interface Course {
   credits?: number | null;
 }
 
-interface ExtractedResponse {
+interface StartResponse {
   ok: true;
+  materialId: string;
+  jobId: string;
+  status: "pending";
+}
+
+interface ExtractedResponse {
   materialId: string;
   termYear: number | null;
   termLabel: string | null;
@@ -57,6 +64,8 @@ export function TimetableImportFlow() {
   const [error, setError] = useState<string | null>(null);
   const [extracted, setExtracted] = useState<ExtractedResponse | null>(null);
   const [keepIds, setKeepIds] = useState<Set<number>>(new Set());
+  const [jobId, setJobId] = useState<string | null>(null);
+  const { job, error: jobPollError } = useJob(jobId);
 
   async function handleUpload() {
     if (!file) return;
@@ -68,15 +77,15 @@ export function TimetableImportFlow() {
 
     try {
       const res = await fetch("/api/timetable", { method: "POST", body: form });
-      const json = (await res.json()) as ExtractedResponse | ApiErr;
+      const json = (await res.json()) as StartResponse | ApiErr;
       if (!res.ok || !json.ok) {
         setError(("error" in json && json.error) || "시간표 분석 실패");
         setPhase("upload");
         return;
       }
-      setExtracted(json);
-      setKeepIds(new Set(json.courses.map((_, i) => i)));
-      setPhase("review");
+      setExtracted(null);
+      setKeepIds(new Set());
+      setJobId(json.jobId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "네트워크 오류");
       setPhase("upload");
@@ -87,6 +96,32 @@ export function TimetableImportFlow() {
     courses: number;
     events: number;
   } | null>(null);
+
+  useEffect(() => {
+    if (phase !== "extracting") return;
+    if (jobPollError) {
+      setError(jobPollError);
+      setPhase("upload");
+      return;
+    }
+    if (!job) return;
+    if (job.status === "error") {
+      setError(job.errorMessage ?? "시간표 분석 실패");
+      setPhase("upload");
+      return;
+    }
+    if (job.status !== "done") return;
+
+    const payload = (job.result as { extracted?: ExtractedResponse } | null)?.extracted;
+    if (!payload) {
+      setError("시간표 결과를 불러오지 못했어요");
+      setPhase("upload");
+      return;
+    }
+    setExtracted(payload);
+    setKeepIds(new Set(payload.courses.map((_, i) => i)));
+    setPhase("review");
+  }, [job, jobPollError, phase]);
 
   async function handleConfirm() {
     if (!extracted) return;
@@ -277,7 +312,7 @@ function UploadCard({
           className="relative mt-3 text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)] sm:text-[15px]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          한 학기에 듣는 강의가 한 번에 등록돼요. 요일·교시·강의실·교수까지 자동으로 잡아드려요.
+          한 학기에 듣는 강의가 한 번에 등록돼요. 요일·교시·강의실·교수까지 확인하고 넣을 수 있어요.
           시험·과제 일정은 강의계획서에서 따로 추가하실 수 있어요.
         </p>
 
@@ -420,7 +455,7 @@ function ReviewSection({
         ) : (
           <ul className="mt-6 grid gap-3 sm:grid-cols-2">
             {extracted.courses.map((course, idx) => (
-              <li key={idx}>
+              <li key={courseKey(course)}>
                 <CourseRow
                   course={course}
                   kept={keepIds.has(idx)}
@@ -535,9 +570,9 @@ function CourseRow({
       </div>
 
       <ul className="relative flex flex-wrap gap-1.5">
-        {sortedSlots.map((s, i) => (
+        {sortedSlots.map((s) => (
           <li
-            key={i}
+            key={slotKey(s)}
             className="rounded-full bg-[var(--color-apple-pearl)] px-2.5 py-1 text-[11.5px] wght-560 tabular-nums text-[var(--color-apple-ink)]"
             style={{ letterSpacing: "-0.012em" }}
           >
@@ -618,16 +653,17 @@ function CourseEditCard({
         onChange={(e) => setName(e.target.value)}
         required
         maxLength={80}
-        autoFocus
         className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[15px] wght-620 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
       />
 
       <ul className="flex flex-col gap-1.5">
         {slots.map((s, i) => (
-          <li key={i} className="flex items-center gap-1.5">
+          <li key={slotKey(s)} className="flex items-center gap-1.5">
             <select
               value={s.weekday}
-              onChange={(e) => updateSlot(i, { weekday: e.target.value as Course["slots"][number]["weekday"] })}
+              onChange={(e) =>
+                updateSlot(i, { weekday: e.target.value as Course["slots"][number]["weekday"] })
+              }
               className="rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-2 py-1.5 text-[12px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
             >
               {(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const).map((w) => (
@@ -712,6 +748,19 @@ function ErrorBanner({ message }: { message: string }) {
       {message}
     </div>
   );
+}
+
+function courseKey(course: Course): string {
+  return [
+    course.name,
+    course.professor ?? "",
+    course.location ?? "",
+    course.slots.map(slotKey).sort().join("|"),
+  ].join("::");
+}
+
+function slotKey(slot: Course["slots"][number]): string {
+  return `${slot.weekday}-${slot.startTime}-${slot.endTime}`;
 }
 
 function formatSize(bytes: number): string {

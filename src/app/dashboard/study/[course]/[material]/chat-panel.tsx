@@ -195,7 +195,7 @@ export function ChatPanel({
             error?: string;
           };
           if (!body.ok || !body.threadId) {
-            setError(body.error ?? "스레드 생성 실패");
+            setError(body.error ?? "대화를 시작하지 못했어요");
             setBusy(false);
             return;
           }
@@ -269,7 +269,11 @@ export function ChatPanel({
               const payload = line.slice(6).trim();
               if (payload === "[DONE]") continue;
               try {
-                const obj = JSON.parse(payload) as { type?: string; delta?: string; textDelta?: string };
+                const obj = JSON.parse(payload) as {
+                  type?: string;
+                  delta?: string;
+                  textDelta?: string;
+                };
                 const delta = obj.textDelta ?? obj.delta;
                 if (typeof delta === "string") accumulated += delta;
               } catch {

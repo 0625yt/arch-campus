@@ -102,15 +102,11 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     reminder_minutes: body.reminder_minutes ?? null,
   };
 
-  const { data, error } = await admin
-    .from("events")
-    .insert(insert)
-    .select("id, title")
-    .single();
+  const { data, error } = await admin.from("events").insert(insert).select("id, title").single();
 
   if (error || !data) {
     return NextResponse.json(
-      { ok: false, error: `생성 실패: ${error?.message ?? "unknown"}` },
+      { ok: false, error: `일정을 추가하지 못했어요: ${error?.message ?? "unknown"}` },
       { status: 500 },
     );
   }

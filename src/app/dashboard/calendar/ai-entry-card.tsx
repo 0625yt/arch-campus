@@ -11,7 +11,7 @@ import { Sparkles } from "lucide-react";
  * - 트렌디 톤: subtle gradient 보더 + 그라데이션 글로우 + 타이핑 애니메이션 placeholder
  * - placeholder는 회전이 아니라 글자 단위로 타이프돼 들어옴 (Linear·Vercel 새 이벤트 톤)
  * - 예시 칩 3개 — 누르면 모달 열림 (학생이 "이런 식으로 적으면 되는구나" 학습)
- * - 헤드라인: "말로 적으면 자동으로 정리돼요" (사용자 합의)
+ * - 헤드라인: 학생이 직접 말하듯 적으면 일정 후보를 잡아주는 카드
  *
  * 동작:
  * - 카드 누르면 onOpen() → AI 모달 열림
@@ -25,7 +25,11 @@ const PROMPTS = [
   "기말고사 6월 9일 영어 20%",
 ] as const;
 
-const CHIPS = ["다음 주 화 3시 영어 과제", "5/30 알바 6시~10시", "동아리 회식 다음 주 월 7시"] as const;
+const CHIPS = [
+  "다음 주 화 3시 영어 과제",
+  "5/30 알바 6시~10시",
+  "동아리 회식 다음 주 월 7시",
+] as const;
 
 export function AiEntryCard({ onOpen }: { onOpen: () => void }) {
   const [typed, setTyped] = useState("");
@@ -90,7 +94,7 @@ export function AiEntryCard({ onOpen }: { onOpen: () => void }) {
             className="text-[13px] wght-620 text-[var(--color-apple-ink)] sm:text-[13.5px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            말로 적으면 자동으로 정리돼요
+            말로 적으면 일정 후보를 잡아드려요
           </span>
           <span
             className="mt-0.5 truncate text-[12.5px] wght-450 text-[var(--color-apple-muted)] sm:text-[13px]"

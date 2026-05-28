@@ -1,5 +1,6 @@
 import "server-only";
-import { generate, generateWithFile, estimateCost } from "@/lib/claude";
+import type { GenerateUsage } from "@/lib/claude";
+import { estimateCost, generate, generateWithFile } from "@/lib/claude";
 import { extractTimetableGrid } from "@/lib/parsers/pdf-grid";
 import { extractTimetableGridFromXlsx } from "@/lib/parsers/xlsx-grid";
 import { loadPrompt } from "@/lib/prompts";
@@ -39,6 +40,7 @@ export type TimetableExtractResult =
       ok: true;
       output: TimetableOutputT;
       modelId: string;
+      usage: GenerateUsage;
       costUsd: number;
       tokenBudget: ReturnType<typeof breakdown>;
     }
@@ -69,8 +71,7 @@ export async function runTimetableExtraction(
   let gridSource: "pdf" | "xlsx" | null = null;
   const isPdf = input.fileMediaType === "application/pdf";
   const isXlsx =
-    input.fileMediaType ===
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    input.fileMediaType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
     input.fileMediaType === "application/vnd.ms-excel" ||
     /\.xlsx?$/i.test(input.title);
   const HEADER_KEYWORDS = ["일", "월", "화", "수", "목", "금", "토"] as const;
@@ -152,7 +153,7 @@ export async function runTimetableExtraction(
       const userPayload = [
         `아래는 시간표 자료에서 ${sourceLabel} 기반으로 정확히 재구성한 격자 표입니다.`,
         "각 셀의 요일은 컬럼 헤더에 의해 이미 확정됐으니 추측하지 말고 그대로 매핑하세요.",
-        "빈 셀(\"-\")은 강의 없음.",
+        '빈 셀("-")은 강의 없음.',
         "",
         gridMarkdown,
       ].join("\n");
@@ -188,7 +189,7 @@ export async function runTimetableExtraction(
     return {
       ok: false,
       status: 502,
-      error: `AI 호출 실패 (${path}): ${detail.slice(0, 240)}`,
+      error: `시간표를 읽지 못했어요 (${path}): ${detail.slice(0, 240)}`,
     };
   }
 
@@ -208,12 +209,12 @@ export async function runTimetableExtraction(
       payload: { rawText: result.text.slice(0, 4000) },
     });
     if (process.env.NODE_ENV !== "production") {
-      console.error("[timetable] Zod 검증 실패. 모델 raw 출력:\n" + result.text.slice(0, 4000));
+      console.error(`[timetable] Zod 검증 실패. 모델 raw 출력:\n${result.text.slice(0, 4000)}`);
     }
     return {
       ok: false,
       status: 502,
-      error: "AI 출력이 형식에 안 맞아요. 다시 시도해주세요.",
+      error: "시간표 형식이 맞지 않았어요. 다시 시도해주세요.",
     };
   }
 
@@ -228,7 +229,14 @@ export async function runTimetableExtraction(
     payload: { courseCount: parsed.courses.length },
   });
 
-  return { ok: true, output: parsed, modelId: result.modelId, costUsd, tokenBudget };
+  return {
+    ok: true,
+    output: parsed,
+    modelId: result.modelId,
+    usage: result.usage,
+    costUsd,
+    tokenBudget,
+  };
 }
 
 /**
@@ -255,8 +263,7 @@ export async function confirmTimetable(input: {
     slots: TimetableSlotT[];
   }>;
 }): Promise<
-  | { ok: true; insertedCourses: number; insertedEvents: number }
-  | { ok: false; error: string }
+  { ok: true; insertedCourses: number; insertedEvents: number } | { ok: false; error: string }
 > {
   const admin = getAdminSupabase();
   const semester = inferSemester();
@@ -495,7 +502,12 @@ async function logGeneration(opts: {
   ownerId: string;
   materialId: string;
   modelId: string;
-  usage?: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number };
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheCreationTokens: number;
+  };
   cost?: number;
   status: "ok" | "rejected" | "error";
   errorMessage?: string;

@@ -80,7 +80,10 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     });
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: `AI 호출 실패: ${e instanceof Error ? e.message : "unknown"}` },
+      {
+        ok: false,
+        error: `자료 문장을 읽지 못했어요: ${e instanceof Error ? e.message : "unknown"}`,
+      },
       { status: 502 },
     );
   }

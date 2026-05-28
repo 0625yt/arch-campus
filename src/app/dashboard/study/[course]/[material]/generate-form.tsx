@@ -18,6 +18,30 @@ const KIND_OPTIONS: Array<{ value: Kind; label: string; subtitle: string }> = [
   { value: "essay", label: "서술형", subtitle: "모범답안 비교" },
 ];
 
+const PRESETS = [
+  {
+    label: "빠르게 점검",
+    subtitle: "객관식 3문제로 바로 체크",
+    difficulty: "보통" as Difficulty,
+    count: 3,
+    kinds: ["multiple-choice"] as Kind[],
+  },
+  {
+    label: "시험 직전",
+    subtitle: "객관식 + 단답형으로 헷갈리는 부분 확인",
+    difficulty: "어려움" as Difficulty,
+    count: 5,
+    kinds: ["multiple-choice", "short-answer"] as Kind[],
+  },
+  {
+    label: "서술 대비",
+    subtitle: "단답형 + 서술형으로 설명력 점검",
+    difficulty: "어려움" as Difficulty,
+    count: 5,
+    kinds: ["short-answer", "essay"] as Kind[],
+  },
+];
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function GenerateForm({
@@ -30,8 +54,7 @@ export function GenerateForm({
   const router = useRouter();
   const [difficulty, setDifficulty] = useState<Difficulty>("보통");
   const [count, setCount] = useState(5);
-  // kinds 빈 배열이면 객관식만 (종전 동작). 학생이 chip 토글하면 활성화.
-  const [kinds, setKinds] = useState<Set<Kind>>(new Set());
+  const [kinds, setKinds] = useState<Set<Kind>>(new Set(["multiple-choice"]));
   const [scope, setScope] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -72,7 +95,7 @@ export function GenerateForm({
       });
       const json = (await res.json()) as { ok: boolean; jobId?: string; error?: string };
       if (!res.ok || !json.ok || !json.jobId) {
-        setSubmitError(json.error ?? "문제 생성에 실패했어요.");
+        setSubmitError(json.error ?? "문제로 점검할 수 없었어요.");
         return;
       }
       setJobId(json.jobId);
@@ -89,20 +112,50 @@ export function GenerateForm({
     }
   }, [job?.status, job?.result, router]);
 
-  const errorMsg =
-    submitError ?? pollError ?? (job?.status === "error" ? job.errorMessage : null);
+  const errorMsg = submitError ?? pollError ?? (job?.status === "error" ? job.errorMessage : null);
 
   // 새 퀴즈 done 상태인데 자동 navigate가 실패했을 때 (브라우저 prefetch 취소·focus 잃음 등)
   // 사용자가 직접 클릭할 수 있는 Link도 박는다.
   const doneQuizId =
-    job?.status === "done"
-      ? ((job.result as { quizId?: string } | null)?.quizId ?? null)
-      : null;
+    job?.status === "done" ? ((job.result as { quizId?: string } | null)?.quizId ?? null) : null;
 
   void courseSlug; // future: log course context
 
   return (
     <div>
+      <section className="rounded-[20px] bg-[var(--color-apple-pearl)] p-4">
+        <p className="text-[11px] wght-700 uppercase text-[var(--color-apple-muted)]">추천 흐름</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {PRESETS.map((preset) => {
+            const active =
+              difficulty === preset.difficulty &&
+              count === preset.count &&
+              preset.kinds.every((kind) => kinds.has(kind)) &&
+              kinds.size === preset.kinds.length;
+            return (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => {
+                  setDifficulty(preset.difficulty);
+                  setCount(preset.count);
+                  setKinds(new Set(preset.kinds));
+                }}
+                className={cn(
+                  "rounded-[18px] border px-4 py-3 text-left transition-colors",
+                  active
+                    ? "border-[color:rgba(59,130,246,0.14)] bg-white text-[var(--color-apple-ink)] shadow-[0_10px_30px_rgba(59,130,246,0.08)]"
+                    : "border-transparent bg-white/70 text-[var(--color-apple-muted)] hover:border-[var(--color-apple-hairline)] hover:text-[var(--color-apple-ink)]",
+                )}
+              >
+                <p className="text-[13px] wght-620">{preset.label}</p>
+                <p className="mt-1 text-[12px] leading-[1.5]">{preset.subtitle}</p>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       <FieldGroup label="난이도">
         <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
           {(["쉬움", "보통", "어려움"] as Difficulty[]).map((d) => {
@@ -151,16 +204,10 @@ export function GenerateForm({
         </ul>
       </FieldGroup>
 
-      <FieldGroup
-        label="문제 종류"
-        hint={kinds.size === 0 ? "기본: 객관식만" : `${kinds.size}/3 선택`}
-        className="mt-7"
-      >
+      <FieldGroup label="문제 종류" hint={`${kinds.size}/3 선택`} className="mt-7">
         <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
           {KIND_OPTIONS.map(({ value, label, subtitle }) => {
             const active = kinds.has(value);
-            // 단답·서술은 풀이 UI가 아직 객관식만 동작 → 안내
-            const isSolveSupported = value === "multiple-choice";
             return (
               <li key={value}>
                 <button
@@ -173,11 +220,6 @@ export function GenerateForm({
                       ? "wght-560 bg-[var(--color-apple-ink)] text-white"
                       : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
                   )}
-                  title={
-                    !isSolveSupported
-                      ? "단답·서술은 생성은 되지만, 자동 풀이는 곧 추가될 예정이에요."
-                      : undefined
-                  }
                 >
                   {label}
                   <span
@@ -238,14 +280,17 @@ export function GenerateForm({
             )}
           >
             {busy && <Spinner />}
-            {busy ? "AI가 만들고 있어요…" : `${count}문제 만들기`}
-            {!busy && <Arrow className="text-[12px] transition-transform group-hover:translate-x-0.5" />}
+            {busy ? "문제지를 만들고 있어요…" : `${count}문제 만들기`}
+            {!busy && (
+              <Arrow className="text-[12px] transition-transform group-hover:translate-x-0.5" />
+            )}
           </button>
         )}
 
         {busy ? (
           <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)]">
-            <span className="tabular-nums text-[var(--color-apple-ink)]">다른 메뉴 가도</span> 이어집니다
+            <span className="tabular-nums text-[var(--color-apple-ink)]">다른 메뉴 가도</span>{" "}
+            이어집니다
           </span>
         ) : (
           <span className="ml-auto hidden items-center gap-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)] sm:inline-flex">
@@ -260,7 +305,7 @@ export function GenerateForm({
 function Spinner() {
   return (
     <span
-      aria-label="진행 중"
+      aria-hidden="true"
       className="inline-block h-3 w-3 animate-spin rounded-full border-[1.5px] border-[var(--color-apple-muted)]/40 border-t-[var(--color-apple-ink)]"
     />
   );

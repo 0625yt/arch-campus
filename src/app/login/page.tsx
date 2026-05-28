@@ -23,7 +23,6 @@ export default async function LoginPage({
           "radial-gradient(ellipse 90% 60% at 50% 0%, rgba(122, 166, 214, 0.45), transparent 65%), radial-gradient(ellipse 60% 40% at 100% 0%, rgba(243, 207, 138, 0.40), transparent 70%), radial-gradient(ellipse 80% 55% at 0% 100%, rgba(176, 156, 200, 0.42), transparent 70%), radial-gradient(ellipse 50% 30% at 100% 100%, rgba(122, 166, 214, 0.20), transparent 70%), #ffffff",
       }}
     >
-
       <div className="relative mx-auto flex min-h-screen w-full max-w-[420px] flex-col justify-center px-7 py-16">
         <header className="text-center">
           <div className="inline-flex items-center gap-2">
@@ -40,14 +39,18 @@ export default async function LoginPage({
             className="mt-8 text-[34px] leading-[1.08] wght-620 text-[var(--color-apple-ink)] sm:text-[38px]"
             style={{ letterSpacing: "-0.016em" }}
           >
-            한 학기,<br />흩어지지 않게.
+            한 학기,
+            <br />
+            흩어지지 않게.
           </h1>
 
           <p
             className="mx-auto mt-5 max-w-[300px] text-[14px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            강의자료와 강의계획서를 올리면<br />오늘 할 공부가 자동으로 정리돼요.
+            강의자료와 강의계획서를 올리면
+            <br />
+            오늘 손대야 할 일이 보입니다.
           </p>
         </header>
 
@@ -68,4 +71,3 @@ function BrandMark() {
     </div>
   );
 }
-

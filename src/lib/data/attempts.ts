@@ -20,12 +20,14 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 
 const GradedResultZ = z.object({
   questionId: z.number().int(),
+  kind: z.enum(["multiple-choice", "short-answer", "essay"]).default("multiple-choice"),
   correct: z.boolean(),
-  answer: z.enum(["A", "B", "C", "D"]),
-  submitted: z.enum(["A", "B", "C", "D"]).nullable(),
+  answer: z.string(),
+  submitted: z.string().nullable(),
   explanation: z.string(),
   evidence: z.string().optional().default(""),
   evidencePage: z.number().int().nullable().optional(),
+  gradingNote: z.string().optional(),
 });
 
 const ResultsArrayZ = z.array(GradedResultZ);
@@ -46,21 +48,21 @@ export interface AttemptSummary {
   score: number;
   total: number;
   watermark: string;
-  // 풀이 다시보기는 객관식만 지원. 단답/서술은 이번 sprint 범위 밖이라
-  // 저장은 되지만 다시보기에는 안 잡힘 (filter로 빼냄).
   questions: Array<{
     id: number;
+    kind: "multiple-choice" | "short-answer" | "essay";
     topic: string;
     difficulty: string;
     stem: string;
-    choices: { key: "A" | "B" | "C" | "D"; text: string }[];
-    answer: "A" | "B" | "C" | "D";
+    choices: { key: "A" | "B" | "C" | "D"; text: string }[] | null;
+    answer: string;
     explanation: string;
     evidence: string;
     evidencePage: number | null;
     /** 사용자 선택 (미응답이면 null) */
-    submitted: "A" | "B" | "C" | "D" | null;
+    submitted: string | null;
     correct: boolean;
+    gradingNote?: string;
   }>;
 }
 
@@ -102,30 +104,24 @@ export async function getAttemptSummary(opts: {
     score: data.score,
     total: data.total,
     watermark: data.watermark,
-    // 다시보기에 단답/서술은 안 잡힘 — choices 없거나 answer가 A~D가 아니면 제외
-    questions: questionsParsed.data
-      .filter(
-        (q): q is typeof q & { choices: { key: "A" | "B" | "C" | "D"; text: string }[] } =>
-          (q.kind ?? "multiple-choice") === "multiple-choice" &&
-          Array.isArray(q.choices) &&
-          (q.answer === "A" || q.answer === "B" || q.answer === "C" || q.answer === "D"),
-      )
-      .map((q) => {
-        const r = resultsByQid.get(q.id);
-        return {
-          id: q.id,
-          topic: q.topic,
-          difficulty: q.difficulty,
-          stem: q.stem,
-          choices: q.choices,
-          answer: q.answer as "A" | "B" | "C" | "D",
-          explanation: q.explanation,
-          evidence: q.evidence ?? "",
-          evidencePage: q.evidencePage ?? null,
-          submitted: r?.submitted ?? null,
-          correct: r?.correct ?? false,
-        };
-      }),
+    questions: questionsParsed.data.map((q) => {
+      const r = resultsByQid.get(q.id);
+      return {
+        id: q.id,
+        kind: q.kind ?? "multiple-choice",
+        topic: q.topic,
+        difficulty: q.difficulty,
+        stem: q.stem,
+        choices: q.choices ?? null,
+        answer: r?.answer ?? q.answer,
+        explanation: q.explanation,
+        evidence: q.evidence ?? "",
+        evidencePage: q.evidencePage ?? null,
+        submitted: r?.submitted ?? null,
+        correct: r?.correct ?? false,
+        gradingNote: r?.gradingNote,
+      };
+    }),
   };
 }
 
@@ -141,14 +137,12 @@ export interface WrongItem {
   quizTitle: string;
   attemptedAt: string;
   questionId: number;
-  submitted: "A" | "B" | "C" | "D" | null;
-  correctAnswer: "A" | "B" | "C" | "D";
+  submitted: string | null;
+  correctAnswer: string;
   explanation: string;
   evidence: string | null;
   evidencePage: number | null;
 }
-
-const WRONG_CHOICE = z.enum(["A", "B", "C", "D"]);
 
 export async function listWrongItems(opts: {
   ownerId: string;
@@ -178,8 +172,8 @@ export async function listWrongItems(opts: {
     quizTitle: row.quiz_title,
     attemptedAt: row.attempted_at,
     questionId: row.question_id,
-    submitted: WRONG_CHOICE.safeParse(row.submitted).data ?? null,
-    correctAnswer: WRONG_CHOICE.parse(row.correct_answer),
+    submitted: typeof row.submitted === "string" ? row.submitted : null,
+    correctAnswer: typeof row.correct_answer === "string" ? row.correct_answer : "",
     explanation: row.explanation,
     evidence: row.evidence,
     evidencePage: row.evidence_page,
@@ -203,7 +197,11 @@ export async function getWrongStats(opts: {
   ownerId: string;
   sinceDays?: number;
 }): Promise<WrongStats> {
-  const items = await listWrongItems({ ownerId: opts.ownerId, sinceDays: opts.sinceDays, limit: 200 });
+  const items = await listWrongItems({
+    ownerId: opts.ownerId,
+    sinceDays: opts.sinceDays,
+    limit: 200,
+  });
   const byKey = new Map<string, { materialId: string | null; quizTitle: string; count: number }>();
   for (const it of items) {
     const key = it.materialId ?? `quiz:${it.quizId}`;
@@ -214,7 +212,9 @@ export async function getWrongStats(opts: {
       byKey.set(key, { materialId: it.materialId, quizTitle: it.quizTitle, count: 1 });
     }
   }
-  const byMaterial = Array.from(byKey.values()).sort((a, b) => b.count - a.count).slice(0, 3);
+  const byMaterial = Array.from(byKey.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
   return { totalWrong: items.length, byMaterial };
 }
 

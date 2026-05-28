@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { gradeQuiz, type Choice, type SubmittedAnswer } from "./grade-quiz";
 import type { z } from "zod";
-import { QuizQuestion } from "@/lib/schemas";
+import type { QuizQuestion } from "@/lib/schemas";
+import { type Choice, gradeQuiz, type SubmittedAnswer } from "./grade-quiz";
 
 type Question = z.infer<typeof QuizQuestion>;
 
@@ -79,5 +79,34 @@ describe("gradeQuiz", () => {
     const graded = gradeQuiz(questions, [{ questionId: 1, choice: "B" }]);
     expect(graded.results[0].evidence).toBe("");
     expect(graded.results[0].evidencePage).toBeNull();
+  });
+
+  it("단답형은 허용 표현 중 하나와 맞으면 정답 처리", () => {
+    const questions: Question[] = [
+      mkQ(1, "A", {
+        kind: "short-answer",
+        choices: null,
+        answer: "뮤텍스 | mutex",
+      }),
+    ];
+    const graded = gradeQuiz(questions, [{ questionId: 1, response: "Mutex" }]);
+    expect(graded.total).toBe(1);
+    expect(graded.score).toBe(1);
+    expect(graded.results[0].correct).toBe(true);
+  });
+
+  it("서술형은 핵심 포인트를 일정 비율 이상 포함하면 정답 처리", () => {
+    const questions: Question[] = [
+      mkQ(1, "A", {
+        kind: "essay",
+        choices: null,
+        answer: "핵심 키워드: 상호 배제, 진행, 한정 대기",
+      }),
+    ];
+    const graded = gradeQuiz(questions, [
+      { questionId: 1, response: "상호 배제와 진행 조건, 그리고 한정 대기를 설명해야 합니다." },
+    ]);
+    expect(graded.score).toBe(1);
+    expect(graded.results[0].gradingNote).toContain("핵심 포인트");
   });
 });

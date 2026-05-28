@@ -112,6 +112,7 @@ export async function listMaterialsByCourse(opts: {
     .select("id, title, type, page_count, uploaded_at, summary_payload, course_id")
     .eq("owner_id", opts.ownerId)
     .eq("course_id", opts.courseId)
+    .neq("type", "syllabus")
     .order("uploaded_at", { ascending: false });
 
   if (error || !data) return [];
@@ -125,6 +126,7 @@ export async function listOrphanMaterials(opts: { ownerId: string }): Promise<Ma
     .select("id, title, type, page_count, uploaded_at, summary_payload, course_id")
     .eq("owner_id", opts.ownerId)
     .is("course_id", null)
+    .neq("type", "syllabus")
     .order("uploaded_at", { ascending: false })
     .limit(50);
 
@@ -201,6 +203,7 @@ export async function listCoursesWithMaterialCount(opts: {
     .from("materials")
     .select("course_id")
     .eq("owner_id", opts.ownerId)
+    .neq("type", "syllabus")
     .in("course_id", ids);
 
   const tally = new Map<string, number>();

@@ -30,7 +30,7 @@ export function JobsDock() {
             className="ml-auto text-[10.5px] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            끝나면 자동 갱신
+            끝나면 화면 갱신
           </span>
         </div>
         <ul>

@@ -109,7 +109,11 @@ export async function runExamExtract(input: ExamExtractInput): Promise<ExamExtra
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });
-    return { ok: false, stage: "ai", error: "AI 호출 실패" };
+    return {
+      ok: false,
+      stage: "ai",
+      error: "기출문제를 읽지 못했어요. 잠시 후 다시 시도해주세요.",
+    };
   }
 
   // Zod 검증
@@ -130,7 +134,7 @@ export async function runExamExtract(input: ExamExtractInput): Promise<ExamExtra
     return {
       ok: false,
       stage: "validation",
-      error: "AI 출력이 형식에 안 맞아요. 다시 시도해주세요.",
+      error: "기출문제 형식이 맞지 않았어요. 다시 시도해주세요.",
     };
   }
 
@@ -263,11 +267,7 @@ function buildDynamicContext(meta: {
   pageCount?: number;
   textLength: number;
 }): string {
-  const lines: string[] = [
-    "자료 메타:",
-    `- 제목: ${meta.title}`,
-    `- 종류: exam (기출문제)`,
-  ];
+  const lines: string[] = ["자료 메타:", `- 제목: ${meta.title}`, `- 종류: exam (기출문제)`];
   if (meta.pageCount) lines.push(`- 분량: ${meta.pageCount}쪽`);
   lines.push(`- 본문 길이: ${meta.textLength}자`);
   lines.push(

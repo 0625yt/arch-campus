@@ -95,7 +95,11 @@ export async function runReportChecklist(input: ChecklistInput): Promise<Checkli
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });
-    return { ok: false, stage: "ai", error: "AI 호출 실패" };
+    return {
+      ok: false,
+      stage: "ai",
+      error: "공지에서 제출 조건을 정리하지 못했어요. 잠시 후 다시 시도해주세요.",
+    };
   }
 
   let output: ChecklistOutputT;
@@ -114,7 +118,7 @@ export async function runReportChecklist(input: ChecklistInput): Promise<Checkli
     return {
       ok: false,
       stage: "validation",
-      error: "AI 출력이 형식에 안 맞아요. 다시 시도해주세요.",
+      error: "체크리스트 형식이 맞지 않았어요. 다시 시도해주세요.",
     };
   }
 
@@ -160,10 +164,7 @@ export async function runReportChecklist(input: ChecklistInput): Promise<Checkli
 }
 
 function buildDynamicContext(input: ChecklistInput): string {
-  const lines: string[] = [
-    `과제 정보:`,
-    `- 과제 이름: ${input.assignmentTitle.trim()}`,
-  ];
+  const lines: string[] = [`과제 정보:`, `- 과제 이름: ${input.assignmentTitle.trim()}`];
   if (input.dueAt) {
     lines.push(`- 학생이 입력한 마감: ${input.dueAt}`);
   } else {

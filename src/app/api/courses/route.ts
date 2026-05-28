@@ -36,7 +36,10 @@ const CreateBody = z.object({
   name: z.string().min(1).max(60),
   /** 정규 강의 추가는 시간표 업로드로 — POST는 personal 전용 */
   category: z.literal("personal").default("personal"),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
 });
 
 /**
@@ -105,7 +108,7 @@ export async function POST(req: Request): Promise<NextResponse<CreateOk | ErrRes
 
   if (error || !created) {
     return NextResponse.json(
-      { ok: false, error: `생성 실패: ${error?.message ?? "unknown"}` },
+      { ok: false, error: `과목을 만들지 못했어요: ${error?.message ?? "unknown"}` },
       { status: 500 },
     );
   }

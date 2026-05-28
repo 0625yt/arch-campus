@@ -3,19 +3,13 @@
 import { CloudUpload } from "lucide-react";
 import Link from "next/link";
 import { type DragEvent, useRef, useState } from "react";
-import { addOptimisticJob, pingActiveJobs, removeOptimisticJob } from "@/lib/hooks/use-active-jobs";
 import { pingSidebarCourses } from "@/components/sidebar";
+import { addOptimisticJob, pingActiveJobs, removeOptimisticJob } from "@/lib/hooks/use-active-jobs";
 import { cn } from "@/lib/utils";
 
 type Phase = "idle" | "requesting" | "uploading" | "finalizing" | "done" | "error";
 
-export function UploadZone({
-  courseId,
-  courseName,
-}: {
-  courseId: string;
-  courseName: string;
-}) {
+export function UploadZone({ courseId, courseName }: { courseId: string; courseName: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -155,6 +149,7 @@ export function UploadZone({
 
   return (
     <label
+      id="upload-zone"
       htmlFor="upload"
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}

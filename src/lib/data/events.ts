@@ -20,6 +20,10 @@ export interface EventView {
   weightPercent: number | null;
   confidence: number | null;
   confirmed: boolean;
+  /** 강의계획서·공지 등 이 일정이 나온 자료. 직접 입력 일정이면 null. */
+  sourceMaterialId: string | null;
+  sourceMaterialTitle: string | null;
+  sourceMaterialType: Database["public"]["Tables"]["materials"]["Row"]["type"] | null;
   /** 일정별 색상 (#RRGGBB). NULL이면 courseColor → kindFallback 순. */
   color: string | null;
   /** 강의실·온라인 링크·장소. */
@@ -42,6 +46,7 @@ interface EventJoinRaw {
   weight_percent: number | null;
   confidence: number | null;
   confirmed: boolean;
+  source_material_id: string | null;
   color: string | null;
   location: string | null;
   recurrence_rule: string | null;
@@ -54,7 +59,14 @@ interface EventJoinRaw {
   } | null;
 }
 
-function mapEvent(row: EventJoinRaw): EventView {
+function mapEvent(
+  row: EventJoinRaw,
+  sourceById?: Map<
+    string,
+    { title: string; type: Database["public"]["Tables"]["materials"]["Row"]["type"] }
+  >,
+): EventView {
+  const source = row.source_material_id ? sourceById?.get(row.source_material_id) : null;
   return {
     id: row.id,
     courseId: row.course_id,
@@ -70,6 +82,9 @@ function mapEvent(row: EventJoinRaw): EventView {
     weightPercent: row.weight_percent,
     confidence: row.confidence,
     confirmed: row.confirmed,
+    sourceMaterialId: row.source_material_id,
+    sourceMaterialTitle: source?.title ?? null,
+    sourceMaterialType: source?.type ?? null,
     color: row.color,
     location: row.location,
     recurrenceRule: row.recurrence_rule,
@@ -78,7 +93,7 @@ function mapEvent(row: EventJoinRaw): EventView {
 }
 
 const SELECT_COLS =
-  "id, course_id, kind, title, notes, starts_at, ends_at, all_day, weight_percent, confidence, confirmed, color, location, recurrence_rule, reminder_minutes, courses(id, name, color, term_start)";
+  "id, course_id, kind, title, notes, starts_at, ends_at, all_day, weight_percent, confidence, confirmed, source_material_id, color, location, recurrence_rule, reminder_minutes, courses(id, name, color, term_start)";
 
 export async function listEventsBetween(opts: {
   ownerId: string;
@@ -95,7 +110,9 @@ export async function listEventsBetween(opts: {
     .order("starts_at", { ascending: true });
 
   if (error || !data) return [];
-  return (data as unknown as EventJoinRaw[]).map(mapEvent);
+  const rows = data as unknown as EventJoinRaw[];
+  const sourceById = await loadSourceMaterialMap(opts.ownerId, rows);
+  return rows.map((row) => mapEvent(row, sourceById));
 }
 
 export async function listUpcomingEvents(opts: {
@@ -113,7 +130,31 @@ export async function listUpcomingEvents(opts: {
     .limit(opts.limit ?? 8);
 
   if (error || !data) return [];
-  return (data as unknown as EventJoinRaw[]).map(mapEvent);
+  const rows = data as unknown as EventJoinRaw[];
+  const sourceById = await loadSourceMaterialMap(opts.ownerId, rows);
+  return rows.map((row) => mapEvent(row, sourceById));
+}
+
+async function loadSourceMaterialMap(
+  ownerId: string,
+  rows: EventJoinRaw[],
+): Promise<
+  Map<string, { title: string; type: Database["public"]["Tables"]["materials"]["Row"]["type"] }>
+> {
+  const ids = Array.from(
+    new Set(rows.map((row) => row.source_material_id).filter((id): id is string => Boolean(id))),
+  );
+  if (ids.length === 0) return new Map();
+
+  const admin = getAdminSupabase();
+  const { data, error } = await admin
+    .from("materials")
+    .select("id, title, type")
+    .eq("owner_id", ownerId)
+    .in("id", ids);
+
+  if (error || !data) return new Map();
+  return new Map(data.map((row) => [row.id, { title: row.title, type: row.type }]));
 }
 
 export async function deleteEvent(opts: { ownerId: string; eventId: string }): Promise<boolean> {

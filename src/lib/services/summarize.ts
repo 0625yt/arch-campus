@@ -1,11 +1,11 @@
 import "server-only";
 import { generate, estimateCost } from "@/lib/claude";
-import { classifyMaterial, classificationToContext, type Classification } from "@/lib/classify-material";
 import {
-  type SummaryStyle,
-  STYLE_LABEL,
-  MAX_STYLES_PER_REQUEST,
-} from "@/lib/material-policy";
+  classifyMaterial,
+  classificationToContext,
+  type Classification,
+} from "@/lib/classify-material";
+import { type SummaryStyle, STYLE_LABEL, MAX_STYLES_PER_REQUEST } from "@/lib/material-policy";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
 import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
@@ -126,7 +126,11 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });
-    return { ok: false, stage: "ai", error: "AI 호출 실패" };
+    return {
+      ok: false,
+      stage: "ai",
+      error: "자료를 정리하지 못했어요. 잠시 후 다시 시도해주세요.",
+    };
   }
 
   // Zod 검증
@@ -147,7 +151,7 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     return {
       ok: false,
       stage: "validation",
-      error: "AI 출력이 형식에 안 맞아요. 다시 시도해주세요.",
+      error: "요약 형식이 맞지 않았어요. 다시 시도해주세요.",
     };
   }
 
@@ -247,7 +251,12 @@ async function logGeneration(opts: {
   ownerId: string;
   materialId: string;
   modelId: string;
-  usage?: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number };
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheCreationTokens: number;
+  };
   cost?: number;
   status: "ok" | "rejected" | "error";
   errorMessage?: string;

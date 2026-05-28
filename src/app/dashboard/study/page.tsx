@@ -172,7 +172,7 @@ function SemesterEmpty({ className }: { className?: string }) {
         이번 학기 강의가 비어있어요
       </p>
       <p className="mx-auto mt-2 max-w-[400px] text-[12.5px] wght-450 leading-[1.6] text-[var(--color-apple-muted)]">
-        시간표 한 장 올리면 강의가 자동으로 들어가요.
+        시간표 한 장 올리면 강의가 한 번에 들어가요.
       </p>
       <Link
         href="/dashboard/calendar/import"

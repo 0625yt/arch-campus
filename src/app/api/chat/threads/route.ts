@@ -55,30 +55,30 @@ export async function GET(
   }
 
   const admin = getAdminSupabase();
-  const { data, error } = await (admin as unknown as {
-    from: (t: string) => {
-      select: (cols: string) => {
-        eq: (
-          c: string,
-          v: string,
-        ) => {
+  const { data, error } = await (
+    admin as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
           eq: (
             c: string,
             v: string,
           ) => {
-            order: (
+            eq: (
               c: string,
-              opts: { ascending: boolean; nullsFirst?: boolean },
+              v: string,
             ) => {
-              limit: (
-                n: number,
-              ) => Promise<{ data: ThreadSummary[] | null; error: unknown }>;
+              order: (
+                c: string,
+                opts: { ascending: boolean; nullsFirst?: boolean },
+              ) => {
+                limit: (n: number) => Promise<{ data: ThreadSummary[] | null; error: unknown }>;
+              };
             };
           };
         };
       };
-    };
-  })
+    }
+  )
     .from("chat_threads")
     .select("id, title, material_id, course_id, last_message_at, created_at")
     .eq("owner_id", ownerId)
@@ -158,18 +158,20 @@ export async function POST(
 
   const title = `${(material.title ?? "자료").slice(0, 40)} — 새 대화`;
 
-  const { data: created, error: createErr } = await (admin as unknown as {
-    from: (t: string) => {
-      insert: (row: Record<string, unknown>) => {
-        select: (cols: string) => {
-          single: () => Promise<{
-            data: { id: string; title: string } | null;
-            error: unknown;
-          }>;
+  const { data: created, error: createErr } = await (
+    admin as unknown as {
+      from: (t: string) => {
+        insert: (row: Record<string, unknown>) => {
+          select: (cols: string) => {
+            single: () => Promise<{
+              data: { id: string; title: string } | null;
+              error: unknown;
+            }>;
+          };
         };
       };
-    };
-  })
+    }
+  )
     .from("chat_threads")
     .insert({
       owner_id: ownerId,
@@ -186,7 +188,7 @@ export async function POST(
     const errMsg =
       typeof (createErr as { message?: unknown })?.message === "string"
         ? (createErr as { message: string }).message
-        : "thread 생성 실패";
+        : "대화를 시작하지 못했어요";
     return NextResponse.json({ ok: false, error: errMsg }, { status: 500 });
   }
 

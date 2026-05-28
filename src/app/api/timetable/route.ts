@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { parseDocument, ParserRejectedError } from "@/lib/parsers";
+import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import { ParserRejectedError, parseDocument } from "@/lib/parsers";
 import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
 import { inferSemester } from "@/lib/semester";
 import { runTimetableExtraction } from "@/lib/services/timetable";
-import type { TimetableOutputT } from "@/lib/schemas";
-import { getAdminSupabase } from "@/lib/supabase/admin";
 import { storeMaterialFile } from "@/lib/storage";
+import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -14,12 +14,8 @@ export const maxDuration = 60;
 interface OkResponse {
   ok: true;
   materialId: string;
-  termYear: TimetableOutputT["termYear"];
-  termLabel: TimetableOutputT["termLabel"];
-  courses: TimetableOutputT["courses"];
-  parser: string;
-  pageCount?: number;
-  usage: { costUsd: number };
+  jobId: string;
+  status: "pending";
 }
 
 interface ErrResponse {
@@ -27,7 +23,9 @@ interface ErrResponse {
   error: string;
 }
 
-export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrResponse | RateLimitErrBody>> {
+export async function POST(
+  req: Request,
+): Promise<NextResponse<OkResponse | ErrResponse | RateLimitErrBody>> {
   let ownerId: string;
   try {
     ownerId = await getOwnerId();
@@ -60,7 +58,6 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
 
   const semesterHint = inferSemester().label;
 
-  // 1. Storage
   let uploaded: Awaited<ReturnType<typeof storeMaterialFile>>;
   try {
     uploaded = await storeMaterialFile({
@@ -76,35 +73,6 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     );
   }
 
-  // 2. Parse
-  let parsed: Awaited<ReturnType<typeof parseDocument>>;
-  try {
-    parsed = await parseDocument({
-      bytes: uploaded.bytes,
-      filename: uploaded.filename,
-      mimeType: uploaded.mimeType,
-    });
-  } catch (e) {
-    if (e instanceof ParserRejectedError) {
-      return NextResponse.json(
-        { ok: false, error: `파일을 읽을 수 없어요: ${e.message}` },
-        { status: 422 },
-      );
-    }
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "파싱 실패" },
-      { status: 500 },
-    );
-  }
-
-  if (parsed.sanitizedText.trim().length < 80) {
-    return NextResponse.json(
-      { ok: false, error: "본문 추출이 너무 짧아 시간표를 파싱할 수 없어요" },
-      { status: 422 },
-    );
-  }
-
-  // 3. materials 행
   const admin = getAdminSupabase();
   const title = file.name.replace(/\.[^.]+$/, "");
   const { data: material, error: materialErr } = await admin
@@ -112,13 +80,12 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     .insert({
       owner_id: ownerId,
       title,
-      // 시간표는 별도 type이 없어서 syllabus로 박지만 의미상 별개. payload에서 구분.
       type: "syllabus",
       original_filename: uploaded.filename,
       mime_type: uploaded.mimeType,
       storage_path: uploaded.storagePath,
-      page_count: parsed.pageCount ?? null,
-      full_text: parsed.sanitizedText.slice(0, 200_000),
+      page_count: null,
+      full_text: null,
     })
     .select("id")
     .single();
@@ -130,43 +97,92 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     );
   }
 
-  // 4. 추출 — PDF/이미지면 좌표 파서·vision 경로로 격자 그대로 읽기.
-  // parseDocument()가 uploaded.bytes의 underlying buffer를 pdfjs/unpdf 워커로
-  // transfer해 detach시켜 버리므로, 서비스에 줄 바이트는 Storage에서 다시 받는다.
-  const fileMediaType = uploaded.mimeType;
-  const visionEligible =
-    fileMediaType === "application/pdf" || fileMediaType.startsWith("image/");
-  let freshFileBytes: Uint8Array | undefined;
-  if (visionEligible) {
-    try {
-      const { downloadMaterialFile } = await import("@/lib/storage");
-      freshFileBytes = await downloadMaterialFile(uploaded.storagePath);
-    } catch (e) {
-      console.error("[timetable] storage redownload failed, vision path disabled", e);
-    }
-  }
-  const result = await runTimetableExtraction({
+  const { job } = await enqueueJob({
     ownerId,
     materialId: material.id,
-    title,
-    fullText: parsed.sanitizedText,
-    semesterHint,
-    fileBytes: freshFileBytes,
-    fileMediaType: freshFileBytes ? fileMediaType : undefined,
+    tool: "timetable-extract",
+    inputParams: { materialId: material.id, title, filename: uploaded.filename },
   });
 
-  if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
-  }
+  const bytesForParse = uploaded.bytes.slice();
+  const bytesForExtract = uploaded.bytes.slice();
+  const mimeType = uploaded.mimeType;
+  after(async () => {
+    try {
+      await markJobRunning(job.id);
 
-  return NextResponse.json({
-    ok: true,
-    materialId: material.id,
-    termYear: result.output.termYear,
-    termLabel: result.output.termLabel,
-    courses: result.output.courses,
-    parser: parsed.source,
-    pageCount: parsed.pageCount,
-    usage: { costUsd: result.costUsd },
+      let parsed: Awaited<ReturnType<typeof parseDocument>>;
+      try {
+        parsed = await parseDocument({
+          bytes: bytesForParse,
+          filename: uploaded.filename,
+          mimeType,
+        });
+      } catch (e) {
+        if (e instanceof ParserRejectedError) {
+          await markJobError({
+            jobId: job.id,
+            errorMessage: `파일을 읽을 수 없어요: ${e.message}`,
+          });
+          return;
+        }
+        throw e;
+      }
+
+      await admin
+        .from("materials")
+        .update({
+          page_count: parsed.pageCount ?? null,
+          full_text: parsed.sanitizedText.slice(0, 200_000),
+        })
+        .eq("id", material.id)
+        .eq("owner_id", ownerId);
+
+      if (parsed.sanitizedText.trim().length < 80) {
+        await markJobError({
+          jobId: job.id,
+          errorMessage: "본문 추출이 너무 짧아 시간표를 파싱할 수 없어요",
+        });
+        return;
+      }
+
+      const visionEligible = mimeType === "application/pdf" || mimeType.startsWith("image/");
+      const result = await runTimetableExtraction({
+        ownerId,
+        materialId: material.id,
+        title,
+        fullText: parsed.sanitizedText,
+        semesterHint,
+        fileBytes: visionEligible ? bytesForExtract : undefined,
+        fileMediaType: visionEligible ? mimeType : undefined,
+      });
+
+      if (!result.ok) {
+        await markJobError({ jobId: job.id, errorMessage: result.error });
+        return;
+      }
+
+      await markJobDone({
+        jobId: job.id,
+        result: {
+          extracted: {
+            materialId: material.id,
+            termYear: result.output.termYear,
+            termLabel: result.output.termLabel,
+            courses: result.output.courses,
+            parser: parsed.source,
+            pageCount: parsed.pageCount ?? null,
+            usage: { costUsd: result.costUsd },
+          },
+        },
+        modelId: result.modelId,
+        usage: result.usage,
+        costUsd: result.costUsd,
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "시간표 분석 실패";
+      await markJobError({ jobId: job.id, errorMessage: message });
+    }
   });
+  return NextResponse.json({ ok: true, materialId: material.id, jobId: job.id, status: "pending" });
 }

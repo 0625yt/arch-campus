@@ -151,12 +151,7 @@ function buildContextBlock(ctx: StudentContext): string {
     for (const e of ctx.upcoming) {
       const kindLabel = formatKind(e.kind);
       const courseLabel = e.courseName ? ` [${e.courseName}]` : "";
-      const dDay =
-        e.daysLeft === null
-          ? ""
-          : e.daysLeft <= 0
-            ? " (D-Day)"
-            : ` (D-${e.daysLeft})`;
+      const dDay = e.daysLeft === null ? "" : e.daysLeft <= 0 ? " (D-Day)" : ` (D-${e.daysLeft})`;
       lines.push(`- ${kindLabel} ${e.title}${courseLabel}${dDay}`);
     }
   }
@@ -207,7 +202,7 @@ function formatKind(kind: string): string {
     case "quiz":
       return "문제풀이";
     case "presentation_gen":
-      return "발표 위저드";
+      return "발표 흐름";
     default:
       return kind;
   }

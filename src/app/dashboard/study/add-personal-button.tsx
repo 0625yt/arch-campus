@@ -68,7 +68,7 @@ export function AddPersonalButton({ variant = "primary" }: { variant?: "primary"
         open={open}
         onClose={() => setOpen(false)}
         title="개인 공부 주제 추가"
-        description="시간표에 없는 자격증·시험·개인 공부 주제를 따로 관리해요. 자료 업로드·문제 생성·오답 복습은 정규 강의와 똑같이 동작합니다."
+        description="시간표에 없는 자격증·시험·개인 공부 주제를 따로 관리해요. 자료 업로드·문제 점검·오답 복습은 정규 강의와 똑같이 동작합니다."
       >
         <label className="flex flex-col gap-2">
           <span className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
@@ -88,9 +88,7 @@ export function AddPersonalButton({ variant = "primary" }: { variant?: "primary"
           />
         </label>
 
-        {error && (
-          <p className="mt-3 text-[12.5px] wght-450 text-[var(--color-urgent)]">{error}</p>
-        )}
+        {error && <p className="mt-3 text-[12.5px] wght-450 text-[var(--color-urgent)]">{error}</p>}
 
         <div className="mt-6 flex justify-end gap-2">
           <button

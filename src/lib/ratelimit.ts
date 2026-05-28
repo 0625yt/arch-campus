@@ -164,7 +164,7 @@ export async function guardRateLimit(
   // kind를 error 메시지·body에 포함 — 클라이언트가 어떤 limit에 걸렸는지 분기 가능
   const friendlyKind =
     kind === "ai"
-      ? "AI 호출"
+      ? "자료 처리"
       : kind === "upload"
         ? "파일 업로드"
         : kind === "login"

@@ -53,7 +53,7 @@ const WIZARDS: Wizard[] = [
     minutes: 3,
     query: "내 발표 내용 기준으로 예상 질문과 답변 방향을 만들어줘",
     redirectTo: "/dashboard/tools/presentation",
-    redirectHint: "발표 위저드가 Q&A 5개도 같이 만들어줘요",
+    redirectHint: "발표 흐름에서 Q&A 5개도 같이 잡아줘요",
   },
   {
     slug: "report-structure",
@@ -78,7 +78,7 @@ const WIZARDS: Wizard[] = [
   {
     slug: "exam-questions",
     category: "시험",
-    title: "기출형 문제 생성",
+    title: "기출형 문제 점검",
     situation: "노트를 다시 읽기 싫고 바로 점검하고 싶을 때",
     output: "객관식·주관식·서술형 문제",
     minutes: 4,
@@ -154,15 +154,17 @@ const WIZARDS: Wizard[] = [
   },
 ];
 
-const FILTERS: ("전체" | Category)[] = ["전체", "발표", "과제", "시험", "팀플", "진로"];
+const LIVE_WIZARDS = WIZARDS.filter((w) => wizardHref(w));
+const FILTERS: ("전체" | Category)[] = ["전체", "발표", "과제", "시험"];
 
 type FilterId = "전체" | Category;
 
 export default function ToolsPage() {
   const [filter, setFilter] = useState<FilterId>("전체");
 
-  const filtered = filter === "전체" ? WIZARDS : WIZARDS.filter((w) => w.category === filter);
-  const urgent = WIZARDS.filter((w) =>
+  const filtered =
+    filter === "전체" ? LIVE_WIZARDS : LIVE_WIZARDS.filter((w) => w.category === filter);
+  const urgent = LIVE_WIZARDS.filter((w) =>
     ["exam-cram", "report-checklist", "presentation"].includes(w.slug),
   );
 
@@ -195,17 +197,18 @@ export default function ToolsPage() {
             className="max-w-[820px] text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[48px] md:text-[56px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            막혔을 때 꺼내는 <span className="text-[var(--color-apple-muted)]">12개 도구.</span>
+            막혔을 때 바로 쓰는{" "}
+            <span className="text-[var(--color-apple-muted)]">{LIVE_WIZARDS.length}개 도구.</span>
           </h1>
           <p
             className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            글을 대신 써주는 게 아니라, 직접 완성할 수 있도록 구조·순서·체크포인트만 잡아드려요.
+            기능을 많이 늘리는 대신, 과제·시험·발표에서 지금 바로 도움이 되는 흐름만 남겼어요.
           </p>
         </header>
 
-        {/* AI 진입 카드 — "어떤 게 막혀 있어요?" 자연어 입구. 캘린더 AI 진입 카드와 같은 톤. */}
+        {/* 자연어 진입 카드 — "어떤 게 막혀 있어요?" 입구. */}
         <div className="mt-8 max-w-[720px] fade-up fade-up-2">
           <ToolsEntryCard />
         </div>
@@ -220,7 +223,7 @@ export default function ToolsPage() {
               className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
               style={{ letterSpacing: "-0.012em" }}
             >
-              모든 도구.
+              바로 쓰는 도구.
             </h2>
             <span
               className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
@@ -320,7 +323,9 @@ function Filters({
         {FILTERS.map((f) => {
           const isActive = f === active;
           const count =
-            f === "전체" ? WIZARDS.length : WIZARDS.filter((w) => w.category === f).length;
+            f === "전체"
+              ? LIVE_WIZARDS.length
+              : LIVE_WIZARDS.filter((w) => w.category === f).length;
           const dotColor = f === "전체" ? null : CATEGORY[f as Category];
           return (
             <li key={f}>
@@ -501,7 +506,7 @@ function WizardLinkWrap({
     <div
       className={`${className} cursor-not-allowed opacity-60`}
       aria-disabled="true"
-      title="준비 중인 위저드예요"
+      title="준비 중인 흐름이에요"
     >
       {children}
     </div>
@@ -521,7 +526,7 @@ function ReadyBadge({ wizard }: { wizard: Wizard }) {
         className="inline-flex items-center gap-1 rounded-full bg-[var(--color-tint-class)] px-2 py-0.5 text-[10px] wght-620 text-[var(--color-tint-class-ink)]"
         style={{ letterSpacing: "0.02em" }}
       >
-        위저드
+        5분 흐름
       </span>
     );
   }

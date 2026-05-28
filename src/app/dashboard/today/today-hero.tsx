@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { EventView } from "@/lib/data/events";
-import { formatEventHeading } from "@/lib/format-event";
+import { formatEventHeading, formatEventLabel } from "@/lib/format-event";
 
 /**
  * 오늘의 포커스 — 가장 임박한 시험·과제 카운트다운.
@@ -11,10 +11,12 @@ import { formatEventHeading } from "@/lib/format-event";
  */
 export function TodayHero({
   focus,
+  nextEvent,
   kindLabel,
   className,
 }: {
   focus: EventView;
+  nextEvent: EventView | null;
   kindLabel: Record<EventView["kind"], string>;
   className?: string;
 }) {
@@ -51,103 +53,127 @@ export function TodayHero({
   const isUrgent = diffSec < 6 * 3600;
 
   const kindStyle = kindHeroStyle(focus.kind);
-
-  // Apple "MacBook Air" 카피 패턴 — 작은 라벨(eyebrow) → 큰 두 문장 헤드 → 코랄 한 줄 부제.
-  // 카운트다운/CTA 같은 인터랙션은 헤드라인 아래로 옮겨 카피가 호흡할 공간을 만든다.
-  //
-  // 2026-05-23: eyebrow를 캘린더 Inspector "D-3 · 글로컬 영어 I" 한 줄 헤드라인 패턴으로 일관화.
-  // kind 컬러로 강조, course 있으면 함께 노출. 정보 위계로 곧장 의미 전달.
   const dDayLabel = now ? (days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`) : "";
-  const headlineA = focus.courseName ?? formatEventHeading(focus);
-  const headlineB = headlineCallout(focus.kind, isUrgent, within24h);
-  const coralLine = focus.notes ?? formatEventHeading(focus);
+  const reason = buildReason(focus, dDayLabel, within24h);
+  const caution = focus.notes ?? fallbackCaution(focus.kind);
+  const evidence = buildEvidence(focus);
+  const startHref = startHrefFor(focus);
+  const nextLabel = nextEvent
+    ? `${formatEventLabel(nextEvent)} · ${formatSimpleWhen(nextEvent)}`
+    : "끝나면 오답이나 방치 자료를 한 번만 확인";
 
   return (
     <section className={className}>
-      {/* 1. eyebrow — "D-3 · 시험 · 20%" 한 줄. kind 컬러로 강조 (캘린더 Inspector 톤). */}
-      <p
-        className="flex items-baseline gap-2 text-[14px] wght-620 tabular-nums sm:text-[15px]"
-        style={{ letterSpacing: "-0.012em", color: kindStyle.dot }}
-      >
-        {dDayLabel && <span>{dDayLabel}</span>}
-        <span className="text-[var(--color-apple-muted)] wght-450">
-          · {kindLabel[focus.kind]}
-          {focus.weightPercent != null && ` · ${focus.weightPercent}%`}
-        </span>
-      </p>
+      <div className="overflow-hidden rounded-[22px] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_18px_48px_-32px_rgba(0,0,0,0.22)]">
+        <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="px-6 py-7 sm:px-8 sm:py-9">
+            <p
+              className="flex items-baseline gap-2 text-[13px] wght-700 tabular-nums sm:text-[14px]"
+              style={{ letterSpacing: "-0.012em", color: kindStyle.dot }}
+            >
+              <span>지금 1개</span>
+              <span className="text-[var(--color-apple-muted)] wght-450">
+                · {dDayLabel || "오늘"} · {kindLabel[focus.kind]}
+                {focus.weightPercent != null && ` · ${focus.weightPercent}%`}
+              </span>
+            </p>
 
-      {/* 2. 큰 두 문장 헤드 — "강력하게. 비상하다." 자리 */}
-      <h1
-        className="mt-4 text-[40px] leading-[1.04] wght-700 text-[var(--color-apple-ink)] sm:text-[56px] md:text-[68px]"
-        style={{ letterSpacing: "-0.022em" }}
-      >
-        {headlineA}.{" "}
-        <span style={{ color: kindStyle.tintInk }}>{headlineB}</span>
-      </h1>
+            <h1
+              className="mt-4 text-[36px] leading-[1.04] wght-700 text-[var(--color-apple-ink)] sm:text-[50px] md:text-[58px]"
+              style={{ letterSpacing: "-0.022em" }}
+            >
+              {formatEventHeading(focus)}.
+            </h1>
 
-      {/* 3. 코랄 한 줄 부제 — "이제 막강한 성능의 M5 탑재." 자리 */}
-      {coralLine && coralLine !== headlineA && (
-        <p
-          className="mt-5 text-[15px] wght-620 sm:text-[17px]"
-          style={{
-            color: "var(--color-urgent)",
-            letterSpacing: "-0.012em",
-          }}
-        >
-          {coralLine}.
-        </p>
-      )}
+            <div className="mt-7 grid gap-3">
+              <FactLine label="이유" value={reason} tone={kindStyle.tintInk} />
+              <FactLine label="유의" value={caution} />
+              <FactLine label="근거" value={evidence} />
+            </div>
 
-      {/* 4. 카운트다운 + CTA — Apple 가격 + 구입하기 자리.
-          urgent(6시간 이내)이면 카운트다운 전체가 미세 박동(urgent-pulse 유틸). */}
-      <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-4 sm:mt-14">
-        <div
-          className={`flex items-baseline gap-2 ${isUrgent ? "urgent-pulse" : ""}`}
-          style={{
-            color: isUrgent ? "var(--color-urgent)" : "var(--color-apple-ink)",
-          }}
-        >
-          {within24h ? (
-            <>
-              <ClockCell value={h} unit="h" />
-              <ClockCell value={m} unit="m" />
-              <ClockCell value={s} unit="s" />
-            </>
-          ) : (
-            <ClockCell value={Math.max(0, days)} unit="d" />
-          )}
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link
+                href={startHref}
+                className="inline-flex h-[46px] items-center rounded-full bg-[var(--color-apple-ink)] px-6 text-[14px] wght-700 text-white transition-all hover:opacity-90 active:scale-[0.97]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                바로 시작
+              </Link>
+              <Link
+                href="/dashboard/calendar"
+                className="inline-flex h-[46px] items-center rounded-full bg-[var(--color-apple-pearl)] px-5 text-[13px] wght-620 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                일정 보기
+              </Link>
+            </div>
+          </div>
+
+          <aside
+            className="border-t border-[var(--color-apple-hairline-soft)] px-6 py-7 sm:px-8 lg:border-l lg:border-t-0"
+            style={{
+              background: "linear-gradient(180deg, rgba(248,249,251,0.92), rgba(255,255,255,0.98))",
+            }}
+          >
+            <p
+              className="text-[12px] wght-620 text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              남은 시간
+            </p>
+            <div
+              className={`mt-4 flex items-baseline gap-2 ${isUrgent ? "urgent-pulse" : ""}`}
+              style={{ color: isUrgent ? "var(--color-urgent)" : "var(--color-apple-ink)" }}
+            >
+              {within24h ? (
+                <>
+                  <ClockCell value={h} unit="h" />
+                  <ClockCell value={m} unit="m" />
+                  <ClockCell value={s} unit="s" />
+                </>
+              ) : (
+                <ClockCell value={Math.max(0, days)} unit="d" />
+              )}
+            </div>
+
+            <div className="mt-8 rounded-[14px] bg-white px-4 py-4">
+              <p
+                className="text-[11.5px] wght-620 text-[var(--color-apple-muted)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                이거 끝나면
+              </p>
+              <p
+                className="mt-2 text-[14px] leading-[1.45] wght-620 text-[var(--color-apple-ink)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                {nextLabel}
+              </p>
+            </div>
+          </aside>
         </div>
-        <Link
-          href="/dashboard/calendar"
-          className="inline-flex h-[44px] items-center rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)] active:scale-[0.97]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          캘린더에서 보기
-        </Link>
       </div>
     </section>
   );
 }
 
-/**
- * 두 번째 문장 — Apple "비상하다" 자리.
- * 임박도에 따라 톤이 바뀜. 카운트다운이 따로 있어 정보 중복 아닌, 감정 강조.
- */
-function headlineCallout(kind: EventView["kind"], isUrgent: boolean, within24h: boolean): string {
-  if (isUrgent) return "지금부터 진심";
-  if (within24h) return "오늘 안에 끝내자";
-  switch (kind) {
-    case "exam":
-      return "준비할 시간이 있다";
-    case "assignment":
-      return "차근차근 끝내자";
-    case "presentation":
-      return "리허설할 차례";
-    case "class":
-      return "한 주가 시작된다";
-    default:
-      return "한 걸음씩";
-  }
+function FactLine({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="grid grid-cols-[44px_1fr] gap-3">
+      <span
+        className="text-[12px] wght-700 text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        {label}
+      </span>
+      <span
+        className="text-[14px] leading-[1.45] wght-560 text-[var(--color-apple-ink)]"
+        style={{ letterSpacing: "-0.012em", color: tone }}
+      >
+        {value}
+      </span>
+    </div>
+  );
 }
 
 interface KindHeroStyle {
@@ -191,12 +217,62 @@ function kindHeroStyle(kind: EventView["kind"]): KindHeroStyle {
   }
 }
 
-/**
- * 카운트다운 셀 — 숫자가 바뀔 때 살짝 위로 올라오는 디지털 플립 톤.
- *
- * 구현: key를 value에 묶어 React가 값 변경 시 재마운트 → CSS 키프레임이 매번 재생.
- * 자연스러움 위해 50ms 짧은 fade-up. 시각적 노이즈는 없고, 시간이 살아 있다는 신호만.
- */
+function buildReason(event: EventView, dDayLabel: string, within24h: boolean): string {
+  const when = formatSimpleWhen(event);
+  if (event.kind === "exam") return `${dDayLabel || "오늘"} 시험 · ${when}`;
+  if (event.kind === "assignment")
+    return within24h ? `오늘 마감 · ${when}` : `${dDayLabel} 마감 · ${when}`;
+  if (event.kind === "presentation") return `${dDayLabel || "오늘"} 발표 · ${when}`;
+  return `${dDayLabel || "오늘"} 일정 · ${when}`;
+}
+
+function fallbackCaution(kind: EventView["kind"]): string {
+  switch (kind) {
+    case "assignment":
+      return "제출 파일명, 형식, LMS 제출 위치를 먼저 확인하세요";
+    case "exam":
+      return "새 범위보다 안 본 자료와 오답을 먼저 확인하세요";
+    case "presentation":
+      return "제출 자료와 발표 시간을 먼저 맞춰두세요";
+    case "class":
+      return "강의실·온라인 여부를 출발 전에 확인하세요";
+    default:
+      return "장소·시간·준비물을 먼저 확인하세요";
+  }
+}
+
+function buildEvidence(event: EventView): string {
+  if (event.sourceMaterialTitle) {
+    const status = event.confirmed ? "확인됨" : "확인 필요";
+    const confidence =
+      event.confidence == null ? "" : ` · 확신도 ${Math.round(event.confidence * 100)}%`;
+    return `${event.sourceMaterialTitle} · ${status}${confidence}`;
+  }
+  if (event.confidence != null && !event.confirmed) {
+    return `자료 기반 후보 · 확신도 ${Math.round(event.confidence * 100)}%`;
+  }
+  return event.confirmed ? "사용자가 확인한 일정" : "직접 입력한 일정";
+}
+
+function startHrefFor(event: EventView): string {
+  if (event.kind === "exam") return "/dashboard/tools/exam-cram";
+  if (event.kind === "assignment" || event.kind === "presentation") {
+    return event.courseName
+      ? `/dashboard/study/${encodeURIComponent(event.courseName)}`
+      : "/dashboard/tools/report-checklist";
+  }
+  if (event.courseName) return `/dashboard/study/${encodeURIComponent(event.courseName)}`;
+  return "/dashboard/calendar";
+}
+
+function formatSimpleWhen(event: EventView): string {
+  const date = new Date(event.startsAt);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  if (event.allDay) return `${month}/${day}`;
+  return `${month}/${day} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
 /**
  * 카운트다운 셀 — 숫자가 바뀔 때 살짝 위로 올라오는 디지털 플립 톤.
  *

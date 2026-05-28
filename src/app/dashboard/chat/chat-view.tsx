@@ -369,7 +369,7 @@ function AssistantAvatar() {
 
 function TypingDots() {
   return (
-    <span aria-label="응답 생성 중" className="inline-flex items-center gap-1 py-2">
+    <span aria-label="답변 작성 중" className="inline-flex items-center gap-1 py-2">
       <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-apple-muted)] pulse-dot" />
       <span
         className="h-1.5 w-1.5 rounded-full bg-[var(--color-apple-muted)] pulse-dot"

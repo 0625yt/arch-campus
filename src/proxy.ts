@@ -1,14 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import type { Database } from "./lib/supabase/types";
 
-const PUBLIC_PREFIXES = ["/login", "/auth"];
+const PUBLIC_PREFIXES = ["/", "/login", "/auth", "/terms", "/privacy"];
 
 /**
  * 모든 요청마다 Supabase 세션 쿠키 갱신 + 보호 라우트 게이트.
  *
  * 정책:
- * - /login, /auth/*, 정적 자원은 통과
+ * - /, /login, /auth/*, /terms, /privacy, 정적 자원은 통과
  * - 그 외 라우트는 user 없으면 /login으로 (production만)
  * - DEV (NODE_ENV !== production)에서는 auth.ts의 DEV_FALLBACK_USER_ID 사용
  */

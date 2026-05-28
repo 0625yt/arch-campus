@@ -8,10 +8,10 @@ export const runtime = "nodejs";
 const TOOL_LABEL: Record<string, string> = {
   summarize: "요약",
   quiz: "문제",
-  presentation: "발표 위저드",
+  presentation: "발표 흐름",
   "wizard-cram": "벼락치기",
   "wizard-assignment": "과제 가이드",
-  "wizard-exam": "시험 위저드",
+  "wizard-exam": "시험 흐름",
   "syllabus-extract": "강의계획서 분석",
   "timetable-extract": "시간표 분석",
   "post-mortem": "시험 후 회고",

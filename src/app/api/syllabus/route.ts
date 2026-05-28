@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { parseDocument, ParserRejectedError } from "@/lib/parsers";
+import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import { ParserRejectedError, parseDocument } from "@/lib/parsers";
 import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
 import { inferSemester } from "@/lib/semester";
 import { runSyllabusExtraction } from "@/lib/services/syllabus";
-import { type SyllabusOutputT } from "@/lib/schemas";
-import { getAdminSupabase } from "@/lib/supabase/admin";
 import { storeMaterialFile } from "@/lib/storage";
+import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -14,12 +14,8 @@ export const maxDuration = 60;
 interface OkResponse {
   ok: true;
   materialId: string;
-  courseId: string;
-  course: SyllabusOutputT["course"];
-  events: SyllabusOutputT["events"];
-  parser: string;
-  pageCount?: number;
-  usage: { costUsd: number };
+  jobId: string;
+  status: "pending";
 }
 
 interface ErrResponse {
@@ -27,11 +23,9 @@ interface ErrResponse {
   error: string;
 }
 
-/**
- * 강의계획서 파일 업로드 → AI 파싱 → courses upsert → events 후보 반환.
- * 후보는 즉시 DB에 박지 않음 (사용자 검토 후 /api/syllabus/confirm).
- */
-export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrResponse | RateLimitErrBody>> {
+export async function POST(
+  req: Request,
+): Promise<NextResponse<OkResponse | ErrResponse | RateLimitErrBody>> {
   let ownerId: string;
   try {
     ownerId = await getOwnerId();
@@ -58,15 +52,12 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
   }
 
   const file = form.get("file");
-
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ ok: false, error: "file 필드가 비어있어요" }, { status: 400 });
   }
 
-  // 학기는 자동 추정 — 사용자 입력 없이 오늘 날짜 기준
   const semesterHint = inferSemester().label;
 
-  // 1. Storage
   let uploaded: Awaited<ReturnType<typeof storeMaterialFile>>;
   try {
     uploaded = await storeMaterialFile({
@@ -82,35 +73,6 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     );
   }
 
-  // 2. Parse
-  let parsed: Awaited<ReturnType<typeof parseDocument>>;
-  try {
-    parsed = await parseDocument({
-      bytes: uploaded.bytes,
-      filename: uploaded.filename,
-      mimeType: uploaded.mimeType,
-    });
-  } catch (e) {
-    if (e instanceof ParserRejectedError) {
-      return NextResponse.json(
-        { ok: false, error: `파일을 읽을 수 없어요: ${e.message}` },
-        { status: 422 },
-      );
-    }
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "파싱 실패" },
-      { status: 500 },
-    );
-  }
-
-  if (parsed.sanitizedText.trim().length < 80) {
-    return NextResponse.json(
-      { ok: false, error: "본문 추출이 너무 짧아 강의계획서를 파싱할 수 없어요" },
-      { status: 422 },
-    );
-  }
-
-  // 3. materials 행 (type = syllabus)
   const admin = getAdminSupabase();
   const title = file.name.replace(/\.[^.]+$/, "");
   const { data: material, error: materialErr } = await admin
@@ -122,8 +84,8 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
       original_filename: uploaded.filename,
       mime_type: uploaded.mimeType,
       storage_path: uploaded.storagePath,
-      page_count: parsed.pageCount ?? null,
-      full_text: parsed.sanitizedText.slice(0, 200_000),
+      page_count: null,
+      full_text: null,
     })
     .select("id")
     .single();
@@ -135,42 +97,92 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     );
   }
 
-  // 4. AI 추출 — PDF/이미지면 vision 경로(서비스가 알아서 분기).
-  // parseDocument()가 uploaded.bytes의 underlying buffer를 detach시키므로
-  // 서비스에 줄 바이트는 Storage에서 다시 받는다.
-  const visionEligible =
-    uploaded.mimeType === "application/pdf" || uploaded.mimeType.startsWith("image/");
-  let freshFileBytes: Uint8Array | undefined;
-  if (visionEligible) {
-    try {
-      const { downloadMaterialFile } = await import("@/lib/storage");
-      freshFileBytes = await downloadMaterialFile(uploaded.storagePath);
-    } catch (e) {
-      console.error("[syllabus] storage redownload failed, vision path disabled", e);
-    }
-  }
-  const result = await runSyllabusExtraction({
+  const { job } = await enqueueJob({
     ownerId,
     materialId: material.id,
-    title,
-    fullText: parsed.sanitizedText,
-    semesterHint,
-    fileBytes: freshFileBytes,
-    fileMediaType: freshFileBytes ? uploaded.mimeType : undefined,
+    tool: "syllabus-extract",
+    inputParams: { materialId: material.id, title, filename: uploaded.filename },
   });
 
-  if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
-  }
+  const bytesForParse = uploaded.bytes.slice();
+  const bytesForExtract = uploaded.bytes.slice();
+  const mimeType = uploaded.mimeType;
 
-  return NextResponse.json({
-    ok: true,
-    materialId: material.id,
-    courseId: result.courseId,
-    course: result.course,
-    events: result.eventsExtracted,
-    parser: parsed.source,
-    pageCount: parsed.pageCount,
-    usage: { costUsd: result.costUsd },
+  after(async () => {
+    try {
+      await markJobRunning(job.id);
+
+      let parsed: Awaited<ReturnType<typeof parseDocument>>;
+      try {
+        parsed = await parseDocument({
+          bytes: bytesForParse,
+          filename: uploaded.filename,
+          mimeType,
+        });
+      } catch (e) {
+        if (e instanceof ParserRejectedError) {
+          await markJobError({
+            jobId: job.id,
+            errorMessage: `파일을 읽을 수 없어요: ${e.message}`,
+          });
+          return;
+        }
+        throw e;
+      }
+
+      await admin
+        .from("materials")
+        .update({
+          page_count: parsed.pageCount ?? null,
+          full_text: parsed.sanitizedText.slice(0, 200_000),
+        })
+        .eq("id", material.id)
+        .eq("owner_id", ownerId);
+
+      if (parsed.sanitizedText.trim().length < 80) {
+        await markJobError({
+          jobId: job.id,
+          errorMessage: "본문 추출이 너무 짧아 강의계획서를 파싱할 수 없어요",
+        });
+        return;
+      }
+
+      const visionEligible = mimeType === "application/pdf" || mimeType.startsWith("image/");
+      const result = await runSyllabusExtraction({
+        ownerId,
+        materialId: material.id,
+        title,
+        fullText: parsed.sanitizedText,
+        semesterHint,
+        fileBytes: visionEligible ? bytesForExtract : undefined,
+        fileMediaType: visionEligible ? mimeType : undefined,
+      });
+
+      if (!result.ok) {
+        await markJobError({ jobId: job.id, errorMessage: result.error });
+        return;
+      }
+
+      await markJobDone({
+        jobId: job.id,
+        result: {
+          extracted: {
+            materialId: material.id,
+            courseId: result.courseId,
+            course: result.course,
+            events: result.eventsExtracted,
+            usage: { costUsd: result.costUsd },
+          },
+        },
+        modelId: result.modelId,
+        usage: result.usage,
+        costUsd: result.costUsd,
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "강의계획서 분석 실패";
+      await markJobError({ jobId: job.id, errorMessage: message });
+    }
   });
+
+  return NextResponse.json({ ok: true, materialId: material.id, jobId: job.id, status: "pending" });
 }

@@ -1,11 +1,7 @@
 import "server-only";
 import { estimateCost, generate } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
-import {
-  parseModelJson,
-  ReportStructureOutput,
-  type ReportStructureOutputT,
-} from "@/lib/schemas";
+import { parseModelJson, ReportStructureOutput, type ReportStructureOutputT } from "@/lib/schemas";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { breakdown } from "@/lib/tokens";
 
@@ -21,13 +17,7 @@ import { breakdown } from "@/lib/tokens";
  * 모델: Sonnet 4.6. 학기당 1~3건이라 비용 OK.
  */
 
-export type ReportType =
-  | "분석"
-  | "비평"
-  | "주장"
-  | "비교"
-  | "사례 연구"
-  | "조사 보고";
+export type ReportType = "분석" | "비평" | "주장" | "비교" | "사례 연구" | "조사 보고";
 export type ReportAudience = "교수님" | "조교" | "학우 발표용";
 
 export interface ReportStructureMaterialInput {
@@ -108,7 +98,11 @@ export async function runReportStructure(
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });
-    return { ok: false, stage: "ai", error: "AI 호출 실패" };
+    return {
+      ok: false,
+      stage: "ai",
+      error: "리포트 구조를 정리하지 못했어요. 잠시 후 다시 시도해주세요.",
+    };
   }
 
   let output: ReportStructureOutputT;
@@ -127,7 +121,7 @@ export async function runReportStructure(
     return {
       ok: false,
       stage: "validation",
-      error: "AI 출력이 형식에 안 맞아요. 다시 시도해주세요.",
+      error: "리포트 구조 형식이 맞지 않았어요. 다시 시도해주세요.",
     };
   }
 
@@ -211,7 +205,7 @@ function buildDynamicContext(input: ReportStructureInput): string {
   if (input.materials.length === 0) {
     lines.push(
       "",
-      "참고 자료 없음 — citationHint는 학생이 직접 찾을 자리 표시로 (예: \"본인 강의 자료에서 ~ 부분\") 또는 omit.",
+      '참고 자료 없음 — citationHint는 학생이 직접 찾을 자리 표시로 (예: "본인 강의 자료에서 ~ 부분") 또는 omit.',
     );
   } else {
     lines.push("", `참고 자료 ${input.materials.length}건:`);

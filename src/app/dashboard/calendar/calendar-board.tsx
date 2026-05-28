@@ -153,6 +153,8 @@ export function CalendarBoard({
   const [createPrefillDate, setCreatePrefillDate] = useState<string | null>(null);
   // 드래그로 선택한 종료 날짜 (start와 다르면 end). 단일 클릭이면 null.
   const [createPrefillEndDate, setCreatePrefillEndDate] = useState<string | null>(null);
+  // 주/일 뷰의 빈 시간 클릭 시 그 시간으로 바로 새 일정 시작.
+  const [createPrefillHour, setCreatePrefillHour] = useState<number | null>(null);
 
   // 서버 props를 내부 state로 미러링 — optimistic 제거/수정 즉시 반영하기 위함.
   // 서버에서 새 props 도착 시(router.refresh 등) sync.
@@ -212,6 +214,7 @@ export function CalendarBoard({
     const [lo, hi] = a <= b ? [a, b] : [b, a];
     setCreatePrefillDate(lo);
     setCreatePrefillEndDate(hi);
+    setCreatePrefillHour(null);
     setCreating(true);
   }
 
@@ -304,6 +307,8 @@ export function CalendarBoard({
             label: "이 날에 일정 추가",
             onClick: () => {
               setCreatePrefillDate(ctxDateIso);
+              setCreatePrefillEndDate(null);
+              setCreatePrefillHour(null);
               setCreating(true);
             },
           },
@@ -387,7 +392,14 @@ export function CalendarBoard({
     <div className="fade-up fade-up-1 sm:mt-8">
       {/* AiEntryCard는 데스크톱에서만. 모바일은 캘린더 자체에 집중 + 우하단 FAB로 추가 */}
       <div className="hidden sm:block">
-        <AiEntryCard onOpen={() => setCreating(true)} />
+        <AiEntryCard
+          onOpen={() => {
+            setCreatePrefillDate(null);
+            setCreatePrefillEndDate(null);
+            setCreatePrefillHour(null);
+            setCreating(true);
+          }}
+        />
       </div>
       <section className="bg-white p-3 sm:elev-1 sm:rounded-[18px] sm:p-7">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -398,15 +410,16 @@ export function CalendarBoard({
             {monthLabel}
           </h2>
           <div className="flex items-center gap-1">
-            {/* 모바일 전용 — 자연어 AI 일정 추가. 데스크톱은 본문 상단 AiEntryCard가 1급 자리. */}
+            {/* 모바일 전용 — 자연어 일정 추가. 데스크톱은 본문 상단 카드가 1급 자리. */}
             <button
               type="button"
               onClick={() => {
                 setCreatePrefillDate(null);
                 setCreatePrefillEndDate(null);
+                setCreatePrefillHour(null);
                 setCreating(true);
               }}
-              aria-label="AI로 일정 추가"
+              aria-label="빠른 일정 추가"
               className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--color-apple-action)] px-3 text-[12px] wght-560 text-white shadow-[0_2px_8px_-2px_rgba(0,113,227,0.35)] transition-transform active:scale-95 sm:hidden"
               style={{ letterSpacing: "-0.012em" }}
             >
@@ -419,7 +432,7 @@ export function CalendarBoard({
                   fill="currentColor"
                 />
               </svg>
-              AI 추가
+              빠른 추가
             </button>
             <NavButton onClick={() => navigate(-1)} aria-label="이전 달">
               ‹
@@ -438,9 +451,45 @@ export function CalendarBoard({
             <ScaleToggle scale={scale} onChange={setScale} className="ml-2" />
             {/* 뷰 모드 토글 — 시간표만 vs 내 일정. 시간표만 클릭 시 자동 주 뷰.
                 모바일에선 공간 부족으로 숨김 — Phase 2 mobile 전용 UI에서 재배치 예정. */}
-            <ViewModeToggle mode={viewMode} onChange={setViewMode} className="ml-1 hidden sm:inline-flex" />
+            <ViewModeToggle
+              mode={viewMode}
+              onChange={setViewMode}
+              className="ml-1 hidden sm:inline-flex"
+            />
             {/* 시간표 다시 올리기 — 데스크톱은 텍스트 링크, 모바일은 아이콘 버튼 */}
-            <span aria-hidden className="mx-1 hidden h-4 w-px bg-[var(--color-apple-hairline)] sm:inline-block" />
+            <span
+              aria-hidden
+              className="mx-1 hidden h-4 w-px bg-[var(--color-apple-hairline)] sm:inline-block"
+            />
+            <Link
+              href="/dashboard/calendar/import?kind=syllabus"
+              className="hidden rounded-full bg-[var(--color-apple-ink)] px-3.5 py-1.5 text-[13px] wght-620 text-white shadow-[0_8px_20px_-14px_rgba(20,30,50,0.45)] transition-all hover:-translate-y-px hover:shadow-[0_10px_26px_-14px_rgba(20,30,50,0.5)] sm:inline-block"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              자료에서 일정 만들기
+            </Link>
+            <Link
+              href="/dashboard/calendar/import?kind=syllabus"
+              aria-label="자료에서 일정 만들기"
+              title="자료에서 일정 만들기"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-apple-ink)] text-white shadow-[0_2px_8px_-2px_rgba(20,30,50,0.35)] transition-transform active:scale-95 sm:hidden"
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path
+                  d="M4.25 2.5h5.4L12 4.85v8.65H4.25A1.25 1.25 0 0 1 3 12.25v-8.5A1.25 1.25 0 0 1 4.25 2.5z"
+                  stroke="currentColor"
+                  strokeWidth="1.35"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M9.55 2.65V5h2.35M5.25 8h5.5M5.25 10.25h3.3"
+                  stroke="currentColor"
+                  strokeWidth="1.35"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </Link>
             <Link
               href="/dashboard/calendar/import?kind=timetable"
               aria-label="시간표 다시 올리기"
@@ -498,6 +547,13 @@ export function CalendarBoard({
                     selectedEventId={selected?.id ?? null}
                     isInDragRange={inDrag}
                     onSelectDay={(anchorRect) => {
+                      if (dayEvents.length === 0) {
+                        setCreatePrefillDate(cell.iso);
+                        setCreatePrefillEndDate(null);
+                        setCreatePrefillHour(null);
+                        setCreating(true);
+                        return;
+                      }
                       setSelectedDate(cell.iso);
                       setSelected(null);
                       setSelectedAnchor(anchorRect ?? null);
@@ -550,8 +606,8 @@ export function CalendarBoard({
             onSelectEmpty={(dateKey, hour) => {
               setCreatePrefillDate(dateKey);
               setCreatePrefillEndDate(null);
+              setCreatePrefillHour(hour);
               setCreating(true);
-              void hour; // 시간 prefill은 EventCreateForm prop 확장 필요 — 별도 sprint
             }}
           />
         )}
@@ -568,8 +624,8 @@ export function CalendarBoard({
             onSelectEmpty={(dateKey, hour) => {
               setCreatePrefillDate(dateKey);
               setCreatePrefillEndDate(null);
+              setCreatePrefillHour(hour);
               setCreating(true);
-              void hour;
             }}
           />
         )}
@@ -597,6 +653,7 @@ export function CalendarBoard({
         onClick={() => {
           setCreatePrefillDate(null);
           setCreatePrefillEndDate(null);
+          setCreatePrefillHour(null);
           setCreating(true);
         }}
         aria-label="일정 추가"
@@ -665,6 +722,8 @@ export function CalendarBoard({
                 onSelectEvent={(e) => setSelected(e)}
                 onAddOnDay={() => {
                   setCreatePrefillDate(selectedDate);
+                  setCreatePrefillEndDate(null);
+                  setCreatePrefillHour(null);
                   setCreating(true);
                 }}
               />
@@ -701,6 +760,8 @@ export function CalendarBoard({
               onSelectEvent={(e) => setSelected(e)}
               onAddOnDay={() => {
                 setCreatePrefillDate(selectedDate);
+                setCreatePrefillEndDate(null);
+                setCreatePrefillHour(null);
                 setCreating(true);
               }}
             />
@@ -713,15 +774,18 @@ export function CalendarBoard({
         courses={courses}
         prefillDateIso={createPrefillDate}
         prefillEndDateIso={createPrefillEndDate}
+        prefillHour={createPrefillHour}
         onClose={() => {
           setCreating(false);
           setCreatePrefillDate(null);
           setCreatePrefillEndDate(null);
+          setCreatePrefillHour(null);
         }}
         onCreated={() => {
           setCreating(false);
           setCreatePrefillDate(null);
           setCreatePrefillEndDate(null);
+          setCreatePrefillHour(null);
           router.refresh();
         }}
       />
@@ -1276,9 +1340,7 @@ function CalendarInspector({
       />
 
       {/* 데스크톱: 우측 float panel — Apple Inspector 톤. 그릇 그림자 최소화. */}
-      <div
-        className="pointer-events-none absolute inset-y-6 right-6 hidden w-[380px] md:block lg:w-[400px]"
-      >
+      <div className="pointer-events-none absolute inset-y-6 right-6 hidden w-[380px] md:block lg:w-[400px]">
         <div
           className="pointer-events-auto h-full overflow-y-auto rounded-[14px] border border-[var(--color-apple-hairline)] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.05)]"
           style={{ animation: "calInspectorSlideInRight 220ms ease-out" }}
@@ -1294,7 +1356,10 @@ function CalendarInspector({
         style={{
           transform: `translateY(${dragOffset}px)`,
           transition: dragOffset === 0 ? "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)" : "none",
-          animation: dragOffset === 0 ? "calInspectorSlideInUp 240ms cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
+          animation:
+            dragOffset === 0
+              ? "calInspectorSlideInUp 240ms cubic-bezier(0.22, 1, 0.36, 1)"
+              : undefined,
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -1437,9 +1502,10 @@ function EventDetailPanel({
     ? "종일"
     : `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   const endDate = event.endsAt ? new Date(event.endsAt) : null;
-  const timeEnd = endDate && !event.allDay
-    ? `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`
-    : null;
+  const timeEnd =
+    endDate && !event.allDay
+      ? `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`
+      : null;
   const dateLine = `${date.getMonth() + 1}월 ${date.getDate()}일 ${weekday}요일`;
 
   // 헤드라인 1줄 — 사용자 요청 예시 "D-3 · 글로컬 영어 I". 학생에게 1급 정보.
@@ -1460,10 +1526,7 @@ function EventDetailPanel({
       <article className="relative">
         {/* 우상단 액션 — float. 본문 padding 위에 absolute로 띄움 (Apple Mail Inspector 톤). */}
         <div className="absolute right-3 top-3 z-10 flex items-center gap-0.5">
-          <InspectorIconButton
-            ariaLabel="수정"
-            onClick={() => setEditing(true)}
-          >
+          <InspectorIconButton ariaLabel="수정" onClick={() => setEditing(true)}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
               <path
                 d="M9.5 2.5l2 2-7 7H2.5v-2l7-7z"
@@ -1604,14 +1667,47 @@ function EventDetailPanel({
             </p>
           )}
 
-          {/* AI 추정 표시 — 학생에게 정확성 신호 주는 안전판. tint 박스는 §10 라운드 16 이내, 단색. */}
-          {event.confidence != null && event.confidence < 0.8 && !event.confirmed && (
-            <p
-              className="mt-5 rounded-[8px] bg-[var(--color-tint-streak)] px-3 py-2 text-[12px] wght-560 text-[var(--color-tint-streak-ink)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              AI가 추정한 일정이에요. 한번 확인해 주세요
-            </p>
+          {(event.sourceMaterialId || event.sourceMaterialTitle || event.confidence != null) && (
+            <div className="mt-6 rounded-[12px] bg-[var(--color-apple-pearl)] px-4 py-4">
+              <p
+                className="text-[11.5px] wght-700 text-[var(--color-apple-muted)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                자료 근거
+              </p>
+              <dl className="mt-3 grid gap-2">
+                <EvidenceLine
+                  label="출처"
+                  value={
+                    event.sourceMaterialTitle ??
+                    (event.sourceMaterialId
+                      ? "자료에서 찾은 일정"
+                      : event.confirmed
+                        ? "직접 확인한 일정"
+                        : "직접 입력한 일정")
+                  }
+                />
+                {event.notes && <EvidenceLine label="메모" value={event.notes} />}
+                <EvidenceLine
+                  label="상태"
+                  value={
+                    event.confirmed
+                      ? "확인됨"
+                      : event.confidence != null && event.confidence < 0.85
+                        ? "확인 필요"
+                        : "검토 전"
+                  }
+                  tone={
+                    !event.confirmed
+                      ? "var(--color-tint-assign-ink)"
+                      : "var(--color-tint-class-ink)"
+                  }
+                />
+                {event.confidence != null && (
+                  <EvidenceLine label="확신도" value={`${Math.round(event.confidence * 100)}%`} />
+                )}
+              </dl>
+            </div>
           )}
         </div>
       </article>
@@ -1644,13 +1740,40 @@ function EventDetailPanel({
               적용 범위
             </span>
             <div className="flex gap-1.5">
-              <ScopeBtn label="이 회차만" active={deleteScope === "this"} onClick={() => setDeleteScope("this")} />
-              <ScopeBtn label="학기 전체" active={deleteScope === "all"} onClick={() => setDeleteScope("all")} />
+              <ScopeBtn
+                label="이 회차만"
+                active={deleteScope === "this"}
+                onClick={() => setDeleteScope("this")}
+              />
+              <ScopeBtn
+                label="학기 전체"
+                active={deleteScope === "all"}
+                onClick={() => setDeleteScope("all")}
+              />
             </div>
           </div>
         )}
       </ConfirmDialog>
     </>
+  );
+}
+
+function EvidenceLine({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="grid grid-cols-[48px_1fr] gap-3">
+      <dt
+        className="text-[11.5px] wght-560 text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        {label}
+      </dt>
+      <dd
+        className="min-w-0 text-[12.5px] leading-[1.45] wght-560 text-[var(--color-apple-ink)]"
+        style={{ letterSpacing: "-0.012em", color: tone }}
+      >
+        {value}
+      </dd>
+    </div>
   );
 }
 
@@ -1801,7 +1924,9 @@ function DayDetailPanel({
         className="mt-6 inline-flex items-center gap-1 text-[13px] wght-560 text-[var(--color-apple-action)] transition-opacity hover:opacity-70"
         style={{ letterSpacing: "-0.012em" }}
       >
-        <span aria-hidden className="text-[15px] leading-none">+</span>
+        <span aria-hidden className="text-[15px] leading-none">
+          +
+        </span>
         이 날에 일정 추가
       </button>
     </article>
@@ -1905,9 +2030,7 @@ function EventEditForm({
         return "";
       })();
       if (recurrence !== currentFreq) {
-        body.recurrence_rule = recurrence
-          ? `FREQ=${recurrence.toUpperCase()}`
-          : null;
+        body.recurrence_rule = recurrence ? `FREQ=${recurrence.toUpperCase()}` : null;
       }
       const currentReminder = event.reminderMinutes == null ? "" : String(event.reminderMinutes);
       if (reminder !== currentReminder) {
@@ -2127,9 +2250,7 @@ function EventEditForm({
             </span>
             <select
               value={recurrence}
-              onChange={(e) =>
-                setRecurrence(e.target.value as "" | "weekly" | "daily" | "monthly")
-              }
+              onChange={(e) => setRecurrence(e.target.value as "" | "weekly" | "daily" | "monthly")}
               aria-label="반복"
               className="appearance-none border-0 bg-transparent text-right text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none"
               style={{ letterSpacing: "-0.012em" }}
@@ -2217,8 +2338,16 @@ function EventEditForm({
         {isRecurringClass && (
           <div className="mt-4 flex flex-col gap-1.5">
             <div className="flex items-center gap-1.5">
-              <ScopeBtn label="이 회차만" active={scope === "this"} onClick={() => setScope("this")} />
-              <ScopeBtn label="학기 전체" active={scope === "all"} onClick={() => setScope("all")} />
+              <ScopeBtn
+                label="이 회차만"
+                active={scope === "this"}
+                onClick={() => setScope("this")}
+              />
+              <ScopeBtn
+                label="학기 전체"
+                active={scope === "all"}
+                onClick={() => setScope("all")}
+              />
             </div>
             <p className="text-[11px] wght-450 leading-[1.5] text-[var(--color-apple-muted)]">
               {scope === "all"
@@ -2258,7 +2387,7 @@ function EmptyState() {
         아직 일정이 없어요
       </p>
       <p className="mx-auto mt-3 max-w-[420px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
-        시간표·강의계획서를 올리면 강의·시험·과제·발표 일정이 자동으로 캘린더에 박혀요.
+        시간표·강의계획서를 올리면 강의·시험·과제·발표 일정 후보를 확인하고 캘린더에 넣을 수 있어요.
       </p>
       <a
         href="/dashboard/calendar/import"
@@ -2304,11 +2433,11 @@ function isoDate(d: Date): string {
  * (이전 버전의 kindTint/KIND_TINT 파스텔 배경은 인스펙터 재설계에서 닷·뱃지와 함께 제거됨.)
  */
 export const KIND_FALLBACK_COLOR: Record<EventView["kind"], string> = {
-  exam: "#e0445e",       // coral
+  exam: "#e0445e", // coral
   assignment: "#cca06b", // mustard
   presentation: "#7aa6d6", // cobalt
-  class: "#7fb38c",      // sage
-  etc: "#a08bc4",        // mauve
+  class: "#7fb38c", // sage
+  etc: "#a08bc4", // mauve
 };
 
 /**
@@ -2370,6 +2499,7 @@ function EventCreateForm({
   courses,
   prefillDateIso,
   prefillEndDateIso,
+  prefillHour,
   onClose,
   onCreated,
 }: {
@@ -2379,27 +2509,35 @@ function EventCreateForm({
   prefillDateIso?: string | null;
   /** 드래그로 잡은 종료 날짜 — start와 다르면 사용자가 범위 잡은 것 */
   prefillEndDateIso?: string | null;
+  /** 주/일 시간 그리드에서 빈 칸을 눌렀을 때의 KST 시각. */
+  prefillHour?: number | null;
   onClose: () => void;
   onCreated: () => void;
 }) {
   const defaultStart = useMemo(() => {
-    // prefill 있으면 그 날짜의 KST 21:00, 없으면 오늘 KST 21:00
+    // 월 뷰는 기본 21:00, 주/일 시간 칸은 클릭한 KST 시각으로 시작.
+    const hour = Math.min(23, Math.max(0, prefillHour ?? 21));
+    const pad = (n: number) => String(n).padStart(2, "0");
     if (prefillDateIso && /^\d{4}-\d{2}-\d{2}$/.test(prefillDateIso)) {
-      return `${prefillDateIso}T21:00`;
+      return `${prefillDateIso}T${pad(hour)}:00`;
     }
     const todayKstMs = Date.now() + 9 * 60 * 60 * 1000;
     const todayKst = new Date(todayKstMs);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${todayKst.getUTCFullYear()}-${pad(todayKst.getUTCMonth() + 1)}-${pad(todayKst.getUTCDate())}T21:00`;
-  }, [prefillDateIso]);
+    return `${todayKst.getUTCFullYear()}-${pad(todayKst.getUTCMonth() + 1)}-${pad(todayKst.getUTCDate())}T${pad(hour)}:00`;
+  }, [prefillDateIso, prefillHour]);
 
   const defaultEnd = useMemo(() => {
+    const pad = (n: number) => String(n).padStart(2, "0");
     if (prefillEndDateIso && /^\d{4}-\d{2}-\d{2}$/.test(prefillEndDateIso)) {
       // 드래그로 범위 잡은 경우 — 끝 날짜 22:00 (1시간)
       return `${prefillEndDateIso}T22:00`;
     }
+    if (prefillDateIso && prefillHour != null) {
+      const endHour = prefillHour >= 23 ? "23:59" : `${pad(Math.max(0, prefillHour + 1))}:00`;
+      return `${prefillDateIso}T${endHour}`;
+    }
     return "";
-  }, [prefillEndDateIso]);
+  }, [prefillDateIso, prefillEndDateIso, prefillHour]);
 
   // 기본 모드는 AI 입력. prefill (캘린더 셀 클릭 후 추가) 흐름은 수동 폼이 자연스러움.
   // 사용자가 명시한 날짜에 한 건 추가 의도가 명확하니 AI를 굳이 거치게 하지 않음.
@@ -2507,7 +2645,7 @@ function EventCreateForm({
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
-        setError(json.error ?? "생성 실패");
+        setError(json.error ?? "일정을 추가하지 못했어요.");
         return;
       }
       reset();
@@ -2554,277 +2692,277 @@ function EventCreateForm({
           onSwitchToManual={() => setMode("manual")}
         />
       ) : (
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5 px-5 py-5">
-        {/* 사용자 강요 (2026-05-23): "라벨 컬럼 만들지 마. Apple식 placeholder-only flowing form".
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5 px-5 py-5">
+          {/* 사용자 강요 (2026-05-23): "라벨 컬럼 만들지 마. Apple식 placeholder-only flowing form".
             Apple Calendar 새 이벤트 popover처럼 — 라벨 없이 placeholder만으로 의도 전달. */}
 
-        {/* 제목 — borderless display input. 가장 큰 위계. */}
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          autoFocus
-          maxLength={120}
-          placeholder="새 일정"
-          className="w-full border-0 bg-transparent p-0 text-[18px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
-          style={{ letterSpacing: "-0.018em" }}
-        />
+          {/* 제목 — borderless display input. 가장 큰 위계. */}
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            autoFocus
+            maxLength={120}
+            placeholder="새 일정"
+            className="w-full border-0 bg-transparent p-0 text-[18px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
+            style={{ letterSpacing: "-0.018em" }}
+          />
 
-        {/* 카테고리 — 좌측 점·동그라미 없음. 활성시 컬러 채워진 chip, 비활성은 hairline.
+          {/* 카테고리 — 좌측 점·동그라미 없음. 활성시 컬러 채워진 chip, 비활성은 hairline.
             Apple은 카테고리 별 색을 input 자체에 반영하지만 우리는 학생 톤으로 chip 유지. */}
-        <div className="flex flex-wrap gap-1.5">
-          {(
-            [
-              ["exam", "시험"],
-              ["assignment", "과제"],
-              ["presentation", "발표"],
-              ["etc", "기타"],
-            ] as const
-          ).map(([k, label]) => {
-            const c = KIND_FALLBACK_COLOR[k];
-            const isActive = kind === k;
-            return (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setKind(k)}
-                className={
-                  isActive
-                    ? "rounded-full px-3 py-[5px] text-[12px] wght-620 text-white transition-colors"
-                    : "rounded-full border border-[var(--color-apple-hairline)] bg-white px-3 py-[5px] text-[12px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-ink)]/30 hover:text-[var(--color-apple-ink)]"
-                }
-                style={isActive ? { backgroundColor: c } : undefined}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+          <div className="flex flex-wrap gap-1.5">
+            {(
+              [
+                ["exam", "시험"],
+                ["assignment", "과제"],
+                ["presentation", "발표"],
+                ["etc", "기타"],
+              ] as const
+            ).map(([k, label]) => {
+              const c = KIND_FALLBACK_COLOR[k];
+              const isActive = kind === k;
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setKind(k)}
+                  className={
+                    isActive
+                      ? "rounded-full px-3 py-[5px] text-[12px] wght-620 text-white transition-colors"
+                      : "rounded-full border border-[var(--color-apple-hairline)] bg-white px-3 py-[5px] text-[12px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-ink)]/30 hover:text-[var(--color-apple-ink)]"
+                  }
+                  style={isActive ? { backgroundColor: c } : undefined}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
 
-        {/* 플로잉 폼 — 라벨 컬럼 X. placeholder가 라벨 역할. 모든 input이 borderless underline.
+          {/* 플로잉 폼 — 라벨 컬럼 X. placeholder가 라벨 역할. 모든 input이 borderless underline.
             Apple Calendar의 "위치 또는 영상 통화 추가", "2026. 5. 19. ..." 식 placeholder-only. */}
-        <div className="flex flex-col">
-          {/* 종일 toggle — Apple Calendar의 "하루 종일" 체크 톤. 좌측 텍스트 + 우측 switch. */}
-          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
-            <span
-              className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              종일
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={allDay}
-              onClick={() => setAllDay((v) => !v)}
-              className={`relative inline-flex h-[20px] w-[32px] flex-shrink-0 items-center rounded-full transition-colors ${
-                allDay ? "bg-[var(--color-apple-action)]" : "bg-[var(--color-apple-hairline)]"
-              }`}
-            >
+          <div className="flex flex-col">
+            {/* 종일 toggle — Apple Calendar의 "하루 종일" 체크 톤. 좌측 텍스트 + 우측 switch. */}
+            <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
               <span
-                className={`inline-block h-[16px] w-[16px] transform rounded-full bg-white shadow transition-transform ${
-                  allDay ? "translate-x-[14px]" : "translate-x-[2px]"
-                }`}
-              />
-            </button>
-          </div>
-          {/* 시간 시작 */}
-          <div className="border-t border-[var(--color-apple-hairline-soft)]">
-            <input
-              type={allDay ? "date" : "datetime-local"}
-              value={allDay ? startsAt.slice(0, 10) : startsAt}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (allDay) setStartsAt(`${v}T00:00`);
-                else setStartsAt(v);
-              }}
-              required
-              aria-label="시작 시간"
-              className="w-full border-0 bg-transparent py-2.5 text-[13.5px] tabular-nums text-[var(--color-apple-ink)] outline-none"
-              style={{ letterSpacing: "-0.012em" }}
-            />
-          </div>
-          {/* 시간 종료 */}
-          <div className="border-t border-[var(--color-apple-hairline-soft)]">
-            <input
-              type={allDay ? "date" : "datetime-local"}
-              value={allDay ? endsAt.slice(0, 10) : endsAt}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (!v) {
-                  setEndsAt("");
-                  return;
-                }
-                if (allDay) setEndsAt(`${v}T23:59`);
-                else setEndsAt(v);
-              }}
-              aria-label="종료 시간"
-              placeholder="종료 시간 추가"
-              className="w-full border-0 bg-transparent py-2.5 text-[13.5px] tabular-nums text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
-              style={{ letterSpacing: "-0.012em" }}
-            />
-          </div>
-          {/* 위치 */}
-          <div className="border-t border-[var(--color-apple-hairline-soft)]">
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              maxLength={200}
-              placeholder="위치 — 강의실, 카페, 온라인 링크 등"
-              className="w-full border-0 bg-transparent py-2.5 text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
-              style={{ letterSpacing: "-0.012em" }}
-            />
-          </div>
-          {/* 반복 */}
-          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
-            <span
-              className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              반복
-            </span>
-            <select
-              value={recurrence}
-              onChange={(e) =>
-                setRecurrence(e.target.value as "" | "weekly" | "daily" | "monthly")
-              }
-              aria-label="반복"
-              className="appearance-none border-0 bg-transparent text-right text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              <option value="">안 함</option>
-              <option value="daily">매일</option>
-              <option value="weekly">매주</option>
-              <option value="monthly">매월</option>
-            </select>
-          </div>
-          {/* 알림 */}
-          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
-            <span
-              className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              알림
-            </span>
-            <select
-              value={reminder}
-              onChange={(e) => setReminder(e.target.value as "" | "0" | "10" | "60" | "1440")}
-              aria-label="알림"
-              className="appearance-none border-0 bg-transparent text-right text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              <option value="">없음</option>
-              <option value="0">정시에</option>
-              <option value="10">10분 전</option>
-              <option value="60">1시간 전</option>
-              <option value="1440">하루 전</option>
-            </select>
-          </div>
-          {/* 색상 — 자동(코스/카테고리 색) + 6개 팔레트. 좌측 점 X — 우측 정렬 swatch row. */}
-          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
-            <span
-              className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              색상
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setColor("")}
-                aria-label="자동 색상"
-                className={`relative inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border text-[9px] wght-560 transition-colors ${
-                  color === ""
-                    ? "border-[var(--color-apple-ink)] bg-white text-[var(--color-apple-ink)]"
-                    : "border-[var(--color-apple-hairline)] bg-white text-[var(--color-apple-muted)] hover:border-[var(--color-apple-ink)]/40"
-                }`}
-              >
-                자동
-              </button>
-              {COLOR_SWATCHES.map((c) => {
-                const active = color.toLowerCase() === c.toLowerCase();
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setColor(c)}
-                    aria-label={`색상 ${c}`}
-                    className={`inline-flex h-[18px] w-[18px] items-center justify-center rounded-full transition-all ${
-                      active ? "ring-2 ring-offset-1 ring-[var(--color-apple-ink)]" : ""
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
-                );
-              })}
-            </div>
-          </div>
-          {/* 강의 선택 */}
-          {courses.length > 0 && (
-            <div className="border-t border-[var(--color-apple-hairline-soft)]">
-              <select
-                value={courseId}
-                onChange={(e) => setCourseId(e.target.value)}
-                aria-label="강의"
-                className="w-full appearance-none border-0 bg-transparent py-2.5 text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none"
+                className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
                 style={{ letterSpacing: "-0.012em" }}
               >
-                <option value="">강의 선택 (선택사항)</option>
-                {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+                종일
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={allDay}
+                onClick={() => setAllDay((v) => !v)}
+                className={`relative inline-flex h-[20px] w-[32px] flex-shrink-0 items-center rounded-full transition-colors ${
+                  allDay ? "bg-[var(--color-apple-action)]" : "bg-[var(--color-apple-hairline)]"
+                }`}
+              >
+                <span
+                  className={`inline-block h-[16px] w-[16px] transform rounded-full bg-white shadow transition-transform ${
+                    allDay ? "translate-x-[14px]" : "translate-x-[2px]"
+                  }`}
+                />
+              </button>
+            </div>
+            {/* 시간 시작 */}
+            <div className="border-t border-[var(--color-apple-hairline-soft)]">
+              <input
+                type={allDay ? "date" : "datetime-local"}
+                value={allDay ? startsAt.slice(0, 10) : startsAt}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (allDay) setStartsAt(`${v}T00:00`);
+                  else setStartsAt(v);
+                }}
+                required
+                aria-label="시작 시간"
+                className="w-full border-0 bg-transparent py-2.5 text-[13.5px] tabular-nums text-[var(--color-apple-ink)] outline-none"
+                style={{ letterSpacing: "-0.012em" }}
+              />
+            </div>
+            {/* 시간 종료 */}
+            <div className="border-t border-[var(--color-apple-hairline-soft)]">
+              <input
+                type={allDay ? "date" : "datetime-local"}
+                value={allDay ? endsAt.slice(0, 10) : endsAt}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (!v) {
+                    setEndsAt("");
+                    return;
+                  }
+                  if (allDay) setEndsAt(`${v}T23:59`);
+                  else setEndsAt(v);
+                }}
+                aria-label="종료 시간"
+                placeholder="종료 시간 추가"
+                className="w-full border-0 bg-transparent py-2.5 text-[13.5px] tabular-nums text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
+                style={{ letterSpacing: "-0.012em" }}
+              />
+            </div>
+            {/* 위치 */}
+            <div className="border-t border-[var(--color-apple-hairline-soft)]">
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                maxLength={200}
+                placeholder="위치 — 강의실, 카페, 온라인 링크 등"
+                className="w-full border-0 bg-transparent py-2.5 text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
+                style={{ letterSpacing: "-0.012em" }}
+              />
+            </div>
+            {/* 반복 */}
+            <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
+              <span
+                className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                반복
+              </span>
+              <select
+                value={recurrence}
+                onChange={(e) =>
+                  setRecurrence(e.target.value as "" | "weekly" | "daily" | "monthly")
+                }
+                aria-label="반복"
+                className="appearance-none border-0 bg-transparent text-right text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                <option value="">안 함</option>
+                <option value="daily">매일</option>
+                <option value="weekly">매주</option>
+                <option value="monthly">매월</option>
               </select>
             </div>
-          )}
-          {/* 메모 */}
-          <div className="border-t border-[var(--color-apple-hairline-soft)]">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              maxLength={2000}
-              placeholder="메모 — 제출 형식·범위·페이지 수 등"
-              className="w-full resize-none border-0 bg-transparent py-2.5 text-[13.5px] leading-[1.5] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
-              style={{ letterSpacing: "-0.012em" }}
-            />
+            {/* 알림 */}
+            <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
+              <span
+                className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                알림
+              </span>
+              <select
+                value={reminder}
+                onChange={(e) => setReminder(e.target.value as "" | "0" | "10" | "60" | "1440")}
+                aria-label="알림"
+                className="appearance-none border-0 bg-transparent text-right text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                <option value="">없음</option>
+                <option value="0">정시에</option>
+                <option value="10">10분 전</option>
+                <option value="60">1시간 전</option>
+                <option value="1440">하루 전</option>
+              </select>
+            </div>
+            {/* 색상 — 자동(코스/카테고리 색) + 6개 팔레트. 좌측 점 X — 우측 정렬 swatch row. */}
+            <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
+              <span
+                className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                색상
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setColor("")}
+                  aria-label="자동 색상"
+                  className={`relative inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border text-[9px] wght-560 transition-colors ${
+                    color === ""
+                      ? "border-[var(--color-apple-ink)] bg-white text-[var(--color-apple-ink)]"
+                      : "border-[var(--color-apple-hairline)] bg-white text-[var(--color-apple-muted)] hover:border-[var(--color-apple-ink)]/40"
+                  }`}
+                >
+                  자동
+                </button>
+                {COLOR_SWATCHES.map((c) => {
+                  const active = color.toLowerCase() === c.toLowerCase();
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setColor(c)}
+                      aria-label={`색상 ${c}`}
+                      className={`inline-flex h-[18px] w-[18px] items-center justify-center rounded-full transition-all ${
+                        active ? "ring-2 ring-offset-1 ring-[var(--color-apple-ink)]" : ""
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+            {/* 강의 선택 */}
+            {courses.length > 0 && (
+              <div className="border-t border-[var(--color-apple-hairline-soft)]">
+                <select
+                  value={courseId}
+                  onChange={(e) => setCourseId(e.target.value)}
+                  aria-label="강의"
+                  className="w-full appearance-none border-0 bg-transparent py-2.5 text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none"
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  <option value="">강의 선택 (선택사항)</option>
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {/* 메모 */}
+            <div className="border-t border-[var(--color-apple-hairline-soft)]">
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                maxLength={2000}
+                placeholder="메모 — 제출 형식·범위·페이지 수 등"
+                className="w-full resize-none border-0 bg-transparent py-2.5 text-[13.5px] leading-[1.5] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
+                style={{ letterSpacing: "-0.012em" }}
+              />
+            </div>
           </div>
-        </div>
 
-        {error && (
-          <p className="rounded-[8px] bg-[var(--color-urgent-soft)] px-3 py-2 text-[12px] wght-560 text-[var(--color-urgent)]">
-            {error}
-          </p>
-        )}
+          {error && (
+            <p className="rounded-[8px] bg-[var(--color-urgent-soft)] px-3 py-2 text-[12px] wght-560 text-[var(--color-urgent)]">
+              {error}
+            </p>
+          )}
 
-        {/* 액션 — macOS Calendar 새 이벤트 popover 톤. 좌측 취소(텍스트 링크), 우측 "추가" pill 액션.
+          {/* 액션 — macOS Calendar 새 이벤트 popover 톤. 좌측 취소(텍스트 링크), 우측 "추가" pill 액션.
             사용자 피드백 (2026-05-23): 양쪽 모두 회색 박스라 어색 → 취소는 borderless 텍스트로, 추가는 그대로. */}
-        <div className="-mx-1 mt-1 flex items-center justify-between gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => {
-              if (busy) return;
-              reset();
-              onClose();
-            }}
-            disabled={busy}
-            className="rounded-[6px] px-2 py-1 text-[13px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)] disabled:opacity-50"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            취소
-          </button>
-          <button
-            type="submit"
-            disabled={busy || !kind || !title.trim()}
-            className="rounded-full bg-[var(--color-apple-action)] px-4 py-1.5 text-[13px] wght-620 text-white transition-opacity hover:bg-[var(--color-apple-action-hover)] disabled:opacity-40"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            {busy ? "추가 중…" : "추가"}
-          </button>
-        </div>
-      </form>
+          <div className="-mx-1 mt-1 flex items-center justify-between gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (busy) return;
+                reset();
+                onClose();
+              }}
+              disabled={busy}
+              className="rounded-[6px] px-2 py-1 text-[13px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)] disabled:opacity-50"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              disabled={busy || !kind || !title.trim()}
+              className="rounded-full bg-[var(--color-apple-action)] px-4 py-1.5 text-[13px] wght-620 text-white transition-opacity hover:bg-[var(--color-apple-action-hover)] disabled:opacity-40"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              {busy ? "추가 중…" : "추가"}
+            </button>
+          </div>
+        </form>
       )}
     </Modal>
   );

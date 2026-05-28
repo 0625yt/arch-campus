@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useJob } from "@/lib/hooks/use-job";
 
 type Phase = "upload" | "extracting" | "review" | "saving" | "done";
 
@@ -28,8 +29,14 @@ interface ExtractedEvent {
   confidence: number;
 }
 
-interface ExtractedResponse {
+interface StartResponse {
   ok: true;
+  materialId: string;
+  jobId: string;
+  status: "pending";
+}
+
+interface ExtractedResponse {
   materialId: string;
   courseId: string;
   course: ExtractedCourse;
@@ -68,8 +75,12 @@ export function SyllabusImportFlow() {
   const [extracted, setExtracted] = useState<ExtractedResponse | null>(null);
   const [editing, setEditing] = useState<ExtractedEvent[]>([]);
   const [savedCount, setSavedCount] = useState(0);
+  const [skippedClassOverlap, setSkippedClassOverlap] = useState(0);
+  const [skippedDuplicates, setSkippedDuplicates] = useState(0);
   const [savedCourseName, setSavedCourseName] = useState<string | null>(null);
   const [keepIds, setKeepIds] = useState<Set<number>>(new Set());
+  const [jobId, setJobId] = useState<string | null>(null);
+  const { job, error: jobPollError } = useJob(jobId);
 
   async function handleUpload() {
     if (!file) return;
@@ -81,21 +92,48 @@ export function SyllabusImportFlow() {
 
     try {
       const res = await fetch("/api/syllabus", { method: "POST", body: form });
-      const json = (await res.json()) as ExtractedResponse | ApiErr;
+      const json = (await res.json()) as StartResponse | ApiErr;
       if (!res.ok || !json.ok) {
-        setError(("error" in json && json.error) || "강의계획서 파싱 실패");
+        setError(humanizeImportError(("error" in json && json.error) || "강의계획서 분석 실패"));
         setPhase("upload");
         return;
       }
-      setExtracted(json);
-      setEditing(json.events);
-      setKeepIds(new Set(json.events.map((_, i) => i)));
-      setPhase("review");
+      setExtracted(null);
+      setEditing([]);
+      setKeepIds(new Set());
+      setJobId(json.jobId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "네트워크 오류");
+      setError(humanizeImportError(e instanceof Error ? e.message : "네트워크 오류"));
       setPhase("upload");
     }
   }
+
+  useEffect(() => {
+    if (phase !== "extracting") return;
+    if (jobPollError) {
+      setError(humanizeImportError(jobPollError));
+      setPhase("upload");
+      return;
+    }
+    if (!job) return;
+    if (job.status === "error") {
+      setError(humanizeImportError(job.errorMessage ?? "강의계획서 분석 실패"));
+      setPhase("upload");
+      return;
+    }
+    if (job.status !== "done") return;
+
+    const payload = (job.result as { extracted?: ExtractedResponse } | null)?.extracted;
+    if (!payload) {
+      setError("강의계획서 결과를 불러오지 못했어요");
+      setPhase("upload");
+      return;
+    }
+    setExtracted(payload);
+    setEditing(payload.events);
+    setKeepIds(new Set(payload.events.map((_, i) => i)));
+    setPhase("review");
+  }, [job, jobPollError, phase]);
 
   async function handleConfirm() {
     if (!extracted) return;
@@ -113,13 +151,21 @@ export function SyllabusImportFlow() {
           events: eventsToSave,
         }),
       });
-      const json = (await res.json()) as { ok: boolean; inserted?: number; error?: string };
+      const json = (await res.json()) as {
+        ok: boolean;
+        inserted?: number;
+        skippedClassOverlap?: number;
+        skippedDuplicates?: number;
+        error?: string;
+      };
       if (!res.ok || !json.ok) {
         setError(json.error ?? "일정 저장 실패");
         setPhase("review");
         return;
       }
       setSavedCount(json.inserted ?? eventsToSave.length);
+      setSkippedClassOverlap(json.skippedClassOverlap ?? 0);
+      setSkippedDuplicates(json.skippedDuplicates ?? 0);
       setSavedCourseName(extracted.course?.name ?? null);
       setPhase("done");
       // 자동 redirect 제거 — 사용자가 결과를 한 번 확인하고 본인이 이동.
@@ -144,6 +190,11 @@ export function SyllabusImportFlow() {
     setEditing((prev) => prev.map((e, i) => (i === idx ? { ...e, ...patch } : e)));
   }
 
+  function alignEventsToCourseWeekday() {
+    if (!extracted) return;
+    setEditing((prev) => alignEventsToNearestCourseDay(prev, extracted.course, keepIds));
+  }
+
   return (
     <>
       <ProgressBar phase={phase} />
@@ -166,6 +217,7 @@ export function SyllabusImportFlow() {
           keepIds={keepIds}
           onToggle={toggleKeep}
           onUpdate={updateEvent}
+          onAlignCourseDay={alignEventsToCourseWeekday}
           onConfirm={handleConfirm}
         />
       )}
@@ -174,6 +226,8 @@ export function SyllabusImportFlow() {
       {phase === "done" && (
         <DoneCard
           insertedEvents={savedCount}
+          skippedClassOverlap={skippedClassOverlap}
+          skippedDuplicates={skippedDuplicates}
           courseName={savedCourseName}
           onGoCalendar={() => router.push("/dashboard/calendar")}
         />
@@ -191,12 +245,7 @@ function ProgressBar({ phase }: { phase: Phase }) {
     { id: "done", label: "캘린더 등록" },
   ] as const;
 
-  const currentIdx =
-    phase === "upload" || phase === "extracting"
-      ? 0
-      : phase === "review"
-        ? 1
-        : 2;
+  const currentIdx = phase === "upload" || phase === "extracting" ? 0 : phase === "review" ? 1 : 2;
 
   return (
     <div className="mt-10 fade-up fade-up-2 sm:mt-12">
@@ -283,7 +332,7 @@ function UploadCard({
           className="mt-3 text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)] sm:text-[15px]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          PDF, HWP, HWPX, DOCX, 이미지 다 받아요. 본문에서 시험·과제·발표 일정을 자동으로 뽑아드려요.
+          PDF, HWP, HWPX, DOCX, 이미지 다 받아요. 본문에서 시험·과제·발표 일정 후보를 정리해드려요.
           학기는 따로 입력할 필요 없어요.
         </p>
 
@@ -366,6 +415,7 @@ function ReviewSection({
   keepIds,
   onToggle,
   onUpdate,
+  onAlignCourseDay,
   onConfirm,
 }: {
   extracted: ExtractedResponse;
@@ -373,9 +423,14 @@ function ReviewSection({
   keepIds: Set<number>;
   onToggle: (idx: number) => void;
   onUpdate: (idx: number, patch: Partial<ExtractedEvent>) => void;
+  onAlignCourseDay: () => void;
   onConfirm: () => void;
 }) {
   const grouped = useMemo(() => groupEventsByMonth(editing), [editing]);
+  const weekdayMismatches = useMemo(
+    () => findWeekdayMismatches(editing, extracted.course, keepIds),
+    [editing, extracted.course, keepIds],
+  );
 
   return (
     <div className="mt-10 fade-up fade-up-3 sm:mt-12">
@@ -387,7 +442,7 @@ function ReviewSection({
             className="text-[22px] wght-620 text-[var(--color-apple-ink)] sm:text-[24px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            추출된 일정.
+            찾은 일정.
           </h2>
           <span
             className="text-[12px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
@@ -401,8 +456,30 @@ function ReviewSection({
           className="mt-3 text-[13.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          잘못 뽑힌 건 체크 풀고, 날짜·제목은 클릭해서 수정할 수 있어요.
+          잘못 잡힌 건 체크 풀고, 날짜·제목은 클릭해서 수정할 수 있어요.
         </p>
+
+        {weekdayMismatches.length > 0 && (
+          <div className="mt-5 rounded-[14px] border border-[var(--color-tint-assign-ink)]/15 bg-[var(--color-tint-assign)] px-5 py-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+            <div>
+              <p className="text-[13px] wght-700 text-[var(--color-tint-assign-ink)]">
+                강의 요일과 다른 일정이 {weekdayMismatches.length}개 있어요.
+              </p>
+              <p className="mt-1 text-[12.5px] leading-[1.55] wght-450 text-[var(--color-tint-assign-ink)]/80">
+                주차표를 읽을 때 학기 시작일로 밀린 후보일 수 있어요. 저장하기 전에 강의 요일로 맞출
+                수 있습니다.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onAlignCourseDay}
+              className="mt-3 inline-flex h-9 shrink-0 items-center rounded-full bg-white px-4 text-[12.5px] wght-700 text-[var(--color-tint-assign-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-transform active:scale-[0.98] sm:mt-0"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              강의 요일로 맞추기
+            </button>
+          </div>
+        )}
 
         {editing.length === 0 ? (
           <EmptyEvents />
@@ -429,8 +506,16 @@ function ReviewSection({
                       <EventRow
                         event={event}
                         kept={keepIds.has(idx)}
+                        weekdayMismatch={getWeekdayMismatch(event, extracted.course)}
                         onToggle={() => onToggle(idx)}
                         onUpdate={(patch) => onUpdate(idx, patch)}
+                        onAlignCourseDay={() => {
+                          const aligned = alignSingleEventToNearestCourseDay(
+                            event,
+                            extracted.course,
+                          );
+                          if (aligned) onUpdate(idx, aligned);
+                        }}
                       />
                     </li>
                   ))}
@@ -441,10 +526,7 @@ function ReviewSection({
         )}
       </section>
 
-      <ActionFooter
-        keepCount={keepIds.size}
-        onConfirm={onConfirm}
-      />
+      <ActionFooter keepCount={keepIds.size} onConfirm={onConfirm} />
     </div>
   );
 }
@@ -505,13 +587,17 @@ function CourseCard({ course }: { course: ExtractedCourse }) {
 function EventRow({
   event,
   kept,
+  weekdayMismatch,
   onToggle,
   onUpdate,
+  onAlignCourseDay,
 }: {
   event: ExtractedEvent;
   kept: boolean;
+  weekdayMismatch: WeekdayMismatch | null;
   onToggle: () => void;
   onUpdate: (patch: Partial<ExtractedEvent>) => void;
+  onAlignCourseDay: () => void;
 }) {
   return (
     <div
@@ -571,6 +657,21 @@ function EventRow({
             {event.notes}
           </p>
         )}
+        {kept && weekdayMismatch && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-[10px] bg-[var(--color-tint-assign)] px-3 py-2">
+            <span className="text-[11.5px] wght-560 text-[var(--color-tint-assign-ink)]">
+              강의는 {weekdayMismatch.expected}요일인데, 이 일정은 {weekdayMismatch.actual}
+              요일이에요.
+            </span>
+            <button
+              type="button"
+              onClick={onAlignCourseDay}
+              className="rounded-full bg-white px-2.5 py-1 text-[11px] wght-700 text-[var(--color-tint-assign-ink)]"
+            >
+              맞추기
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="self-start">
@@ -581,8 +682,7 @@ function EventRow({
 }
 
 function ConfidenceBadge({ value }: { value: number }) {
-  const tone =
-    value >= 0.8 ? "high" : value >= 0.5 ? "mid" : "low";
+  const tone = value >= 0.8 ? "high" : value >= 0.5 ? "mid" : "low";
   const cls =
     tone === "high"
       ? "text-[var(--color-apple-success)]"
@@ -623,13 +723,7 @@ function EmptyEvents() {
   );
 }
 
-function ActionFooter({
-  keepCount,
-  onConfirm,
-}: {
-  keepCount: number;
-  onConfirm: () => void;
-}) {
+function ActionFooter({ keepCount, onConfirm }: { keepCount: number; onConfirm: () => void }) {
   return (
     <div className="sticky bottom-4 mt-10 flex gap-3 sm:bottom-6">
       <Link
@@ -676,13 +770,18 @@ function SavingCard() {
 
 function DoneCard({
   insertedEvents,
+  skippedClassOverlap,
+  skippedDuplicates,
   courseName,
   onGoCalendar,
 }: {
   insertedEvents: number;
+  skippedClassOverlap: number;
+  skippedDuplicates: number;
   courseName: string | null;
   onGoCalendar: () => void;
 }) {
+  const skippedTotal = skippedClassOverlap + skippedDuplicates;
   return (
     <div
       className="relative mt-10 overflow-hidden rounded-[18px] bg-white p-10 text-center fade-up fade-up-3 sm:p-14"
@@ -708,9 +807,23 @@ function DoneCard({
         style={{ letterSpacing: "-0.022em" }}
       >
         {courseName ? `"${courseName}"` : "강의"}에 일정{" "}
-        <span className="wght-620 tabular-nums text-[var(--color-apple-ink)]">{insertedEvents}</span>개를
-        캘린더에 박았어요.
+        <span className="wght-620 tabular-nums text-[var(--color-apple-ink)]">
+          {insertedEvents}
+        </span>
+        개를 캘린더에 넣었어요.
       </p>
+      {skippedTotal > 0 && (
+        <p
+          className="relative mt-2 text-[12.5px] wght-560 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          중복 정리로 {skippedTotal}개는 자동으로 제외했어요
+          {skippedClassOverlap > 0 ? ` (수업 중복 ${skippedClassOverlap}개` : ""}
+          {skippedClassOverlap > 0 && skippedDuplicates > 0 ? ", " : ""}
+          {skippedDuplicates > 0 ? `유사 일정 ${skippedDuplicates}개` : ""}
+          {skippedClassOverlap > 0 ? ")" : ""}.
+        </p>
+      )}
 
       <div className="relative mt-7 flex flex-wrap items-center justify-center gap-2">
         <button
@@ -735,6 +848,152 @@ function DoneCard({
 }
 
 /* ─────────── 헬퍼 ─────────── */
+
+interface WeekdayMismatch {
+  expected: string;
+  actual: string;
+}
+
+function findWeekdayMismatches(
+  events: ExtractedEvent[],
+  course: ExtractedCourse,
+  keepIds: Set<number>,
+): Array<{ idx: number; mismatch: WeekdayMismatch }> {
+  return events
+    .map((event, idx) => ({
+      idx,
+      mismatch: keepIds.has(idx) ? getWeekdayMismatch(event, course) : null,
+    }))
+    .filter((item): item is { idx: number; mismatch: WeekdayMismatch } => item.mismatch !== null);
+}
+
+function getWeekdayMismatch(
+  event: ExtractedEvent,
+  course: ExtractedCourse,
+): WeekdayMismatch | null {
+  if (!shouldCheckAgainstCourseWeekday(event)) return null;
+  const courseWeekdays = extractCourseWeekdayIndexes(course.schedule ?? []);
+  if (courseWeekdays.length === 0) return null;
+  const eventWeekday = weekdayIndexOfIso(event.startsAt);
+  if (eventWeekday == null || courseWeekdays.includes(eventWeekday)) return null;
+  return {
+    expected: courseWeekdays.map((day) => WEEKDAY_KO[day]).join("/"),
+    actual: WEEKDAY_KO[eventWeekday],
+  };
+}
+
+function alignEventsToNearestCourseDay(
+  events: ExtractedEvent[],
+  course: ExtractedCourse,
+  keepIds: Set<number>,
+): ExtractedEvent[] {
+  return events.map((event, idx) => {
+    if (!keepIds.has(idx)) return event;
+    const patch = alignSingleEventToNearestCourseDay(event, course);
+    return patch ? { ...event, ...patch } : event;
+  });
+}
+
+function alignSingleEventToNearestCourseDay(
+  event: ExtractedEvent,
+  course: ExtractedCourse,
+): Partial<ExtractedEvent> | null {
+  const courseWeekdays = extractCourseWeekdayIndexes(course.schedule ?? []);
+  if (courseWeekdays.length === 0 || !shouldCheckAgainstCourseWeekday(event)) return null;
+  const eventWeekday = weekdayIndexOfIso(event.startsAt);
+  if (eventWeekday == null || courseWeekdays.includes(eventWeekday)) return null;
+  const target = nearestWeekday(eventWeekday, courseWeekdays);
+  const delta = nearestWeekdayDelta(eventWeekday, target);
+  const startsAt = shiftIsoDatePart(event.startsAt, delta);
+  if (!startsAt) return null;
+  const endsAt = event.endsAt ? shiftIsoDatePart(event.endsAt, delta) : event.endsAt;
+  const warning = `강의 요일(${WEEKDAY_KO[target]}) 기준으로 날짜를 맞췄어요.`;
+  return {
+    startsAt,
+    endsAt,
+    notes: event.notes?.trim() ? `${event.notes}\n${warning}` : warning,
+    confidence: Math.max(event.confidence, 0.8),
+  };
+}
+
+function shouldCheckAgainstCourseWeekday(event: ExtractedEvent): boolean {
+  const text = `${event.title} ${event.notes ?? ""}`;
+  if (/(제출|마감|LMS|입력|업로드|온라인|까지|deadline|due)/i.test(text)) return false;
+  return (
+    event.kind === "class" ||
+    event.kind === "exam" ||
+    event.kind === "presentation" ||
+    /(시험|발표|퀴즈|워크북|Workbook|수업|Unit)/i.test(text)
+  );
+}
+
+function extractCourseWeekdayIndexes(schedule: string[]): number[] {
+  const out = new Set<number>();
+  for (const item of schedule) {
+    for (const [label, index] of Object.entries(WEEKDAY_TO_INDEX)) {
+      const re = new RegExp(`(^|[^가-힣])${label}([^가-힣]|$)`);
+      if (re.test(item)) out.add(index);
+    }
+  }
+  return Array.from(out).sort((a, b) => a - b);
+}
+
+function weekdayIndexOfIso(iso: string): number | null {
+  const dateKey = isoToKstDateKey(iso);
+  if (!dateKey) return null;
+  const [year, month, day] = dateKey.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+function isoToKstDateKey(iso: string): string | null {
+  if (!iso) return null;
+  if (!iso.includes("T")) return /^\d{4}-\d{2}-\d{2}/.test(iso) ? iso.slice(0, 10) : null;
+  const date = new Date(iso);
+  if (!Number.isFinite(date.getTime())) return null;
+  const kst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, "0")}-${String(kst.getUTCDate()).padStart(2, "0")}`;
+}
+
+function nearestWeekday(current: number, targets: number[]): number {
+  return targets
+    .map((target) => ({ target, distance: Math.abs(nearestWeekdayDelta(current, target)) }))
+    .sort((a, b) => a.distance - b.distance)[0].target;
+}
+
+function nearestWeekdayDelta(current: number, target: number): number {
+  let delta = target - current;
+  if (delta > 3) delta -= 7;
+  if (delta < -3) delta += 7;
+  return delta;
+}
+
+function shiftIsoDatePart(iso: string, deltaDays: number): string | null {
+  const dateKey = isoToKstDateKey(iso);
+  if (!dateKey) return null;
+  const shifted = shiftDateKey(dateKey, deltaDays);
+  if (!iso.includes("T")) return shifted;
+  return `${shifted}${iso.slice(10)}`;
+}
+
+function shiftDateKey(dateKey: string, deltaDays: number): string {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + deltaDays);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+const WEEKDAY_TO_INDEX: Record<string, number> = {
+  일: 0,
+  월: 1,
+  화: 2,
+  수: 3,
+  목: 4,
+  금: 5,
+  토: 6,
+};
+
+const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -774,4 +1033,17 @@ function groupEventsByMonth(events: ExtractedEvent[]) {
   return Array.from(map.entries())
     .sort(([a], [b]) => (a > b ? 1 : -1))
     .map(([month, events]) => ({ month, events }));
+}
+
+function humanizeImportError(message: string): string {
+  if (message.includes("AI 호출 실패") || message.includes("자료 처리 실패")) {
+    return "강의계획서를 읽는 중 연결이 끊겼어요. 잠시 후 다시 시도하거나, 텍스트 선택이 되는 PDF/DOCX 파일로 올려주세요.";
+  }
+  if (message.includes("Too Large") || message.includes("413")) {
+    return "파일이 너무 커서 한 번에 읽지 못했어요. 강의계획서만 따로 저장한 PDF/DOCX로 다시 올려주세요.";
+  }
+  if (message.includes("rate") || message.includes("429")) {
+    return "요청이 잠깐 몰렸어요. 1분 뒤에 다시 시도해주세요.";
+  }
+  return message;
 }

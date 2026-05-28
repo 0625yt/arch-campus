@@ -67,9 +67,7 @@ export type PresentationResult =
       error: string;
     };
 
-export async function runPresentation(
-  input: PresentationInput,
-): Promise<PresentationResult> {
+export async function runPresentation(input: PresentationInput): Promise<PresentationResult> {
   // 입력 가드
   if (!input.topic.trim()) {
     return { ok: false, stage: "input", error: "발표 주제가 비어 있어요." };
@@ -105,7 +103,11 @@ export async function runPresentation(
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });
-    return { ok: false, stage: "ai", error: "AI 호출 실패" };
+    return {
+      ok: false,
+      stage: "ai",
+      error: "발표 흐름을 정리하지 못했어요. 잠시 후 다시 시도해주세요.",
+    };
   }
 
   let output: PresentationOutputT;
@@ -124,7 +126,7 @@ export async function runPresentation(
     return {
       ok: false,
       stage: "validation",
-      error: "AI 출력이 형식에 안 맞아요. 다시 시도해주세요.",
+      error: "발표 자료 형식이 맞지 않았어요. 다시 시도해주세요.",
     };
   }
 
@@ -325,8 +327,7 @@ function validateOutput(
  */
 function extractCitedFragment(line: string): string | null {
   // " 또는 “ … ” 안의 12자 이상 텍스트만
-  const match =
-    line.match(/[""]([^""]{12,200})[""]/) ?? line.match(/"([^"]{12,200})"/);
+  const match = line.match(/[""]([^""]{12,200})[""]/) ?? line.match(/"([^"]{12,200})"/);
   if (!match) return null;
   return match[1].trim();
 }

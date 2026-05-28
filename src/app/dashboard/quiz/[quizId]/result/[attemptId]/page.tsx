@@ -1,5 +1,5 @@
-import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getAttemptSummary } from "@/lib/data/attempts";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -40,6 +40,7 @@ export default async function AttemptReviewPage({
 
   const questions: ResultQuestion[] = summary.questions.map((q) => ({
     id: q.id,
+    kind: q.kind,
     topic: q.topic,
     stem: q.stem,
     choices: q.choices,
@@ -49,6 +50,7 @@ export default async function AttemptReviewPage({
     explanation: q.explanation,
     evidence: q.evidence,
     evidencePage: q.evidencePage,
+    gradingNote: q.gradingNote,
   }));
 
   const ratio = summary.total > 0 ? Math.round((summary.score / summary.total) * 100) : 0;
@@ -87,7 +89,8 @@ export default async function AttemptReviewPage({
           </p>
         </div>
 
-        {summary.questions.length === 0 || questions.every((q) => q.submitted === null && !q.correct) ? (
+        {summary.questions.length === 0 ||
+        questions.every((q) => q.submitted === null && !q.correct) ? (
           <LegacyAttemptNotice />
         ) : (
           <QuizResultView
@@ -100,6 +103,7 @@ export default async function AttemptReviewPage({
             courseName={courseName}
             quizId={summary.quizId}
             showHero={false}
+            durationLabel={summary.durationMs ? formatDuration(summary.durationMs) : undefined}
           />
         )}
       </div>
@@ -110,14 +114,12 @@ export default async function AttemptReviewPage({
 function LegacyAttemptNotice() {
   return (
     <section className="rounded-[14px] bg-white p-8 text-center fade-up">
-      <p
-        className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-      >
+      <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
         다시보기를 보여줄 수 없어요
       </p>
       <p className="mt-3 text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-ink)]">
-        2026-05-13 이전 풀이는 채점 결과가 따로 저장되지 않아 복원할 수 없어요. 이 퀴즈를 다시
-        풀면 다음부터는 다시보기와 오답 복습이 동작합니다.
+        2026-05-13 이전 풀이는 채점 결과가 따로 저장되지 않아 복원할 수 없어요. 이 퀴즈를 다시 풀면
+        다음부터는 다시보기와 오답 복습이 동작합니다.
       </p>
     </section>
   );
