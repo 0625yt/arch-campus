@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import {
-  type SummaryStyle,
+  MAX_STYLES_PER_REQUEST,
   STYLE_LABEL,
   STYLE_ORDER,
-  MAX_STYLES_PER_REQUEST,
+  type SummaryStyle,
 } from "@/lib/material-policy";
 
 /**
@@ -29,9 +29,7 @@ export function SummaryStylePicker({
   defaultStyles: SummaryStyle[];
   onChange?: (selected: SummaryStyle[]) => void;
 }) {
-  const [selected, setSelected] = useState<Set<SummaryStyle>>(
-    () => new Set(defaultStyles),
-  );
+  const [selected, setSelected] = useState<Set<SummaryStyle>>(() => new Set(defaultStyles));
 
   // 부모가 새 default 보내면 동기화 (다른 자료로 이동·재요약 케이스)
   useEffect(() => {

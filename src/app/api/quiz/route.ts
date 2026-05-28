@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { parseDocument, ParserRejectedError } from "@/lib/parsers";
+import { ParserRejectedError, parseDocument } from "@/lib/parsers";
 import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
-import { runQuizGeneration, type Difficulty } from "@/lib/services/quiz";
-import { getAdminSupabase } from "@/lib/supabase/admin";
+import { type Difficulty, runQuizGeneration } from "@/lib/services/quiz";
 import { storeMaterialFile } from "@/lib/storage";
+import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -46,7 +46,9 @@ interface QuizResponseErr {
  * 신규 파일 업로드 + 첫 퀴즈. 라우트의 책임은 인증 + 파일 → materials 행까지.
  * 모델 호출·검증·저장은 lib/services/quiz.ts에 위임.
  */
-export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | QuizResponseErr | RateLimitErrBody>> {
+export async function POST(
+  req: Request,
+): Promise<NextResponse<QuizResponseOk | QuizResponseErr | RateLimitErrBody>> {
   let ownerId: string;
   try {
     ownerId = await getOwnerId();
@@ -82,20 +84,27 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
   const titleField = (form.get("title") ?? "") as string;
   const typeField = (form.get("type") ?? "lecture") as string;
   const difficulty = (form.get("difficulty") ?? "보통") as Difficulty;
+  // 1~30 범위로 clamp — UI chip(1·3·5·10·20·30) + 자유 입력 모두 커버
   const requestedCount = Math.min(
     Math.max(parseInt(String(form.get("count") ?? "5"), 10) || 5, 1),
-    10,
+    30,
   );
   // kinds는 콤마 구분, scope는 자유 텍스트. 화이트리스트 검증 필수 — prompt injection 방지
   const KIND_ALLOWED = ["multiple-choice", "short-answer", "essay"] as const;
   const kinds = String(form.get("kinds") ?? "")
     .split(",")
     .map((s) => s.trim())
-    .filter((s): s is (typeof KIND_ALLOWED)[number] => (KIND_ALLOWED as readonly string[]).includes(s))
+    .filter((s): s is (typeof KIND_ALLOWED)[number] =>
+      (KIND_ALLOWED as readonly string[]).includes(s),
+    )
     .slice(0, 3);
-  const scope = String(form.get("scope") ?? "").trim().slice(0, 200);
+  const scope = String(form.get("scope") ?? "")
+    .trim()
+    .slice(0, 200);
   // 의도 조정 한 줄 요청 — scope(범위)와 분리. 120자 cap. 자료 밖 생성은 프롬프트 가드가 거부.
-  const intentNote = String(form.get("intentNote") ?? "").trim().slice(0, 120);
+  const intentNote = String(form.get("intentNote") ?? "")
+    .trim()
+    .slice(0, 120);
 
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ ok: false, error: "file 필드가 비어있어요" }, { status: 400 });

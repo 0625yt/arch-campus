@@ -107,10 +107,7 @@ export function useActiveJobs() {
         // 서버에 잡이 도착했으면 같은 materialId의 optimistic은 자동 제거
         if (j.ok) {
           for (const o of optimisticPool) {
-            if (
-              o.materialId &&
-              j.jobs.some((sv) => sv.materialId === o.materialId)
-            ) {
+            if (o.materialId && j.jobs.some((sv) => sv.materialId === o.materialId)) {
               removeOptimisticJob(o.id);
             }
           }

@@ -1,11 +1,12 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
-import { parseDocument, ParserRejectedError } from "@/lib/parsers";
-import { runQuizGeneration, type Difficulty } from "@/lib/services/quiz";
-import { runSummarize } from "@/lib/services/summarize";
 import { convertToPdf } from "@/lib/cloudconvert";
+import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import { ParserRejectedError, parseDocument } from "@/lib/parsers";
+import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
+import { type Difficulty, runQuizGeneration } from "@/lib/services/quiz";
+import { runSummarize } from "@/lib/services/summarize";
 import { createSignedReadUrl, storeMaterialFile } from "@/lib/storage";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
@@ -37,7 +38,8 @@ const MetaSchema = z.object({
   title: z.string().max(200).optional(),
   type: z.enum(ALLOWED_TYPES).optional(),
   difficulty: z.enum(["쉬움", "보통", "어려움"]).optional(),
-  count: z.coerce.number().int().min(1).max(10).optional(),
+  // 자료 업로드 직후 자동 생성 — 사용자가 명시 안 하면 10(=default). 최대 30.
+  count: z.coerce.number().int().min(1).max(30).optional(),
 });
 
 /**
@@ -61,7 +63,9 @@ const MetaSchema = z.object({
  * 기존 /api/summarize·/api/quiz는 single-purpose 호출이 필요한 케이스를 위해 유지.
  * 새 업로드 동선은 이 라우트 하나로 통일.
  */
-export async function POST(req: Request): Promise<NextResponse<PipelineOk | PipelineErr>> {
+export async function POST(
+  req: Request,
+): Promise<NextResponse<PipelineOk | PipelineErr | RateLimitErrBody>> {
   let ownerId: string;
   try {
     ownerId = await getOwnerId();
@@ -71,6 +75,13 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
     }
     throw e;
   }
+
+  // ★ 한 번 호출이 Sonnet × 2 (summarize ~ $0.02 + quiz ~ $0.03) 트리거 — 무가드면 비용 무한 누적.
+  //   같은 ownerId 반복 호출을 upload 버킷(30회/시간)과 ai 버킷(6회/분)로 막는다.
+  const uploadBlock = await guardRateLimit("upload", ownerId);
+  if (uploadBlock) return uploadBlock;
+  const aiBlock = await guardRateLimit("ai", ownerId);
+  if (aiBlock) return aiBlock;
 
   let form: FormData;
   try {
@@ -367,12 +378,10 @@ export async function runConvertPdfJob(opts: {
 
     const pdfPath = `${opts.ownerId}/${opts.materialId}.pdf`;
     const admin = getAdminSupabase();
-    const { error: putErr } = await admin.storage
-      .from("materials")
-      .upload(pdfPath, pdfBytes, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
+    const { error: putErr } = await admin.storage.from("materials").upload(pdfPath, pdfBytes, {
+      contentType: "application/pdf",
+      upsert: true,
+    });
     if (putErr) throw new Error(`PDF 저장 실패: ${putErr.message}`);
 
     const { error: updErr } = await admin

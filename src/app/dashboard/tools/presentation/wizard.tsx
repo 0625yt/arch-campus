@@ -238,7 +238,10 @@ function StepTopic({
 }) {
   return (
     <>
-      <StepQuestion question="어떤 주제로 발표하나요?" hint="한 줄로. 예: 'BST의 균형 유지 알고리즘'" />
+      <StepQuestion
+        question="어떤 주제로 발표하나요?"
+        hint="한 줄로. 예: 'BST의 균형 유지 알고리즘'"
+      />
       <input
         ref={inputRef}
         type="text"
@@ -540,8 +543,8 @@ function StepMaterials({
             className="text-[13px] wght-450 leading-[1.6] text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            업로드된 자료가 아직 없어요. 자료 없이도 발표 구조는 짤 수 있지만,
-            인용 슬라이드가 빠집니다. 자료 올리고 싶으면{" "}
+            업로드된 자료가 아직 없어요. 자료 없이도 발표 구조는 짤 수 있지만, 인용 슬라이드가
+            빠집니다. 자료 올리고 싶으면{" "}
             <a
               href="/dashboard/study"
               className="wght-560 text-[var(--color-apple-action)] hover:underline"
@@ -568,9 +571,7 @@ function StepMaterials({
       <ActionRow>
         <SecondaryButton onClick={onBack}>← 이전</SecondaryButton>
         <PrimaryButton onClick={onSubmit}>
-          {selectedIds.size > 0
-            ? `${selectedIds.size}개 자료로 만들기 →`
-            : "자료 없이 만들기 →"}
+          {selectedIds.size > 0 ? `${selectedIds.size}개 자료로 만들기 →` : "자료 없이 만들기 →"}
         </PrimaryButton>
       </ActionRow>
     </>
@@ -733,9 +734,7 @@ export function PresentationResultCard({
                     {formatSec(s.estimatedSec)}
                   </span>
                 </div>
-                <p
-                  className="mt-1 text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]"
-                >
+                <p className="mt-1 text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]">
                   {s.purpose}
                 </p>
                 <ul
@@ -791,9 +790,7 @@ export function PresentationResultCard({
                   {q.question}
                 </h4>
               </div>
-              <p
-                className="mt-2 text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-              >
+              <p className="mt-2 text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
                 의도 · {q.intent}
               </p>
               <p

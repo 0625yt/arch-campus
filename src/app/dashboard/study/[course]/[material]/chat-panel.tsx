@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChatComposer } from "./chat-composer";
-import { ChatMessageList, type ChatBubble } from "./chat-message-list";
 import { ChatEmptyState } from "./chat-empty-state";
+import { type ChatBubble, ChatMessageList } from "./chat-message-list";
 import { ChatThreadMenu, type ChatThreadSummary } from "./chat-thread-menu";
 
 /**

@@ -44,8 +44,8 @@ export function SessionsSection({ className }: { className?: string }) {
           className="mt-3 text-[13.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          공용 PC·잃어버린 휴대폰처럼 의심 가는 기기가 있으면 한 번에 모두 끊을 수 있어요.
-          현재 기기도 함께 로그아웃되니 다시 로그인 필요.
+          공용 PC·잃어버린 휴대폰처럼 의심 가는 기기가 있으면 한 번에 모두 끊을 수 있어요. 현재
+          기기도 함께 로그아웃되니 다시 로그인 필요.
         </p>
         {!confirming && (
           <div className="mt-6">

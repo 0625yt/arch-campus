@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { AccountSection } from "./account-section";
 import { MfaSection } from "./mfa-section";
 import { SessionsSection } from "./sessions-section";
-import { AccountSection } from "./account-section";
 
 /**
  * 보안 설정 — 2026-05 보안 리서치 단기 항목 (MFA·활성 세션).

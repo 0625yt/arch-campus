@@ -235,8 +235,7 @@ function fromClassificationDomain(domain: string): SubjectArea | null {
   if (d.includes("수학") || d.includes("math")) return "math";
   if (d.includes("물리") || d.includes("physics")) return "physics";
   if (d.includes("화학") || d.includes("chem")) return "chemistry";
-  if (d.includes("생물") || d.includes("biology") || d.includes("life"))
-    return "biology";
+  if (d.includes("생물") || d.includes("biology") || d.includes("life")) return "biology";
   if (
     d.includes("컴퓨터") ||
     d.includes("computer") ||

@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { tryGetOwnerId } from "@/lib/auth";
-import { generate, estimateCost } from "@/lib/claude";
+import { estimateCost, generate } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
+import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
+// Haiku 호출 1건이지만 외부 영향 시간이 길어질 수 있어 명시.
+export const maxDuration = 30;
 
 const ReqBody = z
   .object({
@@ -42,11 +45,17 @@ interface ErrResponse {
   error: string;
 }
 
-export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrResponse>> {
+export async function POST(
+  req: Request,
+): Promise<NextResponse<OkResponse | ErrResponse | RateLimitErrBody>> {
   const ownerId = await tryGetOwnerId();
   if (!ownerId) {
     return NextResponse.json({ ok: false, error: "로그인이 필요해요" }, { status: 401 });
   }
+
+  // Haiku지만 ai 버킷(6회/분) 가드 — 자연어 일정 추출이 무한 호출되는 케이스 차단.
+  const aiBlock = await guardRateLimit("ai", ownerId);
+  if (aiBlock) return aiBlock;
 
   let body: z.infer<typeof ReqBody>;
   try {

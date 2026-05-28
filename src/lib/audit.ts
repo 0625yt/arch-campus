@@ -1,6 +1,6 @@
 import "server-only";
-import { getAdminSupabase } from "@/lib/supabase/admin";
 import { getClientIp } from "@/lib/ratelimit";
+import { getAdminSupabase } from "@/lib/supabase/admin";
 
 /**
  * 민감 액션 감사 로그 — `audit_log` 테이블 (0016 migration).
@@ -51,11 +51,13 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
   try {
     const admin = getAdminSupabase();
     // types.ts regen 전이라 from을 typed 경로 우회 — service-role에서만 호출되니 RLS 무관.
-    const { error } = await (admin as unknown as {
-      from: (t: string) => {
-        insert: (row: Record<string, unknown>) => Promise<{ error: unknown }>;
-      };
-    })
+    const { error } = await (
+      admin as unknown as {
+        from: (t: string) => {
+          insert: (row: Record<string, unknown>) => Promise<{ error: unknown }>;
+        };
+      }
+    )
       .from("audit_log")
       .insert({
         owner_id: entry.ownerId,

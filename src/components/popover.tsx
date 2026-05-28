@@ -109,8 +109,10 @@ export function Popover({
 
   // 모바일은 화면 폭에 맞춰 max-w로 — viewport 안에 자연스럽게.
   const isNarrow = typeof window !== "undefined" && window.innerWidth < 640;
-  const finalLeft = isNarrow ? Math.max(8, (window.innerWidth - Math.min(width, window.innerWidth - 16)) / 2) : pos?.left ?? -9999;
-  const finalTop = isNarrow ? Math.max(8, (pos?.top ?? 60)) : pos?.top ?? -9999;
+  const finalLeft = isNarrow
+    ? Math.max(8, (window.innerWidth - Math.min(width, window.innerWidth - 16)) / 2)
+    : (pos?.left ?? -9999);
+  const finalTop = isNarrow ? Math.max(8, pos?.top ?? 60) : (pos?.top ?? -9999);
   const finalWidth = isNarrow ? Math.min(width, window.innerWidth - 16) : width;
 
   return createPortal(

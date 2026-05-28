@@ -1,5 +1,5 @@
 import { getDocumentProxy } from "unpdf";
-import { toUint8Array, type ParseBytes } from "./types";
+import { type ParseBytes, toUint8Array } from "./types";
 
 /**
  * 시간표 격자 재구성 — PDF의 텍스트 조각을 (x, y) 좌표로 클러스터링해
@@ -78,7 +78,11 @@ export async function extractTimetableGrid(
   // 1) 헤더 row 찾기 — 같은 y에 "일/월/화/수/목/금/토" 중 5개 이상 모인 줄
   const header = findHeaderRow(items);
   if (!header) {
-    return { ok: false, reason: "no-header", message: "요일 헤더(일/월/화/수/목/금/토) 행을 못 찾음" };
+    return {
+      ok: false,
+      reason: "no-header",
+      message: "요일 헤더(일/월/화/수/목/금/토) 행을 못 찾음",
+    };
   }
 
   // 2) 컬럼 경계 — 인접 헤더 사이 중점을 경계로
@@ -127,7 +131,17 @@ export async function extractTimetableGrid(
     .filter((r) => {
       const allCells = Object.values(r.cells).flat();
       if (allCells.length === 0) return false;
-      const META = ["교과목명", "학점", "교양영역", "교수명", "강의실", "강좌", "번호", "이수", "구분"];
+      const META = [
+        "교과목명",
+        "학점",
+        "교양영역",
+        "교수명",
+        "강의실",
+        "강좌",
+        "번호",
+        "이수",
+        "구분",
+      ];
       const metaHits = allCells.filter((s) => META.some((m) => s.includes(m))).length;
       // 셀 안 절반 이상이 메타 헤더면 표 footer로 판단
       if (metaHits >= Math.max(2, Math.floor(allCells.length * 0.5))) return false;
@@ -213,7 +227,10 @@ function buildColumns(header: HeaderRow): TimetableGrid["columns"] {
   return cols;
 }
 
-function columnForX(x: number, cols: TimetableGrid["columns"]): TimetableGrid["columns"][number] | null {
+function columnForX(
+  x: number,
+  cols: TimetableGrid["columns"],
+): TimetableGrid["columns"][number] | null {
   for (const c of cols) {
     if (x >= c.left && x < c.right) return c;
   }
@@ -231,9 +248,7 @@ interface PeriodAnchor {
 
 function extractPeriods(body: RawItem[], firstColLeft: number): PeriodAnchor[] {
   // period 라벨은 첫 컬럼(요일 셀)보다 왼쪽에 박힘. period 텍스트 = "N교시"
-  const periodCandidates = body.filter(
-    (it) => it.x < firstColLeft - 5 && PERIOD_RE.test(it.str),
-  );
+  const periodCandidates = body.filter((it) => it.x < firstColLeft - 5 && PERIOD_RE.test(it.str));
   // 같은 period 라벨이 여러 줄이면 가장 위쪽(y 큰 것)만
   const seen = new Set<string>();
   const periods: PeriodAnchor[] = [];
@@ -243,9 +258,7 @@ function extractPeriods(body: RawItem[], firstColLeft: number): PeriodAnchor[] {
     // 같은 period의 시간 라벨 — period y보다 약간 아래(같은 셀 안)에 있다.
     // 보통 [HH:MM~HH:MM]은 period y에서 -10~-20 정도 (PDF 좌표는 위로 갈수록 y 큼).
     const time = body
-      .filter(
-        (t2) => t2.x < firstColLeft - 5 && TIME_RE.test(t2.str) && Math.abs(t2.y - it.y) < 36,
-      )
+      .filter((t2) => t2.x < firstColLeft - 5 && TIME_RE.test(t2.str) && Math.abs(t2.y - it.y) < 36)
       .sort((a, b) => Math.abs(a.y - it.y) - Math.abs(b.y - it.y))[0];
     periods.push({
       period: it.str,

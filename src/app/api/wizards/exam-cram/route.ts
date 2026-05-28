@@ -4,7 +4,7 @@ import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { listWrongItems } from "@/lib/data/attempts";
 import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
 import { guardRateLimit } from "@/lib/ratelimit";
-import { runExamCram, type ExamCramWrongHint } from "@/lib/services/exam-cram";
+import { type ExamCramWrongHint, runExamCram } from "@/lib/services/exam-cram";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -138,12 +138,14 @@ export async function POST(req: Request): Promise<NextResponse> {
  * - 같은 문제를 여러 번 틀렸으면 그 questionId만 한 번 카운트 (uniqueWrongCount).
  * - explanation의 첫 80자를 topicSamples에 모은다 — 단원명 추출 보조.
  */
-function aggregateWrongHints(items: ReadonlyArray<{
-  materialId: string | null;
-  quizTitle: string;
-  questionId: number;
-  explanation: string;
-}>): ExamCramWrongHint[] {
+function aggregateWrongHints(
+  items: ReadonlyArray<{
+    materialId: string | null;
+    quizTitle: string;
+    questionId: number;
+    explanation: string;
+  }>,
+): ExamCramWrongHint[] {
   const map = new Map<string, ExamCramWrongHint & { seen: Set<number> }>();
   for (const it of items) {
     const key = `${it.materialId ?? "none"}:${it.quizTitle}`;

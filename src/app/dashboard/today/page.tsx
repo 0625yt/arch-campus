@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
-import { listUpcomingEvents, type EventView } from "@/lib/data/events";
-import { getRecentActivities, type Activity } from "@/lib/data/activity";
+import { type Activity, getRecentActivities } from "@/lib/data/activity";
 import {
   getWrongStats,
   listRecentAttempts,
   type RecentAttempt,
   type WrongStats,
 } from "@/lib/data/attempts";
+import { type EventView, listUpcomingEvents } from "@/lib/data/events";
 import { formatEventLabel } from "@/lib/format-event";
 import { TodayHero } from "./today-hero";
 

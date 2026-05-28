@@ -288,7 +288,8 @@ function validateOutput(
   for (const section of output.sections) {
     for (const q of section.keyQuestions) {
       const trimmed = q.trim();
-      if (!trimmed.endsWith("?") && !trimmed.endsWith("?")) {
+      // ASCII "?" + 전각 "？"(U+FF1F) 둘 다 인정 — 한국어 모델이 전각으로 끝낼 때 가드 우회 막음 (CLAUDE.md §4)
+      if (!trimmed.endsWith("?") && !trimmed.endsWith("？")) {
         return {
           ok: false,
           reason: `섹션 #${section.order}의 질문이 평서문이에요 (물음표로 끝나야 함): "${trimmed.slice(0, 50)}…"`,

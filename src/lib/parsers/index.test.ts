@@ -53,9 +53,9 @@ describe("parseDocument — never throws on user input (사용자 자료는 무�
 
   it("rejects only when oversize (60MB+)", async () => {
     const huge = new Uint8Array(61 * 1024 * 1024);
-    await expect(
-      parseDocument({ filename: "huge.pdf", bytes: huge }),
-    ).rejects.toMatchObject({ reason: "too-large" });
+    await expect(parseDocument({ filename: "huge.pdf", bytes: huge })).rejects.toMatchObject({
+      reason: "too-large",
+    });
   });
 
   it("unknown extension falls back to text decode", async () => {

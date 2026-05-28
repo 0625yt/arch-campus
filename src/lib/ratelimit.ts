@@ -1,7 +1,7 @@
 import "server-only";
-import { NextResponse } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { NextResponse } from "next/server";
 
 /**
  * Upstash 기반 rate limit — 라우트별 limiter를 미리 정의해 한 곳에서 관리.

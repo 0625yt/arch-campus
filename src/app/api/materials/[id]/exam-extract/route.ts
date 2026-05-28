@@ -59,8 +59,7 @@ export async function POST(
     return NextResponse.json(
       {
         ok: false,
-        error:
-          "기출 추출은 자료 종류가 '기출문제'일 때만 가능해요. 자료 종류를 먼저 변경해주세요.",
+        error: "기출 추출은 자료 종류가 '기출문제'일 때만 가능해요. 자료 종류를 먼저 변경해주세요.",
       },
       { status: 422 },
     );
@@ -80,8 +79,7 @@ export async function POST(
     return NextResponse.json(
       {
         ok: false,
-        error:
-          "기출 자료가 50쪽을 넘어 한 번에 추출이 어려워요. 더 짧은 자료로 다시 올려주세요.",
+        error: "기출 자료가 50쪽을 넘어 한 번에 추출이 어려워요. 더 짧은 자료로 다시 올려주세요.",
       },
       { status: 422 },
     );

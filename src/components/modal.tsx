@@ -110,10 +110,7 @@ export function Modal({
         {chromeless ? (
           // chromeless — 헤더 없이 body 영역만. 콘텐츠가 곧 헤더 역할.
           // macOS Calendar 새 이벤트 popover처럼 grain 없는 단일 표면.
-          <div
-            className="overflow-y-auto overscroll-contain"
-            style={{ maxHeight: "85vh" }}
-          >
+          <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "85vh" }}>
             {children}
           </div>
         ) : (

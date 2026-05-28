@@ -97,10 +97,7 @@ export async function enqueueJob(opts: {
   return { job: mapJob(data), isNew: true };
 }
 
-export async function getJob(opts: {
-  ownerId: string;
-  jobId: string;
-}): Promise<JobView | null> {
+export async function getJob(opts: { ownerId: string; jobId: string }): Promise<JobView | null> {
   const admin = getAdminSupabase();
   const { data, error } = await admin
     .from("jobs")
@@ -173,10 +170,7 @@ export async function markJobDone(opts: {
     .eq("id", opts.jobId);
 }
 
-export async function markJobError(opts: {
-  jobId: string;
-  errorMessage: string;
-}): Promise<void> {
+export async function markJobError(opts: { jobId: string; errorMessage: string }): Promise<void> {
   const admin = getAdminSupabase();
   await admin
     .from("jobs")

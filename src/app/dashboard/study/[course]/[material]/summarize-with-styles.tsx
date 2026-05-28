@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import {
-  type SummaryStyle,
+  MAX_STYLES_PER_REQUEST,
   STYLE_LABEL,
   STYLE_ORDER,
-  MAX_STYLES_PER_REQUEST,
+  type SummaryStyle,
 } from "@/lib/material-policy";
 import { SummarizeNowButton } from "./summarize-now-button";
 
@@ -28,9 +28,7 @@ export function SummarizeWithStyles({
   materialId: string;
   defaultStyles: SummaryStyle[];
 }) {
-  const [selected, setSelected] = useState<Set<SummaryStyle>>(
-    () => new Set(defaultStyles),
-  );
+  const [selected, setSelected] = useState<Set<SummaryStyle>>(() => new Set(defaultStyles));
 
   function toggle(s: SummaryStyle) {
     setSelected((prev) => {

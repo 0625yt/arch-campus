@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
-import { listEventsBetween, listUpcomingEvents, type EventView } from "@/lib/data/events";
+import { type EventView, listEventsBetween, listUpcomingEvents } from "@/lib/data/events";
 import { listCoursesWithMaterialCount } from "@/lib/data/materials";
 import { CalendarBoard } from "./calendar-board";
 

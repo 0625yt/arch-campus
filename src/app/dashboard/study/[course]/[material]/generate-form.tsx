@@ -10,7 +10,10 @@ import { cn } from "@/lib/utils";
 type Difficulty = "쉬움" | "보통" | "어려움";
 type Kind = "multiple-choice" | "short-answer" | "essay";
 
-const COUNT_OPTIONS = [1, 3, 5, 10];
+// 1·3·5·10·20·30 — 30개는 Sonnet 1회당 ~$0.07, 생성 1~2분 소요.
+// 20·30은 시험 직전 대량 점검 유스케이스. 자유 입력칸으로 1~30 사이 임의 값도 허용.
+const COUNT_OPTIONS = [1, 3, 5, 10, 20, 30];
+const COUNT_MAX = 30;
 
 const KIND_OPTIONS: Array<{ value: Kind; label: string; subtitle: string }> = [
   { value: "multiple-choice", label: "객관식", subtitle: "4지선다" },
@@ -192,7 +195,7 @@ export function GenerateForm({
         </ul>
       </FieldGroup>
 
-      <FieldGroup label="문제 수" className="mt-7">
+      <FieldGroup label="문제 수" hint={count >= 20 ? "1~2분 걸려요" : undefined} className="mt-7">
         <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
           {COUNT_OPTIONS.map((n) => {
             const active = count === n;
@@ -213,6 +216,24 @@ export function GenerateForm({
               </li>
             );
           })}
+          {/* 자유 입력 — chip에 없는 값(예: 7·15·25)을 사용자가 직접 적을 수 있게. 1~30 범위 강제. */}
+          <li className="ml-1 inline-flex items-center gap-1.5">
+            <input
+              type="number"
+              min={1}
+              max={COUNT_MAX}
+              value={count}
+              onChange={(e) => {
+                const raw = parseInt(e.target.value, 10);
+                if (!Number.isFinite(raw)) return;
+                setCount(Math.min(Math.max(raw, 1), COUNT_MAX));
+              }}
+              aria-label={`문제 수 직접 입력 (1~${COUNT_MAX})`}
+              className="w-14 rounded-full border border-[var(--color-apple-hairline)] bg-white px-2.5 py-1 text-center text-[12.5px] tabular-nums wght-560 text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)]"
+              style={{ letterSpacing: "-0.012em" }}
+            />
+            <span className="text-[11px] wght-450 text-[var(--color-apple-muted)]">개 직접</span>
+          </li>
         </ul>
       </FieldGroup>
 

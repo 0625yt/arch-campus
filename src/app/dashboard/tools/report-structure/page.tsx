@@ -4,7 +4,7 @@ import { WizardHistorySidebar } from "@/components/wizard-history-sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listAllWizardHistory } from "@/lib/data/wizard-history";
 import { getAdminSupabase } from "@/lib/supabase/admin";
-import { Wizard, type CourseOption, type MaterialOption } from "./wizard";
+import { type CourseOption, type MaterialOption, Wizard } from "./wizard";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +78,8 @@ export default async function ReportStructurePage() {
             className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            본문은 본인이 직접 써야 학습이 돼요. 우리는 흐름·각 섹션 핵심 질문·체크리스트만 잡아드려요.
+            본문은 본인이 직접 써야 학습이 돼요. 우리는 흐름·각 섹션 핵심 질문·체크리스트만
+            잡아드려요.
           </p>
         </section>
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { tryGetOwnerId } from "@/lib/auth";
-import { listCoursesWithMaterialCount, type CourseListItem } from "@/lib/data/materials";
+import { type CourseListItem, listCoursesWithMaterialCount } from "@/lib/data/materials";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";

@@ -4,7 +4,7 @@ import { WizardHistorySidebar } from "@/components/wizard-history-sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listAllWizardHistory } from "@/lib/data/wizard-history";
 import { getAdminSupabase } from "@/lib/supabase/admin";
-import { Wizard, type CourseOption, type MaterialOption } from "./wizard";
+import { type CourseOption, type MaterialOption, Wizard } from "./wizard";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +80,8 @@ export default async function PresentationWizardPage() {
             className="mt-4 max-w-[560px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            슬라이드 구조 · 스피커 노트 · 예상 질문 5개까지. 자료 올린 거 있으면 슬라이드 인용도 박혀요.
+            슬라이드 구조 · 스피커 노트 · 예상 질문 5개까지. 자료 올린 거 있으면 슬라이드 인용도
+            박혀요.
           </p>
         </section>
 

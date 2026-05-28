@@ -1,13 +1,14 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { runConvertPdfJob, runQuizJob, runSummarizeJob, stripExt } from "@/app/api/materials/route";
+import { pickRequestContext, recordAudit } from "@/lib/audit";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { enqueueJob } from "@/lib/data/jobs";
-import { parseDocument, ParserRejectedError } from "@/lib/parsers";
-import { type Difficulty } from "@/lib/services/quiz";
+import { ParserRejectedError, parseDocument } from "@/lib/parsers";
+import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
+import type { Difficulty } from "@/lib/services/quiz";
 import { downloadMaterialFile } from "@/lib/storage";
 import { getAdminSupabase } from "@/lib/supabase/admin";
-import { recordAudit, pickRequestContext } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -28,7 +29,8 @@ const Body = z.object({
   title: z.string().max(200).optional(),
   type: z.enum(ALLOWED_TYPES).optional(),
   difficulty: z.enum(["쉬움", "보통", "어려움"]).optional(),
-  count: z.coerce.number().int().min(1).max(10).optional(),
+  // direct-upload도 동일 — 1~30, 미지정 시 10
+  count: z.coerce.number().int().min(1).max(30).optional(),
 });
 
 interface PipelineOk {
@@ -64,7 +66,9 @@ interface PipelineErr {
  * 기존 /api/materials POST(멀티파트)와 5단계 이후는 동일 — runSummarizeJob·runQuizJob을
  * 그대로 import해서 재사용.
  */
-export async function POST(req: Request): Promise<NextResponse<PipelineOk | PipelineErr>> {
+export async function POST(
+  req: Request,
+): Promise<NextResponse<PipelineOk | PipelineErr | RateLimitErrBody>> {
   let ownerId: string;
   try {
     ownerId = await getOwnerId();
@@ -74,6 +78,12 @@ export async function POST(req: Request): Promise<NextResponse<PipelineOk | Pipe
     }
     throw e;
   }
+
+  // ★ direct-upload 동선도 Sonnet × 2를 트리거 — POST /api/materials와 동일하게 두 버킷 가드.
+  const uploadBlock = await guardRateLimit("upload", ownerId);
+  if (uploadBlock) return uploadBlock;
+  const aiBlock = await guardRateLimit("ai", ownerId);
+  if (aiBlock) return aiBlock;
 
   let body: z.infer<typeof Body>;
   try {

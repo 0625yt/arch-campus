@@ -67,7 +67,13 @@ export async function listAllWizardHistory(opts: {
     .from("generations")
     .select("id, tool, payload, created_at")
     .eq("owner_id", opts.ownerId)
-    .in("tool", ["presentation", "wizard-cram", "report-structure", "report-checklist", "wizard-assignment"])
+    .in("tool", [
+      "presentation",
+      "wizard-cram",
+      "report-structure",
+      "report-checklist",
+      "wizard-assignment",
+    ])
     .eq("status", "ok")
     .order("created_at", { ascending: false })
     .limit(limit);

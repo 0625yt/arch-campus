@@ -162,8 +162,7 @@ export async function PATCH(
   }
 
   // scope=all 은 class kind이고 course_id 있을 때만 의미 있음
-  const useAll =
-    body.scope === "all" && original.kind === "class" && !!original.course_id;
+  const useAll = body.scope === "all" && original.kind === "class" && !!original.course_id;
 
   if (useAll) {
     // 같은 course + class + 같은 (요일, 시·분) 일치하는 행 모두
@@ -276,10 +275,7 @@ export async function PATCH(
     .eq("owner_id", ownerId);
 
   if (upErr) {
-    return NextResponse.json(
-      { ok: false, error: `수정 실패: ${upErr.message}` },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, error: `수정 실패: ${upErr.message}` }, { status: 500 });
   }
   bustCalendarCache();
   return NextResponse.json({ ok: true, affected: count ?? 0 });
@@ -371,10 +367,7 @@ export async function DELETE(
     .eq("id", id)
     .eq("owner_id", ownerId);
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: `삭제 실패: ${error.message}` },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, error: `삭제 실패: ${error.message}` }, { status: 500 });
   }
   if (!count) {
     return NextResponse.json({ ok: false, error: "일정을 찾을 수 없어요" }, { status: 404 });

@@ -1,5 +1,5 @@
 import { parsePdf } from "./pdf";
-import { type ParseInput, type ParsedDocument, ParserRejectedError, toUint8Array } from "./types";
+import { type ParsedDocument, type ParseInput, ParserRejectedError, toUint8Array } from "./types";
 
 const TIMEOUT_MS = 45_000;
 
@@ -29,9 +29,10 @@ export async function parseHwp(input: ParseInput): Promise<ParsedDocument> {
     };
   }
 
-  const ab = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
-    ? (bytes.buffer as ArrayBuffer)
-    : (bytes.slice().buffer as ArrayBuffer);
+  const ab =
+    bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
+      ? (bytes.buffer as ArrayBuffer)
+      : (bytes.slice().buffer as ArrayBuffer);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -62,7 +63,10 @@ export async function parseHwp(input: ParseInput): Promise<ParsedDocument> {
   } catch (err) {
     if (err instanceof ParserRejectedError) throw err;
     if (err instanceof Error && err.name === "AbortError") {
-      throw new ParserRejectedError("HWP 변환 시간이 너무 오래 걸렸어요. 다시 시도해주세요.", "corrupted");
+      throw new ParserRejectedError(
+        "HWP 변환 시간이 너무 오래 걸렸어요. 다시 시도해주세요.",
+        "corrupted",
+      );
     }
     throw new ParserRejectedError(
       `HWP 변환 서비스 연결 실패: ${err instanceof Error ? err.message : String(err)}`,

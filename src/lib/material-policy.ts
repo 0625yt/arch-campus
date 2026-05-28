@@ -31,13 +31,7 @@ export type MaterialMode = "summarize" | "extract-exam" | "lite";
  *  - mindmap   : 토픽 트리 (마인드맵, 전체 구조 잡기)
  *  - core      : 정의·중요도★ 리스트 (핵심 개념만 빠르게)
  */
-export type SummaryStyle =
-  | "memorize"
-  | "understand"
-  | "calculate"
-  | "analyze"
-  | "mindmap"
-  | "core";
+export type SummaryStyle = "memorize" | "understand" | "calculate" | "analyze" | "mindmap" | "core";
 
 export interface MaterialPolicy {
   mode: MaterialMode;
@@ -77,10 +71,7 @@ export function getMaterialPolicy(type: MaterialType): MaterialPolicy {
  *   - 강의계획서 → [핵심 개념] (별도 syllabus 추출 흐름은 그대로 유지)
  *   - 기출 → 빈 배열 (extract-exam으로 분기)
  */
-export function getDefaultStyles(
-  type: MaterialType,
-  subject: SubjectArea,
-): SummaryStyle[] {
+export function getDefaultStyles(type: MaterialType, subject: SubjectArea): SummaryStyle[] {
   if (type === "exam") return []; // extract-exam 분기 — 요약 안 함
   if (type === "notice") return ["core"];
   if (type === "assignment") return ["core", "analyze"];

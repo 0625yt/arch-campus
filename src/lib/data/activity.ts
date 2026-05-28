@@ -146,7 +146,8 @@ function titleFor(row: GenerationRow): string {
     if (assignmentTitle) return assignmentTitle;
   }
   if (row.tool === "chat-free") {
-    const userMessage = typeof row.payload?.userMessage === "string" ? row.payload.userMessage : null;
+    const userMessage =
+      typeof row.payload?.userMessage === "string" ? row.payload.userMessage : null;
     if (userMessage) return userMessage.slice(0, 80);
   }
   return row.materials?.title ?? "(자료 없음)";

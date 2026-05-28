@@ -1,14 +1,10 @@
 import { after, NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import { MAX_STYLES_PER_REQUEST, STYLE_ORDER, type SummaryStyle } from "@/lib/material-policy";
 import { guardRateLimit } from "@/lib/ratelimit";
 import { runSummarize } from "@/lib/services/summarize";
 import { getAdminSupabase } from "@/lib/supabase/admin";
-import {
-  type SummaryStyle,
-  STYLE_ORDER,
-  MAX_STYLES_PER_REQUEST,
-} from "@/lib/material-policy";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -54,8 +50,9 @@ export async function POST(
       const parsed = JSON.parse(raw) as { styles?: unknown; intentNote?: unknown };
       if (Array.isArray(parsed.styles)) {
         styles = parsed.styles
-          .filter((s): s is SummaryStyle =>
-            typeof s === "string" && (STYLE_ORDER as readonly string[]).includes(s),
+          .filter(
+            (s): s is SummaryStyle =>
+              typeof s === "string" && (STYLE_ORDER as readonly string[]).includes(s),
           )
           .slice(0, MAX_STYLES_PER_REQUEST);
       }

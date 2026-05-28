@@ -4,9 +4,9 @@ import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
 import { guardRateLimit } from "@/lib/ratelimit";
 import {
-  runReportStructure,
   type ReportAudience,
   type ReportType,
+  runReportStructure,
 } from "@/lib/services/report-structure";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 

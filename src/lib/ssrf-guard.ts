@@ -88,7 +88,10 @@ function isUnsafeHost(host: string): boolean {
 }
 
 export class SsrfBlockedError extends Error {
-  constructor(reason: string, public readonly url: string) {
+  constructor(
+    reason: string,
+    public readonly url: string,
+  ) {
     super(`SSRF guard 차단: ${reason} (${url})`);
     this.name = "SsrfBlockedError";
   }

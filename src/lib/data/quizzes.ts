@@ -117,6 +117,168 @@ export async function getQuizForSolving(opts: {
   };
 }
 
+/**
+ * 사용자가 만든 모든 퀴즈 목록 — /dashboard/quiz 인덱스용.
+ *
+ * 만든 직후 페이지를 떠나면 다시 찾아갈 길이 없던 동선 결함을 메우는 진입점.
+ * Today 카드(오답 기반)와 다른 시각 — "내가 만든 모든 문제"가 시간역순으로 박힘.
+ *
+ * mode='extracted'는 기출 추출이라 일반 퀴즈와 같이 보이면 혼란 — 별도 분리.
+ * 여기는 mode='generated' + null(기존 row, 0013 이전) 모두 포함해서 "내가 만든 문제".
+ */
+export interface QuizListItem {
+  id: string;
+  title: string;
+  materialId: string | null;
+  courseName: string | null;
+  courseColor: string | null;
+  difficulty: "쉬움" | "보통" | "어려움";
+  questionCount: number;
+  createdAt: string;
+  /** 한 번이라도 시도한 적 있나 — 카드에 "아직 안 풀었어요" 표시용 */
+  attemptCount: number;
+  /** 가장 최근 시도 점수 (없으면 null) */
+  lastScore: number | null;
+}
+
+export async function listGeneratedQuizzes(opts: {
+  ownerId: string;
+  /** UI 페이지네이션 — 기본 30개. /dashboard/quiz는 1페이지로 충분, 추후 무한스크롤 가능 */
+  limit?: number;
+}): Promise<QuizListItem[]> {
+  const admin = getAdminSupabase();
+  const limit = opts.limit ?? 30;
+
+  // mode='extracted'만 제외 — 'generated' + null(0013 이전 row) 모두 포함
+  const { data: quizzes, error } = await admin
+    .from("quizzes")
+    .select("id, title, material_id, course_id, difficulty, question_count, created_at, mode")
+    .eq("owner_id", opts.ownerId)
+    .neq("mode", "extracted")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !quizzes || quizzes.length === 0) return [];
+
+  // course 정보 한 번에 — IN 쿼리. course_id가 모두 다를 수 있어 set으로 묶음.
+  const courseIds = Array.from(
+    new Set(quizzes.map((q) => q.course_id).filter((id): id is string => id !== null)),
+  );
+  const courseMap = new Map<string, { name: string; color: string | null }>();
+  if (courseIds.length > 0) {
+    const { data: courses } = await admin
+      .from("courses")
+      .select("id, name, color")
+      .eq("owner_id", opts.ownerId)
+      .in("id", courseIds);
+    for (const c of courses ?? []) {
+      courseMap.set(c.id, { name: c.name, color: c.color });
+    }
+  }
+
+  // attempts 집계 — quiz_id별 count + 가장 최근 score.
+  // 작은 N(<=30)이라 별도 RPC 안 만들고 클라이언트 측에서 group by.
+  const quizIds = quizzes.map((q) => q.id);
+  const { data: attempts } = await admin
+    .from("quiz_attempts")
+    .select("quiz_id, score, created_at")
+    .eq("owner_id", opts.ownerId)
+    .in("quiz_id", quizIds)
+    .order("created_at", { ascending: false });
+
+  const attemptAgg = new Map<string, { count: number; lastScore: number | null }>();
+  for (const a of attempts ?? []) {
+    const cur = attemptAgg.get(a.quiz_id) ?? { count: 0, lastScore: null };
+    cur.count += 1;
+    if (cur.lastScore === null) cur.lastScore = a.score; // order desc — 첫 만남이 최신
+    attemptAgg.set(a.quiz_id, cur);
+  }
+
+  return quizzes.map((q) => {
+    const course = q.course_id ? courseMap.get(q.course_id) : null;
+    const agg = attemptAgg.get(q.id) ?? { count: 0, lastScore: null };
+    return {
+      id: q.id,
+      title: q.title,
+      materialId: q.material_id,
+      courseName: course?.name ?? null,
+      courseColor: course?.color ?? null,
+      difficulty: q.difficulty,
+      questionCount: q.question_count,
+      createdAt: q.created_at,
+      attemptCount: agg.count,
+      lastScore: agg.lastScore,
+    };
+  });
+}
+
+/**
+ * 한 자료(material)에서 만든 모든 퀴즈 목록 — material detail 페이지 하단 섹션용.
+ *
+ * 사용자 동선: 자료 페이지 → 요약 읽기 → 문제 생성 → 풀이 → 다시 자료로 돌아옴
+ *              → 이전에 만든 다른 문제도 그 자리에서 골라 풀 수 있어야 함.
+ *
+ * listGeneratedQuizzes를 owner+material로 좁힌 형태지만 course join이 필요 없어 별도 함수.
+ */
+export async function listQuizzesForMaterial(opts: {
+  ownerId: string;
+  materialId: string;
+  limit?: number;
+}): Promise<
+  Array<{
+    id: string;
+    title: string;
+    difficulty: "쉬움" | "보통" | "어려움";
+    questionCount: number;
+    createdAt: string;
+    attemptCount: number;
+    lastScore: number | null;
+  }>
+> {
+  const admin = getAdminSupabase();
+  const limit = opts.limit ?? 10;
+
+  const { data: quizzes, error } = await admin
+    .from("quizzes")
+    .select("id, title, difficulty, question_count, created_at, mode")
+    .eq("owner_id", opts.ownerId)
+    .eq("material_id", opts.materialId)
+    .neq("mode", "extracted")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !quizzes || quizzes.length === 0) return [];
+
+  const quizIds = quizzes.map((q) => q.id);
+  const { data: attempts } = await admin
+    .from("quiz_attempts")
+    .select("quiz_id, score, created_at")
+    .eq("owner_id", opts.ownerId)
+    .in("quiz_id", quizIds)
+    .order("created_at", { ascending: false });
+
+  const attemptAgg = new Map<string, { count: number; lastScore: number | null }>();
+  for (const a of attempts ?? []) {
+    const cur = attemptAgg.get(a.quiz_id) ?? { count: 0, lastScore: null };
+    cur.count += 1;
+    if (cur.lastScore === null) cur.lastScore = a.score;
+    attemptAgg.set(a.quiz_id, cur);
+  }
+
+  return quizzes.map((q) => {
+    const agg = attemptAgg.get(q.id) ?? { count: 0, lastScore: null };
+    return {
+      id: q.id,
+      title: q.title,
+      difficulty: q.difficulty,
+      questionCount: q.question_count,
+      createdAt: q.created_at,
+      attemptCount: agg.count,
+      lastScore: agg.lastScore,
+    };
+  });
+}
+
 const ExtractedArray = z.array(ExamExtractedQuestion);
 
 export interface ExtractedExamView {

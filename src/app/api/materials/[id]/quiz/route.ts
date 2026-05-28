@@ -11,9 +11,13 @@ export const maxDuration = 300;
 
 const RequestBody = z.object({
   difficulty: z.enum(["쉬움", "보통", "어려움"]).default("보통"),
-  count: z.number().int().min(1).max(10).default(5),
+  // 최대 30 — UI는 1·3·5·10·20·30 chip + 자유 입력 1~30. 30개는 Sonnet 1회당 ~$0.07.
+  count: z.number().int().min(1).max(30).default(5),
   // kinds·scope는 옵션 — 빈 배열·빈 문자열이면 종전 동작(객관식만, 자료 전체)
-  kinds: z.array(z.enum(["multiple-choice", "short-answer", "essay"])).max(3).default([]),
+  kinds: z
+    .array(z.enum(["multiple-choice", "short-answer", "essay"]))
+    .max(3)
+    .default([]),
   scope: z.string().max(200).default(""),
   // 의도 조정 한 줄 요청 — scope(범위)와 분리. 강조·형식·톤 힌트. 자료 밖 생성은 서비스/프롬프트 가드가 거부.
   intentNote: z.string().max(120).default(""),

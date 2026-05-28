@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { getOwnerId } from "@/lib/auth";
 import { getProfile } from "@/lib/data/profile";
-import { OnboardingForm } from "./onboarding-form";
-import { saveOnboarding } from "./actions";
 import { inferSemester } from "@/lib/semester";
+import { saveOnboarding } from "./actions";
+import { OnboardingForm } from "./onboarding-form";
 
 export const dynamic = "force-dynamic";
 
@@ -34,16 +34,16 @@ export default async function OnboardingPage() {
         />
 
         <header>
-          <p
-            className="text-[12px] wght-560 uppercase tracking-[0.08em] text-[var(--color-apple-muted)]"
-          >
+          <p className="text-[12px] wght-560 uppercase tracking-[0.08em] text-[var(--color-apple-muted)]">
             첫 설정
           </p>
           <h1
             className="mt-3 text-[30px] leading-[1.15] wght-620 text-[var(--color-apple-ink)] sm:text-[36px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            안녕하세요.<br />어디서 공부하나요?
+            안녕하세요.
+            <br />
+            어디서 공부하나요?
           </h1>
           <p className="mt-4 text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
             학교·전공을 알려주면 다른 학생들 데이터로 더 잘 도와드릴 수 있어요.

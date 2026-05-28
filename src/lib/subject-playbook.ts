@@ -34,7 +34,7 @@ const PLAYBOOK: Record<SubjectArea, PlaybookHints> = {
     summarize: [
       "어휘는 본문에 나오는 단어를 한 개도 빠뜨리지 말고 다 정리 (10개 어휘면 10개).",
       "각 어휘마다 품사·뜻·예문 한 묶음 (예: \"suggestion (n.) — 제안. 'I have a suggestion.'\").",
-      "문법 포인트는 callout으로 패턴 + 예문 + 자주 틀리는 변형 (예: \"should + V원형\" — should to V X).",
+      '문법 포인트는 callout으로 패턴 + 예문 + 자주 틀리는 변형 (예: "should + V원형" — should to V X).',
       "지문은 통째로 인용하지 말고 핵심 문장만. 한국어 짧은 보조 설명 OK.",
       "keywords는 어휘·표현 위주로 늘리고 50개 가까이 가도 OK.",
     ].join("\n"),
@@ -191,7 +191,7 @@ const PLAYBOOK: Record<SubjectArea, PlaybookHints> = {
     summarize: [
       "학자·이론·시대 단위로 h2 분리.",
       "각 학자: 핵심 주장 + 키워드 + 반론·후속 비판.",
-      "비교(X vs Y)는 callout 또는 bullets — 시험 빈출 \"X와 Y의 차이를 서술하라\".",
+      '비교(X vs Y)는 callout 또는 bullets — 시험 빈출 "X와 Y의 차이를 서술하라".',
       "사료·1차 인용문은 원문 그대로 + 한국어 보조 설명.",
       "연도·인물·사건 fact는 정확히. 추정 X.",
     ].join("\n"),
@@ -217,10 +217,9 @@ const PLAYBOOK: Record<SubjectArea, PlaybookHints> = {
       "본문에 있는 사실·정의·관계를 묻는 문제.",
       "오답 선지는 본문의 비슷한 개념·다른 사례에서 가져옴.",
     ].join("\n"),
-    examExtract: [
-      "본문에 있는 문제·정답·해설 그대로 추출.",
-      "새로 만들지 말 것 (생성 금지).",
-    ].join("\n"),
+    examExtract: ["본문에 있는 문제·정답·해설 그대로 추출.", "새로 만들지 말 것 (생성 금지)."].join(
+      "\n",
+    ),
   },
 };
 
@@ -235,10 +234,7 @@ export function getPlaybookHints(subject: SubjectArea): PlaybookHints {
  *   buildPlaybookSection("math", "summarize")
  *   → "## 과목 디테일 (수학)\n정의는 명제 그대로...\n증명은 골격만..."
  */
-export function buildPlaybookSection(
-  subject: SubjectArea,
-  tool: keyof PlaybookHints,
-): string {
+export function buildPlaybookSection(subject: SubjectArea, tool: keyof PlaybookHints): string {
   const hints = getPlaybookHints(subject);
   const body = hints[tool];
   if (!body || body.trim().length === 0) return "";

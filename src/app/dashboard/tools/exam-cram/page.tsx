@@ -4,7 +4,7 @@ import { WizardHistorySidebar } from "@/components/wizard-history-sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listAllWizardHistory } from "@/lib/data/wizard-history";
 import { getAdminSupabase } from "@/lib/supabase/admin";
-import { ExamCramWizard, type CourseOption, type MaterialOption } from "./wizard";
+import { type CourseOption, ExamCramWizard, type MaterialOption } from "./wizard";
 
 export const dynamic = "force-dynamic";
 
@@ -71,8 +71,8 @@ export default async function ExamCramPage() {
             className="mt-3 text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[44px] md:text-[52px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            남은 시간을{" "}
-            <span className="text-[var(--color-apple-muted)]">한 블록씩 쪼개</span>드릴게요.
+            남은 시간을 <span className="text-[var(--color-apple-muted)]">한 블록씩 쪼개</span>
+            드릴게요.
           </h1>
           <p
             className="mt-4 max-w-[560px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"

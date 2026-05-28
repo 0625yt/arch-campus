@@ -13,7 +13,13 @@ import { getBrowserSupabase } from "@/lib/supabase/client";
  *
  * 비가역. 30일 grace 없음 — 즉시 cascade.
  */
-export function AccountSection({ className, userEmail }: { className?: string; userEmail: string }) {
+export function AccountSection({
+  className,
+  userEmail,
+}: {
+  className?: string;
+  userEmail: string;
+}) {
   const supabase = getBrowserSupabase();
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState("");

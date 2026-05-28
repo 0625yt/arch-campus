@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SummaryColumn } from "./summary-column";
-import { SplitControl, useSplitView } from "./split-control";
-import { ChatPanel } from "./chat-panel";
 import type { SummarizeOutputT } from "@/lib/schemas";
+import { ChatPanel } from "./chat-panel";
+import { SplitControl, useSplitView } from "./split-control";
+import { SummaryColumn } from "./summary-column";
 
 /**
  * 자료 상세의 split-view 본체.

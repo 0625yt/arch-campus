@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActiveJobs, type ActiveJobRow } from "@/lib/hooks/use-active-jobs";
+import { type ActiveJobRow, useActiveJobs } from "@/lib/hooks/use-active-jobs";
 
 /**
  * 진행 중인 비동기 AI 작업 (요약·문제·위저드 등)을 어디서든 보여주는 도크.

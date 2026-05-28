@@ -1,19 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/context-menu";
+import { ContextMenu, type ContextMenuItem, useContextMenu } from "@/components/context-menu";
 import { Modal } from "@/components/modal";
 
-const COLOR_PALETTE = [
-  "#7aa6d6",
-  "#cca06b",
-  "#7fb38c",
-  "#a08bc4",
-  "#e0445e",
-  "#5b8a8a",
-] as const;
+const COLOR_PALETTE = ["#7aa6d6", "#cca06b", "#7fb38c", "#a08bc4", "#e0445e", "#5b8a8a"] as const;
 
 /**
  * 강의 카드 좌클릭 → 라우팅 (children Link), 우클릭/long-press → 컨텍스트 메뉴.
@@ -214,9 +207,7 @@ export function CourseContextWrapper({
       <ConfirmDialog
         open={confirmDelete}
         title={isPersonal ? "주제 삭제" : "강의 삭제"}
-        description={`"${initialName}"\n\n${
-          isPersonal ? "주제를" : "강의를"
-        } 지울까요? 이 ${
+        description={`"${initialName}"\n\n${isPersonal ? "주제를" : "강의를"} 지울까요? 이 ${
           isPersonal ? "주제" : "강의"
         }에 묶여 있던 자료·일정은 '미분류'로 남아요.`}
         confirmLabel="삭제"

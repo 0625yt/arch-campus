@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { toUint8Array, type ParseBytes } from "./types";
+import { type ParseBytes, toUint8Array } from "./types";
 
 /**
  * Excel 격자 재구성 — 시간표/표 자료의 (row, col) 좌표가 PDF와 달리
@@ -136,7 +136,10 @@ function cellText(cell: ExcelJS.Cell): string {
   if (typeof v === "number") return String(v);
   if (v instanceof Date) return v.toISOString().slice(0, 10);
   if (typeof v === "object" && "richText" in v) {
-    return v.richText.map((r) => r.text).join("").trim();
+    return v.richText
+      .map((r) => r.text)
+      .join("")
+      .trim();
   }
   if (typeof v === "object" && "text" in v && typeof v.text === "string") {
     return v.text.trim();
@@ -161,10 +164,7 @@ function mergedText(cell: ExcelJS.Cell): string {
   return "";
 }
 
-function gridToMarkdown(
-  columns: XlsxGrid["columns"],
-  rows: XlsxGrid["rows"],
-): string {
+function gridToMarkdown(columns: XlsxGrid["columns"], rows: XlsxGrid["rows"]): string {
   const headers = ["행", ...columns.map((c) => c.label)];
   const lines: string[] = [];
   lines.push(`| ${headers.join(" | ")} |`);

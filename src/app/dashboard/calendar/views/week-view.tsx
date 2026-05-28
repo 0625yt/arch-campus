@@ -6,12 +6,12 @@ import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
 import { eventColor } from "../calendar-board";
 import {
   ALL_DAY_ROW_PX,
-  HOUR_HEIGHT_PX,
-  TIME_AXIS_WIDTH_WEEK,
   formatHourLabel,
   getNowKstMinutes,
+  HOUR_HEIGHT_PX,
   isoToKstDateKey,
   layoutDayEvents,
+  TIME_AXIS_WIDTH_WEEK,
   weekDateKeys,
 } from "./shared/time-grid";
 
@@ -42,7 +42,13 @@ interface WeekViewProps {
   onSelectEmpty?: (dateKey: string, hour: number) => void;
 }
 
-export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectEmpty }: WeekViewProps) {
+export function WeekView({
+  weekStart,
+  events,
+  viewMode,
+  onSelectEvent,
+  onSelectEmpty,
+}: WeekViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [nowMin, setNowMin] = useState(-1);
@@ -58,7 +64,8 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
   const startHourForScroll = viewMode === "timetable" ? 6 : 0;
   useEffect(() => {
     if (!mounted || !scrollRef.current) return;
-    const target = viewMode === "timetable" ? 0 : Math.max(0, (8 - startHourForScroll) * HOUR_HEIGHT_PX - 24);
+    const target =
+      viewMode === "timetable" ? 0 : Math.max(0, (8 - startHourForScroll) * HOUR_HEIGHT_PX - 24);
     scrollRef.current.scrollTop = target;
   }, [mounted, weekStart, viewMode, startHourForScroll]);
 
@@ -111,7 +118,9 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
               </span>
               <span
                 className={`text-[12px] wght-450 ${
-                  isToday ? "text-[var(--color-urgent)] wght-560" : "text-[var(--color-apple-muted)]"
+                  isToday
+                    ? "text-[var(--color-urgent)] wght-560"
+                    : "text-[var(--color-apple-muted)]"
                 }`}
                 style={{ letterSpacing: "-0.012em" }}
               >
@@ -135,7 +144,10 @@ export function WeekView({ weekStart, events, viewMode, onSelectEvent, onSelectE
             종일
           </div>
           {dateKeys.map((key) => (
-            <div key={key} className="relative flex-1 border-l border-[var(--color-apple-hairline-soft)] px-1 pt-1">
+            <div
+              key={key}
+              className="relative flex-1 border-l border-[var(--color-apple-hairline-soft)] px-1 pt-1"
+            >
               {(byDate.get(key)?.allDay ?? []).map((e, i) => {
                 const color = eventColor(e);
                 return (

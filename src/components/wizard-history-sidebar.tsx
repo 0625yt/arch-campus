@@ -100,9 +100,7 @@ export function WizardHistorySidebar({
       {/* 사이드바 본체 — 우측 고정 (좌측은 대시보드 전역 사이드바가 차지) */}
       <aside
         className={`fixed top-0 right-0 z-40 h-screen border-l border-[var(--color-apple-hairline)] bg-white transition-[width,transform] duration-300 ease-out ${
-          open
-            ? "w-[280px] translate-x-0"
-            : "w-[280px] translate-x-full lg:w-0 lg:translate-x-0"
+          open ? "w-[280px] translate-x-0" : "w-[280px] translate-x-full lg:w-0 lg:translate-x-0"
         }`}
       >
         <div
@@ -125,13 +123,7 @@ export function WizardHistorySidebar({
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
             >
               {/* 우측 화살표 — 사이드바가 우측이라 닫으면 오른쪽으로 사라짐 */}
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                aria-hidden
-              >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                 <path
                   d="M6 4l4 4-4 4"
                   stroke="currentColor"

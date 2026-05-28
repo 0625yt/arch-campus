@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
+import { type ChatCitation, startChatTurn } from "@/lib/services/chat";
 import { getAdminSupabase } from "@/lib/supabase/admin";
-import { startChatTurn, type ChatCitation } from "@/lib/services/chat";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -48,21 +48,23 @@ export async function GET(
   const admin = getAdminSupabase();
   // owner 검증을 먼저 — service-role bypass에 §4-1 가드.
   // types.ts에 chat_threads 아직 없어서 unknown cast (regen 후 정리).
-  const threadCheck = await (admin as unknown as {
-    from: (t: string) => {
-      select: (cols: string) => {
-        eq: (
-          c: string,
-          v: string,
-        ) => {
+  const threadCheck = await (
+    admin as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
           eq: (
             c: string,
             v: string,
-          ) => { maybeSingle: () => Promise<{ data: { id: string } | null; error: unknown }> };
+          ) => {
+            eq: (
+              c: string,
+              v: string,
+            ) => { maybeSingle: () => Promise<{ data: { id: string } | null; error: unknown }> };
+          };
         };
       };
-    };
-  })
+    }
+  )
     .from("chat_threads")
     .select("id")
     .eq("id", threadId)
@@ -72,26 +74,28 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "스레드를 찾을 수 없어요" }, { status: 404 });
   }
 
-  const { data, error } = await (admin as unknown as {
-    from: (t: string) => {
-      select: (cols: string) => {
-        eq: (
-          c: string,
-          v: string,
-        ) => {
+  const { data, error } = await (
+    admin as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
           eq: (
             c: string,
             v: string,
           ) => {
-            order: (
+            eq: (
               c: string,
-              opts: { ascending: boolean },
-            ) => Promise<{ data: MessageRow[] | null; error: unknown }>;
+              v: string,
+            ) => {
+              order: (
+                c: string,
+                opts: { ascending: boolean },
+              ) => Promise<{ data: MessageRow[] | null; error: unknown }>;
+            };
           };
         };
       };
-    };
-  })
+    }
+  )
     .from("chat_messages")
     .select("id, role, content, citations, created_at")
     .eq("thread_id", threadId)

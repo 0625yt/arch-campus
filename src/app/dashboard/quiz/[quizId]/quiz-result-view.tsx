@@ -148,6 +148,16 @@ export function QuizResultView({
         >
           처음부터 다시 풀기
         </Link>
+        {/* 재생성 — 같은 자료 페이지의 generate-form으로 직진. 자료 없는 quiz(예: 시연 mock)는 숨김.
+            새 문제는 다른 난이도·새 시드라 사용자가 같은 자료 한 번 더 깊이 점검 가능. */}
+        {materialId && courseName && (
+          <Link
+            href={`/dashboard/study/${encodeURIComponent(courseName)}/${materialId}#generate`}
+            className="inline-flex h-[44px] flex-1 items-center justify-center rounded-full bg-white px-6 text-[14px] wght-560 text-[var(--color-apple-ink)] transition-all hover:bg-[var(--color-apple-pearl)]"
+          >
+            새 문제 만들기
+          </Link>
+        )}
         <Link
           href="/dashboard/study"
           className="inline-flex h-[44px] flex-1 items-center justify-center rounded-full bg-white px-6 text-[14px] wght-560 text-[var(--color-apple-muted)] transition-all hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"

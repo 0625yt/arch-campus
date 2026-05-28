@@ -226,7 +226,8 @@ function FormStep(props: {
           className={`${inputClass} resize-none py-3`}
         />
         <p className="mt-1.5 text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
-          비워두면 위 공지만으로 만들어요. 교수님 구두 강조·본인 강조하고 싶은 점을 적으면 체크리스트에 반영돼요.
+          비워두면 위 공지만으로 만들어요. 교수님 구두 강조·본인 강조하고 싶은 점을 적으면
+          체크리스트에 반영돼요.
         </p>
       </Field>
 
@@ -274,7 +275,9 @@ function RunningStep({
       {isRunning && (
         <div className="flex items-center gap-3 text-[13px] wght-450 text-[var(--color-apple-muted)]">
           <Spinner />
-          <span>공지에서 요구사항을 추출하고 있어요. 30초~1분쯤 걸려요. 다른 메뉴 가도 됩니다.</span>
+          <span>
+            공지에서 요구사항을 추출하고 있어요. 30초~1분쯤 걸려요. 다른 메뉴 가도 됩니다.
+          </span>
         </div>
       )}
 
@@ -424,7 +427,9 @@ export function ReportChecklistResultCard({
               className="flex gap-2 text-[13.5px] wght-450 leading-[1.6] text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
-              <span aria-hidden className="text-[var(--color-apple-action)]">→</span>
+              <span aria-hidden className="text-[var(--color-apple-action)]">
+                →
+              </span>
               <span>{q}</span>
             </li>
           ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent } from "react";
+import { type KeyboardEvent, useRef, useState } from "react";
 
 /**
  * 메시지 입력 — 한글 IME 가드(isComposing) 포함.

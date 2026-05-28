@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 
 /**
  * AI 자연어 입력 진입 카드 — 캘린더 그리드 위 1급 자리.

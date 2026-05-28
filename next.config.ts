@@ -71,6 +71,18 @@ const nextConfig: NextConfig = {
   // X-Powered-By: Next.js 헤더 제거 — 정보 노출 최소화
   poweredByHeader: false,
 
+  // server-only 패키지를 Next 번들러에서 빼고 Node native require로 위임.
+  //
+  // 문제: officeparser(ESM)는 내부적으로 file-type@22(ESM-only, top-level await)를 dynamic import.
+  //       Next 16 Turbopack이 번들할 때 file-type을 트레이스에서 빠뜨려 Vercel Lambda
+  //       (/var/task/.next/server/chunks/_*.js)에서 "Cannot find package 'file-type'" 던짐.
+  //       로컬 dev는 노드가 알아서 풀어주지만 프로덕션에서만 PPTX/PPT 파싱 전부 깨짐.
+  //
+  // 해결: serverExternalPackages에 올리면 Next가 번들 X → node_modules 그대로 가져가서 require.
+  //       두 패키지 모두 필요 (officeparser가 file-type을 동적으로 부르므로 file-type만 빼도
+  //       서브의존성이 끊김).
+  serverExternalPackages: ["officeparser", "file-type"],
+
   async headers() {
     return [
       {

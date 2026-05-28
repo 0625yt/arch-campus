@@ -1,5 +1,5 @@
 import { extractText, getDocumentProxy } from "unpdf";
-import { type ParseInput, type ParsedDocument, ParserRejectedError, toUint8Array } from "./types";
+import { type ParsedDocument, type ParseInput, ParserRejectedError, toUint8Array } from "./types";
 
 export async function parsePdf(input: ParseInput): Promise<ParsedDocument> {
   const bytes = toUint8Array(input.bytes);

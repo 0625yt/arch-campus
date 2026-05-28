@@ -1,11 +1,11 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { pickRequestContext, recordAudit } from "@/lib/audit";
 import { tryGetOwnerId } from "@/lib/auth";
 import { deleteMaterialFile } from "@/lib/storage";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { recordAudit, pickRequestContext } from "@/lib/audit";
 
 type MaterialUpdate = Database["public"]["Tables"]["materials"]["Update"];
 
@@ -81,10 +81,7 @@ export async function PATCH(
       .eq("owner_id", ownerId)
       .maybeSingle();
     if (!course) {
-      return NextResponse.json(
-        { ok: false, error: "옮길 강의를 찾을 수 없어요" },
-        { status: 404 },
-      );
+      return NextResponse.json({ ok: false, error: "옮길 강의를 찾을 수 없어요" }, { status: 404 });
     }
   }
 
@@ -97,10 +94,7 @@ export async function PATCH(
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: `수정 실패: ${error.message}` },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, error: `수정 실패: ${error.message}` }, { status: 500 });
   }
   if (!data) {
     return NextResponse.json({ ok: false, error: "자료를 찾을 수 없어요" }, { status: 404 });
@@ -155,10 +149,7 @@ export async function DELETE(
     .eq("owner_id", ownerId);
 
   if (delErr) {
-    return NextResponse.json(
-      { ok: false, error: `삭제 실패: ${delErr.message}` },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, error: `삭제 실패: ${delErr.message}` }, { status: 500 });
   }
   if (!count) {
     return NextResponse.json({ ok: false, error: "자료를 찾을 수 없어요" }, { status: 404 });

@@ -3,12 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import {
   ChecklistOutput,
-  ExamCramOutput,
-  PresentationOutput,
-  ReportStructureOutput,
   type ChecklistOutputT,
+  ExamCramOutput,
   type ExamCramOutputT,
+  PresentationOutput,
   type PresentationOutputT,
+  ReportStructureOutput,
   type ReportStructureOutputT,
 } from "@/lib/schemas";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -33,11 +33,7 @@ export const dynamic = "force-dynamic";
  * 그 외 tool은 안내만 표시. 자료 기반 tool(summarize·quiz)은 activity의 href가 자료 페이지로
  * 직접 보내므로 여기까지 안 옴.
  */
-export default async function HistoryDetailPage({
-  params,
-}: {
-  params: Promise<{ gid: string }>;
-}) {
+export default async function HistoryDetailPage({ params }: { params: Promise<{ gid: string }> }) {
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
 

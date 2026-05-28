@@ -1,9 +1,9 @@
 "use client";
 
+import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
 
 type Role = "user" | "assistant";
 

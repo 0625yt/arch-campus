@@ -142,6 +142,48 @@ function Hero({
           <p className="mt-4 text-[12.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]">
             구글 계정으로 10초 시작. LMS 연동 없이도 자료 업로드부터 바로 써볼 수 있어요.
           </p>
+
+          {/* 모바일 전용 미리보기 — md 이상은 우측 BackdropPanel이 1급 자리.
+              "뭐 하는 서비스인지" 시각 단서가 없어 모바일 CTA 동기가 약하다는 감사 결과 반영. */}
+          <div className="mt-10 rounded-[10px] border border-[var(--color-apple-hairline-soft)] bg-white/86 p-4 shadow-[0_12px_36px_-24px_rgba(20,30,50,0.32)] backdrop-blur-xl md:hidden">
+            <div className="flex items-center justify-between border-b border-[var(--color-apple-hairline-soft)] pb-2.5">
+              <span className="text-[13px] wght-700 text-[var(--color-apple-ink)]">내 캠퍼스</span>
+              <span className="text-[11px] wght-560 text-[var(--color-apple-muted)]">오늘</span>
+            </div>
+            <div className="mt-3 space-y-1.5">
+              {TODAY_ITEMS.map((item) => (
+                <div
+                  key={item.title}
+                  className="flex items-center justify-between gap-3 rounded-[8px] bg-[var(--color-surface-mist)] px-3 py-2"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${toneClass(item.tone)}`} />
+                    <span className="truncate text-[12.5px] wght-620 text-[var(--color-apple-ink)]">
+                      {item.title}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[11px] wght-560 text-[var(--color-apple-muted)]">
+                    {item.meta}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-5 gap-px overflow-hidden rounded-[8px] bg-[var(--color-apple-hairline-soft)]">
+              {["월", "화", "수", "목", "금"].map((day, index) => (
+                <div key={day} className="min-h-[52px] bg-white/95 p-1.5">
+                  <div className="text-[10px] wght-700 text-[var(--color-apple-muted)]">{day}</div>
+                  {index < TODAY_ITEMS.length && (
+                    <div className="mt-1 rounded-[5px] bg-[var(--color-tint-prez)] px-1 py-0.5 text-[9.5px] leading-[1.2] wght-620 text-[var(--color-tint-prez-ink)]">
+                      {TODAY_ITEMS[index].title.slice(0, 8)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-[11px] leading-[1.5] wght-450 text-[var(--color-apple-muted)]">
+              실제 화면 예시 · 가입 후 자료 1개만 올리면 바로 같은 모양으로 나옵니다.
+            </p>
+          </div>
         </div>
       </div>
     </section>

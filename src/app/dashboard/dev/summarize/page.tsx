@@ -25,7 +25,13 @@ interface SummarizeOk {
     cacheReadTokens: number;
     cacheCreationTokens: number;
     costUsd: number;
-    tokenBudget: { rule: number; dynamic: number; user: number; total: number; cacheableShare: number };
+    tokenBudget: {
+      rule: number;
+      dynamic: number;
+      user: number;
+      total: number;
+      cacheableShare: number;
+    };
   };
 }
 
@@ -40,7 +46,9 @@ type SummarizeResponse = SummarizeOk | SummarizeErr;
 export default function DevSummarizePage() {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [type, setType] = useState<"lecture" | "assignment" | "exam" | "syllabus" | "notice" | "team">("lecture");
+  const [type, setType] = useState<
+    "lecture" | "assignment" | "exam" | "syllabus" | "notice" | "team"
+  >("lecture");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SummarizeResponse | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
@@ -74,11 +82,15 @@ export default function DevSummarizePage() {
         <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
           DEV
         </p>
-        <h1 className="mt-2 text-[28px] wght-620 text-[var(--color-apple-ink)] sm:text-[36px]" style={{ letterSpacing: "-0.024em" }}>
+        <h1
+          className="mt-2 text-[28px] wght-620 text-[var(--color-apple-ink)] sm:text-[36px]"
+          style={{ letterSpacing: "-0.024em" }}
+        >
           /api/summarize 검증
         </h1>
         <p className="mt-3 text-[14px] leading-[1.6] text-[var(--color-apple-muted)]">
-          파일 올리면 파서 → sanitize → Claude → Zod → generations 기록까지 한 번에. 결과 JSON·비용·토큰까지 표시.
+          파일 올리면 파서 → sanitize → Claude → Zod → generations 기록까지 한 번에. 결과
+          JSON·비용·토큰까지 표시.
         </p>
       </header>
 
@@ -143,10 +155,14 @@ export default function DevSummarizePage() {
 
       {result && !result.ok && (
         <section className="mt-6 rounded-[14px] bg-[var(--color-urgent-soft)] p-6">
-          <p className="text-[13px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]">실패</p>
+          <p className="text-[13px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]">
+            실패
+          </p>
           <p className="mt-2 text-[15px] wght-560 text-[var(--color-apple-ink)]">{result.error}</p>
           {result.reason && (
-            <p className="mt-1 text-[12px] wght-450 text-[var(--color-apple-muted)]">사유: {result.reason}</p>
+            <p className="mt-1 text-[12px] wght-450 text-[var(--color-apple-muted)]">
+              사유: {result.reason}
+            </p>
           )}
         </section>
       )}
@@ -186,8 +202,12 @@ export default function DevSummarizePage() {
                 <ul className="mt-3 flex flex-col gap-3">
                   {result.summary.reviewSpots.map((s, i) => (
                     <li key={i}>
-                      <p className="text-[14px] wght-620 text-[var(--color-apple-ink)]">{s.title}</p>
-                      <p className="mt-1 text-[12px] wght-450 leading-[1.5] text-[var(--color-apple-muted)]">{s.why}</p>
+                      <p className="text-[14px] wght-620 text-[var(--color-apple-ink)]">
+                        {s.title}
+                      </p>
+                      <p className="mt-1 text-[12px] wght-450 leading-[1.5] text-[var(--color-apple-muted)]">
+                        {s.why}
+                      </p>
                     </li>
                   ))}
                 </ul>
@@ -204,7 +224,10 @@ export default function DevSummarizePage() {
               비용 · 토큰
             </p>
             <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-[13px] tabular-nums">
-              <Row label="parser" value={result.parser + (result.pageCount ? ` · ${result.pageCount}쪽` : "")} />
+              <Row
+                label="parser"
+                value={result.parser + (result.pageCount ? ` · ${result.pageCount}쪽` : "")}
+              />
               <Row label="cost" value={`$${result.usage.costUsd.toFixed(6)}`} />
               <Row label="input" value={`${result.usage.inputTokens}`} />
               <Row label="output" value={`${result.usage.outputTokens}`} />
@@ -233,9 +256,7 @@ function SummaryBlock({
     | { type: "callout"; tone: "info" | "warn" | "tip"; content: string };
 }) {
   if (block.type === "h2") {
-    return (
-      <h3 className="text-[16px] wght-620 text-[var(--color-apple-ink)]">{block.content}</h3>
-    );
+    return <h3 className="text-[16px] wght-620 text-[var(--color-apple-ink)]">{block.content}</h3>;
   }
   if (block.type === "para") {
     return (
@@ -260,7 +281,10 @@ function SummaryBlock({
         ? "var(--color-apple-action-soft)"
         : "var(--color-apple-pearl)";
   return (
-    <div className="rounded-[10px] p-4 text-[13px] leading-[1.6]" style={{ backgroundColor: toneBg }}>
+    <div
+      className="rounded-[10px] p-4 text-[13px] leading-[1.6]"
+      style={{ backgroundColor: toneBg }}
+    >
       {block.content}
     </div>
   );

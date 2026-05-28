@@ -1,8 +1,8 @@
 import "server-only";
 import { z } from "zod";
+import { SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
-import { SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
 
 /**
  * Materials DAL (Data Access Layer).
@@ -134,10 +134,7 @@ export async function listOrphanMaterials(opts: { ownerId: string }): Promise<Ma
   return data.map(toListItem);
 }
 
-export async function getCourseByName(opts: {
-  ownerId: string;
-  name: string;
-}): Promise<{
+export async function getCourseByName(opts: { ownerId: string; name: string }): Promise<{
   id: string;
   name: string;
   professor: string | null;
@@ -230,9 +227,7 @@ export interface CoursesGrouped {
   personal: CourseListItem[];
 }
 
-export async function listCoursesGrouped(opts: {
-  ownerId: string;
-}): Promise<CoursesGrouped> {
+export async function listCoursesGrouped(opts: { ownerId: string }): Promise<CoursesGrouped> {
   const all = await listCoursesWithMaterialCount(opts);
   return {
     semester: all.filter((c) => c.category === "semester"),

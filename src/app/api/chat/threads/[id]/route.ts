@@ -45,32 +45,37 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "title이 비어있어요" }, { status: 400 });
   }
   if (title.length > 100) {
-    return NextResponse.json({ ok: false, error: "title이 너무 길어요 (100자 이내)" }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: "title이 너무 길어요 (100자 이내)" },
+      { status: 400 },
+    );
   }
 
   const admin = getAdminSupabase();
-  const result = await (admin as unknown as {
-    from: (t: string) => {
-      update: (row: Record<string, unknown>) => {
-        eq: (
-          c: string,
-          v: string,
-        ) => {
+  const result = await (
+    admin as unknown as {
+      from: (t: string) => {
+        update: (row: Record<string, unknown>) => {
           eq: (
             c: string,
             v: string,
           ) => {
-            select: (cols: string) => {
-              maybeSingle: () => Promise<{
-                data: { id: string; title: string } | null;
-                error: unknown;
-              }>;
+            eq: (
+              c: string,
+              v: string,
+            ) => {
+              select: (cols: string) => {
+                maybeSingle: () => Promise<{
+                  data: { id: string; title: string } | null;
+                  error: unknown;
+                }>;
+              };
             };
           };
         };
       };
-    };
-  })
+    }
+  )
     .from("chat_threads")
     .update({ title })
     .eq("id", threadId)
@@ -108,21 +113,20 @@ export async function DELETE(
   const { id: threadId } = await ctx.params;
 
   const admin = getAdminSupabase();
-  const result = await (admin as unknown as {
-    from: (t: string) => {
-      delete: (opts: { count: "exact" }) => {
-        eq: (
-          c: string,
-          v: string,
-        ) => {
+  const result = await (
+    admin as unknown as {
+      from: (t: string) => {
+        delete: (opts: { count: "exact" }) => {
           eq: (
             c: string,
             v: string,
-          ) => Promise<{ count: number | null; error: unknown }>;
+          ) => {
+            eq: (c: string, v: string) => Promise<{ count: number | null; error: unknown }>;
+          };
         };
       };
-    };
-  })
+    }
+  )
     .from("chat_threads")
     .delete({ count: "exact" })
     .eq("id", threadId)

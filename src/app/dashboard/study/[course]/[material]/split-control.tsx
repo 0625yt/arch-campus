@@ -32,12 +32,7 @@ export function useSplitView(): [SplitView, (v: SplitView) => void] {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (
-        raw === "pdf-only" ||
-        raw === "split" ||
-        raw === "summary-only" ||
-        raw === "fullscreen"
-      ) {
+      if (raw === "pdf-only" || raw === "split" || raw === "summary-only" || raw === "fullscreen") {
         setViewState(raw);
       }
     } catch {

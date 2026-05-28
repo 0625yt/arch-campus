@@ -6,8 +6,8 @@ import { parsePdf } from "./pdf";
 import { parseText } from "./text";
 import {
   MAX_PARSE_BYTES,
-  type ParseInput,
   type ParsedDocument,
+  type ParseInput,
   ParserRejectedError,
   toUint8Array,
 } from "./types";
@@ -130,7 +130,9 @@ async function fallbackText(input: ParseInput): Promise<ParsedDocument> {
       text,
       mimeType: input.mimeType ?? "application/octet-stream",
       source: "txt",
-      warnings: [`알 수 없는 형식(${ext || "확장자 없음"})이라 텍스트로 강제 추출했어요. 결과가 부정확할 수 있어요.`],
+      warnings: [
+        `알 수 없는 형식(${ext || "확장자 없음"})이라 텍스트로 강제 추출했어요. 결과가 부정확할 수 있어요.`,
+      ],
     };
   }
   return {
@@ -153,5 +155,5 @@ function countPrintable(text: string): number {
   return n;
 }
 
-export { ParserRejectedError } from "./types";
 export type { ParsedDocument, ParseInput } from "./types";
+export { ParserRejectedError } from "./types";

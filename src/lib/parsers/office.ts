@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import mammoth from "mammoth";
 import { parseOffice } from "officeparser";
-import { type ParseInput, type ParsedDocument, ParserRejectedError, toUint8Array } from "./types";
+import { type ParsedDocument, type ParseInput, ParserRejectedError, toUint8Array } from "./types";
 
 export async function parseDocx(input: ParseInput): Promise<ParsedDocument> {
   const bytes = toUint8Array(input.bytes);
@@ -14,7 +14,8 @@ export async function parseDocx(input: ParseInput): Promise<ParsedDocument> {
     .slice(0, 5);
   return {
     text: result.value,
-    mimeType: input.mimeType ?? "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    mimeType:
+      input.mimeType ?? "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     source: "docx",
     warnings,
   };
@@ -25,9 +26,10 @@ export async function parseXlsx(input: ParseInput): Promise<ParsedDocument> {
   if (bytes.byteLength === 0) throw new ParserRejectedError("빈 xlsx", "empty");
 
   const workbook = new ExcelJS.Workbook();
-  const ab = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
-    ? (bytes.buffer as ArrayBuffer)
-    : (bytes.slice().buffer as ArrayBuffer);
+  const ab =
+    bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
+      ? (bytes.buffer as ArrayBuffer)
+      : (bytes.slice().buffer as ArrayBuffer);
   await workbook.xlsx.load(ab as unknown as Parameters<typeof workbook.xlsx.load>[0]);
 
   const sheetTexts: string[] = [];
@@ -69,7 +71,8 @@ export async function parsePptx(input: ParseInput): Promise<ParsedDocument> {
   const text = typeof ast.toText === "function" ? ast.toText() : "";
   return {
     text,
-    mimeType: input.mimeType ?? "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    mimeType:
+      input.mimeType ?? "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     source: "pptx",
     warnings: [],
   };

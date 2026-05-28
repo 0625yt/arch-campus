@@ -122,10 +122,7 @@ export function MfaSection({ className }: { className?: string }) {
             className="text-[11px] wght-560 uppercase tracking-[0.06em]"
             style={{
               letterSpacing: "0.06em",
-              color:
-                status === "on"
-                  ? "var(--color-apple-success)"
-                  : "var(--color-apple-muted)",
+              color: status === "on" ? "var(--color-apple-success)" : "var(--color-apple-muted)",
             }}
           >
             {status === "on" ? "켜짐" : status === "loading" ? "조회 중" : "꺼짐"}
@@ -135,8 +132,8 @@ export function MfaSection({ className }: { className?: string }) {
           className="mt-3 text-[13.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          1Password·Authy·Google Authenticator 같은 앱이 6자리 코드를 만들어줘요.
-          매직링크 이메일이 탈취돼도 이 코드 없이는 로그인 불가.
+          1Password·Authy·Google Authenticator 같은 앱이 6자리 코드를 만들어줘요. 매직링크 이메일이
+          탈취돼도 이 코드 없이는 로그인 불가.
         </p>
 
         {status === "off" && (
@@ -156,10 +153,7 @@ export function MfaSection({ className }: { className?: string }) {
           <div className="mt-6 flex flex-col gap-5">
             {qrSvg && (
               <div className="flex flex-col items-center gap-3 rounded-[12px] border border-[var(--color-apple-hairline)] bg-white p-5">
-                <div
-                  className="h-[180px] w-[180px]"
-                  dangerouslySetInnerHTML={{ __html: qrSvg }}
-                />
+                <div className="h-[180px] w-[180px]" dangerouslySetInnerHTML={{ __html: qrSvg }} />
                 {secret && (
                   <div className="text-center">
                     <p

@@ -60,9 +60,7 @@ export function ChatThreadMenu({
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        {threads.length === 0
-          ? "새 대화"
-          : `대화 ${threads.length}개${current ? "" : " (없음)"}`}
+        {threads.length === 0 ? "새 대화" : `대화 ${threads.length}개${current ? "" : " (없음)"}`}
         <span className="text-[9px]">▾</span>
       </button>
 

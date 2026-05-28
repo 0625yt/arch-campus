@@ -105,8 +105,7 @@ export function ExamCramWizard({
     });
   }
 
-  const errorMsg =
-    submitError ?? pollError ?? (job?.status === "error" ? job.errorMessage : null);
+  const errorMsg = submitError ?? pollError ?? (job?.status === "error" ? job.errorMessage : null);
 
   // 결과 도착하면 결과 화면. resetToForm()으로 다시 폼.
   if (output) {
@@ -253,9 +252,7 @@ function StepOne({
           })}
         </div>
         <div className="mt-3 flex items-baseline gap-2">
-          <span className="text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
-            직접 입력
-          </span>
+          <span className="text-[11.5px] wght-450 text-[var(--color-apple-muted)]">직접 입력</span>
           <input
             type="number"
             min={30}
@@ -319,16 +316,15 @@ function StepTwo({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <p
-          className="text-[12.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-        >
+        <p className="text-[12.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
           시험 범위 자료 (최대 8개)
         </p>
         <p
           className="mt-1.5 text-[13px] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          선택한 자료를 기반으로 단원 우선순위를 매겨줘요. 너무 많이 고르면 한 단원당 깊이가 떨어져요.
+          선택한 자료를 기반으로 단원 우선순위를 매겨줘요. 너무 많이 고르면 한 단원당 깊이가
+          떨어져요.
         </p>
       </div>
 
@@ -449,9 +445,7 @@ function StepThree({
       </Field>
 
       <div className="rounded-[12px] bg-[var(--color-apple-pearl)] px-4 py-3.5">
-        <p
-          className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-        >
+        <p className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
           준비된 요청
         </p>
         <ul className="mt-2 flex flex-col gap-1 text-[13px] wght-450 text-[var(--color-apple-ink)]">
@@ -470,9 +464,7 @@ function StepThree({
         </ul>
       </div>
 
-      {errorMsg && (
-        <p className="text-[12.5px] wght-450 text-[var(--color-urgent)]">{errorMsg}</p>
-      )}
+      {errorMsg && <p className="text-[12.5px] wght-450 text-[var(--color-urgent)]">{errorMsg}</p>}
 
       <div className="mt-2 flex items-center justify-between gap-3">
         <SecondaryButton onClick={onBack} disabled={isRunning}>
@@ -508,9 +500,7 @@ export function ExamCramResultCard({
   if (output.rejected) {
     return (
       <div className="rounded-[18px] bg-white p-7 sm:p-9">
-        <p
-          className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]"
-        >
+        <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]">
           벼락치기 추천 불가
         </p>
         <h2
@@ -534,9 +524,7 @@ export function ExamCramResultCard({
     <div className="flex flex-col gap-6">
       {/* Hero */}
       <div className="rounded-[18px] bg-white p-7 sm:p-9">
-        <p
-          className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]"
-        >
+        <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]">
           벼락치기 계획 · 총 {formatDuration(totalMin)}
         </p>
         <h2
@@ -557,7 +545,10 @@ export function ExamCramResultCard({
         </h3>
         <ul className="mt-5 flex flex-col gap-4">
           {output.topics.map((t, i) => (
-            <li key={i} className="border-b border-[var(--color-apple-hairline-soft)] pb-4 last:border-0 last:pb-0">
+            <li
+              key={i}
+              className="border-b border-[var(--color-apple-hairline-soft)] pb-4 last:border-0 last:pb-0"
+            >
               <div className="flex items-baseline gap-2">
                 <PriorityBadge priority={t.priority} />
                 <h4
@@ -577,7 +568,9 @@ export function ExamCramResultCard({
                     className="flex gap-2 text-[13px] wght-450 leading-[1.55] text-[var(--color-apple-ink)]"
                     style={{ letterSpacing: "-0.012em" }}
                   >
-                    <span aria-hidden className="text-[var(--color-apple-muted)]">·</span>
+                    <span aria-hidden className="text-[var(--color-apple-muted)]">
+                      ·
+                    </span>
                     <span>{m}</span>
                   </li>
                 ))}
@@ -662,7 +655,9 @@ export function ExamCramResultCard({
               className="flex gap-2 text-[13.5px] wght-450 leading-[1.6] text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
-              <span aria-hidden className="text-[var(--color-apple-action)]">→</span>
+              <span aria-hidden className="text-[var(--color-apple-action)]">
+                →
+              </span>
               <span>{t}</span>
             </li>
           ))}
@@ -798,11 +793,7 @@ function PriorityBadge({ priority }: { priority: "high" | "mid" | "low" }) {
   );
 }
 
-function ModeChip({
-  mode,
-}: {
-  mode: "read" | "summarize" | "quiz" | "review-mistakes" | "rest";
-}) {
+function ModeChip({ mode }: { mode: "read" | "summarize" | "quiz" | "review-mistakes" | "rest" }) {
   const map = {
     read: { label: "읽기", bg: "#e8f0fb" },
     summarize: { label: "정리", bg: "#eef4ec" },

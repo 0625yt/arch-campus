@@ -117,10 +117,7 @@ export async function PATCH(
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: `수정 실패: ${error.message}` },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, error: `수정 실패: ${error.message}` }, { status: 500 });
   }
   if (!data) {
     return NextResponse.json({ ok: false, error: "강의를 찾을 수 없어요" }, { status: 404 });
@@ -155,10 +152,7 @@ export async function DELETE(
     .eq("owner_id", ownerId);
 
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: `삭제 실패: ${error.message}` },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, error: `삭제 실패: ${error.message}` }, { status: 500 });
   }
   if (!count) {
     return NextResponse.json({ ok: false, error: "강의를 찾을 수 없어요" }, { status: 404 });

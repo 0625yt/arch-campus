@@ -5,13 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/context-menu";
+import { ContextMenu, type ContextMenuItem, useContextMenu } from "@/components/context-menu";
 import { Modal } from "@/components/modal";
 import { Popover } from "@/components/popover";
 import type { EventView } from "@/lib/data/events";
-import { formatEventLabel, formatEventCompact } from "@/lib/format-event";
-import { AiEntryCard } from "./ai-entry-card";
+import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
 import { EventAIDraftPanel } from "./ai-draft-panel";
+import { AiEntryCard } from "./ai-entry-card";
 import { DayView } from "./views/day-view";
 import { startOfWeekKst } from "./views/shared/time-grid";
 import { WeekView } from "./views/week-view";
@@ -410,7 +410,7 @@ export function CalendarBoard({
             {monthLabel}
           </h2>
           <div className="flex items-center gap-1">
-            {/* 모바일 전용 — 자연어 일정 추가. 데스크톱은 본문 상단 카드가 1급 자리. */}
+            {/* 모바일 전용 — 자연어 일정 추가. 아이콘만으로 폭 절약. 데스크톱은 본문 상단 카드가 1급. */}
             <button
               type="button"
               onClick={() => {
@@ -420,10 +420,10 @@ export function CalendarBoard({
                 setCreating(true);
               }}
               aria-label="빠른 일정 추가"
-              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--color-apple-action)] px-3 text-[12px] wght-560 text-white shadow-[0_2px_8px_-2px_rgba(0,113,227,0.35)] transition-transform active:scale-95 sm:hidden"
-              style={{ letterSpacing: "-0.012em" }}
+              title="빠른 일정 추가"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-apple-action)] text-white shadow-[0_2px_8px_-2px_rgba(0,113,227,0.35)] transition-transform active:scale-95 sm:hidden"
             >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+              <svg width="14" height="14" viewBox="0 0 12 12" fill="none" aria-hidden>
                 <path
                   d="M6 1.5l1 2.3 2.5.5-1.8 1.7.4 2.5L6 7.3l-2.2 1.2.4-2.5L2.5 4.3l2.5-.5L6 1.5z"
                   stroke="currentColor"
@@ -432,7 +432,6 @@ export function CalendarBoard({
                   fill="currentColor"
                 />
               </svg>
-              빠른 추가
             </button>
             <NavButton onClick={() => navigate(-1)} aria-label="이전 달">
               ‹
@@ -440,15 +439,15 @@ export function CalendarBoard({
             <button
               type="button"
               onClick={goToday}
-              className="rounded-full px-3 py-1 text-[12px] wght-560 text-[var(--color-apple-action)] hover:bg-[var(--color-apple-pearl)]"
+              className="rounded-full px-3 py-1.5 text-[13px] wght-560 text-[var(--color-apple-action)] hover:bg-[var(--color-apple-pearl)] sm:py-1 sm:text-[12px]"
             >
               오늘
             </button>
             <NavButton onClick={() => navigate(1)} aria-label="다음 달">
               ›
             </NavButton>
-            {/* 스케일 토글 — 일/주/월. 년은 식갑 숨김 (?scale=year 외부 진입은 placeholder). */}
-            <ScaleToggle scale={scale} onChange={setScale} className="ml-2" />
+            {/* 스케일 토글 — 일/주/월. 모바일은 폭이 좁아 숨기고 월뷰 고정 (사용자 요구가 모이면 햄버거 메뉴로 이전). */}
+            <ScaleToggle scale={scale} onChange={setScale} className="ml-2 hidden sm:inline-flex" />
             {/* 뷰 모드 토글 — 시간표만 vs 내 일정. 시간표만 클릭 시 자동 주 뷰.
                 모바일에선 공간 부족으로 숨김 — Phase 2 mobile 전용 UI에서 재배치 예정. */}
             <ViewModeToggle
@@ -472,7 +471,7 @@ export function CalendarBoard({
               href="/dashboard/calendar/import?kind=syllabus"
               aria-label="자료에서 일정 만들기"
               title="자료에서 일정 만들기"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-apple-ink)] text-white shadow-[0_2px_8px_-2px_rgba(20,30,50,0.35)] transition-transform active:scale-95 sm:hidden"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-apple-ink)] text-white shadow-[0_2px_8px_-2px_rgba(20,30,50,0.35)] transition-transform active:scale-95 sm:hidden"
             >
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
                 <path
@@ -494,7 +493,7 @@ export function CalendarBoard({
               href="/dashboard/calendar/import?kind=timetable"
               aria-label="시간표 다시 올리기"
               title="시간표 다시 올리기"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] sm:hidden"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] sm:hidden"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                 <path
@@ -929,7 +928,7 @@ function NavButton({
       type="button"
       onClick={onClick}
       {...rest}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[15px] text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[16px] text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] sm:h-8 sm:w-8 sm:text-[15px]"
     >
       {children}
     </button>
@@ -1017,7 +1016,9 @@ function DayCell({
       onMouseDown={handleMouseDown}
       onMouseEnter={handleMouseEnter}
       onMouseUp={handleMouseUp}
-      className={`flex min-h-[94px] cursor-pointer flex-col gap-[1px] px-0.5 pt-0.5 pb-0 transition-colors duration-150 sm:min-h-[118px] sm:px-0.5 sm:pt-1 sm:pb-0.5 ${
+      // 모바일은 64px — iPhone 14 (844 - topbar 48 - tabbar 56 - 헤더 60 ≈ 680) ÷ 6주 = 약 113px 여유, 64×6 = 384px라 한 달이 풀스크린에 들어옴.
+      // 데스크톱은 118px 그대로.
+      className={`flex min-h-[64px] cursor-pointer flex-col gap-[1px] px-0.5 pt-0.5 pb-0 transition-colors duration-150 sm:min-h-[118px] sm:px-0.5 sm:pt-1 sm:pb-0.5 ${
         cell.inMonth ? "" : "opacity-40"
       } ${isSelected ? "ring-1 ring-inset ring-[var(--color-apple-action)]" : ""} ${
         isInDragRange ? "ring-2 ring-inset ring-[var(--color-apple-action)]" : ""
@@ -1040,9 +1041,9 @@ function DayCell({
       >
         {cell.date.getDate()}
       </span>
-      {/* 모바일: 텍스트 3개 + '외 N' — macOS/구글캘린더 표준 톤 */}
+      {/* 모바일: 텍스트 2개 + '외 N' — 셀 64px 안에 날짜+칩2+외N이 가독성 유지하며 들어가는 한계 */}
       <ul className="flex flex-col gap-px sm:hidden">
-        {events.slice(0, 3).map((e) => {
+        {events.slice(0, 2).map((e) => {
           const fullLabel = formatEventLabel(e);
           const shortLabel = formatEventCompact(e);
           const color = eventColor(e);
@@ -1061,9 +1062,9 @@ function DayCell({
             </li>
           );
         })}
-        {events.length > 3 && (
+        {events.length > 2 && (
           <li className="px-1 text-[11px] wght-560 leading-[1.4] text-[var(--color-apple-muted)]">
-            외 {events.length - 3}
+            외 {events.length - 2}
           </li>
         )}
       </ul>

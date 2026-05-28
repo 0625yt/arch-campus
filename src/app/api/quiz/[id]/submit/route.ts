@@ -22,7 +22,8 @@ const SubmitBody = z.object({
       ]),
     )
     .min(1)
-    .max(20),
+    // 퀴즈 cap이 30으로 풀린 뒤(0023 migration)도 여기서 막혀 채점 안 되는 케이스 차단.
+    .max(30),
   durationMs: z.number().int().nonnegative().optional(),
 });
 

@@ -63,9 +63,7 @@ function Bubble({
 
   return (
     <div className="flex justify-start">
-      <div
-        className="max-w-[92%] rounded-[16px] rounded-tl-[6px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3"
-      >
+      <div className="max-w-[92%] rounded-[16px] rounded-tl-[6px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3">
         <div
           className="whitespace-pre-wrap text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}

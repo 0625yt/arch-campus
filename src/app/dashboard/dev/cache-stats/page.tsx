@@ -39,7 +39,9 @@ export default async function CacheStatsPage() {
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const { data: rows, error } = await admin
     .from("generations")
-    .select("tool, model_id, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, cost_usd, status")
+    .select(
+      "tool, model_id, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, cost_usd, status",
+    )
     .eq("owner_id", ownerId)
     .gte("created_at", since)
     .eq("status", "ok")
@@ -98,9 +100,9 @@ export default async function CacheStatsPage() {
           className="mt-3 text-[13.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          도구별로 Anthropic prompt caching이 얼마나 효과적으로 작동했는지 본다.
-          hit률이 낮으면 rulePrompt가 cache 최소 토큰(Haiku 4096 / Sonnet 1024) 미만이거나,
-          매 호출마다 prefix가 미세하게 바뀌고 있다는 신호.
+          도구별로 Anthropic prompt caching이 얼마나 효과적으로 작동했는지 본다. hit률이 낮으면
+          rulePrompt가 cache 최소 토큰(Haiku 4096 / Sonnet 1024) 미만이거나, 매 호출마다 prefix가
+          미세하게 바뀌고 있다는 신호.
         </p>
       </header>
 
@@ -128,15 +130,33 @@ export default async function CacheStatsPage() {
           <table className="w-full text-left text-[12.5px] tabular-nums">
             <thead>
               <tr className="border-b border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)]/40 text-[11px] wght-620 uppercase text-[var(--color-apple-muted)]">
-                <th className="px-4 py-3" style={{ letterSpacing: "0.04em" }}>도구</th>
-                <th className="px-3 py-3" style={{ letterSpacing: "0.04em" }}>모델</th>
-                <th className="px-3 py-3 text-right" style={{ letterSpacing: "0.04em" }}>호출</th>
-                <th className="px-3 py-3 text-right" style={{ letterSpacing: "0.04em" }}>정가 in</th>
-                <th className="px-3 py-3 text-right" style={{ letterSpacing: "0.04em" }}>캐시 read</th>
-                <th className="px-3 py-3 text-right" style={{ letterSpacing: "0.04em" }}>캐시 write</th>
-                <th className="px-3 py-3 text-right" style={{ letterSpacing: "0.04em" }}>out</th>
-                <th className="px-3 py-3 text-right" style={{ letterSpacing: "0.04em" }}>hit률</th>
-                <th className="px-4 py-3 text-right" style={{ letterSpacing: "0.04em" }}>비용</th>
+                <th className="px-4 py-3" style={{ letterSpacing: "0.04em" }}>
+                  도구
+                </th>
+                <th className="px-3 py-3" style={{ letterSpacing: "0.04em" }}>
+                  모델
+                </th>
+                <th className="px-3 py-3 text-right" style={{ letterSpacing: "0.04em" }}>
+                  호출
+                </th>
+                <th className="px-3 py-3 text-right" style={{ letterSpacing: "0.04em" }}>
+                  정가 in
+                </th>
+                <th className="px-3 py-3 text-right" style={{ letterSpacing: "0.04em" }}>
+                  캐시 read
+                </th>
+                <th className="px-3 py-3 text-right" style={{ letterSpacing: "0.04em" }}>
+                  캐시 write
+                </th>
+                <th className="px-3 py-3 text-right" style={{ letterSpacing: "0.04em" }}>
+                  out
+                </th>
+                <th className="px-3 py-3 text-right" style={{ letterSpacing: "0.04em" }}>
+                  hit률
+                </th>
+                <th className="px-4 py-3 text-right" style={{ letterSpacing: "0.04em" }}>
+                  비용
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -151,11 +171,15 @@ export default async function CacheStatsPage() {
                     className="border-b border-[var(--color-apple-hairline-soft)] last:border-0"
                   >
                     <td className="px-4 py-3 wght-560 text-[var(--color-apple-ink)]">{s.tool}</td>
-                    <td className="px-3 py-3 text-[var(--color-apple-muted)]">{s.modelId.replace("claude-", "")}</td>
+                    <td className="px-3 py-3 text-[var(--color-apple-muted)]">
+                      {s.modelId.replace("claude-", "")}
+                    </td>
                     <td className="px-3 py-3 text-right">{s.calls}</td>
                     <td className="px-3 py-3 text-right">{s.inputTokens.toLocaleString()}</td>
                     <td className="px-3 py-3 text-right">{s.cacheReadTokens.toLocaleString()}</td>
-                    <td className="px-3 py-3 text-right">{s.cacheCreationTokens.toLocaleString()}</td>
+                    <td className="px-3 py-3 text-right">
+                      {s.cacheCreationTokens.toLocaleString()}
+                    </td>
                     <td className="px-3 py-3 text-right">{s.outputTokens.toLocaleString()}</td>
                     <td
                       className={`px-3 py-3 text-right wght-560 ${
@@ -184,11 +208,25 @@ export default async function CacheStatsPage() {
       <section className="mt-8 rounded-[14px] border border-[var(--color-apple-hairline)] bg-white px-6 py-5 text-[12.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
         <p className="wght-560 text-[var(--color-apple-ink)]">읽는 법</p>
         <ul className="mt-2 list-disc pl-5">
-          <li><span className="wght-560">정가 in</span>: cache_control 안 걸린 input. dynamicContext + userInput.</li>
-          <li><span className="wght-560">캐시 read</span>: cache_control 걸린 rulePrompt가 1h 안에 재사용됨 — 90% 할인.</li>
-          <li><span className="wght-560">캐시 write</span>: 새로 캐시에 박은 토큰 — 1h ttl 기준 2배 가격.</li>
-          <li><span className="wght-560">hit률 — (빨강)</span>: 정가 input은 있는데 캐시 read/write 둘 다 0. rulePrompt가 cache 최소 토큰 미만이라 가능성 큼.</li>
-          <li><span className="wght-560">hit률 60%+ (초록)</span>: 캐시 잘 굴러감.</li>
+          <li>
+            <span className="wght-560">정가 in</span>: cache_control 안 걸린 input. dynamicContext +
+            userInput.
+          </li>
+          <li>
+            <span className="wght-560">캐시 read</span>: cache_control 걸린 rulePrompt가 1h 안에
+            재사용됨 — 90% 할인.
+          </li>
+          <li>
+            <span className="wght-560">캐시 write</span>: 새로 캐시에 박은 토큰 — 1h ttl 기준 2배
+            가격.
+          </li>
+          <li>
+            <span className="wght-560">hit률 — (빨강)</span>: 정가 input은 있는데 캐시 read/write 둘
+            다 0. rulePrompt가 cache 최소 토큰 미만이라 가능성 큼.
+          </li>
+          <li>
+            <span className="wght-560">hit률 60%+ (초록)</span>: 캐시 잘 굴러감.
+          </li>
         </ul>
       </section>
     </div>

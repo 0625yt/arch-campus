@@ -5,12 +5,12 @@ import type { EventView } from "@/lib/data/events";
 import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
 import { eventColor } from "../calendar-board";
 import {
-  HOUR_HEIGHT_PX,
-  TIME_AXIS_WIDTH_DAY,
   formatHourLabel,
   getNowKstMinutes,
+  HOUR_HEIGHT_PX,
   isoToKstDateKey,
   layoutDayEvents,
+  TIME_AXIS_WIDTH_DAY,
 } from "./shared/time-grid";
 
 /**

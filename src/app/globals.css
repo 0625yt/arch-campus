@@ -167,13 +167,15 @@
   --color-surface-mist: #f4f6fb;
 
   --elev-1: 0 1px 2px rgba(20, 20, 20, 0.04);
-  --elev-2: 0 1px 2px rgba(20, 20, 20, 0.04),
-    0 8px 24px -12px rgba(20, 20, 20, 0.10);
-  --elev-3: 0 4px 12px rgba(20, 20, 20, 0.06),
-    0 24px 56px -12px rgba(20, 20, 20, 0.18);
+  --elev-2: 0 1px 2px rgba(20, 20, 20, 0.04), 0 8px 24px -12px rgba(20, 20, 20, 0.1);
+  --elev-3: 0 4px 12px rgba(20, 20, 20, 0.06), 0 24px 56px -12px rgba(20, 20, 20, 0.18);
 
-  --surface-canvas-blob:
-    linear-gradient(180deg, rgba(180, 207, 226, 0.30) 0%, rgba(180, 207, 226, 0.08) 45%, transparent 85%);
+  --surface-canvas-blob: linear-gradient(
+    180deg,
+    rgba(180, 207, 226, 0.3) 0%,
+    rgba(180, 207, 226, 0.08) 45%,
+    transparent 85%
+  );
 }
 
 /*
@@ -223,7 +225,8 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.65),
     0 1px 2px rgba(20, 30, 50, 0.05),
     0 4px 14px -6px rgba(20, 30, 50, 0.08);
-  transition: box-shadow var(--duration-base) var(--ease-out),
+  transition:
+    box-shadow var(--duration-base) var(--ease-out),
     transform var(--duration-base) var(--ease-out);
 }
 .elev-hover-2:hover {
@@ -562,7 +565,9 @@ html {
  * Apple HIG: 명시적 transform > 색만 바뀌는 것. 손가락이 닿았다는 신호.
  */
 .press-soft {
-  transition: transform 120ms var(--ease-out), opacity 120ms var(--ease-out),
+  transition:
+    transform 120ms var(--ease-out),
+    opacity 120ms var(--ease-out),
     box-shadow var(--duration-base) var(--ease-out);
 }
 .press-soft:active {

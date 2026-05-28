@@ -5,8 +5,8 @@ import { type EventView, listUpcomingEvents } from "@/lib/data/events";
 import { type CourseListItem, listCoursesGrouped } from "@/lib/data/materials";
 import { getProfile } from "@/lib/data/profile";
 import {
-  getSemesterSafetySnapshot,
   type CourseRiskItem,
+  getSemesterSafetySnapshot,
   type SafetySignal,
   type SignalTone,
 } from "@/lib/data/semester-safety";

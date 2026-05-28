@@ -1,6 +1,6 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { getServerSupabase } from "@/lib/supabase/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getProfile } from "@/lib/data/profile";
+import { getServerSupabase } from "@/lib/supabase/server";
 
 /**
  * Google OAuth 콜백 — code를 세션으로 교환하고 온보딩 여부에 따라 라우팅.

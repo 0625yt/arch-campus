@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { useActiveJobs } from "@/lib/hooks/use-active-jobs";
 
 /**
@@ -30,9 +30,7 @@ export function SummaryLoading({
   const { jobs } = useActiveJobs();
   const sawActiveRef = useRef(false);
 
-  const active = jobs.find(
-    (j) => j.materialId === materialId && j.tool === "summarize",
-  );
+  const active = jobs.find((j) => j.materialId === materialId && j.tool === "summarize");
 
   useEffect(() => {
     if (active) {
@@ -55,9 +53,7 @@ export function SummaryLoading({
             aria-hidden
             className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-apple-hairline)] border-t-[var(--color-apple-action)]"
           />
-          <p
-            className="text-[13px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-          >
+          <p className="text-[13px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
             요약 만드는 중
           </p>
         </div>

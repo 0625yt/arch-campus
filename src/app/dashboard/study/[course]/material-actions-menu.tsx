@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Modal } from "@/components/modal";
 import { pingSidebarCourses } from "@/components/sidebar";

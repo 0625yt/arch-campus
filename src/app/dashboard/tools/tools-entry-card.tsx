@@ -1,8 +1,8 @@
 "use client";
 
+import { Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
 
 /**
  * tools 메인의 1급 진입 카드.
@@ -25,11 +25,7 @@ const PROMPTS = [
   "팀플 회의 했는데 합의록이 흩어졌어",
 ] as const;
 
-const CHIPS = [
-  "리포트 목차 잡아줘",
-  "벼락치기 계획",
-  "발표 예상질문",
-] as const;
+const CHIPS = ["리포트 목차 잡아줘", "벼락치기 계획", "발표 예상질문"] as const;
 
 export function ToolsEntryCard() {
   const router = useRouter();

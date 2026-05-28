@@ -32,11 +32,7 @@ function mapProfile(row: ProfileRow): ProfileView {
 
 export async function getProfile(ownerId: string): Promise<ProfileView | null> {
   const admin = getAdminSupabase();
-  const { data, error } = await admin
-    .from("profiles")
-    .select("*")
-    .eq("id", ownerId)
-    .maybeSingle();
+  const { data, error } = await admin.from("profiles").select("*").eq("id", ownerId).maybeSingle();
   if (error || !data) return null;
   return mapProfile(data);
 }
@@ -51,16 +47,14 @@ export async function updateProfile(opts: {
   semesterTerm?: "spring" | "fall" | null;
 }): Promise<boolean> {
   const admin = getAdminSupabase();
-  const { error } = await admin
-    .from("profiles")
-    .upsert({
-      id: opts.ownerId,
-      display_name: opts.displayName ?? null,
-      university: opts.university,
-      department: opts.department,
-      year: opts.year,
-      semester_year: opts.semesterYear ?? null,
-      semester_term: opts.semesterTerm ?? null,
-    });
+  const { error } = await admin.from("profiles").upsert({
+    id: opts.ownerId,
+    display_name: opts.displayName ?? null,
+    university: opts.university,
+    department: opts.department,
+    year: opts.year,
+    semester_year: opts.semesterYear ?? null,
+    semester_term: opts.semesterTerm ?? null,
+  });
   return !error;
 }

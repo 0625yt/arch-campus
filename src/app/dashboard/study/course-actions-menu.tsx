@@ -1,19 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Modal } from "@/components/modal";
 
 // /api/courses POST의 PALETTE와 동일 — 신규 추가 시 자동 색이 이 안에서 도는 것과 맞춤
-const COLOR_PALETTE = [
-  "#7aa6d6",
-  "#cca06b",
-  "#7fb38c",
-  "#a08bc4",
-  "#e0445e",
-  "#5b8a8a",
-] as const;
+const COLOR_PALETTE = ["#7aa6d6", "#cca06b", "#7fb38c", "#a08bc4", "#e0445e", "#5b8a8a"] as const;
 
 /**
  * 강의 카드 우상단 ⋯ — 이름·교수·색상 수정, 삭제.
@@ -247,9 +240,7 @@ export function CourseActionsMenu({
       <ConfirmDialog
         open={confirmDelete}
         title={isPersonal ? "주제 삭제" : "강의 삭제"}
-        description={`"${initialName}"\n\n${
-          isPersonal ? "주제를" : "강의를"
-        } 지울까요? 이 ${
+        description={`"${initialName}"\n\n${isPersonal ? "주제를" : "강의를"} 지울까요? 이 ${
           isPersonal ? "주제" : "강의"
         }에 묶여 있던 자료·일정은 '미분류'로 남아요.`}
         confirmLabel="삭제"

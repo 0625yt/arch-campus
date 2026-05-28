@@ -117,6 +117,29 @@ function IconReview() {
     </svg>
   );
 }
+function IconQuiz() {
+  // 체크박스 안에 V — "풀고 채점" 시그널. 동그라미 점 X (DESIGN.md §10)
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <rect
+        x="2.4"
+        y="2.4"
+        width="9.2"
+        height="9.2"
+        rx="1.6"
+        stroke="currentColor"
+        strokeWidth={1.2}
+      />
+      <path
+        d="M5 7.2l1.6 1.6L9.2 5.4"
+        stroke="currentColor"
+        strokeWidth={1.3}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 function IconHistory() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
@@ -147,6 +170,8 @@ function IconHistory() {
 const NAV = [
   { href: "/dashboard/today", label: "지금", Icon: IconToday },
   { href: "/dashboard/study", label: "공부", Icon: IconStudy },
+  // "복습"은 오답 큐, "내 문제"는 만든 모든 퀴즈 — 분리. 만든 퀴즈를 못 찾는 동선 결함 해소.
+  { href: "/dashboard/quiz", label: "내 문제", Icon: IconQuiz },
   { href: "/dashboard/review", label: "복습", Icon: IconReview },
   { href: "/dashboard/calendar", label: "일정", Icon: IconCalendar },
   { href: "/dashboard/tools", label: "도구", Icon: IconTools },
@@ -601,7 +626,9 @@ function CourseGroup({
           className="ml-1 flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          <span aria-hidden className="text-[var(--color-apple-hairline)]">└</span>
+          <span aria-hidden className="text-[var(--color-apple-hairline)]">
+            └
+          </span>
           <span className="flex-1 truncate">{emptyText}</span>
           <span className="shrink-0 text-[var(--color-apple-action)]">{emptyHrefLabel}</span>
         </Link>
@@ -664,8 +691,7 @@ function Logo() {
       className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-[7px]"
       style={{
         // 코발트→라일락 미세 그라데이션. 로그인 카피의 색감을 사이드바에도 끌어들임.
-        background:
-          "linear-gradient(135deg, #0071e3 0%, #4f7be8 55%, #8e7ee0 100%)",
+        background: "linear-gradient(135deg, #0071e3 0%, #4f7be8 55%, #8e7ee0 100%)",
         boxShadow: "0 1px 2px rgba(0, 113, 227, 0.18)",
       }}
     >

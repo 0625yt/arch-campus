@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { tryGetOwnerId } from "@/lib/auth";
-import { getRecentActivities, type Activity } from "@/lib/data/activity";
 import { activityColor } from "@/lib/activity-color";
+import { tryGetOwnerId } from "@/lib/auth";
+import { type Activity, getRecentActivities } from "@/lib/data/activity";
 
 export const dynamic = "force-dynamic";
 

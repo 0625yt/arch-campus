@@ -749,9 +749,7 @@ export function ReportStructureResultCard({
                     약 {s.estimatedPages.toFixed(1)}쪽
                   </span>
                 </div>
-                <p
-                  className="mt-1 text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]"
-                >
+                <p className="mt-1 text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]">
                   {s.purpose}
                 </p>
                 <div className="mt-3">

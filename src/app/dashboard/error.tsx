@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
+import { useEffect } from "react";
 
 /**
  * /dashboard 하위 라우트 어디서든 throw가 일어나면 흰 화면 대신 이 화면.
@@ -43,9 +43,7 @@ export default function DashboardError({
         </p>
 
         {error.digest && (
-          <p
-            className="mt-4 inline-block rounded-[6px] bg-[var(--color-apple-pearl)] px-2 py-1 font-mono text-[11px] tabular-nums text-[var(--color-apple-muted)]"
-          >
+          <p className="mt-4 inline-block rounded-[6px] bg-[var(--color-apple-pearl)] px-2 py-1 font-mono text-[11px] tabular-nums text-[var(--color-apple-muted)]">
             {error.digest}
           </p>
         )}

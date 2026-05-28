@@ -31,7 +31,9 @@ export async function storeMaterialFile(opts: {
   const arrayBuffer = await opts.file.arrayBuffer();
   const bytes = new Uint8Array(arrayBuffer);
   const mimeType =
-    opts.mimeType ?? ("type" in opts.file ? (opts.file as File).type : "") ?? "application/octet-stream";
+    opts.mimeType ??
+    ("type" in opts.file ? (opts.file as File).type : "") ??
+    "application/octet-stream";
 
   const admin = getAdminSupabase();
   const { error } = await admin.storage.from(BUCKET).upload(storagePath, bytes, {
@@ -72,9 +74,7 @@ export async function createSignedReadUrl(opts: {
 }): Promise<string> {
   const admin = getAdminSupabase();
   const ttl = opts.ttlSec ?? 3600;
-  const { data, error } = await admin.storage
-    .from(BUCKET)
-    .createSignedUrl(opts.storagePath, ttl);
+  const { data, error } = await admin.storage.from(BUCKET).createSignedUrl(opts.storagePath, ttl);
   if (error || !data) {
     throw new Error(`signed read URL 발급 실패: ${error?.message ?? "no data"}`);
   }
@@ -114,9 +114,7 @@ export async function createMaterialUploadUrl(opts: {
   const storagePath = `${opts.ownerId}/${materialId}${ext ? `.${ext}` : ""}`;
 
   const admin = getAdminSupabase();
-  const { data, error } = await admin.storage
-    .from(BUCKET)
-    .createSignedUploadUrl(storagePath);
+  const { data, error } = await admin.storage.from(BUCKET).createSignedUploadUrl(storagePath);
 
   if (error || !data) {
     throw new Error(`signed upload URL 발급 실패: ${error?.message ?? "no data"}`);

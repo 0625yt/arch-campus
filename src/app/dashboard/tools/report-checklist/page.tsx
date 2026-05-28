@@ -32,9 +32,7 @@ export default async function ReportChecklistPage() {
         </header>
 
         <section className="mt-10 fade-up fade-up-1 sm:mt-14">
-          <p
-            className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]"
-          >
+          <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]">
             교수 요구사항 체크
           </p>
           <h1
@@ -47,8 +45,8 @@ export default async function ReportChecklistPage() {
             className="mt-4 max-w-[560px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            과제 공지를 붙이면 분량·형식·인용·마감·제출방식까지 빠짐없이 체크리스트로
-            정리해드려요. 본문은 본인이 직접 씁니다.
+            과제 공지를 붙이면 분량·형식·인용·마감·제출방식까지 빠짐없이 체크리스트로 정리해드려요.
+            본문은 본인이 직접 씁니다.
           </p>
         </section>
 

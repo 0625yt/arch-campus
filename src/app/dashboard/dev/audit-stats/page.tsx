@@ -34,28 +34,30 @@ export default async function AuditStatsPage() {
   const admin = getAdminSupabase();
   const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data, error } = await (admin as unknown as {
-    from: (t: string) => {
-      select: (cols: string) => {
-        eq: (
-          c: string,
-          v: string,
-        ) => {
-          gte: (
+  const { data, error } = await (
+    admin as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (
             c: string,
             v: string,
           ) => {
-            order: (
+            gte: (
               c: string,
-              opts: { ascending: boolean },
+              v: string,
             ) => {
-              limit: (n: number) => Promise<{ data: RollupRow[] | null; error: unknown }>;
+              order: (
+                c: string,
+                opts: { ascending: boolean },
+              ) => {
+                limit: (n: number) => Promise<{ data: RollupRow[] | null; error: unknown }>;
+              };
             };
           };
         };
       };
-    };
-  })
+    }
+  )
     .from("audit_log_daily")
     .select("day, owner_id, action, action_count, distinct_ip_count, first_at, last_at")
     .eq("owner_id", ownerId)

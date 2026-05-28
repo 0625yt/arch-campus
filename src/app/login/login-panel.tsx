@@ -27,7 +27,8 @@ export function LoginPanel({
       provider: "google",
       options: {
         redirectTo: redirectTo.toString(),
-        queryParams: mode === "signup" ? { prompt: "select_account" } : { prompt: "select_account" },
+        queryParams:
+          mode === "signup" ? { prompt: "select_account" } : { prompt: "select_account" },
       },
     });
     if (oauthError) {
@@ -76,8 +77,15 @@ export function LoginPanel({
 
       {mode === "signup" && (
         <p className="mt-8 text-center text-[11.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
-          계속하면 <a className="underline underline-offset-2" href="/terms">이용약관</a>·
-          <a className="underline underline-offset-2" href="/privacy">개인정보처리방침</a>에 동의해요.
+          계속하면{" "}
+          <a className="underline underline-offset-2" href="/terms">
+            이용약관
+          </a>
+          ·
+          <a className="underline underline-offset-2" href="/privacy">
+            개인정보처리방침
+          </a>
+          에 동의해요.
         </p>
       )}
     </div>

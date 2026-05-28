@@ -4,7 +4,7 @@ import { WizardWatermark } from "@/components/wizard-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getLatestJob } from "@/lib/data/jobs";
 import { getMaterialDetail, type MaterialDetail } from "@/lib/data/materials";
-import { getExtractedExam } from "@/lib/data/quizzes";
+import { getExtractedExam, listQuizzesForMaterial } from "@/lib/data/quizzes";
 import { getDefaultStyles, type SummaryStyle } from "@/lib/material-policy";
 import type { SummarizeOutputT } from "@/lib/schemas";
 import { createSignedReadUrl } from "@/lib/storage";
@@ -14,8 +14,8 @@ import { ExtractExamView } from "./extract-exam-view";
 import { GenerateButton } from "./generate-button";
 import { MaterialView } from "./material-view";
 import { SplitWithConvertingLeft, SplitWithFailedLeft } from "./pdf-convert-states";
-import { SummaryLoading } from "./summary-loading";
 import { SummarizeWithStyles } from "./summarize-with-styles";
+import { SummaryLoading } from "./summary-loading";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -81,12 +81,11 @@ export default async function MaterialDetailPage({
   // type=exam은 별도 흐름 — 본문에서 기출문제·정답·해설 추출
   // (요약 생성 X. CLAUDE.md §4 치팅 라인)
   const isExamType = detail.type === "exam";
-  const extracted = isExamType
-    ? await getExtractedExam({ ownerId, materialId: detail.id })
-    : null;
-  const extractJob = isExamType && !extracted
-    ? await getLatestJob({ ownerId, materialId: detail.id, tool: "exam-extract" })
-    : null;
+  const extracted = isExamType ? await getExtractedExam({ ownerId, materialId: detail.id }) : null;
+  const extractJob =
+    isExamType && !extracted
+      ? await getLatestJob({ ownerId, materialId: detail.id, tool: "exam-extract" })
+      : null;
 
   // 요약 스타일 default — 강의명·자료 제목에서 과목 추론 후 type별 추천 (2~3개)
   // exam은 빈 배열 — picker 자체를 안 보임
@@ -94,9 +93,14 @@ export default async function MaterialDetailPage({
     courseName: detail.course?.name ?? null,
     materialTitle: detail.title,
   });
-  const defaultStyles: SummaryStyle[] = isExamType
+  const defaultStyles: SummaryStyle[] = isExamType ? [] : getDefaultStyles(detail.type, subject);
+
+  // 이 자료로 만든 모든 퀴즈 — 요약 다 읽은 뒤 "전에 만든 문제 다시 풀기" 진입점.
+  // 종전엔 풀어본 적 있는 퀴즈만 today에 보였고, 만들기만 한 퀴즈는 어디서도 못 찾았음.
+  // exam type은 별도 흐름이라 제외.
+  const materialQuizzes = isExamType
     ? []
-    : getDefaultStyles(detail.type, subject);
+    : await listQuizzesForMaterial({ ownerId, materialId: detail.id, limit: 10 });
 
   return (
     <div>
@@ -106,10 +110,7 @@ export default async function MaterialDetailPage({
 
         {isExamType ? (
           extracted ? (
-            <ExtractExamView
-              extracted={extracted}
-              className="mt-14 fade-up fade-up-3 sm:mt-16"
-            />
+            <ExtractExamView extracted={extracted} className="mt-14 fade-up fade-up-3 sm:mt-16" />
           ) : extractJob?.status === "error" ? (
             <ExtractExamErrorCard
               materialId={detail.id}
@@ -119,10 +120,7 @@ export default async function MaterialDetailPage({
           ) : extractJob?.status === "pending" || extractJob?.status === "running" ? (
             <ExtractExamLoading className="mt-14 fade-up fade-up-3 sm:mt-16" />
           ) : (
-            <ExtractExamEmpty
-              materialId={detail.id}
-              className="mt-14 fade-up fade-up-3 sm:mt-16"
-            />
+            <ExtractExamEmpty materialId={detail.id} className="mt-14 fade-up fade-up-3 sm:mt-16" />
           )
         ) : detail.summary ? (
           isPdf && pdfUrl ? (
@@ -163,14 +161,20 @@ export default async function MaterialDetailPage({
           <SummaryLoading
             materialId={detail.id}
             className="mt-14 fade-up fade-up-3 sm:mt-16"
-            fallback={
-              <EmptySummary materialId={detail.id} defaultStyles={defaultStyles} />
-            }
+            fallback={<EmptySummary materialId={detail.id} defaultStyles={defaultStyles} />}
           />
         )}
 
         {!isExamType && detail.summaryKeywords && detail.summaryKeywords.length > 0 && (
           <Keywords keywords={detail.summaryKeywords} className="mt-12 fade-up fade-up-2" />
+        )}
+
+        {materialQuizzes.length > 0 && (
+          <MaterialQuizzes
+            quizzes={materialQuizzes}
+            dotColor={dotColor}
+            className="mt-14 fade-up fade-up-3 sm:mt-16"
+          />
         )}
 
         <CtaCard detail={detail} courseLabel={courseLabel} dotColor={dotColor} />
@@ -264,13 +268,7 @@ function Keywords({ keywords, className }: { keywords: string[]; className?: str
 
 /* ─────────── type=exam 분기 컴포넌트들 ─────────── */
 
-function ExtractExamEmpty({
-  materialId,
-  className,
-}: {
-  materialId: string;
-  className?: string;
-}) {
+function ExtractExamEmpty({ materialId, className }: { materialId: string; className?: string }) {
   return (
     <section className={className}>
       <div className="elev-1 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
@@ -284,7 +282,8 @@ function ExtractExamEmpty({
           className="mx-auto mt-3 max-w-[460px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          이 자료의 문제·정답·해설을 그대로 가져와요. 새 문제를 만들지 않아요. 본인이 풀어보고 답을 적은 뒤 정답을 확인할 수 있어요.
+          이 자료의 문제·정답·해설을 그대로 가져와요. 새 문제를 만들지 않아요. 본인이 풀어보고 답을
+          적은 뒤 정답을 확인할 수 있어요.
         </p>
         <div className="mt-7 flex justify-center">
           <ExtractExamButton materialId={materialId} />
@@ -473,6 +472,100 @@ function SummaryErrorCard({
   );
 }
 
+/**
+ * 이 자료로 만든 퀴즈 목록 — 요약 바로 아래·CTA 위에 박힘.
+ *
+ * 사용자가 자료를 다시 열었을 때 "전에 만든 다른 난이도 문제 다시 풀기"로 직진할 수 있게
+ * 항상 자료 시야 안에 둔다. 사이드바 "내 문제"가 글로벌이라면 여기는 자료별 로컬 인덱스.
+ *
+ * 정책:
+ *   - quizzes 0개면 호출부에서 컴포넌트 자체를 안 띄움 (조용히 숨김)
+ *   - 풀어본 적 있는 세트는 최근 점수, 안 풀어본 세트는 "아직 안 풀었어요" 액센트
+ *   - 카드 클릭 시 풀이 화면으로 직진 (자료 슬러그 모름·이미 자료 안이라 quizId만)
+ */
+function MaterialQuizzes({
+  quizzes,
+  dotColor,
+  className,
+}: {
+  quizzes: Array<{
+    id: string;
+    title: string;
+    difficulty: "쉬움" | "보통" | "어려움";
+    questionCount: number;
+    createdAt: string;
+    attemptCount: number;
+    lastScore: number | null;
+  }>;
+  dotColor: string;
+  className?: string;
+}) {
+  return (
+    <section className={className}>
+      <header className="flex items-baseline justify-between gap-3">
+        <h2
+          className="text-[14px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "0.06em" }}
+        >
+          이 자료로 만든 문제 · {quizzes.length}세트
+        </h2>
+        <Link
+          href="/dashboard/quiz"
+          className="text-[12px] wght-450 text-[var(--color-apple-action)] hover:underline"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          내 문제 전체 ›
+        </Link>
+      </header>
+      <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {quizzes.map((q) => (
+          <li key={q.id}>
+            <Link
+              href={`/dashboard/quiz/${q.id}`}
+              className="group block rounded-[14px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3.5 transition-colors hover:border-[var(--color-apple-action)]/30"
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <span
+                  className="text-[11px] wght-560 uppercase tracking-[0.06em]"
+                  style={{ color: dotColor, letterSpacing: "0.06em" }}
+                >
+                  {q.difficulty} · {q.questionCount}문제
+                </span>
+                <span
+                  className="shrink-0 text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  {formatRelative(q.createdAt)}
+                </span>
+              </div>
+              <p
+                className="mt-2 line-clamp-1 text-[14px] wght-560 text-[var(--color-apple-ink)] group-hover:text-[var(--color-apple-action)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                {q.title}
+              </p>
+              <p
+                className="mt-1 text-[12px] wght-450 text-[var(--color-apple-muted)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                {q.attemptCount === 0 ? (
+                  <span className="wght-560 text-[var(--color-apple-action)]">아직 안 풀었어요</span>
+                ) : q.lastScore !== null ? (
+                  <span className="tabular-nums">
+                    최근 {q.lastScore}/{q.questionCount} · {q.attemptCount}회 풀이
+                  </span>
+                ) : (
+                  <span className="tabular-nums">{q.attemptCount}회 풀이</span>
+                )}
+              </p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function CtaCard({
   detail,
   courseLabel,
@@ -486,7 +579,9 @@ function CtaCard({
   if (detail.type === "exam") return null;
 
   return (
-    <section className="mt-14 fade-up fade-up-4 sm:mt-20">
+    // 결과 화면 "새 문제 만들기"가 #generate 해시로 직진하면 여기로 스크롤된다.
+    // scroll-mt-* 는 sticky 헤더 가림 보정 — 윗 헤더 약 56px + 여백 여유로 80px.
+    <section id="generate" className="mt-14 fade-up fade-up-4 scroll-mt-[80px] sm:mt-20">
       {/* 캘린더 EventChip 톤 — 좌측 컬러 ribbon + hover 시 살짝 글로우. dotColor가 카테고리 단서. */}
       <div
         className="card-glow-ribbon elev-1 relative overflow-hidden rounded-[18px] bg-white px-7 py-9 sm:px-12 sm:py-12"
@@ -508,8 +603,8 @@ function CtaCard({
           className="mt-4 max-w-[520px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)] sm:text-[15px]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          객관식, 단답형, 서술형까지 이 자료 기준으로 바로 점검할 수 있어요. 모든 문제는 이
-          자료의 문장에서만 나와요.
+          객관식, 단답형, 서술형까지 이 자료 기준으로 바로 점검할 수 있어요. 모든 문제는 이 자료의
+          문장에서만 나와요.
         </p>
 
         <div className="mt-7">
@@ -527,13 +622,7 @@ function CtaCard({
 
 /* ─────────── 요약 본문 ─────────── */
 
-function SummaryArticle({
-  summary,
-  className,
-}: {
-  summary: SummarizeOutputT;
-  className?: string;
-}) {
+function SummaryArticle({ summary, className }: { summary: SummarizeOutputT; className?: string }) {
   return (
     <section className={className}>
       <article className="elev-1 rounded-[18px] bg-white px-7 py-9 sm:px-10 sm:py-12">

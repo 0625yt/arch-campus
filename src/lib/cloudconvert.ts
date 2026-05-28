@@ -1,4 +1,5 @@
 import "server-only";
+import { safeFetch } from "./ssrf-guard";
 
 const API_BASE = "https://api.cloudconvert.com/v2";
 
@@ -91,16 +92,16 @@ export async function convertToPdf(opts: {
     const statusJob = (await statusRes.json()) as CCJobResponse;
     if (statusJob.data.status === "error") {
       const failed = statusJob.data.tasks.find((t) => t.status === "error");
-      throw new Error(
-        `CloudConvert 변환 실패: ${failed?.message ?? failed?.code ?? "unknown"}`,
-      );
+      throw new Error(`CloudConvert 변환 실패: ${failed?.message ?? failed?.code ?? "unknown"}`);
     }
     if (statusJob.data.status === "finished") {
       const exportTask = statusJob.data.tasks.find((t) => t.name === "export-file");
       const fileUrl = exportTask?.result?.files?.[0]?.url;
       if (!fileUrl) throw new Error("CloudConvert: export URL 누락");
-      // 3) 결과 다운로드
-      const fileRes = await fetch(fileUrl);
+      // 3) 결과 다운로드 — CloudConvert 응답이 변조되거나 SSRF 유도하는 URL이 들어와도
+      //    safeFetch가 사설·loopback·link-local·메타데이터(169.254.169.254) 호스트를 차단.
+      //    redirect도 manual로 막아 우회 차단.
+      const fileRes = await safeFetch(fileUrl);
       if (!fileRes.ok) {
         throw new Error(`결과 PDF 다운로드 실패: ${fileRes.status}`);
       }

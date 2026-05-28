@@ -77,8 +77,7 @@ export function NavigationProgress() {
         if (url.origin !== window.location.origin) return;
         // 같은 URL — 라우팅 안 일어남
         const sameUrl =
-          url.pathname === window.location.pathname &&
-          url.search === window.location.search;
+          url.pathname === window.location.pathname && url.search === window.location.search;
         if (sameUrl) return;
       } catch {
         return;
@@ -119,11 +118,9 @@ export function NavigationProgress() {
         className="h-full origin-left"
         style={{
           width: `${progress}%`,
-          background:
-            "linear-gradient(90deg, #0071e3 0%, #4f7be8 60%, #8e7ee0 100%)",
+          background: "linear-gradient(90deg, #0071e3 0%, #4f7be8 60%, #8e7ee0 100%)",
           boxShadow: "0 0 8px rgba(0, 113, 227, 0.4)",
-          transition:
-            "width 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms var(--ease-out)",
+          transition: "width 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms var(--ease-out)",
         }}
       />
     </div>

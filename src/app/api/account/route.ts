@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
+import { pickRequestContext, recordAudit } from "@/lib/audit";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { getAdminSupabase } from "@/lib/supabase/admin";
-import { recordAudit, pickRequestContext } from "@/lib/audit";
 import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
+import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -41,7 +41,9 @@ interface DeleteErr {
  *
  * 클라이언트는 응답 200 받으면 세션 끊기 + /login.
  */
-export async function DELETE(req: Request): Promise<NextResponse<DeleteOk | DeleteErr | RateLimitErrBody>> {
+export async function DELETE(
+  req: Request,
+): Promise<NextResponse<DeleteOk | DeleteErr | RateLimitErrBody>> {
   let ownerId: string;
   try {
     ownerId = await getOwnerId();

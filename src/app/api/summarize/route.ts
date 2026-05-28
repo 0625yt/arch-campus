@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { parseDocument, ParserRejectedError } from "@/lib/parsers";
+import { MAX_STYLES_PER_REQUEST, STYLE_ORDER, type SummaryStyle } from "@/lib/material-policy";
+import { ParserRejectedError, parseDocument } from "@/lib/parsers";
 import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
+import type { SummarizeOutputT } from "@/lib/schemas";
 import { runSummarize } from "@/lib/services/summarize";
-import { type SummarizeOutputT } from "@/lib/schemas";
-import { getAdminSupabase } from "@/lib/supabase/admin";
 import { storeMaterialFile } from "@/lib/storage";
-import {
-  type SummaryStyle,
-  STYLE_ORDER,
-  MAX_STYLES_PER_REQUEST,
-} from "@/lib/material-policy";
+import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -177,10 +173,7 @@ export async function POST(
 
   if (!result.ok) {
     // ai 호출 실패·검증 실패 둘 다 클라이언트가 fix 못 함 → 502 통일
-    return NextResponse.json(
-      { ok: false, error: result.error },
-      { status: 502 },
-    );
+    return NextResponse.json({ ok: false, error: result.error }, { status: 502 });
   }
 
   return NextResponse.json({

@@ -28,7 +28,13 @@ interface QuizGenOk {
     cacheReadTokens: number;
     cacheCreationTokens: number;
     costUsd: number;
-    tokenBudget: { rule: number; dynamic: number; user: number; total: number; cacheableShare: number };
+    tokenBudget: {
+      rule: number;
+      dynamic: number;
+      user: number;
+      total: number;
+      cacheableShare: number;
+    };
   };
 }
 
@@ -66,7 +72,9 @@ export default function DevQuizPage() {
   // upload 단계
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [type, setType] = useState<"lecture" | "assignment" | "exam" | "syllabus" | "notice" | "team">("lecture");
+  const [type, setType] = useState<
+    "lecture" | "assignment" | "exam" | "syllabus" | "notice" | "team"
+  >("lecture");
   const [difficulty, setDifficulty] = useState<"쉬움" | "보통" | "어려움">("보통");
   const [count, setCount] = useState(5);
 
@@ -144,7 +152,9 @@ export default function DevQuizPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-14">
       <header className="mb-8">
-        <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">DEV</p>
+        <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+          DEV
+        </p>
         <h1
           className="mt-2 text-[28px] wght-620 text-[var(--color-apple-ink)] sm:text-[36px]"
           style={{ letterSpacing: "-0.024em" }}
@@ -416,8 +426,7 @@ export default function DevQuizPage() {
                   </p>
                   {r.evidence && (
                     <p className="mt-3 border-t border-[var(--color-apple-hairline)] pt-3 text-[12px] wght-450 italic leading-[1.5] text-[var(--color-apple-muted)]">
-                      자료 인용: "{r.evidence}"
-                      {r.evidencePage ? ` · ${r.evidencePage}쪽` : ""}
+                      자료 인용: "{r.evidence}"{r.evidencePage ? ` · ${r.evidencePage}쪽` : ""}
                     </p>
                   )}
                 </div>
@@ -425,7 +434,9 @@ export default function DevQuizPage() {
             );
           })}
 
-          <p className="text-[11px] wght-450 italic text-[var(--color-apple-muted)]">{result.watermark}</p>
+          <p className="text-[11px] wght-450 italic text-[var(--color-apple-muted)]">
+            {result.watermark}
+          </p>
 
           <div className="flex gap-3">
             <button

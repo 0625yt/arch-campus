@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { tryGetOwnerId } from "@/lib/auth";
-import { listCoursesGrouped, type CourseListItem } from "@/lib/data/materials";
-import { getRecentActivities, type Activity } from "@/lib/data/activity";
 import { activityColor } from "@/lib/activity-color";
+import { tryGetOwnerId } from "@/lib/auth";
+import { type Activity, getRecentActivities } from "@/lib/data/activity";
+import { type CourseListItem, listCoursesGrouped } from "@/lib/data/materials";
 import { AddPersonalButton } from "./add-personal-button";
 import { CourseActionsMenu } from "./course-actions-menu";
 import { CourseContextWrapper } from "./course-context-wrapper";
@@ -233,8 +233,8 @@ function PersonalEmpty({ className }: { className?: string }) {
         시간표에 없는 공부를 따로 관리해요
       </p>
       <p className="mx-auto mt-2 max-w-[420px] text-[12.5px] wght-450 leading-[1.6] text-[var(--color-apple-muted)]">
-        정보처리기사·TOEIC·공무원·개인 프로젝트 — 무엇이든 주제로 만들면 자료 업로드·문제·복습이 같은
-        방식으로 동작해요.
+        정보처리기사·TOEIC·공무원·개인 프로젝트 — 무엇이든 주제로 만들면 자료 업로드·문제·복습이
+        같은 방식으로 동작해요.
       </p>
       <div className="mt-5 inline-block">
         <AddPersonalButton />
@@ -249,9 +249,7 @@ function CourseCard({ course }: { course: CourseListItem }) {
   // 평소엔 흰 카드 + 좌측 3px 컬러 바로 카테고리 식별.
   const isPersonal = course.category === "personal";
   const ribbon = isPersonal ? dotColor : dotColor;
-  const hoverTint = isPersonal
-    ? "var(--color-tint-etc)"
-    : "var(--color-tint-prez)";
+  const hoverTint = isPersonal ? "var(--color-tint-etc)" : "var(--color-tint-prez)";
 
   return (
     <CourseContextWrapper
@@ -261,70 +259,68 @@ function CourseCard({ course }: { course: CourseListItem }) {
       initialColor={course.color}
       isPersonal={isPersonal}
     >
-    <div className="relative">
-      <div className="absolute right-3 top-3 z-20">
-        <CourseActionsMenu
-          courseId={course.id}
-          initialName={course.name}
-          initialProfessor={course.professor}
-          initialColor={course.color}
-          isPersonal={isPersonal}
-        />
-      </div>
-      <Link
-        href={`/dashboard/study/${encodeURIComponent(course.name)}`}
-        className="group card-glow-ribbon elev-hover-2 relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-[18px] bg-white p-7 sm:p-8"
-        style={{ ["--ribbon-color" as string]: ribbon }}
-      >
-      {/* hover 시 우상단에 미세한 컬러 워시 — Apple Mail/Notes 컬러 폴더 호버 톤 */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        style={{
-          background: `radial-gradient(180px at 100% 0%, ${hoverTint} 0%, transparent 70%)`,
-        }}
-      />
+      <div className="relative">
+        <div className="absolute right-3 top-3 z-20">
+          <CourseActionsMenu
+            courseId={course.id}
+            initialName={course.name}
+            initialProfessor={course.professor}
+            initialColor={course.color}
+            isPersonal={isPersonal}
+          />
+        </div>
+        <Link
+          href={`/dashboard/study/${encodeURIComponent(course.name)}`}
+          className="group card-glow-ribbon elev-hover-2 relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-[18px] bg-white p-7 sm:p-8"
+          style={{ ["--ribbon-color" as string]: ribbon }}
+        >
+          {/* hover 시 우상단에 미세한 컬러 워시 — Apple Mail/Notes 컬러 폴더 호버 톤 */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            style={{
+              background: `radial-gradient(180px at 100% 0%, ${hoverTint} 0%, transparent 70%)`,
+            }}
+          />
 
-      <div className="relative pr-10">
-        {/* 카드 좌측 ribbon이 이미 dotColor 단서 역할. DESIGN.md §10 금지 — 별도 동그라미 점 X. */}
-        <span
-          className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {isPersonal ? "개인 공부" : (course.professor ?? "교수 미정")}
-        </span>
-        <h3
-          className="mt-4 text-[28px] leading-[1.05] wght-620 text-[var(--color-apple-ink)] sm:text-[32px]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {course.name}
-        </h3>
-      </div>
+          <div className="relative pr-10">
+            {/* 카드 좌측 ribbon이 이미 dotColor 단서 역할. DESIGN.md §10 금지 — 별도 동그라미 점 X. */}
+            <span
+              className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              {isPersonal ? "개인 공부" : (course.professor ?? "교수 미정")}
+            </span>
+            <h3
+              className="mt-4 text-[28px] leading-[1.05] wght-620 text-[var(--color-apple-ink)] sm:text-[32px]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              {course.name}
+            </h3>
+          </div>
 
-      <div className="relative mt-6 flex items-baseline justify-between">
-        <span
-          className="text-[13px] wght-450 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          자료 <span className="tabular-nums wght-560 text-[var(--color-apple-ink)]">{course.materialCount}</span>개
-        </span>
-        <span className="text-[14px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
-          ›
-        </span>
+          <div className="relative mt-6 flex items-baseline justify-between">
+            <span
+              className="text-[13px] wght-450 text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              자료{" "}
+              <span className="tabular-nums wght-560 text-[var(--color-apple-ink)]">
+                {course.materialCount}
+              </span>
+              개
+            </span>
+            <span className="text-[14px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
+              ›
+            </span>
+          </div>
+        </Link>
       </div>
-      </Link>
-    </div>
     </CourseContextWrapper>
   );
 }
 
-function RecentActivity({
-  activities,
-  className,
-}: {
-  activities: Activity[];
-  className?: string;
-}) {
+function RecentActivity({ activities, className }: { activities: Activity[]; className?: string }) {
   return (
     <section className={className}>
       <div className="flex items-baseline justify-between gap-3">
