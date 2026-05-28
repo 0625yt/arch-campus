@@ -16,7 +16,10 @@ export function JobsDock() {
   if (jobs.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[72px] z-40 flex justify-center px-4 sm:bottom-6 sm:right-6 sm:left-auto sm:justify-end sm:px-0">
+    // 모바일 탭바(h-14=56px) + iOS safe area(최대 ~34px) + 여백 8px ≈ 98px.
+    // 종전 bottom-[72px]는 탭바 위에 살짝 떴지만 iPhone 14 Pro Max safe-area에서 가림.
+    // bottom-[calc(...)] 임의값 클래스로 모바일은 safe-area 반영, sm+에서는 bottom-6로 덮어쓰기.
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom)+8px)] z-40 flex justify-center px-4 sm:right-6 sm:bottom-6 sm:left-auto sm:justify-end sm:px-0">
       <div className="pointer-events-auto w-full max-w-[360px] overflow-hidden rounded-[14px] border border-[var(--color-apple-hairline)] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.08),0_2px_6px_rgba(0,0,0,0.04)]">
         <div className="flex items-center gap-2 border-b border-[var(--color-apple-hairline-soft)] px-4 py-2.5">
           <Pulse />

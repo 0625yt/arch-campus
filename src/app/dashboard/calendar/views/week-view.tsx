@@ -96,7 +96,12 @@ export function WeekView({
   const gridHeight = visibleHours * HOUR_HEIGHT_PX;
 
   return (
-    <div className="mt-4 overflow-hidden rounded-[10px] border border-[var(--color-apple-hairline)] bg-white">
+    // 모바일(<sm): 외부 wrapper에서만 가로 스크롤이 일어나게 격리.
+    //   - 외부 mt-4 + overflow-x-auto: 페이지 폭 넘어가지 않고 내부에서만 가로 스크롤.
+    //   - 내부 min-w-[560px]: 시간축 56 + day 72×7 ≈ 560px 보장 → 짜부시키지 않음.
+    // sm+: min-w 해제(자동 flex-1) + overflow-hidden.
+    <div className="mt-4 -mx-1 overflow-x-auto overflow-y-hidden sm:mx-0 sm:overflow-x-hidden">
+    <div className="min-w-[560px] overflow-hidden rounded-[10px] border border-[var(--color-apple-hairline)] bg-white sm:min-w-0">
       {/* 헤더: 시간축 placeholder + 요일·날짜 (macOS 톤 "17일 (일)" 한 줄) */}
       <div className="flex border-b border-[var(--color-apple-hairline)] bg-white">
         <div style={{ width: TIME_AXIS_WIDTH_WEEK }} className="shrink-0" />
@@ -336,6 +341,7 @@ export function WeekView({
           })}
         </div>
       </div>
+    </div>
     </div>
   );
 }

@@ -111,7 +111,10 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     );
   }
 
+  // 캘린더 이벤트 추가 후 즉시 반영돼야 하는 모든 페이지를 무효화.
+  // today는 "다가오는 일정"을 RSC로 그리므로 빠뜨리면 새 이벤트가 안 보임 (CRUD-2 결함).
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/calendar");
+  revalidatePath("/dashboard/today");
   return NextResponse.json({ ok: true, event: { id: data.id, title: data.title } });
 }

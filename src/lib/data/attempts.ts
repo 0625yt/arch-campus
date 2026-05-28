@@ -193,10 +193,16 @@ export async function listWrongItems(opts: {
 
 /**
  * 사용자별 오답 통계 — Today 카드의 한 줄용.
+ *
+ * 정책 (2026-05-28 수정):
+ *   - "오답 N문제" = 같은 (quizId, questionId)는 한 번만 카운트.
+ *     사용자가 같은 문제를 두 번 틀리면 row가 두 개 들어오지만 통계는 1로 친다.
+ *   - 종전엔 row 수를 그대로 노출해 "같은 문제 5번 틀림 = 5문제"로 보였음 → 신뢰성 깎임.
+ *   - 자료별 카드도 같은 원칙 — 자료마다 "서로 다른 오답 문제 수"로 표시.
  */
 export interface WrongStats {
   totalWrong: number;
-  /** 자료별 오답 수 (상위 3) */
+  /** 자료별 unique 오답 문제 수 (상위 3) */
   byMaterial: Array<{
     materialId: string | null;
     quizTitle: string;
@@ -213,20 +219,44 @@ export async function getWrongStats(opts: {
     sinceDays: opts.sinceDays,
     limit: 200,
   });
-  const byKey = new Map<string, { materialId: string | null; quizTitle: string; count: number }>();
+
+  // 전체 unique 오답 — (quizId, questionId) 조합으로 dedupe.
+  const uniqueKeys = new Set<string>();
+  for (const it of items) uniqueKeys.add(`${it.quizId}:${it.questionId}`);
+
+  // 자료별 — 같은 문제는 한 번만 카운트하기 위해 자료key 안에 question set을 둠.
+  const byKey = new Map<
+    string,
+    {
+      materialId: string | null;
+      quizTitle: string;
+      questionIds: Set<string>;
+    }
+  >();
   for (const it of items) {
     const key = it.materialId ?? `quiz:${it.quizId}`;
     const cur = byKey.get(key);
+    const qKey = `${it.quizId}:${it.questionId}`;
     if (cur) {
-      cur.count++;
+      cur.questionIds.add(qKey);
     } else {
-      byKey.set(key, { materialId: it.materialId, quizTitle: it.quizTitle, count: 1 });
+      byKey.set(key, {
+        materialId: it.materialId,
+        quizTitle: it.quizTitle,
+        questionIds: new Set([qKey]),
+      });
     }
   }
   const byMaterial = Array.from(byKey.values())
+    .map((v) => ({
+      materialId: v.materialId,
+      quizTitle: v.quizTitle,
+      count: v.questionIds.size,
+    }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 3);
-  return { totalWrong: items.length, byMaterial };
+
+  return { totalWrong: uniqueKeys.size, byMaterial };
 }
 
 /**

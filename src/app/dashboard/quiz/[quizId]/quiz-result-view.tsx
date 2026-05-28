@@ -123,6 +123,18 @@ export function QuizResultView({
         ))}
       </div>
 
+      {/* 글로벌 복습 큐 진입점 — 이 퀴즈가 아닌 "전체 누적 오답"으로 가는 다리.
+          본문 끝·sticky 액션 위 1줄 secondary 링크라 산만하지 않으면서 진입 가능. */}
+      <div className="flex items-center justify-center pt-2">
+        <Link
+          href="/dashboard/review"
+          className="text-[12.5px] wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-action)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          예전 오답도 같이 보기 ›
+        </Link>
+      </div>
+
       <WizardWatermark modelText={watermark} />
 
       <div className="sticky bottom-4 flex flex-col gap-2 sm:flex-row">

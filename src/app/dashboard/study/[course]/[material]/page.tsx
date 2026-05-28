@@ -219,7 +219,7 @@ function Hero({ detail }: { detail: MaterialDetail }) {
         className="mt-3 text-[30px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[40px] sm:leading-[1.06] md:text-[44px]"
         style={{ letterSpacing: "-0.012em" }}
       >
-        {detail.title}.
+        {detail.title}
       </h1>
 
       <div

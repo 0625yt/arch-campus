@@ -87,7 +87,9 @@ export function Modal({
       aria-labelledby={chromeless ? undefined : "modal-title"}
       aria-label={chromeless ? title : undefined}
       aria-describedby={!chromeless && description ? "modal-description" : undefined}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+      // 모바일(< sm): bottom 정렬 + edge-to-edge → bottom sheet 톤. 작은 폭에서 패딩이 카드 안쪽까지 잡아먹는 문제 해소.
+      // sm+: 중앙 정렬 + 패딩 유지.
+      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6"
     >
       {/* Backdrop */}
       <button
@@ -97,11 +99,14 @@ export function Modal({
         className="absolute inset-0 bg-[var(--color-apple-ink)]/30 backdrop-blur-[2px] fade-up"
       />
 
-      {/* Panel — 항상 화면 중앙 */}
+      {/* Panel — 모바일 bottom sheet (상단 코너만 둥글게) / sm+ 중앙 카드 */}
       <div
         ref={panelRef}
         className={cn(
-          "relative w-full max-h-[90vh] rounded-2xl bg-white shadow-[var(--shadow-lift)] fade-up sm:max-h-[85vh]",
+          // pb-safe로 iOS 홈 인디케이터 영역 보호. max-h는 모바일에서 더 여유 있게(키보드 떴을 때 대비).
+          "relative w-full max-h-[92vh] rounded-t-[20px] bg-white shadow-[var(--shadow-lift)] fade-up",
+          "sm:max-h-[85vh] sm:rounded-2xl",
+          "pb-[env(safe-area-inset-bottom)] sm:pb-0",
           size === "sm" && "sm:max-w-[440px]",
           size === "md" && "sm:max-w-[560px]",
           size === "lg" && "sm:max-w-[680px]",

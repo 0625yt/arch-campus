@@ -117,7 +117,7 @@ function Hero({
         className="mt-3 text-[40px] leading-[1.05] wght-620 text-[var(--color-apple-ink)] sm:text-[56px] md:text-[64px]"
         style={{ letterSpacing: "-0.012em", color: dotColor }}
       >
-        {course.name}.
+        {course.name}
       </h1>
 
       <div

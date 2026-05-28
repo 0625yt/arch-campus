@@ -6,9 +6,11 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 
 // mutation 후 서버 컴포넌트 캐시 무효화 — 새로고침 없이 다음 요청에 최신 데이터.
+// today도 포함 (CRUD-2 결함 해소) — "다가오는 일정" 카드가 RSC라 무효화 필요.
 function bustCalendarCache() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/calendar");
+  revalidatePath("/dashboard/today");
   revalidatePath("/dashboard/study", "layout");
 }
 

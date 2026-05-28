@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listWrongItems, type WrongItem } from "@/lib/data/attempts";
+import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,26 @@ export default async function ReviewPage() {
   if (!ownerId) redirect("/login");
 
   const items = await listWrongItems({ ownerId, sinceDays: 60, limit: 200 });
-  const groups = groupByQuiz(items);
+  const groupsRaw = groupByQuiz(items);
+  // 자료 상세 라우팅에 강의명 슬러그가 필요 — courseId 모아 한 번에 fetch (N+1 회피).
+  // 종전: groupByQuiz가 courseName을 못 받아 ReviewCard에서 "자료" 하드코딩 → breadcrumb 깨짐.
+  const courseIds = Array.from(
+    new Set(groupsRaw.map((g) => g.courseId).filter((id): id is string => id !== null)),
+  );
+  const courseNameById = new Map<string, string>();
+  if (courseIds.length > 0) {
+    const admin = getAdminSupabase();
+    const { data: courses } = await admin
+      .from("courses")
+      .select("id, name")
+      .eq("owner_id", ownerId)
+      .in("id", courseIds);
+    for (const c of courses ?? []) courseNameById.set(c.id, c.name);
+  }
+  const groups = groupsRaw.map((g) => ({
+    ...g,
+    courseName: g.courseId ? (courseNameById.get(g.courseId) ?? null) : null,
+  }));
   const weakTopics = computeWeakTopics(items);
   const totalWrong = items.length;
   const uniqueQuestions = new Set(items.map((i) => `${i.quizId}:${i.questionId}`)).size;
@@ -50,7 +70,7 @@ export default async function ReviewPage() {
             className="text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[48px] md:text-[56px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            오답 <span className="text-[var(--color-apple-muted)]">복습.</span>
+            오답 <span className="text-[var(--color-apple-muted)]">복습</span>
           </h1>
           <p
             className="mt-4 text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px]"
@@ -140,6 +160,9 @@ interface QuizGroup {
   quizId: string;
   quizTitle: string;
   materialId: string | null;
+  /** 자료 상세 페이지 라우팅(`/dashboard/study/[course]/[material]`)에 강의명 슬러그가 필요. */
+  courseId: string | null;
+  courseName: string | null;
   wrongCount: number;
   uniqueQuestionCount: number;
   lastAttemptedAt: string;
@@ -159,6 +182,8 @@ function groupByQuiz(items: WrongItem[]): QuizGroup[] {
         quizId: it.quizId,
         quizTitle: it.quizTitle,
         materialId: it.materialId,
+        courseId: it.courseId,
+        courseName: null, // 본체에서 한 번에 채움
         wrongCount: 1,
         uniqueQuestionCount: 0,
         lastAttemptedAt: it.attemptedAt,
@@ -229,7 +254,9 @@ function ReviewCard({ group }: { group: QuizGroup }) {
         </Link>
         {group.materialId && (
           <Link
-            href={`/dashboard/study/${encodeURIComponent("자료")}/${group.materialId}`}
+            // courseName이 있으면 슬러그로 사용 — 자료 상세 페이지 breadcrumb이 옳게 뜸.
+            // courseName이 null이면 "자료"로 fallback (개인 자료·강의 미연결 케이스).
+            href={`/dashboard/study/${encodeURIComponent(group.courseName ?? "자료")}/${group.materialId}`}
             className="inline-flex h-[38px] items-center justify-center rounded-full px-3.5 text-[12.5px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
             style={{ letterSpacing: "-0.012em" }}
           >

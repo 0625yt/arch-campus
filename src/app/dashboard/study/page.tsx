@@ -138,7 +138,7 @@ function SemesterSection({
             className="mt-2 text-[22px] leading-[1.15] wght-620 text-[var(--color-apple-ink)] sm:text-[26px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            과목 폴더.
+            과목 폴더
           </h2>
         </div>
         <Link
@@ -205,7 +205,7 @@ function PersonalSection({
             className="mt-2 text-[22px] leading-[1.15] wght-620 text-[var(--color-apple-ink)] sm:text-[26px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            자격증·시험·개인 공부.
+            자격증·시험·개인 공부
           </h2>
         </div>
         <AddPersonalButton variant="ghost" />

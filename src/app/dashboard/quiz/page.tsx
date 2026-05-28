@@ -44,7 +44,7 @@ export default async function QuizIndexPage() {
             className="text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[48px] md:text-[56px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            내 문제 <span className="text-[var(--color-apple-muted)]">전부.</span>
+            내 문제 <span className="text-[var(--color-apple-muted)]">전부</span>
           </h1>
           <p
             className="mt-4 text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px]"

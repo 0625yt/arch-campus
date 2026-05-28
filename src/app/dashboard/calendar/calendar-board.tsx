@@ -2686,7 +2686,13 @@ function EventCreateForm({
             reset();
             onClose();
           }}
-          onDone={() => {
+          onDone={(info) => {
+            // 부분 실패: 모달 유지(reset X)·캘린더만 새로고침. 사용자는 실패한 항목 보고 다시 시도 가능.
+            // 전부 성공: 종전 동작 — reset + 닫기 + 새로고침.
+            if (info?.partial) {
+              onCreated();
+              return;
+            }
             reset();
             onCreated();
           }}

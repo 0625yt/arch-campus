@@ -696,7 +696,9 @@ function EventRow({
 }) {
   return (
     <div
-      className={`grid grid-cols-[24px_72px_1fr_auto] items-baseline gap-x-4 gap-y-1.5 px-5 py-4 transition-colors sm:grid-cols-[24px_88px_1fr_auto] sm:px-7 sm:py-5 ${
+      // 모바일(<sm): date column 72→56px·left padding 5→4·gap 4→3로 줄여 본문 폭 확보 (360px 기준 +28px 본문).
+      // sm+: 종전 4열 grid 유지.
+      className={`grid grid-cols-[20px_56px_1fr_auto] items-baseline gap-x-3 gap-y-1.5 px-4 py-4 transition-colors sm:grid-cols-[24px_88px_1fr_auto] sm:gap-x-4 sm:px-7 sm:py-5 ${
         kept ? "bg-white" : "bg-[var(--color-apple-pearl)] opacity-60"
       }`}
     >

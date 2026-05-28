@@ -76,7 +76,11 @@ export function EventAIDraftPanel({
 }: {
   courses: CourseOption[];
   onClose: () => void;
-  onDone: () => void;
+  /**
+   * @param info.partial true면 일부만 성공한 부분 실패. 모달은 닫지 않고 호출자는 캘린더만 refresh.
+   *                     생략(undefined)이면 전부 성공한 일반 완료 — 모달 닫고 refresh.
+   */
+  onDone: (info?: { partial: boolean }) => void;
   onSwitchToManual: () => void;
 }) {
   const [text, setText] = useState("");
@@ -161,8 +165,19 @@ export function EventAIDraftPanel({
     setError(null);
     try {
       // 순차 POST — batch endpoint가 없으므로.
+      // 부분 실패 시: 성공한 항목은 selected=false로 해제 → 사용자가 실패한 것만 명확히 보고
+      //              다시 시도하거나 수정 가능. 종전엔 added>0이면 모달 닫아버려 사용자가
+      //              뭐가 실패했는지 모르고 partial 상태를 인식 못 했음.
+      const successIdxByDraftIdx = new Set<number>();
+      const draftIdxByPickedIdx = new Map<number, number>();
+      picked.forEach((p, pickIdx) => {
+        const dIdx = drafts.findIndex((d) => d === p);
+        if (dIdx >= 0) draftIdxByPickedIdx.set(pickIdx, dIdx);
+      });
+
       let added = 0;
-      for (const d of picked) {
+      for (let i = 0; i < picked.length; i++) {
+        const d = picked[i];
         const res = await fetch("/api/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -180,10 +195,28 @@ export function EventAIDraftPanel({
         });
         const json = await res.json();
         if (!res.ok || !json.ok) {
-          setError(`${added}/${picked.length}개 추가됨 · ${json.error ?? "오류"}`);
-          if (added > 0) onDone();
+          // 실패한 draft 제목 노출 + 성공한 것 선택 해제. 모달은 닫지 않음.
+          const failedTitle = d.title || "이름 없음";
+          setError(
+            added > 0
+              ? `${added}/${picked.length}개 추가 완료. "${failedTitle}" 추가 실패: ${json.error ?? "알 수 없는 오류"}. 남은 일정만 다시 시도해 주세요.`
+              : `"${failedTitle}" 추가 실패: ${json.error ?? "알 수 없는 오류"}`,
+          );
+          if (added > 0) {
+            // 성공한 항목은 selected 해제 → 다시 confirm 시 실패한 것만 재시도
+            setDrafts((prev) =>
+              prev.map((draft, idx) => {
+                const successPickedIdx = Array.from(successIdxByDraftIdx);
+                return successPickedIdx.includes(idx) ? { ...draft, selected: false } : draft;
+              }),
+            );
+            // 캘린더는 일부 새 이벤트 보유 — 부모에게 refresh 신호
+            onDone({ partial: true });
+          }
           return;
         }
+        const dIdx = draftIdxByPickedIdx.get(i);
+        if (dIdx !== undefined) successIdxByDraftIdx.add(dIdx);
         added += 1;
       }
       onDone();

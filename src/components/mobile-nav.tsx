@@ -106,8 +106,13 @@ const NAV = [
 ] as const;
 
 export function MobileTopbar() {
+  // iOS 노치·동적 아일랜드 보호 — viewportFit=cover로 노치 영역까지 그려질 때
+  // env(safe-area-inset-top)이 들어와 메뉴 버튼이 가리지 않도록.
   return (
-    <header className="sticky top-0 z-30 flex h-12 items-center justify-between gap-2 border-b border-[var(--color-apple-hairline)] bg-white/85 px-3 backdrop-blur-md md:hidden">
+    <header
+      className="sticky top-0 z-30 flex h-12 items-center justify-between gap-2 border-b border-[var(--color-apple-hairline)] bg-white/85 px-3 backdrop-blur-md md:hidden"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       <div className="flex items-center gap-1">
         <MobileDrawer />
         <Link href="/dashboard" className="flex items-center gap-2 px-1">

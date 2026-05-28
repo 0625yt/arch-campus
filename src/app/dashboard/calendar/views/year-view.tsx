@@ -71,7 +71,9 @@ export function YearView({
   }, []);
 
   return (
-    <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-7 sm:grid-cols-3 lg:grid-cols-4">
+    // 모바일(<sm): 1열 — 각 월이 화면 폭 가득 사용해 날짜/요일 글씨 충분히 크게.
+    // sm: 3열 (iPad), lg: 4열 (desktop). 종전 2열 모바일은 셀 폭 170px이라 9.5px 날짜라 못 읽음.
+    <div className="mt-4 grid grid-cols-1 gap-x-5 gap-y-7 sm:grid-cols-3 lg:grid-cols-4">
       {MONTH_LABELS.map((label, monthIdx) => {
         const cells = buildMiniMonth(year, monthIdx, eventDates, todayIso);
         return (

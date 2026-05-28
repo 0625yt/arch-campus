@@ -403,7 +403,7 @@ function UpcomingStrip({ events, className }: { events: EventView[]; className?:
           className="text-[22px] leading-[1.15] wght-620 text-[var(--color-apple-ink)] sm:text-[26px]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          다가오는 일정.
+          다가오는 일정
         </h2>
         <Link
           href="/dashboard/calendar"
@@ -482,7 +482,7 @@ function CoursesGrid({
           className="text-[22px] leading-[1.15] wght-620 text-[var(--color-apple-ink)] sm:text-[26px]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          내 과목.
+          내 과목
         </h2>
         <Link
           href="/dashboard/study"
