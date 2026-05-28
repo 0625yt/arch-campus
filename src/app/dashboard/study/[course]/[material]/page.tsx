@@ -9,7 +9,6 @@ import { getDefaultStyles, type SummaryStyle } from "@/lib/material-policy";
 import type { SummarizeOutputT } from "@/lib/schemas";
 import { createSignedReadUrl } from "@/lib/storage";
 import { detectSubject } from "@/lib/subject-detector";
-import { ExtractExamButton } from "./extract-exam-button";
 import { ExtractExamView } from "./extract-exam-view";
 import { GenerateButton } from "./generate-button";
 import { MaterialView } from "./material-view";
@@ -111,16 +110,15 @@ export default async function MaterialDetailPage({
         {isExamType ? (
           extracted ? (
             <ExtractExamView extracted={extracted} className="mt-14 fade-up fade-up-3 sm:mt-16" />
-          ) : extractJob?.status === "error" ? (
-            <ExtractExamErrorCard
-              materialId={detail.id}
-              errorMessage={extractJob.errorMessage ?? null}
-              className="mt-14 fade-up fade-up-3 sm:mt-16"
-            />
           ) : extractJob?.status === "pending" || extractJob?.status === "running" ? (
             <ExtractExamLoading className="mt-14 fade-up fade-up-3 sm:mt-16" />
           ) : (
-            <ExtractExamEmpty materialId={detail.id} className="mt-14 fade-up fade-up-3 sm:mt-16" />
+            <ExtractExamEmpty
+              courseLabel={courseLabel}
+              detail={detail}
+              extractError={extractJob?.status === "error" ? (extractJob.errorMessage ?? null) : null}
+              className="mt-14 fade-up fade-up-3 sm:mt-16"
+            />
           )
         ) : detail.summary ? (
           isPdf && pdfUrl ? (
@@ -268,25 +266,52 @@ function Keywords({ keywords, className }: { keywords: string[]; className?: str
 
 /* ─────────── type=exam 분기 컴포넌트들 ─────────── */
 
-function ExtractExamEmpty({ materialId, className }: { materialId: string; className?: string }) {
+function ExtractExamEmpty({
+  courseLabel,
+  detail,
+  extractError,
+  className,
+}: {
+  courseLabel: string;
+  detail: MaterialDetail;
+  extractError: string | null;
+  className?: string;
+}) {
+  const isErrorState = extractError !== null;
   return (
     <section className={className}>
       <div className="elev-1 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
+        {isErrorState && (
+          <span
+            aria-hidden
+            className="mx-auto mb-4 flex h-7 w-7 items-center justify-center rounded-full bg-[#fde8eb] text-[14px] wght-700 text-[var(--color-urgent)]"
+          >
+            !
+          </span>
+        )}
         <p
           className="text-[18px] wght-620 text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          기출문제를 추출해 볼까요?
+          {isErrorState ? "기출 추출에 실패했어요" : "기출문제를 추출해 볼까요?"}
         </p>
         <p
           className="mx-auto mt-3 max-w-[460px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          이 자료의 문제·정답·해설을 그대로 가져와요. 새 문제를 만들지 않아요. 본인이 풀어보고 답을
-          적은 뒤 정답을 확인할 수 있어요.
+          {isErrorState
+            ? (extractError ??
+              "잠시 후 다시 시도하면 보통 풀려요. 자료가 시험지가 아니라면 자료 종류를 다시 설정해 주세요.")
+            : "이 자료의 문제·정답·해설을 그대로 가져와요. 새 문제를 만들지 않아요. 본인이 풀어보고 답을 적은 뒤 정답을 확인할 수 있어요."}
         </p>
         <div className="mt-7 flex justify-center">
-          <ExtractExamButton materialId={materialId} />
+          <GenerateButton
+            variant="primary"
+            courseSlug={courseLabel}
+            materialId={detail.id}
+            materialTitle={detail.title}
+            materialType={detail.type}
+          />
         </div>
       </div>
     </section>
@@ -309,47 +334,6 @@ function ExtractExamLoading({ className }: { className?: string }) {
         >
           본문에서 문제·정답·해설을 그대로 가져오고 있어요. 30~60초 정도 걸려요.
         </p>
-      </div>
-    </section>
-  );
-}
-
-function ExtractExamErrorCard({
-  materialId,
-  errorMessage,
-  className,
-}: {
-  materialId: string;
-  errorMessage: string | null;
-  className?: string;
-}) {
-  return (
-    <section className={className}>
-      <div className="elev-1 rounded-[18px] bg-white px-7 py-10 sm:px-10 sm:py-12">
-        <div className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-[#fde8eb] text-[14px] wght-700 text-[var(--color-urgent)]"
-          >
-            !
-          </span>
-          <p
-            className="text-[18px] wght-620 text-[var(--color-apple-ink)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            기출 추출에 실패했어요
-          </p>
-        </div>
-        <p
-          className="mt-4 max-w-[560px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.022em" }}
-        >
-          {errorMessage ??
-            "잠시 후 다시 시도하면 보통 풀려요. 자료가 시험지가 아니라면 자료 종류를 다시 설정해 주세요."}
-        </p>
-        <div className="mt-7">
-          <ExtractExamButton materialId={materialId} />
-        </div>
       </div>
     </section>
   );
@@ -613,6 +597,7 @@ function CtaCard({
             courseSlug={courseLabel}
             materialId={detail.id}
             materialTitle={detail.title}
+            materialType={detail.type}
           />
         </div>
       </div>

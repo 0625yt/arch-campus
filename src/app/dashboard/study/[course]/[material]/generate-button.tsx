@@ -8,6 +8,7 @@ interface Props {
   courseSlug: string;
   materialId: string;
   materialTitle: string;
+  materialType?: string;
   /** "primary" — 다크 푸터 위 흰 pill. "compact" — 호환용 (사용 X) */
   variant?: "primary" | "compact";
 }
@@ -16,9 +17,11 @@ export function GenerateButton({
   courseSlug,
   materialId,
   materialTitle,
+  materialType,
   variant = "primary",
 }: Props) {
   const [open, setOpen] = useState(false);
+  const isExamMaterial = materialType === "exam";
 
   return (
     <>
@@ -32,18 +35,22 @@ export function GenerateButton({
         }
         style={{ letterSpacing: "-0.012em" }}
       >
-        문제 만들기
+        {isExamMaterial ? "기출문제 추출하기" : "문제 만들기"}
         <span className="ml-1.5 transition-transform group-hover:translate-x-0.5">›</span>
       </button>
 
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="문제 만들기"
+        title={isExamMaterial ? "기출문제 추출하기" : "문제 만들기"}
         description={materialTitle}
         size="md"
       >
-        <GenerateForm courseSlug={courseSlug} materialId={materialId} />
+        <GenerateForm
+          courseSlug={courseSlug}
+          materialId={materialId}
+          materialType={materialType}
+        />
       </Modal>
     </>
   );

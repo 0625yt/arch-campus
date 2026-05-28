@@ -3,11 +3,13 @@
 import { CloudUpload } from "lucide-react";
 import Link from "next/link";
 import { type DragEvent, useRef, useState } from "react";
+import { Modal } from "@/components/modal";
 import { pingSidebarCourses } from "@/components/sidebar";
 import { addOptimisticJob, pingActiveJobs, removeOptimisticJob } from "@/lib/hooks/use-active-jobs";
 import { cn } from "@/lib/utils";
 
 type Phase = "idle" | "requesting" | "uploading" | "finalizing" | "done" | "error";
+type MaterialType = "lecture" | "exam";
 
 export function UploadZone({ courseId, courseName }: { courseId: string; courseName: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -16,8 +18,11 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
   const [fileName, setFileName] = useState<string | null>(null);
   const [doneMaterialId, setDoneMaterialId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // 파일 선택 후 자료 종류를 묻는 단계 — 모달이 떠 있는 동안엔 진짜 업로드 시작 X.
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pickedType, setPickedType] = useState<MaterialType>("lecture");
 
-  async function startUpload(file: File) {
+  async function startUpload(file: File, type: MaterialType) {
     setFileName(file.name);
     setPhase("requesting");
     setErrorMsg(null);
@@ -83,6 +88,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
           mimeType: file.type || undefined,
           materialId: urlBody.materialId,
           courseId,
+          type,
         }),
       });
       const finBody = (await finRes.json().catch(() => null)) as
@@ -128,7 +134,27 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
     setOver(false);
     if (busy) return;
     const f = e.dataTransfer.files?.[0];
-    if (f) void startUpload(f);
+    if (f) askTypeThenUpload(f);
+  }
+
+  // 파일 선택 직후 자료 종류를 먼저 묻는다 — 기본은 강의자료, 기출문제 선택 시 type=exam으로 박힘.
+  function askTypeThenUpload(file: File) {
+    setPickedType("lecture");
+    setPendingFile(file);
+  }
+
+  function confirmType() {
+    if (!pendingFile) return;
+    const file = pendingFile;
+    const type = pickedType;
+    setPendingFile(null);
+    void startUpload(file, type);
+  }
+
+  function cancelType() {
+    setPendingFile(null);
+    // <input>의 value를 비워야 같은 파일을 다시 골랐을 때 onChange가 다시 발생함.
+    if (inputRef.current) inputRef.current.value = "";
   }
 
   const phaseLabel: Record<Phase, string> = {
@@ -148,6 +174,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
   }
 
   return (
+    <>
     <label
       id="upload-zone"
       htmlFor="upload"
@@ -172,7 +199,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
         className="sr-only"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) void startUpload(f);
+          if (f) askTypeThenUpload(f);
         }}
       />
 
@@ -288,5 +315,79 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
         </>
       )}
     </label>
+
+    <Modal
+      open={pendingFile !== null}
+      onClose={cancelType}
+      title="이 자료의 종류는?"
+      description={pendingFile?.name}
+      size="sm"
+    >
+      <div>
+        <p
+          className="text-[12.5px] wght-450 leading-[1.6] text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.022em" }}
+        >
+          기출문제로 표시하면 자료에 실린 문제·정답·해설을 그대로 추출해 풀이할 수 있어요. 기본은
+          강의자료예요.
+        </p>
+
+        <ul className="mt-5 -mx-1 flex flex-wrap gap-x-1 gap-y-2">
+          {(
+            [
+              { value: "lecture", label: "강의자료", subtitle: "요약·문제 만들기" },
+              { value: "exam", label: "기출문제", subtitle: "문제·정답 그대로 추출" },
+            ] as Array<{ value: MaterialType; label: string; subtitle: string }>
+          ).map(({ value, label, subtitle }) => {
+            const active = pickedType === value;
+            return (
+              <li key={value}>
+                <button
+                  type="button"
+                  onClick={() => setPickedType(value)}
+                  aria-pressed={active}
+                  className={cn(
+                    "inline-flex items-baseline gap-1.5 rounded-full px-3.5 py-2 text-[13px] transition-colors",
+                    active
+                      ? "wght-560 bg-[var(--color-apple-ink)] text-white"
+                      : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
+                  )}
+                >
+                  {label}
+                  <span
+                    className={cn(
+                      "text-[11px] wght-450",
+                      active ? "text-white/65" : "text-[var(--color-apple-muted)]/65",
+                    )}
+                  >
+                    {subtitle}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="mt-7 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={cancelType}
+            className="rounded-full px-4 py-2 text-[13px] wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={confirmType}
+            className="rounded-full bg-[var(--color-apple-ink)] px-4 py-2 text-[13px] wght-560 text-white transition-opacity hover:opacity-90"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            올리기
+          </button>
+        </div>
+      </div>
+    </Modal>
+    </>
   );
 }

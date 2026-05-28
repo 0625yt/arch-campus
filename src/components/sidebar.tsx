@@ -4,12 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SearchTrigger } from "@/components/search-trigger";
+import { CourseContextWrapper } from "@/app/dashboard/study/course-context-wrapper";
 import { cn } from "@/lib/utils";
 
 interface SidebarCourse {
   id: string;
   name: string;
   color: string | null;
+  professor?: string | null;
   materialCount: number;
   category?: "semester" | "personal";
 }
@@ -652,29 +654,37 @@ function CourseGroup({
                   aria-hidden
                   className="absolute left-[6px] top-[16px] h-px w-2 bg-[var(--color-apple-hairline)]"
                 />
-                <Link
-                  href={href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "relative ml-[16px] flex items-center gap-2 rounded-[6px] py-1.5 pl-2 pr-2 text-[12px] transition-colors",
-                    courseActive
-                      ? "wght-620 bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)]"
-                      : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
-                  )}
-                  style={{ letterSpacing: "-0.012em" }}
+                <CourseContextWrapper
+                  courseId={course.id}
+                  initialName={course.name}
+                  initialProfessor={course.professor ?? null}
+                  initialColor={course.color}
+                  isPersonal={course.category === "personal"}
                 >
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-[2px]"
-                    style={{ backgroundColor: course.color ?? "#7aa6d6" }}
-                    aria-hidden
-                  />
-                  <span className="min-w-0 flex-1 truncate">{course.name}</span>
-                  {course.materialCount > 0 && (
-                    <span className="shrink-0 text-[10px] wght-560 tabular-nums text-[var(--color-apple-muted)]">
-                      {course.materialCount}
-                    </span>
-                  )}
-                </Link>
+                  <Link
+                    href={href}
+                    onClick={onNavigate}
+                    className={cn(
+                      "relative ml-[16px] flex items-center gap-2 rounded-[6px] py-1.5 pl-2 pr-2 text-[12px] transition-colors",
+                      courseActive
+                        ? "wght-620 bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)]"
+                        : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
+                    )}
+                    style={{ letterSpacing: "-0.012em" }}
+                  >
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-[2px]"
+                      style={{ backgroundColor: course.color ?? "#7aa6d6" }}
+                      aria-hidden
+                    />
+                    <span className="min-w-0 flex-1 truncate">{course.name}</span>
+                    {course.materialCount > 0 && (
+                      <span className="shrink-0 text-[10px] wght-560 tabular-nums text-[var(--color-apple-muted)]">
+                        {course.materialCount}
+                      </span>
+                    )}
+                  </Link>
+                </CourseContextWrapper>
               </li>
             );
           })}
