@@ -22,6 +22,7 @@ export default async function ReviewPage() {
 
   const items = await listWrongItems({ ownerId, sinceDays: 60, limit: 200 });
   const groups = groupByQuiz(items);
+  const weakTopics = computeWeakTopics(items);
   const totalWrong = items.length;
   const uniqueQuestions = new Set(items.map((i) => `${i.quizId}:${i.questionId}`)).size;
 
@@ -62,11 +63,45 @@ export default async function ReviewPage() {
         {groups.length === 0 ? (
           <EmptyState />
         ) : (
-          <section className="mt-12 grid grid-cols-1 gap-4 fade-up fade-up-2 sm:mt-16 sm:grid-cols-2">
-            {groups.map((g) => (
-              <ReviewCard key={g.quizId} group={g} />
-            ))}
-          </section>
+          <>
+            {/* 약점 단원 — 학생이 어디부터 다시 봐야 하는지 1차 신호.
+                3개 이상 있을 때만 의미 있음 (1~2개면 통계로서 약함) */}
+            {weakTopics.length >= 3 && (
+              <section className="mt-12 fade-up fade-up-2 sm:mt-16">
+                <h2
+                  className="text-[14px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
+                  style={{ letterSpacing: "0.06em" }}
+                >
+                  이번 학기 약점
+                </h2>
+                <p
+                  className="mt-2 text-[13px] wght-450 text-[var(--color-apple-muted)]"
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  같은 단원에서 반복해 틀린 문제예요. 자료를 다시 한 번 훑어보세요.
+                </p>
+                <ul className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {weakTopics.slice(0, 6).map((t) => (
+                    <WeakTopicCard key={t.topic} topic={t} />
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <section className="mt-12 fade-up fade-up-2 sm:mt-16">
+              <h2
+                className="text-[14px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
+                style={{ letterSpacing: "0.06em" }}
+              >
+                자료별 오답
+              </h2>
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {groups.map((g) => (
+                  <ReviewCard key={g.quizId} group={g} />
+                ))}
+              </div>
+            </section>
+          </>
         )}
 
         {totalWrong > 0 && (
@@ -85,9 +120,7 @@ export default async function ReviewPage() {
 function EmptyState() {
   return (
     <section className="elev-1 mt-16 rounded-[18px] bg-white p-12 text-center fade-up fade-up-2">
-      <p
-        className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]"
-      >
+      <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]">
         지금 복습할 오답이 없어요
       </p>
       <p className="mt-4 text-[16px] leading-[1.55] wght-450 text-[var(--color-apple-ink)]">
@@ -175,7 +208,8 @@ function ReviewCard({ group }: { group: QuizGroup }) {
         className="relative text-[12px] wght-620 tabular-nums text-[var(--color-urgent)]"
         style={{ letterSpacing: "-0.006em" }}
       >
-        오답 {group.uniqueQuestionCount}문제 <span className="text-[var(--color-apple-muted)] wght-450">· {timeLabel}</span>
+        오답 {group.uniqueQuestionCount}문제{" "}
+        <span className="text-[var(--color-apple-muted)] wght-450">· {timeLabel}</span>
       </p>
 
       <h2
@@ -210,4 +244,118 @@ function ReviewCard({ group }: { group: QuizGroup }) {
 function daysSince(iso: string): number {
   const ms = Date.now() - new Date(iso).getTime();
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+}
+
+/**
+ * 단원별 약점 통계 — 같은 topic을 여러 자료에서 반복해 틀렸을 때를 잡기 위함.
+ *
+ * 카운팅 규칙:
+ *   - 같은 quizId + questionId 조합은 한 번만 (재시도로 인한 중복 제거)
+ *   - topic null은 "기타"로 묶지 않고 통계에서 제외 — 의미 없는 그룹
+ *   - 정렬: 틀린 문제 수 ↓, 동률이면 가장 최근 attempt 우선
+ */
+interface WeakTopic {
+  topic: string;
+  uniqueQuestionCount: number;
+  /** 이 topic이 등장한 quiz 종류 수 — 자료 여러 개에 걸친 진짜 약점인지의 신호 */
+  quizCount: number;
+  /** 가장 최근 attempt — "최근에도 또 틀렸다"는 신호 */
+  lastAttemptedAt: string;
+  /** 클릭 시 이동할 첫 자료 (가장 최근 오답 자료) */
+  sampleMaterialId: string | null;
+  sampleQuizId: string;
+}
+
+function computeWeakTopics(items: WrongItem[]): WeakTopic[] {
+  // (topic) → { questionKeys: Set, quizIds: Set, last, lastMaterial, lastQuizId }
+  const map = new Map<
+    string,
+    {
+      topic: string;
+      questionKeys: Set<string>;
+      quizIds: Set<string>;
+      lastAttemptedAt: string;
+      sampleMaterialId: string | null;
+      sampleQuizId: string;
+    }
+  >();
+  for (const it of items) {
+    if (!it.topic || it.topic.trim().length === 0) continue;
+    const key = it.topic.trim();
+    const existing = map.get(key);
+    if (existing) {
+      existing.questionKeys.add(`${it.quizId}:${it.questionId}`);
+      existing.quizIds.add(it.quizId);
+      if (it.attemptedAt > existing.lastAttemptedAt) {
+        existing.lastAttemptedAt = it.attemptedAt;
+        existing.sampleMaterialId = it.materialId;
+        existing.sampleQuizId = it.quizId;
+      }
+    } else {
+      map.set(key, {
+        topic: key,
+        questionKeys: new Set([`${it.quizId}:${it.questionId}`]),
+        quizIds: new Set([it.quizId]),
+        lastAttemptedAt: it.attemptedAt,
+        sampleMaterialId: it.materialId,
+        sampleQuizId: it.quizId,
+      });
+    }
+  }
+  return (
+    Array.from(map.values())
+      .map((g) => ({
+        topic: g.topic,
+        uniqueQuestionCount: g.questionKeys.size,
+        quizCount: g.quizIds.size,
+        lastAttemptedAt: g.lastAttemptedAt,
+        sampleMaterialId: g.sampleMaterialId,
+        sampleQuizId: g.sampleQuizId,
+      }))
+      // 같은 단원에서 1번만 틀린 건 통계로 약함 — 2번 이상만 노출
+      .filter((t) => t.uniqueQuestionCount >= 2)
+      .sort((a, b) => {
+        if (b.uniqueQuestionCount !== a.uniqueQuestionCount) {
+          return b.uniqueQuestionCount - a.uniqueQuestionCount;
+        }
+        return a.lastAttemptedAt < b.lastAttemptedAt ? 1 : -1;
+      })
+  );
+}
+
+/**
+ * 약점 단원 카드 — 자료 카드보다 한 단계 작은 톤(섹션 제목이 더 위계 높음).
+ * 클릭하면 가장 최근에 틀린 그 자료/퀴즈의 오답 풀이로 이동.
+ */
+function WeakTopicCard({ topic }: { topic: WeakTopic }) {
+  return (
+    <li>
+      <Link
+        href={`/dashboard/quiz/${topic.sampleQuizId}/wrong`}
+        className="group flex h-full items-start justify-between gap-3 rounded-[14px] bg-white p-4 transition-all hover:-translate-y-px hover:shadow-[0_4px_16px_-8px_rgba(0,0,0,0.12)]"
+      >
+        <div className="min-w-0 flex-1">
+          <p
+            className="truncate text-[14px] wght-620 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {topic.topic}
+          </p>
+          <p
+            className="mt-1 text-[11.5px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.006em" }}
+          >
+            {topic.uniqueQuestionCount}문제
+            {topic.quizCount > 1 ? ` · ${topic.quizCount}개 자료` : ""}
+          </p>
+        </div>
+        <span
+          className="shrink-0 rounded-full bg-[var(--color-urgent)]/10 px-2 py-0.5 text-[10.5px] wght-700 tabular-nums text-[var(--color-urgent)]"
+          aria-hidden
+        >
+          {topic.uniqueQuestionCount}
+        </span>
+      </Link>
+    </li>
+  );
 }

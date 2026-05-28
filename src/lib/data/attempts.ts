@@ -142,6 +142,11 @@ export interface WrongItem {
   explanation: string;
   evidence: string | null;
   evidencePage: number | null;
+  /**
+   * 문제의 주제(단원·키워드). quiz.questions[].topic에서 join.
+   * 마이그레이션 0022 이전 데이터·매칭 실패 시 null — UI는 "기타" fallback.
+   */
+  topic: string | null;
 }
 
 export async function listWrongItems(opts: {
@@ -177,6 +182,12 @@ export async function listWrongItems(opts: {
     explanation: row.explanation,
     evidence: row.evidence,
     evidencePage: row.evidence_page,
+    // 0022 마이그레이션 적용 전이면 row에 topic 컬럼이 없음 → undefined → null로 정규화.
+    // Supabase 타입이 strict라 row.topic 직접 접근은 cast 필요.
+    topic:
+      typeof (row as { topic?: unknown }).topic === "string"
+        ? ((row as { topic?: string }).topic as string)
+        : null,
   }));
 }
 
