@@ -1,15 +1,13 @@
-# 현재 구현 상태 (2026-05-28 기준)
+# 현재 구현 상태 (2026-05-28 기준, 최종 갱신)
 
 > 이 문서는 **지금 무엇이 살아있고 무엇이 미구현인지**의 단일 출처다.
 > 청사진(설계 의도)은 [ARCHITECTURE.md](ARCHITECTURE.md), 제품 범위는 [PRODUCT.md](PRODUCT.md).
->
-> 2026-05-09 시점의 옛 STATUS는 "AI 호출 0건 / DB 미구현 / 위저드 발표만 데모"였으나,
-> 그 이후 데이터·AI·인증 레이어가 전부 실제로 붙었다. 아래는 그 반영본이다.
->
-> **2026-05-28 갱신**: 비로그인 랜딩 페이지·약관/개인정보 페이지 신설, 내 캠퍼스 홈을
-> '학기 안전망' 중심으로 개편, 시간표·강의계획서 import 플로우 강화(syllabus-extract Haiku→Sonnet).
->
-> **2026-05-28 후속**: AI Gateway 도입(`anthropic/...`·`google/...` slug 라우팅). `QUIZ_MODEL_VENDOR`·`SUMMARY_MODEL_VENDOR=google`로 Gemini 2.5 Flash A/B 가능(기본 OFF). `generations.model_provider` 컬럼 추가(마이그레이션 0021). PRICING.haiku 단가 보정($0.8/$4→$1/$5).
+
+## 갱신 이력
+
+- **2026-05-28 (최신)** — 자료 업로드 시점에 **자료 종류 선택 모달**(강의자료/기출문제), 기출 추출 동선을 문제 생성 폼과 **통합**(별도 화면 제거), 사이드바·과목 카드 **우클릭 컨텍스트 메뉴**(이름·교수·색상 수정·삭제), 문제 생성 폼의 추천 흐름 프리셋 제거(디자인 정리), **0023 quizzes.question_count cap 30**, **0022 wrong_items_v.topic** 약점 단원 통계, 모바일 UI 8건 + 캘린더 CRUD 2건, 챗 RAG 키워드 hint, SDK 직접 사용(AI Gateway 미사용).
+- **2026-05-28** — AI Gateway 도입 후 SDK 직접 사용으로 복귀 (`anthropic/...`·`google/...` slug 제거). `QUIZ_MODEL_VENDOR`·`SUMMARY_MODEL_VENDOR=google`로 Gemini 2.5 Flash A/B 가능(기본 OFF, prod 강제 차단). 0021 `generations.model_provider` 컬럼 추가. PRICING.haiku 단가 보정($0.8/$4 → $1/$5).
+- **2026-05-28** — 비로그인 랜딩 페이지·약관/개인정보 페이지 신설, 내 캠퍼스 홈을 **학기 안전망** 중심으로 개편, 시간표·강의계획서 import 강화(syllabus-extract Haiku → Sonnet).
 
 ## 라이브 데모
 
@@ -31,14 +29,15 @@
 | `/login` · `/onboarding` | 폼 | Supabase Auth |
 | `/dashboard` (내 캠퍼스) | 실DB | **학기 안전망** — 마감·시험·오답·방치 자료 신호 + 과목 위험도, 다가오는 일정, 강의 그리드 (`semester-safety.ts`) |
 | `/dashboard/today` | 실DB | 다가오는 일정 + 최근 활동 |
-| `/dashboard/study` | 실DB | 강의 그룹 + 최근 활동 |
-| `/dashboard/study/[course]/[material]` | 실DB | 자료 + 요약/퀴즈, PDF↔요약 분할 뷰(너비 드래그), 자료 챗 |
-| `/dashboard/calendar` | 실DB | 월/주/일 뷰, 이벤트 인라인 편집, 자연어·시간표·강의계획서 추출 |
-| `/dashboard/calendar/import` | 실DB | 시간표/강의계획서 import 플로우(추출→확인→저장) |
+| `/dashboard/study` | 실DB | 강의 그룹 + 최근 활동, **과목 우클릭 메뉴** (이름·교수·색상 수정·삭제) |
+| `/dashboard/study/[course]` | 실DB | 자료 그리드 + 업로드 존 + **자료 종류 선택 모달**(강의자료 기본 / 기출문제) |
+| `/dashboard/study/[course]/[material]` | 실DB | 자료 + 요약/퀴즈, PDF↔요약 분할 뷰(너비 드래그), 자료 챗, **type=exam이면 기출 추출 통합 폼** |
+| `/dashboard/calendar` | 실DB | 월/주/일 뷰, 이벤트 인라인 편집, 자연어·시간표·강의계획서 추출, **HITL confidence**, 한국어 음성 받아쓰기 |
+| `/dashboard/calendar/import` | 실DB | 시간표/강의계획서 import 플로우(추출→**confidence 확인**→저장) |
 | `/dashboard/chat` | 실(SSE) | 자유 챗 — 클라이언트 상태 + `/api/chat/free` 스트리밍 |
-| `/dashboard/review` | 실DB | 오답 모아보기 |
+| `/dashboard/review` | 실DB | 오답 모아보기 + **약점 단원 통계** (wrong_items_v.topic 기반) |
 | `/dashboard/history` · `/history/[gid]` | 실DB | 위저드 결과 목록·재방문 |
-| `/dashboard/quiz/[quizId]` (+result, +wrong) | 실DB | 퀴즈 풀이·채점·오답 |
+| `/dashboard/quiz/[quizId]` (+result, +wrong) | 실DB | 퀴즈 풀이·채점·오답, **step-by-step 풀이 모드** |
 | `/dashboard/tools` | mock 카탈로그 | 위저드 12종 카드 배열 (4종만 클릭 가능) |
 | `/dashboard/tools/{presentation,exam-cram,report-checklist,report-structure}` | 실(API) | 위저드 본체 — courses/materials 조회 + 비동기 생성 |
 | `/dashboard/settings/security` | UI | — |
@@ -51,10 +50,11 @@
 AI 호출 라우트는 모두 `guardRateLimit("ai", ownerId)` + `force-dynamic`, 대부분 `maxDuration` 300s (chat 60s).
 
 - **자료·생성**: `materials`(+upload-url/finalize/[id]/{summarize,quiz,exam-extract,original-url}) · `quiz`(+[id]/submit) · `summarize`
+  - `finalize` 가 `type: "lecture" | "exam" | ...` 받아서 `materials.type`에 박음 (업로드 모달에서 선택)
 - **추출**: `syllabus`(+confirm) · `timetable`(+confirm) · `events/draft`(자연어→일정) · `calendar/imports/reset`(import 초기화)
 - **위저드(비동기)**: `wizards/presentation` · `wizards/exam-cram` · `wizards/report-checklist` · `wizards/report-structure` — 모두 `after()` + `jobs` 테이블 + 폴링(`jobs/[id]`, `jobs/active`)
 - **챗**: `chat/free`(SSE) · `chat/threads`(+[id], +[id]/messages)
-- **CRUD**: `account` · `profile` · `courses`(+[id]) · `events`(+[id]) · `activity`
+- **CRUD**: `account` · `profile` · `courses`(+[id]) PATCH·DELETE · `events`(+[id]) · `activity`
 
 ---
 
@@ -79,16 +79,46 @@ AI 호출 라우트는 모두 `guardRateLimit("ai", ownerId)` + `force-dynamic`,
 
 ---
 
+## 자료 흐름 (2026-05-28 통합)
+
+```
+업로드 존
+  │
+  ▼ 파일 선택
+  ┌─────────────────────┐
+  │ "이 자료의 종류는?" │ ← 모달 (chip: 강의자료 기본 / 기출문제)
+  └─────────────────────┘
+  │
+  ▼ 종류 확정
+  finalize API (type 박힘)
+  │
+  ▼
+  자료 상세 페이지 (type 분기)
+    │
+    ├── type=lecture 등: 요약(Haiku) + 분할 뷰 + "문제 만들기" 폼
+    │     └─ 폼: 난이도·문제수(1~30)·종류(객·단·서)·범위·추가 요청 → quiz API (Sonnet)
+    │
+    └── type=exam: "기출문제 추출하기" 통합 폼
+          └─ 폼: 모든 옵션 숨김, 안내문만 → exam-extract API (Haiku, env로 Sonnet)
+                자료 본문에 실린 문제·정답·해설을 그대로 가져옴 (새 생성 X)
+```
+
+이전엔 type=exam 자료에서 별도 Empty/Loading/Error 화면이 떠 있었으나, 2026-05-28 동선 통합으로 일반 자료와 같은 "문제 만들기" 진입점을 쓰되 폼 내용만 분기한다.
+
+---
+
 ## AI 레이어 (실제 호출 중)
 
 - **진입점** [src/lib/claude.ts](../src/lib/claude.ts) — `generate()`(JSON 출력) / `streamChatReply()`(SSE). 모든 system 메시지에 injection guard prepend + 1h ephemeral 캐싱.
 - **모델**: `claude-sonnet-4-6`, `claude-haiku-4-5`. 매핑은 `TOOL_MODEL`.
   - **Haiku**: summarize · post-mortem · event-parse · exam-extract · chat · chat-free
-  - **Sonnet**: quiz · presentation · wizard-cram · report-structure · timetable-extract(Vision) · **syllabus-extract**(2026-05-28 Haiku→Sonnet 승격, 추출 정확도)
+  - **Sonnet**: quiz · presentation · wizard-cram · report-structure · timetable-extract(Vision) · **syllabus-extract**(2026-05-28 Haiku→Sonnet 승격)
   - env override: `QUIZ_MODEL` · `EXTRACT_MODEL` · `CHAT_MODEL` · `CHAT_FREE_MODEL` · `SYLLABUS_MODEL` (`haiku`|`sonnet`)
+- **vendor 분기**: `QUIZ_MODEL_VENDOR=google` · `SUMMARY_MODEL_VENDOR=google` → Gemini 2.5 Flash. **prod에선 강제 무시** (2026-05-28 1회 A/B evidence 매칭 0% — 재측정 전 차단).
 - **프롬프트** [src/lib/prompts.ts](../src/lib/prompts.ts) — `loadPrompt(name)`이 `_shared/persona-schema.md` + `_shared/master-rules.md` + 도구별 `*.md`를 조합.
   - 도구별: summarize · quiz · presentation · syllabus · timetable · exam-cram · report-checklist · report-structure · event-parse · exam-extract · chat · chat-free
 - **출력 검증** [src/lib/schemas.ts](../src/lib/schemas.ts) — Zod. 위저드 결과는 후처리 검증까지 (예: report-structure는 핵심 질문이 `?`로 끝나는지 — 치팅 가드).
+- **챗 RAG**: 자료 기반 챗은 키워드 매칭으로 관련 청크 hint를 system에 prepend → 발췌 정확도 보강.
 
 ---
 
@@ -103,13 +133,35 @@ AI 호출 라우트는 모두 `guardRateLimit("ai", ownerId)` + `force-dynamic`,
 
 ---
 
-## DB 마이그레이션 (0001 ~ 0020, 전부 적용됨)
+## DB 마이그레이션 (0001 ~ 0023, 전부 적용됨)
 
 `supabase/migrations/`. 주요 테이블: `profiles` · `courses` · `materials` · `generations` · `quizzes`(+questions/attempts) · `events` · `jobs` · `chat_threads`(+messages) · `audit_log`. 모두 RLS + `owner_id` 격리.
 
-- 0001 init · 0002 storage · 0005 quizzes · 0007 events · 0008 jobs · 0013 quizzes_mode
-- 0014 jobs exam-extract · 0015 jobs realtime · 0016 audit_log · 0018 chat_threads · 0019 audit rollup
-- **0020 jobs_tool_check 확장** — `report-checklist`·`report-structure`·`chat`·`chat-free`를 jobs.tool CHECK에 추가 (적용 완료)
+| # | 무엇이 들어왔나 |
+|---|---|
+| 0001 init | profiles · courses · materials · generations 기본 스키마 |
+| 0002 storage | Supabase Storage 정책 |
+| 0003 dev_seed | 개발용 시드 |
+| 0004 relax_uploads | 업로드 제약 완화 |
+| 0005 quizzes | quizzes + questions + attempts |
+| 0006 material_summaries | 자료 요약 |
+| 0007 events | 캘린더 |
+| 0008 jobs | 비동기 작업 |
+| 0009 attempt_review | 오답 리뷰 |
+| 0010 course_category | semester / personal 분리 |
+| 0011 materials_pdf_convert | HWP·Office → PDF 변환 |
+| 0012 events_enrich | 이벤트 확장 |
+| 0013 quizzes_mode | 퀴즈 모드 (생성 vs 추출) |
+| 0014 jobs exam-extract | 기출 추출 tool 추가 |
+| 0015 jobs realtime | jobs realtime 채널 |
+| 0016 audit_log | 감사 로그 |
+| 0017 drop_unused_pii_indexes | 인덱스 정리 |
+| 0018 chat_threads | 챗 스레드·메시지 |
+| 0019 audit_log_rollup | 감사 로그 집계 |
+| 0020 jobs_tool_check_extend | `report-checklist`·`report-structure`·`chat`·`chat-free` jobs.tool CHECK 추가 |
+| **0021** generations.model_provider | A/B 라벨링 |
+| **0022** wrong_items_v.topic | 약점 단원 통계 view |
+| **0023** quizzes_question_count_check | cap 1~20 → 1~30 (시험 직전 대량 점검) |
 
 > 새 ToolKind를 jobs에 INSERT하려면 0020처럼 CHECK 제약을 확장하는 마이그레이션이 필요하다.
 
@@ -142,7 +194,7 @@ AI 호출 라우트는 모두 `guardRateLimit("ai", ownerId)` + `force-dynamic`,
 
 - `next@16.2.4` · `react@19.2.4` · `react-dom@19.2.4`
 - `tailwindcss@4` + `@tailwindcss/postcss`
-- `ai@^6` + `@ai-sdk/anthropic@^3` (Anthropic, 실제 호출)
+- `ai@^6` + `@ai-sdk/anthropic@^3` + `@ai-sdk/google@^3` (Anthropic 기본, Google은 A/B용)
 - `@supabase/ssr@^0.10` · `@supabase/supabase-js@^2`
 - `@upstash/ratelimit@^2` · `@upstash/redis@^1`
 - 파서: `unpdf` · `mammoth` · `exceljs` · `officeparser` · `file-type` · `tiktoken`
@@ -153,7 +205,11 @@ AI 호출 라우트는 모두 `guardRateLimit("ai", ownerId)` + `force-dynamic`,
 
 ## 백로그 / 미구현 (Phase 2~3)
 
-- 위저드 8종 (팀플·진로·공모전·자기소개서) — MVP 제외 (PRODUCT §6-1)
-- 챗 스레드 영속(생성 API는 있으나 자유 챗은 클라이언트 상태만)
-- 자료 협업·고급 분석
-- 학습 루프 강화(post-mortem 도구는 정의됐으나 미연결)
+- **위저드 8종 (팀플·진로·자기소개서·면접·공모전)** — MVP 제외 (PRODUCT §6-1)
+- **챗 스레드 영속** — 생성 API는 있으나 자유 챗은 클라이언트 상태만
+- **친구 초대 viral loop** — 초대 코드·스터디 모드 (PRODUCT §2-1 기능 4)
+- **성적·합격 추적** — PRODUCT §2-1 기능 5
+- **공모전·대외활동 플레이어** — PRODUCT §2-2 기능 8
+- **post-mortem (시험 후 회고)** — 도구 정의·프롬프트는 있으나 UI 미연결
+- **자료 협업·고급 분석** — Phase 3+
+- **자료 종류 "기타" 직접 입력** — 현재 picker는 강의자료/기출문제 2종. "기타 자유 입력"은 `custom_type_label` 마이그레이션 필요 → 별도 PR
