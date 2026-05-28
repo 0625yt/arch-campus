@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSpeechInput } from "@/lib/hooks/use-speech-input";
 import type { CourseOption } from "./calendar-board";
 
 /**
@@ -85,6 +86,29 @@ export function EventAIDraftPanel({
   const [error, setError] = useState<string | null>(null);
   // 인라인 편집 펼침은 명시적 — focus-within implicit 패턴 폐기.
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+
+  // 음성 입력 — 한국어 받아쓰기. 지원 안 되는 브라우저면 버튼 자체 안 보임.
+  const speech = useSpeechInput("ko-KR");
+
+  function handleToggleMic() {
+    if (speech.listening) {
+      speech.stop();
+      return;
+    }
+    speech.start({
+      onFinal: (transcript) => {
+        // 입력란이 비었으면 그대로, 뭐가 있으면 줄바꿈 append.
+        setText((prev) => {
+          const cur = prev.trim();
+          if (!cur) return transcript;
+          return `${cur}\n${transcript}`;
+        });
+      },
+      onError: (reason) => {
+        if (reason) setError(reason);
+      },
+    });
+  }
 
   async function handleParse() {
     if (busy) return;
@@ -336,10 +360,9 @@ export function EventAIDraftPanel({
         </p>
 
         {/* textarea 그릇 — 12px rounded + border + focus-within cobalt ring + 패딩.
-            placeholder가 곧 라벨 역할인 borderless 톤은 사용자가 비어있다고 화남 → 명시적 그릇. */}
-        <label
-          className="mt-4 flex flex-col rounded-[12px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3 transition-all duration-150 focus-within:border-[var(--color-apple-action)] focus-within:shadow-[0_0_0_3px_rgba(0,113,227,0.15)]"
-        >
+            placeholder가 곧 라벨 역할인 borderless 톤은 사용자가 비어있다고 화남 → 명시적 그릇.
+            우측 하단에 mic 버튼 — 한국어 받아쓰기. 지원 안 되는 브라우저에선 자체적으로 안 보임. */}
+        <label className="mt-4 flex flex-col rounded-[12px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3 transition-all duration-150 focus-within:border-[var(--color-apple-action)] focus-within:shadow-[0_0_0_3px_rgba(0,113,227,0.15)]">
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -350,6 +373,37 @@ export function EventAIDraftPanel({
             className="w-full resize-none border-0 bg-transparent p-0 text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
             style={{ letterSpacing: "-0.012em" }}
           />
+          {/* interim 미리보기 + mic 버튼. interim은 회색 italic으로 "지금 듣고 있어요" 느낌만. */}
+          {(speech.supported || speech.interim) && (
+            <div className="mt-2 flex items-end justify-between gap-3">
+              <p
+                className={`min-h-[16px] flex-1 text-[12.5px] italic wght-450 ${
+                  speech.listening
+                    ? "text-[var(--color-apple-action)]"
+                    : "text-[var(--color-apple-muted)]/60"
+                }`}
+                style={{ letterSpacing: "-0.012em" }}
+                aria-live="polite"
+              >
+                {speech.listening ? (speech.interim ? `“${speech.interim}”` : "듣고 있어요…") : ""}
+              </p>
+              {speech.supported && (
+                <button
+                  type="button"
+                  onClick={handleToggleMic}
+                  aria-pressed={speech.listening}
+                  aria-label={speech.listening ? "음성 입력 중지" : "음성 입력 시작"}
+                  className={
+                    speech.listening
+                      ? "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-urgent)] text-white shadow-[0_2px_8px_-2px_rgba(255,69,58,0.6)] transition-all duration-150 hover:scale-105"
+                      : "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-apple-hairline)] bg-white text-[var(--color-apple-muted)] transition-all duration-150 hover:border-[var(--color-apple-action)] hover:text-[var(--color-apple-action)]"
+                  }
+                >
+                  <MicIcon active={speech.listening} />
+                </button>
+              )}
+            </div>
+          )}
         </label>
 
         {/* 예시 칩 — 클릭 가능. 학습 어포던스를 미세 라벨로 분명히. */}
@@ -673,9 +727,7 @@ function CardIconButton({
       aria-label={ariaLabel}
       title={ariaLabel}
       className={`inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/80 backdrop-blur-[2px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] ${
-        destructive
-          ? "hover:bg-[var(--color-urgent-soft)] hover:text-[var(--color-urgent)]"
-          : ""
+        destructive ? "hover:bg-[var(--color-urgent-soft)] hover:text-[var(--color-urgent)]" : ""
       }`}
     >
       {children}
@@ -697,10 +749,37 @@ function SparkleIcon() {
 function PlusIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+      <path d="M5 1.5v7M1.5 5h7" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/**
+ * 마이크 아이콘 — 16px line + 받침대. active일 땐 살짝 펄스(녹화 중 시그널).
+ */
+function MicIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      role="img"
+      aria-label={active ? "녹음 중" : "마이크"}
+      className={active ? "animate-pulse" : ""}
+    >
+      <title>{active ? "녹음 중" : "마이크"}</title>
       <path
-        d="M5 1.5v7M1.5 5h7"
+        d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"
         stroke="currentColor"
-        strokeWidth={1.3}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5 11a7 7 0 0 0 14 0M12 18v3"
+        stroke="currentColor"
+        strokeWidth={1.8}
         strokeLinecap="round"
       />
     </svg>
@@ -718,12 +797,7 @@ function Spinner() {
       className="animate-spin"
     >
       <circle cx="8" cy="8" r="6" stroke="currentColor" strokeOpacity="0.3" strokeWidth="2" />
-      <path
-        d="M14 8a6 6 0 0 0-6-6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+      <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -767,7 +841,11 @@ function kstLocalToIso(local: string): string {
  *  - label: "오늘" / "D-3" / "D+1" 식
  *  - sub: 라벨 아래 microcaption (예: D-7 이상이면 "ㄴ월 ㄴ일" 같은 보조). 짧게.
  */
-function computeDDay(iso: string): { label: string; sub: string | null; tone: "urgent" | "warm" | "muted" } {
+function computeDDay(iso: string): {
+  label: string;
+  sub: string | null;
+  tone: "urgent" | "warm" | "muted";
+} {
   const d = new Date(iso);
   const now = new Date();
   // KST 자정 기준으로 일수 계산
