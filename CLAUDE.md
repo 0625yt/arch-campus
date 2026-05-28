@@ -31,9 +31,9 @@
 - **Tailwind v4** (`@tailwindcss/postcss`) — 외부 폰트(Pretendard CDN)는 `@import "tailwindcss"` 앞에 와야 함.
 - **AI SDK** — Vercel AI SDK v6 (`ai`) + `@ai-sdk/anthropic`. Claude만 사용 (OpenAI·임베딩 없음). prompt caching (`cache_control: { type: "ephemeral", ttl: "1h" }`), 캐시 = 정적 룰, 비캐시 = 사용자 입력. 새 도구는 [src/lib/claude.ts](src/lib/claude.ts) 패턴 복제.
 - **모델 라우팅** (★ 비용 통제) — 무분별한 Sonnet 사용 시 무료 사용자 1인당 월 5,000원 적자. 실제 매핑은 `TOOL_MODEL`.
-  - **Haiku 4.5** (`claude-haiku-4-5`): 요약·추출·자연어 파싱·챗 (빈도 높음) — summarize, syllabus-extract, exam-extract, event-parse, post-mortem, chat, chat-free
-  - **Sonnet 4.6** (`claude-sonnet-4-6`): 품질 중요한 위저드 — quiz, presentation, wizard-cram, report-structure, timetable-extract(Vision)
-  - 도구별 env override: `QUIZ_MODEL`·`EXTRACT_MODEL`·`CHAT_MODEL`·`CHAT_FREE_MODEL` (`haiku`|`sonnet`)
+  - **Haiku 4.5** (`claude-haiku-4-5`): 요약·자연어 파싱·챗 (빈도 높음) — summarize, exam-extract, event-parse, post-mortem, chat, chat-free
+  - **Sonnet 4.6** (`claude-sonnet-4-6`): 품질·정확도 중요 — quiz, presentation, wizard-cram, report-structure, timetable-extract(Vision), syllabus-extract(강의계획서 추출 정확도)
+  - 도구별 env override: `QUIZ_MODEL`·`EXTRACT_MODEL`·`CHAT_MODEL`·`CHAT_FREE_MODEL`·`SYLLABUS_MODEL` (`haiku`|`sonnet`)
 - **Supabase** (Auth + Postgres + Storage + Realtime). RLS 켜둠, 어드민 작업은 service-role로 우회 + userId를 세션과 재검증. (pgvector·임베딩 미사용 — RAG는 풀텍스트 기반.)
 - **Remotion 사용 X** — 이전 프로젝트와 혼동 주의. 영상 생성 없음.
 - **언어**: UI·콘텐츠·프롬프트 한국어. 변수명·함수명·주석 영어.

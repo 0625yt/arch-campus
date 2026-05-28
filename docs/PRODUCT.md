@@ -336,9 +336,10 @@ P0 핵심 5개 + P1 결정 동력 3개. 나머지는 Phase 2 이후.
 
 | 작업 | 모델 | 이유 |
 |---|---|---|
-| 문서요약 · 강의계획서 추출 · 자연어 파싱 · 챗 | Claude Haiku 4.5 | 비용·빈도 |
+| 문서요약 · 자연어 파싱 · 챗 | Claude Haiku 4.5 | 비용·빈도 |
 | 문제 생성(퀴즈) | Claude Sonnet 4.6 | 품질 |
 | 발표 · 리포트 구조 · 벼락치기 위저드 | Claude Sonnet 4.6 | 품질 |
+| 강의계획서 추출 | Claude Sonnet 4.6 (2026-05-28 Haiku→Sonnet, env `SYLLABUS_MODEL`) | 추출 정확도 |
 | 시간표 추출 (Vision) | Claude Sonnet 4.6 | 표 격자 정확도 |
 | 기출 추출 | Claude Haiku 4.5 (env로 Sonnet 승격 가능) | 추출만 |
 

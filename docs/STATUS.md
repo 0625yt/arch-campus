@@ -1,10 +1,13 @@
-# 현재 구현 상태 (2026-05-27 기준)
+# 현재 구현 상태 (2026-05-28 기준)
 
 > 이 문서는 **지금 무엇이 살아있고 무엇이 미구현인지**의 단일 출처다.
 > 청사진(설계 의도)은 [ARCHITECTURE.md](ARCHITECTURE.md), 제품 범위는 [PRODUCT.md](PRODUCT.md).
 >
 > 2026-05-09 시점의 옛 STATUS는 "AI 호출 0건 / DB 미구현 / 위저드 발표만 데모"였으나,
 > 그 이후 데이터·AI·인증 레이어가 전부 실제로 붙었다. 아래는 그 반영본이다.
+>
+> **2026-05-28 갱신**: 비로그인 랜딩 페이지·약관/개인정보 페이지 신설, 내 캠퍼스 홈을
+> '학기 안전망' 중심으로 개편, 시간표·강의계획서 import 플로우 강화(syllabus-extract Haiku→Sonnet).
 
 ## 라이브 데모
 
@@ -21,14 +24,15 @@
 
 | 라우트 | 상태 | 데이터 |
 |---|---|---|
-| `/` | 인증 체크 후 리다이렉트 | — |
+| `/` | 비로그인 랜딩(마케팅) / 로그인 시 대시보드 리다이렉트 | 인증 체크 |
+| `/privacy` · `/terms` | 개인정보처리방침·이용약관 | 정적 |
 | `/login` · `/onboarding` | 폼 | Supabase Auth |
-| `/dashboard` (내 캠퍼스) | 실DB | 강의·다가오는 일정·오답통계·프로필 병렬 조회 |
+| `/dashboard` (내 캠퍼스) | 실DB | **학기 안전망** — 마감·시험·오답·방치 자료 신호 + 과목 위험도, 다가오는 일정, 강의 그리드 (`semester-safety.ts`) |
 | `/dashboard/today` | 실DB | 다가오는 일정 + 최근 활동 |
 | `/dashboard/study` | 실DB | 강의 그룹 + 최근 활동 |
 | `/dashboard/study/[course]/[material]` | 실DB | 자료 + 요약/퀴즈, PDF↔요약 분할 뷰(너비 드래그), 자료 챗 |
 | `/dashboard/calendar` | 실DB | 월/주/일 뷰, 이벤트 인라인 편집, 자연어·시간표·강의계획서 추출 |
-| `/dashboard/calendar/import` | 실DB | 시간표/강의계획서 이미지 import |
+| `/dashboard/calendar/import` | 실DB | 시간표/강의계획서 import 플로우(추출→확인→저장) |
 | `/dashboard/chat` | 실(SSE) | 자유 챗 — 클라이언트 상태 + `/api/chat/free` 스트리밍 |
 | `/dashboard/review` | 실DB | 오답 모아보기 |
 | `/dashboard/history` · `/history/[gid]` | 실DB | 위저드 결과 목록·재방문 |
@@ -45,7 +49,7 @@
 AI 호출 라우트는 모두 `guardRateLimit("ai", ownerId)` + `force-dynamic`, 대부분 `maxDuration` 300s (chat 60s).
 
 - **자료·생성**: `materials`(+upload-url/finalize/[id]/{summarize,quiz,exam-extract,original-url}) · `quiz`(+[id]/submit) · `summarize`
-- **추출**: `syllabus`(+confirm) · `timetable`(+confirm) · `events/draft`(자연어→일정)
+- **추출**: `syllabus`(+confirm) · `timetable`(+confirm) · `events/draft`(자연어→일정) · `calendar/imports/reset`(import 초기화)
 - **위저드(비동기)**: `wizards/presentation` · `wizards/exam-cram` · `wizards/report-checklist` · `wizards/report-structure` — 모두 `after()` + `jobs` 테이블 + 폴링(`jobs/[id]`, `jobs/active`)
 - **챗**: `chat/free`(SSE) · `chat/threads`(+[id], +[id]/messages)
 - **CRUD**: `account` · `profile` · `courses`(+[id]) · `events`(+[id]) · `activity`
@@ -77,9 +81,9 @@ AI 호출 라우트는 모두 `guardRateLimit("ai", ownerId)` + `force-dynamic`,
 
 - **진입점** [src/lib/claude.ts](../src/lib/claude.ts) — `generate()`(JSON 출력) / `streamChatReply()`(SSE). 모든 system 메시지에 injection guard prepend + 1h ephemeral 캐싱.
 - **모델**: `claude-sonnet-4-6`, `claude-haiku-4-5`. 매핑은 `TOOL_MODEL`.
-  - **Haiku**: summarize · syllabus-extract · post-mortem · event-parse · exam-extract · chat · chat-free
-  - **Sonnet**: quiz · presentation · wizard-cram · report-structure · timetable-extract(Vision)
-  - env override: `QUIZ_MODEL` · `EXTRACT_MODEL` · `CHAT_MODEL` · `CHAT_FREE_MODEL` (`haiku`|`sonnet`)
+  - **Haiku**: summarize · post-mortem · event-parse · exam-extract · chat · chat-free
+  - **Sonnet**: quiz · presentation · wizard-cram · report-structure · timetable-extract(Vision) · **syllabus-extract**(2026-05-28 Haiku→Sonnet 승격, 추출 정확도)
+  - env override: `QUIZ_MODEL` · `EXTRACT_MODEL` · `CHAT_MODEL` · `CHAT_FREE_MODEL` · `SYLLABUS_MODEL` (`haiku`|`sonnet`)
 - **프롬프트** [src/lib/prompts.ts](../src/lib/prompts.ts) — `loadPrompt(name)`이 `_shared/persona-schema.md` + `_shared/master-rules.md` + 도구별 `*.md`를 조합.
   - 도구별: summarize · quiz · presentation · syllabus · timetable · exam-cram · report-checklist · report-structure · event-parse · exam-extract · chat · chat-free
 - **출력 검증** [src/lib/schemas.ts](../src/lib/schemas.ts) — Zod. 위저드 결과는 후처리 검증까지 (예: report-structure는 핵심 질문이 `?`로 끝나는지 — 치팅 가드).
@@ -92,7 +96,7 @@ AI 호출 라우트는 모두 `guardRateLimit("ai", ownerId)` + `force-dynamic`,
   - [src/lib/supabase/](../src/lib/supabase/): `client`(브라우저 anon) · `server`(SSR anon+cookie) · `admin`(service-role, RLS 우회) · `types`
   - admin client는 항상 `owner_id`를 세션과 재검증 (RLS 우회 가드).
 - **인증** [src/lib/auth.ts](../src/lib/auth.ts) — `getOwnerId()`/`tryGetOwnerId()`. 세션 있으면 user.id, dev는 fallback UUID, prod 세션 없으면 401.
-- **데이터 레이어** [src/lib/data/](../src/lib/data/): `activity` · `attempts` · `events` · `jobs` · `materials` · `profile` · `quizzes` · `wizard-history` — 전부 `server-only` + admin + owner 검증.
+- **데이터 레이어** [src/lib/data/](../src/lib/data/): `activity` · `attempts` · `events` · `jobs` · `materials` · `profile` · `quizzes` · `wizard-history` · `semester-safety`(홈 학기 안전망 — 마감·시험·오답·방치 자료 신호 + 과목 위험도 집계) — 전부 `server-only` + admin + owner 검증.
 - **레이트리밋** — Upstash Redis. 미설정 시 우아하게 통과.
 
 ---

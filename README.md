@@ -84,7 +84,7 @@ npm run verify:env   # .env.local 환경변수 누락 검사
 | `SUPABASE_PROJECT_REF` / `SUPABASE_DB_URL` | 마이그레이션·CLI | 선택 |
 | `HWP_CONVERTER_URL` / `HWP_CONVERTER_TOKEN` | HWP→PDF 변환 서비스 | 선택 |
 | `CLOUDCONVERT_API_KEY` | 문서 변환 폴백 | 선택 |
-| `QUIZ_MODEL` · `EXTRACT_MODEL` · `CHAT_MODEL` · `CHAT_FREE_MODEL` | 도구별 모델 override (`haiku`\|`sonnet`) | 선택 |
+| `QUIZ_MODEL` · `EXTRACT_MODEL` · `CHAT_MODEL` · `CHAT_FREE_MODEL` · `SYLLABUS_MODEL` | 도구별 모델 override (`haiku`\|`sonnet`) | 선택 |
 
 > 키·토큰이 든 파일은 절대 커밋하지 않는다. pre-commit에 gitleaks 스캔이 걸려 있다.
 
@@ -95,9 +95,11 @@ npm run verify:env   # .env.local 환경변수 누락 검사
 ```
 src/
   app/
-    (auth)          login · onboarding
-    dashboard/      내 캠퍼스 홈 · today · study · calendar · review · history · tools · chat
-    api/            서버 라우트 (materials · quiz · summarize · wizards/* · chat/* · events · ...)
+    page.tsx        비로그인 랜딩(마케팅) / 로그인 시 대시보드로
+    privacy · terms 개인정보처리방침 · 이용약관
+    login · onboarding
+    dashboard/      내 캠퍼스 홈(학기 안전망) · today · study · calendar · review · history · tools · chat
+    api/            서버 라우트 (materials · quiz · summarize · wizards/* · chat/* · events · calendar/* · ...)
   components/       사이드바 · 캘린더 · 모달 · 명령 팔레트 · 위저드 사이드바 등 공유 UI
   lib/
     claude.ts       AI 진입점 — generate() / streamChatReply(), 모델 라우팅, 1h 캐싱
@@ -119,6 +121,7 @@ docs/               아키텍처·제품·컨벤션·디자인·진단 문서
 
 자세한 현황은 [docs/STATUS.md](docs/STATUS.md). 요약:
 
+- **홈(내 캠퍼스)**: 학기 안전망 — 놓치면 손해인 신호(마감·시험·오답·방치 자료)를 먼저 보여주고 과목 위험도 표시
 - **자료**: 강의자료 업로드(PDF/DOCX/Office/HWP) → AI 요약 + 퀴즈 자동 생성, 분할 뷰(PDF ↔ 요약 너비 드래그), 자료 기반 챗
 - **일정**: 캘린더 월/주/일 뷰, 시간표·강의계획서 이미지 → 자동 추출, 자연어("다음 주 화 3시 영어 과제") → 일정
 - **복습**: 퀴즈 채점·오답 모아보기·오답 통계
