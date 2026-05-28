@@ -19,6 +19,9 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     "SYLLABUS_MODEL",
     "CHAT_MODEL",
     "CHAT_FREE_MODEL",
+    // prod 차단 가드 — 테스트 누수 방지용
+    "VERCEL_ENV",
+    "NEXT_PUBLIC_VERCEL_ENV",
   ] as const;
 
   // 매 테스트마다 깨끗한 env로 시작. 다른 테스트가 누수시킨 값을 격리.
@@ -89,6 +92,26 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     process.env.SUMMARY_MODEL_VENDOR = "google";
     expect(getModelIdFor("chat")).toBe(MODELS.haiku);
     expect(getModelIdFor("chat-free")).toBe(MODELS.haiku);
+  });
+
+  // 2026-05-28 — vendor 플래그는 prod에서 무시(A/B 검증 끝나기 전까지).
+  // dev/preview는 그대로 동작.
+  it("VERCEL_ENV=production이면 QUIZ_MODEL_VENDOR=google 무시", () => {
+    process.env.VERCEL_ENV = "production";
+    process.env.QUIZ_MODEL_VENDOR = "google";
+    expect(getModelIdFor("quiz")).toBe(MODELS.sonnet);
+  });
+
+  it("VERCEL_ENV=production이면 SUMMARY_MODEL_VENDOR=google 무시", () => {
+    process.env.VERCEL_ENV = "production";
+    process.env.SUMMARY_MODEL_VENDOR = "google";
+    expect(getModelIdFor("summarize")).toBe(MODELS.haiku);
+  });
+
+  it("VERCEL_ENV=preview면 vendor 플래그 정상 동작", () => {
+    process.env.VERCEL_ENV = "preview";
+    process.env.QUIZ_MODEL_VENDOR = "google";
+    expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlash);
   });
 
   it("기존 tier override들 모두 보존 — syllabus·exam·chat", () => {

@@ -1,25 +1,56 @@
+import { anthropic } from "@ai-sdk/anthropic";
+import { google } from "@ai-sdk/google";
 import type { ProviderOptions } from "@ai-sdk/provider-utils";
-import { generateText, type ModelMessage, streamText } from "ai";
+import { generateText, type LanguageModel, type ModelMessage, streamText } from "ai";
 
 /**
- * 모델 라우팅 — Vercel AI Gateway 경유.
+ * 모델 라우팅 — vendor 별 SDK 직접 사용 (Gateway 미사용).
  *
- * 변경 (2026-05-28):
- *   - AI SDK v6의 vendor-prefixed slug 라우팅 채택 (`anthropic/...`, `google/...`)
- *   - Anthropic SDK 직접 wrap (`anthropic("…")`)을 걷어내고 Gateway가 vendor 분기 담당
- *   - 인증: VERCEL_OIDC_TOKEN (prod 자동) 또는 AI_GATEWAY_API_KEY (dev/CI)
- *   - 키 모두 없으면 AI SDK가 ANTHROPIC_API_KEY로 직접 호출 fallback (안전망 유지)
+ * 2026-05-28 변경 이력:
+ *   - 처음엔 AI Gateway slug(`anthropic/...`, `google/...`)로 통일했으나
+ *     Vercel free tier가 Sonnet·Gemini Flash를 차단해서 prod 비용 발생함.
+ *   - 한 발 물러나 Anthropic SDK + Google SDK 직접 wrap으로 복귀.
+ *   - 멀티벤더 운영 복잡도(키 두 개, providerOptions 분기)는 코드 한 곳에 격리.
+ *
+ * 인증:
+ *   - ANTHROPIC_API_KEY (필수, Anthropic 도구 전부)
+ *   - GOOGLE_GENERATIVE_AI_API_KEY (선택, *_MODEL_VENDOR=google 켜진 도구만)
  *
  * 비용 통제 (CLAUDE.md §1):
  *   - 기본은 Anthropic (Sonnet·Haiku).
- *   - env 플래그(`QUIZ_MODEL_VENDOR=google`·`SUMMARY_MODEL_VENDOR=google`)가 켜진 도구만 Gemini 2.5 Flash로.
- *   - 플래그 끄면 100% 기존 동작 — 안전한 롤백.
+ *   - env 플래그(`QUIZ_MODEL_VENDOR=google`·`SUMMARY_MODEL_VENDOR=google`)가
+ *     켜진 도구만 Gemini 2.5 Flash로. 플래그 끄면 100% 기존 동작.
  */
+
+/**
+ * MODELS는 두 가지 형태로 노출.
+ * - id (string): generations.model_id에 박힐 라벨. estimateCost·라우팅 비교에 사용.
+ * - model (LanguageModel): generateText에 전달할 SDK 객체.
+ * 같은 키로 묶어 쓰는 곳에 따라 골라 쓴다.
+ */
+const SONNET_ID = "claude-sonnet-4-6";
+const HAIKU_ID = "claude-haiku-4-5";
+const GEMINI_FLASH_ID = "gemini-2.5-flash";
+
 export const MODELS = {
-  sonnet: "anthropic/claude-sonnet-4.6",
-  haiku: "anthropic/claude-haiku-4.5",
-  geminiFlash: "google/gemini-2.5-flash",
+  sonnet: SONNET_ID,
+  haiku: HAIKU_ID,
+  geminiFlash: GEMINI_FLASH_ID,
 } as const;
+
+/**
+ * id → LanguageModel 인스턴스. 호출 시점에만 SDK가 활성화돼 키 없으면 lazy fail.
+ *   - Anthropic: ANTHROPIC_API_KEY 사용
+ *   - Google: GOOGLE_GENERATIVE_AI_API_KEY 사용 (@ai-sdk/google 표준)
+ *
+ * export 이유: generate/generateWithFile/streamChatReply 밖에서도
+ * 직접 generateText 호출이 필요한 케이스(classify-material, parsers/image)가 있어
+ * 같은 routing을 거치게 한다. MODELS와 짝지어 쓴다.
+ */
+export function modelInstance(id: string): LanguageModel {
+  if (id.includes("gemini")) return google(id);
+  return anthropic(id);
+}
 
 export type ToolKind =
   | "summarize"
@@ -78,10 +109,10 @@ export type ModelVendor = "anthropic" | "google";
  * `google/gemini-2.5-flash`   → "google"
  */
 export function getModelVendor(modelId: string): ModelVendor {
+  // SDK 직접 호출 시대(2026-05-28~)에는 model id가 short form ("claude-haiku-4-5", "gemini-2.5-flash").
+  // 과거 slug("anthropic/...", "google/...") 시기 row와의 호환을 위해 prefix도 함께 인식.
   if (modelId.startsWith("google/")) return "google";
   if (modelId.startsWith("anthropic/")) return "anthropic";
-  // 슬러그 prefix가 없는 레거시 표기는 'claude-' 포함 여부로 추정.
-  // Gemini만 단독으로 들어올 일은 우리 코드에선 없음.
   if (modelId.includes("gemini")) return "google";
   return "anthropic";
 }
@@ -107,11 +138,18 @@ function envSaysGoogle(raw: string | undefined): boolean {
  * 미지정·미인식 값이면 TOOL_MODEL 기본값 그대로.
  */
 function resolveModel(tool: ToolKind): string {
-  // 1) Vendor 분기 — Gemini로 우회할 도구
-  if (tool === "quiz" && envSaysGoogle(process.env.QUIZ_MODEL_VENDOR)) {
+  // 0) Prod 안전장치 — 실수로 Vercel production env에 vendor=google 박혀도 무시.
+  //    2026-05-28 A/B 1회 결과 Gemini Flash evidence 매칭 0% (CLAUDE.md §4 치팅 라인 위배).
+  //    자료 5~10건 검증 + 프롬프트 보강이 끝날 때까지 dev/preview에서만 Gemini 사용.
+  //    NEXT-STEPS·MODEL-OPTIONS에서 통과 결정 나면 이 가드 제거.
+  const isProd =
+    process.env.VERCEL_ENV === "production" || process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
+
+  // 1) Vendor 분기 — Gemini로 우회할 도구 (prod 외 환경에서만)
+  if (!isProd && tool === "quiz" && envSaysGoogle(process.env.QUIZ_MODEL_VENDOR)) {
     return MODELS.geminiFlash;
   }
-  if (tool === "summarize" && envSaysGoogle(process.env.SUMMARY_MODEL_VENDOR)) {
+  if (!isProd && tool === "summarize" && envSaysGoogle(process.env.SUMMARY_MODEL_VENDOR)) {
     return MODELS.geminiFlash;
   }
 
@@ -346,7 +384,7 @@ export async function generate({
   ];
 
   const result = await generateText({
-    model: modelId,
+    model: modelInstance(modelId),
     maxOutputTokens: maxTokens,
     temperature,
     messages,
@@ -470,7 +508,7 @@ export async function generateWithFile({
   ];
 
   const result = await generateText({
-    model: modelId,
+    model: modelInstance(modelId),
     maxOutputTokens: maxTokens,
     temperature,
     messages,
@@ -573,7 +611,7 @@ export function streamChatReply(input: StreamChatInput): StreamChatResult {
   ];
 
   const result = streamText({
-    model: modelId,
+    model: modelInstance(modelId),
     maxOutputTokens: input.maxTokens ?? 1500,
     temperature: input.temperature ?? 0.3,
     messages,

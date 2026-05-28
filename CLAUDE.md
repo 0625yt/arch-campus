@@ -29,11 +29,11 @@
 
 - **Next.js 16.2.4 + React 19.2.4 (App Router)** — breaking change 큼. 라우팅·서버 컴포넌트·캐싱 코드 작성 전에 `node_modules/next/dist/docs/` 먼저 읽는다.
 - **Tailwind v4** (`@tailwindcss/postcss`) — 외부 폰트(Pretendard CDN)는 `@import "tailwindcss"` 앞에 와야 함.
-- **AI SDK** — Vercel AI SDK v6 (`ai`). **Vercel AI Gateway 경유** — vendor-prefixed slug 라우팅(`anthropic/...`, `google/...`). 인증은 `VERCEL_OIDC_TOKEN`(prod 자동) 또는 `AI_GATEWAY_API_KEY`(dev). 둘 다 없으면 `ANTHROPIC_API_KEY`로 fallback. prompt caching(`cache_control: { type: "ephemeral", ttl: "1h" }`)은 Anthropic에서만 의미. 새 도구는 [src/lib/claude.ts](src/lib/claude.ts) 패턴 복제.
+- **AI SDK** — Vercel AI SDK v6 (`ai`) + `@ai-sdk/anthropic` + `@ai-sdk/google` SDK **직접 사용**. AI Gateway는 보류(카드·크레딧 필요). 인증: `ANTHROPIC_API_KEY`(필수) + `GOOGLE_GENERATIVE_AI_API_KEY`(vendor 플래그 켤 때). prompt caching(`cache_control: { type: "ephemeral", ttl: "1h" }`)은 Anthropic에서만 의미. 새 도구는 [src/lib/claude.ts](src/lib/claude.ts) 패턴 복제.
 - **모델 라우팅** (★ 비용 통제) — 무분별한 Sonnet 사용 시 무료 사용자 1인당 월 5,000원 적자. 실제 매핑은 `TOOL_MODEL`.
-  - **Haiku 4.5** (`anthropic/claude-haiku-4.5`): 요약·자연어 파싱·챗 (빈도 높음) — summarize, exam-extract, event-parse, post-mortem, chat, chat-free
-  - **Sonnet 4.6** (`anthropic/claude-sonnet-4.6`): 품질·정확도 중요 — quiz, presentation, wizard-cram, report-structure, timetable-extract(Vision), syllabus-extract(강의계획서 추출 정확도)
-  - **Gemini 2.5 Flash** (`google/gemini-2.5-flash`): A/B용 대안. 입력 $0.30·출력 $2.50/1M으로 Sonnet 대비 1/5 이하. `thinkingBudget: 0` 안전장치 박혀있음.
+  - **Haiku 4.5** (`claude-haiku-4-5`): 요약·자연어 파싱·챗 (빈도 높음) — summarize, exam-extract, event-parse, post-mortem, chat, chat-free
+  - **Sonnet 4.6** (`claude-sonnet-4-6`): 품질·정확도 중요 — quiz, presentation, wizard-cram, report-structure, timetable-extract(Vision), syllabus-extract(강의계획서 추출 정확도)
+  - **Gemini 2.5 Flash** (`gemini-2.5-flash`): A/B용 대안. 입력 $0.30·출력 $2.50/1M으로 Sonnet 대비 1/5 이하. 단 evidence 인용 정확도는 자료별로 검증 필요 (2026-05-28 1회 A/B 결과 0% — 프롬프트 보강 또는 자료별 재측정 필요).
   - 도구별 env override:
     - tier 분기(Anthropic 안): `QUIZ_MODEL`·`EXTRACT_MODEL`·`CHAT_MODEL`·`CHAT_FREE_MODEL`·`SYLLABUS_MODEL` (`haiku`|`sonnet`)
     - vendor 분기(Anthropic ↔ Google): `QUIZ_MODEL_VENDOR`·`SUMMARY_MODEL_VENDOR` (`anthropic` 기본 / `google`로 켜면 Gemini Flash로). vendor 분기가 tier 분기보다 우선.

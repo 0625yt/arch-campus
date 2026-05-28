@@ -1,6 +1,6 @@
 import { generateText } from "ai";
 import { z } from "zod";
-import { MODELS } from "./claude";
+import { MODELS, modelInstance } from "./claude";
 import { parseModelJson } from "./schemas";
 
 /**
@@ -89,7 +89,7 @@ export async function classifyMaterial(opts: {
 
   try {
     const result = await generateText({
-      model: MODELS.haiku,
+      model: modelInstance(MODELS.haiku),
       maxOutputTokens: 800,
       temperature: 0.1,
       messages: [
@@ -99,7 +99,10 @@ export async function classifyMaterial(opts: {
     });
     return parseModelJson(ClassificationSchema, result.text);
   } catch (e) {
-    console.warn("classifyMaterial 실패 — 분류 없이 진행:", e instanceof Error ? e.message : String(e));
+    console.warn(
+      "classifyMaterial 실패 — 분류 없이 진행:",
+      e instanceof Error ? e.message : String(e),
+    );
     return null;
   }
 }

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.76",
+    "@ai-sdk/google": "^3.0.80",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@upstash/ratelimit": "^2.0.8",
