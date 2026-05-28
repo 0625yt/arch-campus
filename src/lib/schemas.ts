@@ -219,6 +219,10 @@ export const TimetableCourse = z.object({
   location: z.string().max(120).nullable().optional(),
   slots: z.array(TimetableSlot).min(0).max(10),
   credits: z.number().min(0).max(10).nullable().optional(),
+  // 시간표 추출 신뢰도 — 0~1. 격자 인식·시간 정규화·과목명 매칭이 얼마나
+  // 확실했는지의 종합 점수. 모델이 안 채우면 0.7 (보통). UI HITL 단계에서
+  // 0.7 미만이면 빨간 배지로 사용자 검수를 강제. (NEXT-STEPS.md §3)
+  confidence: z.number().min(0).max(1).default(0.7),
 });
 export type TimetableCourseT = z.infer<typeof TimetableCourse>;
 

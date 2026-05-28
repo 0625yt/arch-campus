@@ -137,10 +137,28 @@ export function SyllabusImportFlow() {
 
   async function handleConfirm() {
     if (!extracted) return;
-    setPhase("saving");
-    setError(null);
 
     const eventsToSave = editing.filter((_, i) => keepIds.has(i));
+
+    // 빨간 confidence(<0.7) 일정이 선택돼 있으면 한 번 더 확인.
+    // 시험·과제 날짜는 한 번 잘못 박히면 학생 신뢰가 깨진다.
+    const lowConfidence = eventsToSave.filter((e) => e.confidence < 0.7);
+    if (lowConfidence.length > 0) {
+      const ok = window.confirm(
+        `추정 신뢰도가 낮은 일정 ${lowConfidence.length}개가 포함됐어요.\n` +
+          `강의계획서와 다를 수 있으니 한 번 더 확인했나요?\n\n` +
+          lowConfidence
+            .slice(0, 6)
+            .map((e) => `  • ${e.title} (${e.startsAt})`)
+            .join("\n") +
+          (lowConfidence.length > 6 ? `\n  … 외 ${lowConfidence.length - 6}개` : "") +
+          `\n\n계속 등록할까요?`,
+      );
+      if (!ok) return;
+    }
+
+    setPhase("saving");
+    setError(null);
     try {
       const res = await fetch("/api/syllabus/confirm", {
         method: "POST",
@@ -426,7 +444,32 @@ function ReviewSection({
   onAlignCourseDay: () => void;
   onConfirm: () => void;
 }) {
-  const grouped = useMemo(() => groupEventsByMonth(editing), [editing]);
+  // "낮은 신뢰도만 보기" 토글 — 이벤트 많을 때 검수 부담을 줄임.
+  // 모델이 모두 0.9+로 응답하면 의미 없는 필터지만, 그것 자체가 신호.
+  const [onlyLow, setOnlyLow] = useState(false);
+
+  // confidence 분포는 추출 전체 기준 — 사용자가 체크 풀어도 "모델이 뭘 잘못했는지"가 가려지지 않게.
+  const confidenceValues = editing.map((e) => e.confidence);
+  const dist = useMemo(
+    () => ({
+      high: confidenceValues.filter((v) => v >= 0.9).length,
+      mid: confidenceValues.filter((v) => v >= 0.7 && v < 0.9).length,
+      low: confidenceValues.filter((v) => v < 0.7).length,
+    }),
+    [confidenceValues],
+  );
+  const needsReview = dist.mid + dist.low;
+
+  // 필터 적용 후의 editing — grouped 계산 input.
+  // idx는 원본을 그대로 유지해야 onToggle/onUpdate가 동작하므로 (event, idx) 형태로 carry.
+  const editingWithIdx = useMemo(
+    () =>
+      editing
+        .map((event, idx) => ({ event, idx }))
+        .filter(({ event }) => !(onlyLow && event.confidence >= 0.9)),
+    [editing, onlyLow],
+  );
+  const grouped = useMemo(() => groupEventsByMonth(editingWithIdx), [editingWithIdx]);
   const weekdayMismatches = useMemo(
     () => findWeekdayMismatches(editing, extracted.course, keepIds),
     [editing, extracted.course, keepIds],
@@ -478,6 +521,58 @@ function ReviewSection({
             >
               강의 요일로 맞추기
             </button>
+          </div>
+        )}
+
+        {/* confidence 카운터·필터 — 6건 이상일 때만 표시(노이즈 방지) */}
+        {editing.length >= 6 && (
+          <div
+            className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-full bg-white px-4 py-2.5 text-[12px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            <div className="flex items-center gap-3">
+              {dist.high > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-apple-success)]"
+                  />
+                  확실 {dist.high}
+                </span>
+              )}
+              {dist.mid > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-[var(--color-apple-warning,#d97706)]">
+                  <span
+                    aria-hidden
+                    className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-apple-warning,#d97706)]"
+                  />
+                  확인 필요 {dist.mid}
+                </span>
+              )}
+              {dist.low > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-[var(--color-urgent)]">
+                  <span
+                    aria-hidden
+                    className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-urgent)]"
+                  />
+                  추정 {dist.low}
+                </span>
+              )}
+            </div>
+            {needsReview > 0 && (
+              <button
+                type="button"
+                onClick={() => setOnlyLow((v) => !v)}
+                aria-pressed={onlyLow}
+                className={
+                  onlyLow
+                    ? "rounded-full bg-[var(--color-apple-ink)] px-3 py-1 text-[11.5px] wght-560 text-white"
+                    : "rounded-full border border-[var(--color-apple-hairline)] bg-white px-3 py-1 text-[11.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)]"
+                }
+              >
+                {onlyLow ? "전체 보기" : `검수 필요만 (${needsReview})`}
+              </button>
+            )}
           </div>
         )}
 
@@ -1018,17 +1113,21 @@ function formatTermDate(iso: string): string {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function groupEventsByMonth(events: ExtractedEvent[]) {
+/**
+ * 월별 그룹. (event, idx) 쌍을 받는다 — idx는 원본 editing 배열의 인덱스여야
+ * onToggle/onUpdate가 정확히 동작한다. 필터(onlyLow) 적용 후 호출돼도 idx는 보존.
+ */
+function groupEventsByMonth(entries: { event: ExtractedEvent; idx: number }[]) {
   const map = new Map<string, { event: ExtractedEvent; idx: number }[]>();
-  events.forEach((event, idx) => {
-    const d = new Date(event.startsAt);
+  for (const entry of entries) {
+    const d = new Date(entry.event.startsAt);
     const month = Number.isFinite(d.getTime())
       ? `${d.getFullYear()}년 ${d.getMonth() + 1}월`
       : "날짜 미상";
     const list = map.get(month) ?? [];
-    list.push({ event, idx });
+    list.push(entry);
     map.set(month, list);
-  });
+  }
   // 월 정렬
   return Array.from(map.entries())
     .sort(([a], [b]) => (a > b ? 1 : -1))

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useJob } from "@/lib/hooks/use-job";
+import { ConfidenceBadge, countByConfidence } from "./confidence-badge";
 
 type Phase = "upload" | "extracting" | "review" | "saving" | "done";
 
@@ -21,6 +22,14 @@ interface Course {
   location?: string | null;
   slots: Slot[];
   credits?: number | null;
+  /**
+   * 시간표 추출 신뢰도 0~1. 모델이 안 채우면 schema default 0.7.
+   * UI에서:
+   *   - ≥0.9 → "확실" 초록 배지 (사용자 그냥 통과)
+   *   - 0.7~0.9 → "확인 필요" 노란 배지
+   *   - <0.7 → "추정" 빨간 배지 (저장 전 dialog 한 번 띄움)
+   */
+  confidence?: number;
 }
 
 interface StartResponse {
@@ -125,10 +134,25 @@ export function TimetableImportFlow() {
 
   async function handleConfirm() {
     if (!extracted) return;
-    setPhase("saving");
-    setError(null);
 
     const courses = extracted.courses.filter((_, i) => keepIds.has(i));
+
+    // 빨간 confidence(<0.7) 강의가 선택돼 있으면 한 번 더 확인.
+    // 학생이 확실히 잘못 본 강의를 등록하면 일정·자료 매칭 다 꼬여서 신뢰 망함.
+    // 노란(<0.9) 까지 dialog 띄우면 너무 잦아 피로 — 빨간만.
+    const lowConfidence = courses.filter((c) => (c.confidence ?? 0.7) < 0.7);
+    if (lowConfidence.length > 0) {
+      const ok = window.confirm(
+        `추정 신뢰도가 낮은 강의 ${lowConfidence.length}개가 포함됐어요.\n` +
+          `학교 시간표와 다를 수 있으니 한 번 더 확인했나요?\n\n` +
+          lowConfidence.map((c) => `  • ${c.name}`).join("\n") +
+          `\n\n계속 등록할까요?`,
+      );
+      if (!ok) return;
+    }
+
+    setPhase("saving");
+    setError(null);
     try {
       const res = await fetch("/api/timetable/confirm", {
         method: "POST",
@@ -400,6 +424,15 @@ function ReviewSection({
   onUpdateCourse: (idx: number, patch: Partial<Course>) => void;
   onConfirm: () => void;
 }) {
+  // "낮은 신뢰도만 보기" 토글 — 강의 많을 때 검수 부담을 줄임.
+  // 모델이 모두 0.9+로 응답하면 의미 없는 필터지만, 그것 자체가 신호.
+  const [onlyLow, setOnlyLow] = useState(false);
+
+  // confidence 분포는 선택된 강의가 아니라 추출 전체 기준 — 사용자가 체크 풀어도
+  // "모델이 뭘 잘못했는지"를 가리지 않게 한다.
+  const confidenceValues = extracted.courses.map((c) => c.confidence ?? 0.7);
+  const dist = countByConfidence(confidenceValues);
+  const needsReview = dist.mid + dist.low;
   return (
     <div className="mt-10 fade-up fade-up-3 sm:mt-12">
       {/* 학기 헤더 */}
@@ -440,6 +473,59 @@ function ReviewSection({
           잘못 뽑힌 건 체크 풀고 등록할 것만 골라주세요.
         </p>
 
+        {/* confidence 카운터 — 사용자가 어디부터 검수해야 할지 한눈에.
+            강의 6개+면 의미 있고, 그 미만이면 정보 노이즈라 숨김 */}
+        {extracted.courses.length >= 6 && (
+          <div
+            className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-full bg-white px-4 py-2.5 text-[12px] wght-450 text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            <div className="flex items-center gap-3">
+              {dist.high > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-apple-success)]"
+                  />
+                  확실 {dist.high}
+                </span>
+              )}
+              {dist.mid > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-[var(--color-apple-warning,#d97706)]">
+                  <span
+                    aria-hidden
+                    className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-apple-warning,#d97706)]"
+                  />
+                  확인 필요 {dist.mid}
+                </span>
+              )}
+              {dist.low > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-[var(--color-urgent)]">
+                  <span
+                    aria-hidden
+                    className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-urgent)]"
+                  />
+                  추정 {dist.low}
+                </span>
+              )}
+            </div>
+            {needsReview > 0 && (
+              <button
+                type="button"
+                onClick={() => setOnlyLow((v) => !v)}
+                aria-pressed={onlyLow}
+                className={
+                  onlyLow
+                    ? "rounded-full bg-[var(--color-apple-ink)] px-3 py-1 text-[11.5px] wght-560 text-white"
+                    : "rounded-full border border-[var(--color-apple-hairline)] bg-white px-3 py-1 text-[11.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)]"
+                }
+              >
+                {onlyLow ? "전체 보기" : `검수 필요만 (${needsReview})`}
+              </button>
+            )}
+          </div>
+        )}
+
         {extracted.courses.length === 0 ? (
           <div className="mt-7 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
             <p
@@ -454,16 +540,20 @@ function ReviewSection({
           </div>
         ) : (
           <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-            {extracted.courses.map((course, idx) => (
-              <li key={courseKey(course)}>
-                <CourseRow
-                  course={course}
-                  kept={keepIds.has(idx)}
-                  onToggle={() => onToggle(idx)}
-                  onUpdate={(patch) => onUpdateCourse(idx, patch)}
-                />
-              </li>
-            ))}
+            {extracted.courses.map((course, idx) => {
+              // onlyLow 필터 — 확실(>=0.9)은 숨김. idx는 그대로 보존(onToggle 키와 일치).
+              if (onlyLow && (course.confidence ?? 0.7) >= 0.9) return null;
+              return (
+                <li key={courseKey(course)}>
+                  <CourseRow
+                    course={course}
+                    kept={keepIds.has(idx)}
+                    onToggle={() => onToggle(idx)}
+                    onUpdate={(patch) => onUpdateCourse(idx, patch)}
+                  />
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
@@ -538,12 +628,16 @@ function CourseRow({
       />
 
       <div className="relative flex items-start justify-between gap-3">
-        <h3
-          className="text-[16px] wght-620 text-[var(--color-apple-ink)] sm:text-[17px]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {course.name}
-        </h3>
+        <div className="flex flex-1 flex-col gap-1.5">
+          <h3
+            className="text-[16px] wght-620 text-[var(--color-apple-ink)] sm:text-[17px]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {course.name}
+          </h3>
+          {/* confidence — 추출 신뢰도. 사용자가 어느 카드를 검수해야 하는지 한눈에 */}
+          <ConfidenceBadge value={course.confidence ?? 0.7} />
+        </div>
         <div className="flex items-center gap-1.5">
           <button
             type="button"
