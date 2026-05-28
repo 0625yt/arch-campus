@@ -45,12 +45,13 @@ export async function POST(
 
   const { id: materialId } = await params;
 
-  // body는 옵션 — { styles?: string[] } 또는 빈 body 모두 허용
+  // body는 옵션 — { styles?: string[], intentNote?: string } 또는 빈 body 모두 허용
   let styles: SummaryStyle[] = [];
+  let intentNote = "";
   try {
     const raw = await req.text();
     if (raw.trim()) {
-      const parsed = JSON.parse(raw) as { styles?: unknown };
+      const parsed = JSON.parse(raw) as { styles?: unknown; intentNote?: unknown };
       if (Array.isArray(parsed.styles)) {
         styles = parsed.styles
           .filter((s): s is SummaryStyle =>
@@ -58,9 +59,13 @@ export async function POST(
           )
           .slice(0, MAX_STYLES_PER_REQUEST);
       }
+      // 의도 조정 한 줄 요청 — 120자 cap. 자료 밖 생성은 서비스/프롬프트 가드가 거부.
+      if (typeof parsed.intentNote === "string") {
+        intentNote = parsed.intentNote.trim().slice(0, 120);
+      }
     }
   } catch {
-    // body 파싱 실패해도 styles 기본값(빈 배열)로 진행 — 종전 동작과 동일
+    // body 파싱 실패해도 기본값으로 진행 — 종전 동작과 동일
   }
 
   const admin = getAdminSupabase();
@@ -93,6 +98,7 @@ export async function POST(
       title: material.title,
       type: material.type,
       styles,
+      intentNote,
     },
   });
 
@@ -120,6 +126,7 @@ export async function POST(
         pageCount: material.page_count ?? null,
         parserWarnings: [],
         styles,
+        intentNote,
       });
 
       if (!result.ok) {

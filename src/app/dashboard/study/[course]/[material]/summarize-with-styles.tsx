@@ -45,6 +45,8 @@ export function SummarizeWithStyles({
     });
   }
 
+  const [intentNote, setIntentNote] = useState("");
+
   const atMax = selected.size >= MAX_STYLES_PER_REQUEST;
   const stylesArray: SummaryStyle[] = Array.from(selected);
 
@@ -90,8 +92,22 @@ export function SummarizeWithStyles({
             );
           })}
         </div>
+
+        {/* 의도 조정 한 줄 요청 — 자료 안에서 무엇을 강조할지만. 자료 밖 생성은 서버 가드가 거부. */}
+        <input
+          type="text"
+          value={intentNote}
+          onChange={(e) => setIntentNote(e.target.value.slice(0, 120))}
+          placeholder="추가 요청 (선택) — 예: 예문은 영어 그대로, 비교표 위주"
+          className="mt-3 w-full rounded-full border border-[var(--color-apple-hairline)] bg-white px-4 py-2 text-center text-[12.5px] wght-450 text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)] placeholder:text-[var(--color-apple-muted)]/55"
+          style={{ letterSpacing: "-0.012em" }}
+        />
       </div>
-      <SummarizeNowButton materialId={materialId} styles={stylesArray} />
+      <SummarizeNowButton
+        materialId={materialId}
+        styles={stylesArray}
+        intentNote={intentNote.trim()}
+      />
     </div>
   );
 }

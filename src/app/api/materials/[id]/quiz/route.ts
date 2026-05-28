@@ -15,6 +15,8 @@ const RequestBody = z.object({
   // kinds·scope는 옵션 — 빈 배열·빈 문자열이면 종전 동작(객관식만, 자료 전체)
   kinds: z.array(z.enum(["multiple-choice", "short-answer", "essay"])).max(3).default([]),
   scope: z.string().max(200).default(""),
+  // 의도 조정 한 줄 요청 — scope(범위)와 분리. 강조·형식·톤 힌트. 자료 밖 생성은 서비스/프롬프트 가드가 거부.
+  intentNote: z.string().max(120).default(""),
 });
 
 /**
@@ -83,6 +85,7 @@ export async function POST(
       count: body.count,
       kinds: body.kinds,
       scope: body.scope,
+      intentNote: body.intentNote,
     },
   });
 
@@ -107,6 +110,7 @@ export async function POST(
         requestedCount: body.count,
         kinds: body.kinds,
         scope: body.scope,
+        intentNote: body.intentNote,
       });
 
       if (!result.ok) {

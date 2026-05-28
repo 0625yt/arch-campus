@@ -42,6 +42,16 @@ const PRESETS = [
   },
 ];
 
+// 의도 조정 프리셋 — 누르면 한 줄칸에 채워진다(자유 입력의 안전한 출발점).
+// 자료 밖 생성이 아니라 "자료 안에서 어떻게 물을지"만 조정하는 힌트.
+const INTENT_CHIPS = [
+  "함정 선택지 강화",
+  "개념 비교 중심",
+  "계산 과정 강조",
+  "정의·용어 위주",
+  "예문은 원어 그대로",
+];
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function GenerateForm({
@@ -56,6 +66,7 @@ export function GenerateForm({
   const [count, setCount] = useState(5);
   const [kinds, setKinds] = useState<Set<Kind>>(new Set(["multiple-choice"]));
   const [scope, setScope] = useState("");
+  const [intentNote, setIntentNote] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const { job, error: pollError } = useJob(jobId);
@@ -91,6 +102,7 @@ export function GenerateForm({
           count,
           kinds: Array.from(kinds),
           scope: scope.trim(),
+          intentNote: intentNote.trim(),
         }),
       });
       const json = (await res.json()) as { ok: boolean; jobId?: string; error?: string };
@@ -246,6 +258,42 @@ export function GenerateForm({
           className="w-full rounded-full border border-[var(--color-apple-hairline)] bg-white px-4 py-2 text-[13px] wght-450 text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)] placeholder:text-[var(--color-apple-muted)]/55"
           style={{ letterSpacing: "-0.012em" }}
         />
+      </FieldGroup>
+
+      <FieldGroup label="추가 요청" hint="선택 — 자료 안에서 강조 방향만" className="mt-7">
+        <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
+          {INTENT_CHIPS.map((chip) => {
+            const active = intentNote.trim() === chip;
+            return (
+              <li key={chip}>
+                <button
+                  type="button"
+                  onClick={() => setIntentNote(active ? "" : chip)}
+                  aria-pressed={active}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-[12px] transition-colors",
+                    active
+                      ? "wght-560 bg-[var(--color-apple-action)] text-white"
+                      : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
+                  )}
+                >
+                  {chip}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <input
+          type="text"
+          value={intentNote}
+          onChange={(e) => setIntentNote(e.target.value.slice(0, 120))}
+          placeholder="예: 헷갈리는 짝 비교 위주 / 풀이 단계 묻기"
+          className="mt-2.5 w-full rounded-full border border-[var(--color-apple-hairline)] bg-white px-4 py-2 text-[13px] wght-450 text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)] placeholder:text-[var(--color-apple-muted)]/55"
+          style={{ letterSpacing: "-0.012em" }}
+        />
+        <p className="mt-2 text-[11px] wght-450 leading-[1.5] text-[var(--color-apple-muted)]">
+          자료 안에서 무엇을 강조할지만 조정해요. 자료에 없는 내용은 만들지 않아요.
+        </p>
       </FieldGroup>
 
       {errorMsg && (

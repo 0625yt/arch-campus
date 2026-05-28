@@ -94,6 +94,8 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
     .filter((s): s is (typeof KIND_ALLOWED)[number] => (KIND_ALLOWED as readonly string[]).includes(s))
     .slice(0, 3);
   const scope = String(form.get("scope") ?? "").trim().slice(0, 200);
+  // 의도 조정 한 줄 요청 — scope(범위)와 분리. 120자 cap. 자료 밖 생성은 프롬프트 가드가 거부.
+  const intentNote = String(form.get("intentNote") ?? "").trim().slice(0, 120);
 
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ ok: false, error: "file 필드가 비어있어요" }, { status: 400 });
@@ -186,6 +188,7 @@ export async function POST(req: Request): Promise<NextResponse<QuizResponseOk | 
     requestedCount,
     kinds,
     scope,
+    intentNote,
   });
 
   if (!result.ok) {

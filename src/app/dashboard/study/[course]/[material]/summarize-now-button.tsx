@@ -19,10 +19,13 @@ import type { SummaryStyle } from "@/lib/material-policy";
 export function SummarizeNowButton({
   materialId,
   styles,
+  intentNote,
 }: {
   materialId: string;
   /** picker에서 고른 스타일 코드들. 없으면 server가 기존 동작 (자동 판단). */
   styles?: SummaryStyle[];
+  /** 의도 조정 한 줄 요청. 자료 안 강조 조정만 — 서버/프롬프트 가드가 자료 밖 생성 거부. */
+  intentNote?: string;
 }) {
   const router = useRouter();
   const [jobId, setJobId] = useState<string | null>(null);
@@ -36,7 +39,7 @@ export function SummarizeNowButton({
       const res = await fetch(`/api/materials/${materialId}/summarize`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ styles: styles ?? [] }),
+        body: JSON.stringify({ styles: styles ?? [], intentNote: intentNote ?? "" }),
       });
       const json = (await res.json()) as {
         ok: boolean;
