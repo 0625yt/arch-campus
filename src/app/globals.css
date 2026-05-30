@@ -176,6 +176,38 @@
     rgba(180, 207, 226, 0.08) 45%,
     transparent 85%
   );
+
+  --color-landing-bg: #ffffff;
+  --color-landing-text-strong: #1d1d1f;
+  --color-landing-text-muted: #6e6e73;
+  --color-landing-card: rgba(255, 255, 255, 0.78);
+  --color-landing-card-strong: #ffffff;
+  --color-landing-hairline: rgba(0, 0, 0, 0.08);
+  --color-landing-pearl: #f5f5f7;
+}
+
+/*
+ * 다크 모드 override — 랜딩 한정 (html[data-theme="dark"]).
+ * 대시보드·기타 페이지는 [data-theme] 미지정이라 라이트 fallback. PR1 범위.
+ * inline script (layout.tsx)가 hydration 전 localStorage 읽어 dataset에 박음.
+ */
+html[data-theme="dark"] {
+  --color-apple-ink: #f5f5f7;
+  --color-apple-muted: #a1a1a6;
+  --color-apple-pearl: #1d1d1f;
+  --color-apple-hairline: #3a3a3d;
+  --color-apple-hairline-soft: rgba(255, 255, 255, 0.10);
+  --color-surface-mist: #161618;
+  --color-surface-cream: #1a1a1c;
+  --color-apple-action-soft: rgba(0, 113, 227, 0.18);
+
+  --color-landing-bg: #0c0c0e;
+  --color-landing-text-strong: #f5f5f7;
+  --color-landing-text-muted: #a1a1a6;
+  --color-landing-card: rgba(28, 28, 32, 0.78);
+  --color-landing-card-strong: #1a1a1c;
+  --color-landing-hairline: rgba(255, 255, 255, 0.10);
+  --color-landing-pearl: #1d1d1f;
 }
 
 /*
@@ -510,6 +542,78 @@ select:focus-visible {
 }
 #upload-zone:target {
   animation: upload-glow 1.4s var(--ease-out);
+}
+
+/* ──────────────────────────────────────────────────────────
+ * 랜딩 모션 토큰 (PR4 sprint).
+ * blob-drift·marquee-x·line-draw·scale-in.
+ * 553라인 reduced-motion 가드가 모두 덮음.
+ * ────────────────────────────────────────────────────────── */
+
+@keyframes blob-drift {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(2%, 1%, 0) scale(1.04);
+  }
+}
+.blob-drift {
+  animation: blob-drift 12000ms ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes marquee-x {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-x 60s linear infinite;
+  will-change: transform;
+}
+.marquee-viewport:hover .marquee-track {
+  animation-play-state: paused;
+}
+@media (max-width: 639px) {
+  .marquee-track {
+    animation-duration: 90s;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.94);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+[data-reveal] {
+  opacity: 0;
+}
+[data-reveal][data-revealed="true"] {
+  animation: scale-in 480ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes line-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.line-draw {
+  stroke-dasharray: var(--len, 200);
+  stroke-dashoffset: var(--len, 200);
+}
+[data-revealed="true"] .line-draw {
+  animation: line-draw 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* smooth scroll — 페이지 단위 */

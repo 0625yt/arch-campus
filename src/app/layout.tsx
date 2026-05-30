@@ -27,6 +27,23 @@ export const viewport: Viewport = {
   themeColor: "#fafafa",
 };
 
+/**
+ * Theme bootstrap — hydration 전에 localStorage 읽어 dataset에 박는 inline script.
+ * React state로 처리하면 first paint = light → CSR = dark 깜빡임이 보임.
+ * dangerouslySetInnerHTML로 raw script 11줄.
+ *
+ * data-theme="dark"는 globals.css의 html[data-theme="dark"] 블록을 활성화.
+ * 무지정이면 :root 라이트 토큰 그대로.
+ */
+const themeBootstrap = `
+(function() {
+  try {
+    var t = localStorage.getItem('arch-theme');
+    if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -34,6 +51,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className="h-full antialiased" data-scroll-behavior="smooth">
+      <head>
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: theme bootstrap pre-hydration */}
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      </head>
       <body className="min-h-full">{children}</body>
     </html>
   );
