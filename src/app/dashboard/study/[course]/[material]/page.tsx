@@ -363,7 +363,7 @@ function EmptySummary({
           className="mx-auto mt-3 max-w-[420px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          자료 본문을 읽어 핵심 단원·키워드·복습 포인트를 정리해드려요. 30~60초 정도 걸려요.
+          자료 본문에서 핵심 단원·키워드·복습 포인트를 정리합니다. 30~60초 소요.
         </p>
         <div className="mt-7 flex justify-center">
           <SummarizeWithStyles materialId={materialId} defaultStyles={defaultStyles} />
@@ -577,13 +577,13 @@ function CtaCard({
           className="text-[12px] wght-560 uppercase tracking-[0.06em]"
           style={{ color: dotColor, letterSpacing: "0.06em" }}
         >
-          {detail.summary ? "요약을 다 읽으셨다면" : "요약 없이도 문제를 만들 수 있어요"}
+          {detail.summary ? "요약을 다 읽었다면" : "요약 없이도 문제 생성 가능"}
         </p>
         <h2
           className="mt-3 text-[26px] leading-[1.12] wght-620 text-[var(--color-apple-ink)] sm:text-[34px]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          이제 직접 풀어보면서 점검해 봐요.
+          직접 풀어보면서 점검
         </h2>
         <p
           className="mt-4 max-w-[520px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)] sm:text-[15px]"

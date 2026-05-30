@@ -132,7 +132,7 @@ export function MfaSection({ className }: { className?: string }) {
           className="mt-3 text-[13.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          1Password·Authy·Google Authenticator 같은 앱이 6자리 코드를 만들어줘요. 매직링크 이메일이
+          1Password·Authy·Google Authenticator 같은 앱이 6자리 코드를 생성합니다. 매직링크 이메일이
           탈취돼도 이 코드 없이는 로그인 불가.
         </p>
 

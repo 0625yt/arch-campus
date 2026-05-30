@@ -67,7 +67,7 @@ export function SessionsSection({ className }: { className?: string }) {
               className="text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.022em" }}
             >
-              다른 모든 기기에서 로그아웃돼요. 본인 기기도 함께 끊겨서 다시 로그인해야 해요.
+              다른 모든 기기에서 로그아웃됩니다. 본인 기기도 함께 끊겨서 다시 로그인해야 합니다.
             </p>
             <div className="mt-4 flex gap-2">
               <button

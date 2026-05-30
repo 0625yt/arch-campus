@@ -72,7 +72,7 @@ export default async function AttemptReviewPage({
             className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            {formatDateTime(attemptedAt)} 풀었어요
+            {formatDateTime(attemptedAt)} 풀이
           </p>
         </header>
 
@@ -115,10 +115,10 @@ function LegacyAttemptNotice() {
   return (
     <section className="rounded-[14px] bg-white p-8 text-center fade-up">
       <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-        다시보기를 보여줄 수 없어요
+        다시보기 복원 불가
       </p>
       <p className="mt-3 text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-ink)]">
-        2026-05-13 이전 풀이는 채점 결과가 따로 저장되지 않아 복원할 수 없어요. 이 퀴즈를 다시 풀면
+        2026-05-13 이전 풀이는 채점 결과가 저장되지 않아 복원할 수 없습니다. 이 퀴즈를 다시 풀면
         다음부터는 다시보기와 오답 복습이 동작합니다.
       </p>
     </section>

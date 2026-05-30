@@ -89,10 +89,10 @@ function EmptyWrong({
         className="mt-4 text-[24px] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
         style={{ letterSpacing: "-0.012em" }}
       >
-        {quizTitle} — 최근 60일 안에 틀린 문제가 없어요.
+        {quizTitle} — 최근 60일 안에 틀린 문제 없음
       </h1>
       <p className="mt-3 text-[14px] wght-450 text-[var(--color-apple-muted)]">
-        이 퀴즈를 한 번 더 풀거나 자료로 돌아가세요.
+        이 퀴즈를 한 번 더 풀거나 자료로 돌아가기.
       </p>
       <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         {materialId && (

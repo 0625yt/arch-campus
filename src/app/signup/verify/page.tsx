@@ -38,7 +38,7 @@ export default async function VerifyPage({
             className="text-[28px] leading-[1.18] wght-620 text-[var(--color-apple-ink)] sm:text-[32px]"
             style={{ letterSpacing: "-0.016em" }}
           >
-            메일함을 열어주세요.
+            메일함을 열어주세요
           </h1>
 
           <p
@@ -46,13 +46,13 @@ export default async function VerifyPage({
             style={{ letterSpacing: "-0.012em" }}
           >
             <span className="wght-560 text-[var(--color-apple-ink)]">{masked}</span>로<br />
-            가입 확인 링크를 보냈어요.
+            가입 확인 링크를 보냈습니다.
           </p>
           <p
             className="mt-3 text-[12.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            메일이 안 보이면 스팸함도 확인해주세요.
+            메일이 안 보이면 스팸함도 확인해 주세요.
           </p>
         </header>
 

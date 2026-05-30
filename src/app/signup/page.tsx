@@ -40,7 +40,7 @@ export default async function SignupPage({
           >
             한 학기,
             <br />
-            함께 시작해요.
+            함께 시작해요
           </h1>
 
           <p
@@ -49,7 +49,7 @@ export default async function SignupPage({
           >
             가입은 30초.
             <br />
-            바로 자료부터 올려볼 수 있어요.
+            바로 자료부터 올릴 수 있습니다.
           </p>
         </header>
 
