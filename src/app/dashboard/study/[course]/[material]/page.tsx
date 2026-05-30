@@ -3,7 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import { WizardWatermark } from "@/components/wizard-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getLatestJob } from "@/lib/data/jobs";
-import { getMaterialDetail, type MaterialDetail } from "@/lib/data/materials";
+import {
+  getMaterialDetail,
+  listMaterialsByCourse,
+  type MaterialDetail,
+  type MaterialListItem,
+} from "@/lib/data/materials";
 import { getExtractedExam, listQuizzesForMaterial } from "@/lib/data/quizzes";
 import { getDefaultStyles, type SummaryStyle } from "@/lib/material-policy";
 import type { SummarizeOutputT } from "@/lib/schemas";
@@ -11,6 +16,7 @@ import { createSignedReadUrl } from "@/lib/storage";
 import { detectSubject } from "@/lib/subject-detector";
 import { ExtractExamView } from "./extract-exam-view";
 import { GenerateButton } from "./generate-button";
+import { MaterialTabs } from "./material-tabs";
 import { MaterialView } from "./material-view";
 import { SplitWithConvertingLeft, SplitWithFailedLeft } from "./pdf-convert-states";
 import { SummarizeWithStyles } from "./summarize-with-styles";
@@ -103,23 +109,34 @@ export default async function MaterialDetailPage({
     ? []
     : await listQuizzesForMaterial({ ownerId, materialId: detail.id, limit: 10 });
 
+  // 같은 과목의 다른 자료들 — 상단 chip rail로 바로 전환 (사용자 요청 2026-05-30).
+  // course 없는 개인 공부 자료(orphan)는 nav 안 띄움 (의미 없음).
+  const siblingMaterials: MaterialListItem[] = detail.course?.id
+    ? await listMaterialsByCourse({ ownerId, courseId: detail.course.id })
+    : [];
+
   return (
     <div>
-      <div className="mx-auto w-full max-w-[920px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:max-w-[1400px] md:px-12">
+      <div className="mx-auto w-full max-w-[920px] px-5 pb-24 pt-6 sm:px-8 sm:pb-28 sm:pt-8 md:max-w-[1400px] md:px-10">
         <Breadcrumb courseLabel={courseLabel} dotColor={dotColor} />
+        <MaterialTabs
+          courseLabel={courseLabel}
+          materials={siblingMaterials}
+          currentMaterialId={detail.id}
+        />
         <Hero detail={detail} />
 
         {isExamType ? (
           extracted ? (
-            <ExtractExamView extracted={extracted} className="mt-14 fade-up fade-up-3 sm:mt-16" />
+            <ExtractExamView extracted={extracted} className="mt-6 fade-up fade-up-3 sm:mt-8" />
           ) : extractJob?.status === "pending" || extractJob?.status === "running" ? (
-            <ExtractExamLoading className="mt-14 fade-up fade-up-3 sm:mt-16" />
+            <ExtractExamLoading className="mt-6 fade-up fade-up-3 sm:mt-8" />
           ) : (
             <ExtractExamEmpty
               courseLabel={courseLabel}
               detail={detail}
               extractError={extractJob?.status === "error" ? (extractJob.errorMessage ?? null) : null}
-              className="mt-14 fade-up fade-up-3 sm:mt-16"
+              className="mt-6 fade-up fade-up-3 sm:mt-8"
             />
           )
         ) : detail.summary ? (
@@ -129,23 +146,23 @@ export default async function MaterialDetailPage({
               summary={detail.summary}
               materialId={detail.id}
               materialTitle={detail.title}
-              className="mt-14 fade-up fade-up-3 sm:mt-16"
+              className="mt-6 fade-up fade-up-3 sm:mt-8"
             />
           ) : convertingPdf ? (
             <SplitWithConvertingLeft
               materialId={detail.id}
               summary={detail.summary}
-              className="mt-14 fade-up fade-up-3 sm:mt-16"
+              className="mt-6 fade-up fade-up-3 sm:mt-8"
             />
           ) : convertFailed ? (
             <SplitWithFailedLeft
               materialId={detail.id}
               summary={detail.summary}
               filename={detail.title}
-              className="mt-14 fade-up fade-up-3 sm:mt-16"
+              className="mt-6 fade-up fade-up-3 sm:mt-8"
             />
           ) : (
-            <SummaryArticle summary={detail.summary} className="mt-14 fade-up fade-up-3 sm:mt-16" />
+            <SummaryArticle summary={detail.summary} className="mt-6 fade-up fade-up-3 sm:mt-8" />
           )
         ) : summarizeStatus === "error" ? (
           <SummaryErrorCard
@@ -155,25 +172,25 @@ export default async function MaterialDetailPage({
             convertFailed={convertFailed}
             convertErrorMessage={convertErrorMessage}
             defaultStyles={defaultStyles}
-            className="mt-14 fade-up fade-up-3 sm:mt-16"
+            className="mt-6 fade-up fade-up-3 sm:mt-8"
           />
         ) : (
           <SummaryLoading
             materialId={detail.id}
-            className="mt-14 fade-up fade-up-3 sm:mt-16"
+            className="mt-6 fade-up fade-up-3 sm:mt-8"
             fallback={<EmptySummary materialId={detail.id} defaultStyles={defaultStyles} />}
           />
         )}
 
         {!isExamType && detail.summaryKeywords && detail.summaryKeywords.length > 0 && (
-          <Keywords keywords={detail.summaryKeywords} className="mt-12 fade-up fade-up-2" />
+          <Keywords keywords={detail.summaryKeywords} className="mt-6 fade-up fade-up-2" />
         )}
 
         {materialQuizzes.length > 0 && (
           <MaterialQuizzes
             quizzes={materialQuizzes}
             dotColor={dotColor}
-            className="mt-14 fade-up fade-up-3 sm:mt-16"
+            className="mt-6 fade-up fade-up-3 sm:mt-8"
           />
         )}
 
@@ -208,22 +225,21 @@ function Breadcrumb({ courseLabel, dotColor }: { courseLabel: string; dotColor: 
 
 function Hero({ detail }: { detail: MaterialDetail }) {
   return (
-    <header className="mt-10 fade-up fade-up-1 sm:mt-14">
+    <header className="mt-5 fade-up fade-up-2 sm:mt-6">
       <p
-        className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-        style={{ letterSpacing: "-0.012em" }}
+        className="text-[11px] wght-700 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
       >
         {labelForType(detail.type)}
       </p>
       <h1
-        className="mt-3 text-[30px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[40px] sm:leading-[1.06] md:text-[44px]"
-        style={{ letterSpacing: "-0.012em" }}
+        className="mt-2 text-[24px] leading-[1.1] wght-700 text-[var(--color-apple-ink)] sm:text-[32px] sm:leading-[1.05] md:text-[36px]"
+        style={{ letterSpacing: "-0.022em" }}
       >
         {detail.title}
       </h1>
 
       <div
-        className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] wght-450 text-[var(--color-apple-muted)]"
+        className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] wght-450 text-[var(--color-apple-muted)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         {detail.pageCount != null && (
@@ -567,7 +583,7 @@ function CtaCard({
   return (
     // 결과 화면 "새 문제 만들기"가 #generate 해시로 직진하면 여기로 스크롤된다.
     // scroll-mt-* 는 sticky 헤더 가림 보정 — 윗 헤더 약 56px + 여백 여유로 80px.
-    <section id="generate" className="mt-14 fade-up fade-up-4 scroll-mt-[80px] sm:mt-20">
+    <section id="generate" className="mt-8 fade-up fade-up-4 scroll-mt-[80px] sm:mt-10">
       {/* 캘린더 EventChip 톤 — 좌측 컬러 ribbon + hover 시 살짝 글로우. dotColor가 카테고리 단서. */}
       <div
         className="card-glow-ribbon elev-1 relative overflow-hidden rounded-[18px] bg-white px-7 py-9 sm:px-12 sm:py-12"
