@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppleEmptyState } from "@/components/apple-empty";
+import { AppleShell } from "@/components/apple-shell";
 import { activityColor } from "@/lib/activity-color";
 import { tryGetOwnerId } from "@/lib/auth";
 import { type Activity, getRecentActivities } from "@/lib/data/activity";
@@ -16,14 +17,14 @@ export default async function HistoryPage() {
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
+      <AppleShell>
         <Header />
         {activities.length === 0 ? (
           <Empty className="mt-10 fade-up fade-up-1 sm:mt-14" />
         ) : (
           <ActivityList activities={activities} className="mt-10 fade-up fade-up-2 sm:mt-14" />
         )}
-      </div>
+      </AppleShell>
     </div>
   );
 }

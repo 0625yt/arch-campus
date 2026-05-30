@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppleEmptyState } from "@/components/apple-empty";
+import { AppleShell } from "@/components/apple-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listWrongItems, type WrongItem } from "@/lib/data/attempts";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -49,7 +50,7 @@ export default async function ReviewPage() {
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
+      <AppleShell>
         <header className="fade-up flex items-baseline justify-between gap-3">
           <p
             className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
@@ -130,10 +131,10 @@ export default async function ReviewPage() {
             className="mt-14 text-[11.5px] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            오답 풀이도 학습 보조이며, 본인이 다시 풀고 검토해야 학습이 완성돼요.
+            오답 풀이도 학습 보조이며, 본인이 다시 풀고 검토해야 학습이 완성됩니다
           </footer>
         )}
-      </div>
+      </AppleShell>
     </div>
   );
 }

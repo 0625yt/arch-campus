@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AppleShell } from "@/components/apple-shell";
 import { activityColor } from "@/lib/activity-color";
 import { tryGetOwnerId } from "@/lib/auth";
 import { type Activity, getRecentActivities } from "@/lib/data/activity";
@@ -25,7 +26,7 @@ export default async function StudyIndexPage() {
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
+      <AppleShell>
         <header className="fade-up flex items-baseline justify-between gap-3">
           <p
             className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
@@ -65,7 +66,7 @@ export default async function StudyIndexPage() {
         {recent.length > 0 && (
           <RecentActivity activities={recent} className="mt-14 fade-up fade-up-4 sm:mt-16" />
         )}
-      </div>
+      </AppleShell>
     </div>
   );
 }

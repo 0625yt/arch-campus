@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AppleShell } from "@/components/apple-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import { type Activity, getRecentActivities } from "@/lib/data/activity";
 import {
@@ -40,7 +41,7 @@ export default async function TodayPage() {
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
+      <AppleShell>
         <TopBar />
 
         {focus ? (
@@ -69,7 +70,7 @@ export default async function TodayPage() {
         />
 
         <RecentSection activities={recent} className="mt-12 fade-up fade-up-3 sm:mt-14" />
-      </div>
+      </AppleShell>
     </div>
   );
 }
