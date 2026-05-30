@@ -96,7 +96,19 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "문제를 찾을 수 없어요" }, { status: 404 });
   }
 
-  const questions = z.array(QuizQuestion).parse(quiz.questions);
+  let questions: z.infer<typeof QuizQuestion>[];
+  try {
+    questions = z.array(QuizQuestion).parse(quiz.questions);
+  } catch (e) {
+    // 0009 이전 또는 손상된 스키마의 quiz.questions가 통과되면 500 throw → 사용자 풀이 결과 날아감.
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `문제 데이터가 손상됐어요: ${e instanceof Error ? e.message : "unknown"}`,
+      },
+      { status: 500 },
+    );
+  }
   const graded = gradeQuiz(questions, body.answers);
 
   // GradedResult는 plain object 배열이라 직렬화 안전 — JSON 캐스트로 supabase 타입에 맞춤.

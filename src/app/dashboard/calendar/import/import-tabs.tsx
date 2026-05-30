@@ -226,7 +226,7 @@ function Header() {
           style={{ letterSpacing: "-0.012em" }}
         >
           시간표·강의계획서, <br className="hidden sm:block" />
-          <span className="text-[var(--color-apple-muted)]">올리면 끝나요.</span>
+          <span className="text-[var(--color-apple-muted)]">올리면 끝납니다</span>
         </h1>
       </header>
     </>

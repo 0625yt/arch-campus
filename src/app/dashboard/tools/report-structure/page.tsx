@@ -72,7 +72,7 @@ export default async function ReportStructurePage() {
             style={{ letterSpacing: "-0.012em" }}
           >
             본문 쓰기 전,{" "}
-            <span className="text-[var(--color-apple-muted)]">목차부터 잡아드릴게요.</span>
+            <span className="text-[var(--color-apple-muted)]">목차부터</span>
           </h1>
           <p
             className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"

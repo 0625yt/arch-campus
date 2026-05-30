@@ -39,7 +39,7 @@ export default async function ReportChecklistPage() {
             className="mt-3 text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[44px] md:text-[52px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            공지에 숨은 <span className="text-[var(--color-apple-muted)]">감점 포인트.</span>
+            공지에 숨은 <span className="text-[var(--color-apple-muted)]">감점 포인트</span>
           </h1>
           <p
             className="mt-4 max-w-[560px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"

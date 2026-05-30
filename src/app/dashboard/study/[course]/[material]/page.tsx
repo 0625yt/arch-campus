@@ -16,6 +16,8 @@ import { SplitWithConvertingLeft, SplitWithFailedLeft } from "./pdf-convert-stat
 import { SummarizeWithStyles } from "./summarize-with-styles";
 import { SummaryLoading } from "./summary-loading";
 
+export const dynamic = "force-dynamic";
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function MaterialDetailPage({

@@ -42,7 +42,7 @@ export default async function SecuritySettingsPage() {
           className="mt-2 text-[32px] leading-[1.08] wght-620 text-[var(--color-apple-ink)] sm:text-[40px]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          보안.
+          보안
         </h1>
         <p
           className="mt-4 max-w-[560px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"

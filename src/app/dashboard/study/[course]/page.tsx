@@ -58,7 +58,7 @@ export default async function CourseDetailPage({
             className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            새 자료 추가.
+            새 자료 추가
           </h2>
           <p
             className="mt-3 text-[14px] wght-450 text-[var(--color-apple-muted)]"
