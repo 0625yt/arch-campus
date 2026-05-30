@@ -289,7 +289,7 @@ function TimetableGrid({
       </div>
 
       <div className="overflow-hidden rounded-[18px] border border-[var(--color-apple-hairline-soft)] bg-white elev-1 fade-up fade-up-1">
-        {/* Header row */}
+        {/* Header row — 좌측 gutter + 각 요일 column. 본문 grid와 동일한 column template. */}
         <div
           className="grid border-b border-[var(--color-apple-hairline-soft)] bg-[var(--color-apple-pearl)]/40"
           style={{
@@ -319,120 +319,133 @@ function TimetableGrid({
           })}
         </div>
 
-        {/* Body — 단일 grid. 시간 gutter + day columns 한꺼번에. */}
-        <div
-          className="relative grid"
-          style={{
-            gridTemplateColumns: `${gutterPx}px repeat(${shownDays.length}, minmax(0, 1fr))`,
-            gridTemplateRows: `repeat(${rowCount}, ${rowPxPer5}px)`,
-            height: `${gridHeight}px`,
-          }}
-        >
-          {/* 시간 gutter — 각 hour 시작점에 라벨. */}
-          {hours.map((h, idx) => {
-            if (idx === hours.length - 1) return null; // 마지막 hour는 라벨만 위로
-            const startRow = idx * 12 + 1;
-            return (
-              <div
-                key={`gut-${h}`}
-                className="-mt-1.5 pr-1.5 text-right text-[10px] wght-450 tabular-nums text-[var(--color-apple-muted)]/80"
+        {/*
+         * Body — flex row 2개로 분리:
+         *   1) 좌측 gutter: absolute로 시간 라벨 (어긋날 수 없음)
+         *   2) 우측 cells: pure grid (rows × days)
+         * 두 영역은 같은 height, 같은 row 픽셀 계산을 공유.
+         */}
+        <div className="relative flex" style={{ height: `${gridHeight}px` }}>
+          {/* 좌측 시간 gutter — absolute 라벨 + 자기 width 고정 */}
+          <div
+            aria-hidden
+            className="relative shrink-0"
+            style={{ width: `${gutterPx}px` }}
+          >
+            {hours.slice(0, -1).map((h, idx) => (
+              <span
+                key={`label-${h}`}
+                className="absolute right-1.5 text-[10px] wght-450 tabular-nums text-[var(--color-apple-muted)]/80"
                 style={{
-                  gridColumn: 1,
-                  gridRow: `${startRow} / span 12`,
+                  top: `${idx * rowPx - 6}px`,
                   letterSpacing: "-0.012em",
                 }}
               >
                 {String(h).padStart(2, "0")}
-              </div>
-            );
-          })}
+              </span>
+            ))}
+          </div>
 
-          {/* 매 시간 hairline — gutter 옆 column부터 끝까지 */}
-          {hours.slice(0, -1).map((h, idx) => (
-            <div
-              key={`line-${h}`}
-              aria-hidden
-              className="pointer-events-none border-t border-[var(--color-apple-hairline-soft)]/50"
-              style={{
-                gridColumn: `2 / span ${shownDays.length}`,
-                gridRow: `${idx * 12 + 1}`,
-              }}
-            />
-          ))}
+          {/* 우측 cells grid */}
+          <div
+            className="relative flex-1 border-l border-[var(--color-apple-hairline-soft)]/60"
+            style={{ height: `${gridHeight}px` }}
+          >
+            {/* hour hairline — absolute로 정확한 hour 위치에 */}
+            {hours.slice(0, -1).map((h, idx) =>
+              idx === 0 ? null : (
+                <div
+                  key={`line-${h}`}
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 border-t border-[var(--color-apple-hairline-soft)]/40"
+                  style={{ top: `${idx * rowPx}px` }}
+                />
+              ),
+            )}
 
-          {/* 강의 칸 */}
-          {shownDays.flatMap((w, dayIdx) => {
-            const daySlots = data.slots.filter((s) => s.slot.weekday === w);
-            return daySlots.map((s) => {
-              const startRow =
-                Math.floor((s.slot.startMinute - minuteOffset) / ROW_MIN) + 1;
-              const span = Math.max(
-                2,
-                Math.ceil((s.slot.endMinute - s.slot.startMinute) / ROW_MIN),
-              );
-              const isNow =
-                isKstToday(w, now) &&
-                nowMin >= s.slot.startMinute &&
-                nowMin < s.slot.endMinute;
-              const color = s.color ?? "#0071e3";
-              const shortRow = span < 8; // 40분 미만이면 한 줄만 표시
-              return (
-                <button
-                  key={`${s.courseId}-${w}-${s.slot.startMinute}`}
-                  type="button"
-                  onClick={() => onPickCourse(s)}
-                  className={`spring-press group relative m-[2px] flex flex-col items-start justify-start overflow-hidden rounded-[8px] px-2 py-1 text-left transition-all hover:brightness-95 ${
-                    isNow ? "now-glow" : ""
-                  }`}
-                  style={{
-                    gridColumn: dayIdx + 2,
-                    gridRow: `${startRow} / span ${span}`,
-                    backgroundColor: tintFromColor(color, 0.14),
-                    boxShadow: isNow ? undefined : "inset 0 0 0 1px rgba(20,30,50,0.04)",
-                  }}
-                  aria-label={`${s.courseName} ${s.slot.startLabel} - ${s.slot.endLabel}`}
-                >
-                  <span
-                    aria-hidden
-                    className="absolute left-0 top-1 bottom-1 w-[2.5px] rounded-full"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span
-                    className="ml-1 line-clamp-1 text-[11px] leading-[1.15] wght-620 text-[var(--color-apple-ink)]"
-                    style={{ letterSpacing: "-0.012em" }}
+            {/* 요일 column vertical divider */}
+            {shownDays.slice(1).map((w, i) => (
+              <div
+                key={`vline-${w}`}
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 border-l border-[var(--color-apple-hairline-soft)]/40"
+                style={{ left: `${((i + 1) / shownDays.length) * 100}%` }}
+              />
+            ))}
+
+            {/* 강의 칸 — 모두 absolute 위치 (퍼센트 left/width, 픽셀 top/height) */}
+            {shownDays.flatMap((w, dayIdx) => {
+              const daySlots = data.slots.filter((s) => s.slot.weekday === w);
+              return daySlots.map((s) => {
+                const top = ((s.slot.startMinute - minuteOffset) / 60) * rowPx;
+                const height =
+                  ((s.slot.endMinute - s.slot.startMinute) / 60) * rowPx;
+                const colWidth = 100 / shownDays.length;
+                const left = dayIdx * colWidth;
+                const isNow =
+                  isKstToday(w, now) &&
+                  nowMin >= s.slot.startMinute &&
+                  nowMin < s.slot.endMinute;
+                const color = s.color ?? "#0071e3";
+                const shortRow = height < 36;
+                return (
+                  <button
+                    key={`${s.courseId}-${w}-${s.slot.startMinute}`}
+                    type="button"
+                    onClick={() => onPickCourse(s)}
+                    className={`spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[8px] px-2 py-1 text-left transition-all hover:brightness-95 ${
+                      isNow ? "now-glow" : ""
+                    }`}
+                    style={{
+                      top: `${top + 2}px`,
+                      height: `${Math.max(24, height - 4)}px`,
+                      left: `calc(${left}% + 3px)`,
+                      width: `calc(${colWidth}% - 6px)`,
+                      backgroundColor: tintFromColor(color, 0.14),
+                      boxShadow: isNow
+                        ? undefined
+                        : "inset 0 0 0 1px rgba(20,30,50,0.04)",
+                    }}
+                    aria-label={`${s.courseName} ${s.slot.startLabel} - ${s.slot.endLabel}`}
                   >
-                    {s.courseName}
-                  </span>
-                  {!shortRow && (
                     <span
-                      className="ml-1 mt-0.5 line-clamp-1 text-[10px] wght-450 tabular-nums text-[var(--color-apple-ink)]/65"
+                      aria-hidden
+                      className="absolute left-0 top-1 bottom-1 w-[2.5px] rounded-full"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span
+                      className="ml-1 line-clamp-1 text-[11px] leading-[1.15] wght-620 text-[var(--color-apple-ink)]"
                       style={{ letterSpacing: "-0.012em" }}
                     >
-                      {s.slot.startLabel}–{s.slot.endLabel}
-                      {s.location ? ` · ${s.location}` : ""}
+                      {s.courseName}
                     </span>
-                  )}
-                </button>
-              );
-            });
-          })}
+                    {!shortRow && (
+                      <span
+                        className="ml-1 mt-0.5 line-clamp-1 text-[10px] wght-450 tabular-nums text-[var(--color-apple-ink)]/65"
+                        style={{ letterSpacing: "-0.012em" }}
+                      >
+                        {s.slot.startLabel}–{s.slot.endLabel}
+                        {s.location ? ` · ${s.location}` : ""}
+                      </span>
+                    )}
+                  </button>
+                );
+              });
+            })}
 
-          {/* 현재 시각 라인 */}
-          {nowTop !== null &&
-            shownDays.some((w) => isKstToday(w, now)) && (
-              <div
-                aria-hidden
-                className="time-bar-pulse pointer-events-none absolute z-10 flex items-center"
-                style={{
-                  left: `${gutterPx}px`,
-                  right: 0,
-                  top: `${nowTop}px`,
-                }}
-              >
-                <span className="-ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-apple-action)]" />
-                <span className="ml-0 h-px flex-1 bg-[var(--color-apple-action)]/70" />
-              </div>
-            )}
+            {/* 현재 시각 라인 */}
+            {nowTop !== null &&
+              shownDays.some((w) => isKstToday(w, now)) && (
+                <div
+                  aria-hidden
+                  className="time-bar-pulse pointer-events-none absolute inset-x-0 z-10 flex items-center"
+                  style={{ top: `${nowTop}px` }}
+                >
+                  <span className="-ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-apple-action)]" />
+                  <span className="ml-0 h-px flex-1 bg-[var(--color-apple-action)]/70" />
+                </div>
+              )}
+          </div>
         </div>
       </div>
     </div>
