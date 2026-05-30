@@ -28,8 +28,8 @@ export default async function TodayPage() {
   if (!ownerId) redirect("/login");
 
   const [upcoming, recent, wrongStats, recentAttempts] = await Promise.all([
-    listUpcomingEvents({ ownerId, limit: 12 }),
-    getRecentActivities({ ownerId, limit: 6 }),
+    listUpcomingEvents({ ownerId, limit: 8 }),
+    getRecentActivities({ ownerId, limit: 5 }),
     getWrongStats({ ownerId, sinceDays: 14 }),
     listRecentAttempts({ ownerId, limit: 3 }),
   ]);
@@ -65,10 +65,10 @@ export default async function TodayPage() {
         <UpcomingList
           events={upcoming}
           kindLabel={KIND_LABEL}
-          className="mt-14 fade-up fade-up-2 sm:mt-16"
+          className="mt-12 fade-up fade-up-2 sm:mt-14"
         />
 
-        <RecentSection activities={recent} className="mt-14 fade-up fade-up-3 sm:mt-16" />
+        <RecentSection activities={recent} className="mt-12 fade-up fade-up-3 sm:mt-14" />
       </div>
     </div>
   );
@@ -105,10 +105,10 @@ function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
           className="mt-3 text-[17px] leading-[1.35] wght-620 text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          최근 14일 동안 풀이 오답이 없어요.
+          최근 14일 동안 풀이 오답 없음
         </h2>
         <p className="mt-2 text-[13px] wght-450 leading-[1.55] text-[var(--color-apple-muted)]">
-          새 자료에서 문제를 만들면 여기서 복습 큐가 잡혀요.
+          새 자료에서 문제를 만들면 여기서 복습 큐가 잡힙니다
         </p>
       </article>
     );
@@ -131,7 +131,7 @@ function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
         className="mt-4 text-[18px] leading-[1.3] wght-620 text-[var(--color-apple-ink)]"
         style={{ letterSpacing: "-0.012em" }}
       >
-        {topLine ? `${topLine.quizTitle}부터 다시.` : "오답을 다시 풀어요."}
+        {topLine ? `${topLine.quizTitle}부터 다시` : "오답 다시 풀기"}
       </h2>
       {wrongStats.byMaterial.length > 0 && (
         <ul
@@ -252,7 +252,7 @@ function NoFocus({ className }: { className?: string }) {
           오늘 마감인 일정이 없어요
         </p>
         <p className="mx-auto mt-3 max-w-[420px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
-          강의계획서를 등록하면 마감 임박한 시험·과제가 여기에 떠요.
+          강의계획서를 등록하면 마감 임박한 시험·과제가 여기에 뜹니다
         </p>
         <Link
           href="/dashboard/calendar/import"
@@ -275,8 +275,8 @@ function UpcomingList({
   className?: string;
 }) {
   if (events.length === 0) return null;
-  // 오늘은 hero에 노출됐을 가능성 높으니 1개 제외하고 다음 ~ 5개
-  const list = events.slice(1, 6);
+  // 오늘은 hero에 노출됐을 가능성 높으니 1개 제외하고 다음 4개 (한 화면 fit)
+  const list = events.slice(1, 5);
   if (list.length === 0) return null;
 
   return (
@@ -290,7 +290,7 @@ function UpcomingList({
             이번 주
           </p>
           <h2
-            className="mt-2 text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[44px]"
+            className="mt-2 text-[22px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[28px] md:text-[32px]"
             style={{ letterSpacing: "-0.022em" }}
           >
             한눈에 들어오게
@@ -441,7 +441,7 @@ function RecentSection({ activities, className }: { activities: Activity[]; clas
         최근 활동
       </p>
       <h2
-        className="mt-2 text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[44px]"
+        className="mt-2 text-[22px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[28px] md:text-[32px]"
         style={{ letterSpacing: "-0.022em" }}
       >
         흐름이 보인다
