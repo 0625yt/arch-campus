@@ -25,6 +25,9 @@ interface ErrResponse {
   error: string;
 }
 
+// 시간표 slot 한 줄: "월 09:00-10:50" — timetable-grid 파서가 받는 그 형식.
+const SLOT_RE = /^[월화수목금토일]\s+\d{1,2}:\d{2}-\d{1,2}:\d{2}$/;
+
 const PatchBody = z
   .object({
     name: z.string().min(1).max(80).optional(),
@@ -36,6 +39,8 @@ const PatchBody = z
       .nullable()
       .optional(),
     target_grade: z.enum(["A+", "A", "B+", "B"]).nullable().optional(),
+    // 인라인 시간표 편집 — slots 통째 교체. null이면 schedule 비움.
+    schedule: z.array(z.string().regex(SLOT_RE)).max(10).nullable().optional(),
   })
   .strict();
 
@@ -83,6 +88,9 @@ export async function PATCH(
   }
   if (body.color !== undefined) update.color = body.color;
   if (body.target_grade !== undefined) update.target_grade = body.target_grade;
+  if (body.schedule !== undefined) {
+    update.schedule = body.schedule === null ? null : body.schedule;
+  }
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ ok: false, error: "수정할 항목이 없어요" }, { status: 400 });
