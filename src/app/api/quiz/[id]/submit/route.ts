@@ -84,17 +84,16 @@ export async function POST(
   }
 
   const admin = getAdminSupabase();
+  // owner 가드를 쿼리 단계에 — 다른 사용자 quiz 존재 정보 누출 방지.
   const { data: quiz, error: quizErr } = await admin
     .from("quizzes")
     .select("id, owner_id, questions, watermark")
     .eq("id", quizId)
-    .single();
+    .eq("owner_id", ownerId)
+    .maybeSingle();
 
   if (quizErr || !quiz) {
     return NextResponse.json({ ok: false, error: "문제를 찾을 수 없어요" }, { status: 404 });
-  }
-  if (quiz.owner_id !== ownerId) {
-    return NextResponse.json({ ok: false, error: "다른 사용자의 문제예요" }, { status: 403 });
   }
 
   const questions = z.array(QuizQuestion).parse(quiz.questions);

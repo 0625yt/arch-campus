@@ -11,6 +11,7 @@ import {
   type SignalTone,
 } from "@/lib/data/semester-safety";
 import { formatEventLabel } from "@/lib/format-event";
+import { kstHour, kstParts, kstStartOfDay } from "@/lib/kst";
 import { inferSemester } from "@/lib/semester";
 
 export const dynamic = "force-dynamic";
@@ -426,8 +427,8 @@ function UpcomingStrip({ events, className }: { events: EventView[]; className?:
 
 function UpcomingItem({ event }: { event: EventView }) {
   const date = new Date(event.startsAt);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Vercel UTC 서버에서 setHours(0,0,0,0)은 UTC 자정 → KST 새벽 9시. KST 자정 기준으로 비교.
+  const today = kstStartOfDay();
   const days = Math.round((date.getTime() - today.getTime()) / 86400000);
   const dDay = days === 0 ? "오늘" : `D-${days}`;
   const tone = days <= 1 ? "urgent" : days <= 3 ? "warn" : "muted";
@@ -575,7 +576,8 @@ function riskTone(risk: CourseRiskItem["risk"]): { label: string; bg: string; fg
 }
 
 function pickGreeting(name: string | null): string {
-  const hour = new Date().getHours();
+  // UTC 서버에서 getHours()는 UTC 시각 → KST 사용자에게 "오전" 인사가 새벽에 뜸. KST 시간 기준.
+  const hour = kstHour();
   const part = hour < 6 ? "새벽" : hour < 12 ? "오전" : hour < 18 ? "오후" : "저녁";
   if (name && name.trim().length > 0) {
     return `${name}님의 ${part}`;
@@ -584,10 +586,13 @@ function pickGreeting(name: string | null): string {
 }
 
 function formatWhen(d: Date, allDay: boolean): string {
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  if (allDay) return `${m}/${day}`;
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${m}/${day} ${hh}:${mm}`;
+  // UTC ISO → KST 라벨. Vercel UTC 서버에서 getMonth/getHours를 그대로 쓰면 KST 자정 직전 어긋남.
+  const { month, day } = kstParts(d);
+  const m = String(month).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  if (allDay) return `${m}/${dd}`;
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  const hh = String(kst.getUTCHours()).padStart(2, "0");
+  const mm = String(kst.getUTCMinutes()).padStart(2, "0");
+  return `${m}/${dd} ${hh}:${mm}`;
 }

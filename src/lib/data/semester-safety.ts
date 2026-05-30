@@ -60,7 +60,8 @@ interface MaterialRow {
   title: string;
   type: MaterialType;
   uploaded_at: string;
-  summary_payload: unknown;
+  /** summary_payload(jsonb)는 페치 비용이 커서 hasSummary boolean으로 좁힘 (P0 fix). */
+  hasSummary: boolean;
   course_id: string | null;
 }
 
@@ -203,16 +204,36 @@ export async function getCourseSafetyDetail(ownerId: string, courseId: string) {
 
 async function listRecentMaterials(ownerId: string): Promise<MaterialRow[]> {
   const admin = getAdminSupabase();
-  const { data, error } = await admin
-    .from("materials")
-    .select("id, title, type, uploaded_at, summary_payload, course_id")
-    .eq("owner_id", ownerId)
-    .neq("type", "syllabus")
-    .order("uploaded_at", { ascending: false })
-    .limit(200);
+  // P0: summary_payload(jsonb)는 매 dashboard 진입마다 200행 풀 페치되면 비용 큼.
+  // 메타데이터 1회 + summary 있는 id 집합 1회로 분리 → jsonb 전송 0.
+  const [metaRes, summaryIdRes] = await Promise.all([
+    admin
+      .from("materials")
+      .select("id, title, type, uploaded_at, course_id")
+      .eq("owner_id", ownerId)
+      .neq("type", "syllabus")
+      .order("uploaded_at", { ascending: false })
+      .limit(200),
+    admin
+      .from("materials")
+      .select("id")
+      .eq("owner_id", ownerId)
+      .neq("type", "syllabus")
+      .not("summary_payload", "is", null)
+      .order("uploaded_at", { ascending: false })
+      .limit(200),
+  ]);
 
-  if (error || !data) return [];
-  return data as MaterialRow[];
+  if (metaRes.error || !metaRes.data) return [];
+  const summaryIds = new Set((summaryIdRes.data ?? []).map((r) => r.id));
+  return metaRes.data.map((row) => ({
+    id: row.id,
+    title: row.title,
+    type: row.type,
+    uploaded_at: row.uploaded_at,
+    hasSummary: summaryIds.has(row.id),
+    course_id: row.course_id,
+  }));
 }
 
 function buildSignals({
@@ -295,7 +316,7 @@ function buildSignals({
 }
 
 function hasSummary(material: MaterialRow): boolean {
-  return material.summary_payload !== null && typeof material.summary_payload === "object";
+  return material.hasSummary;
 }
 
 function isCriticalEvent(event: EventView): boolean {

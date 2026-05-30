@@ -131,16 +131,21 @@ export async function getLatestJob(opts: {
   return mapJob(data);
 }
 
-export async function markJobRunning(jobId: string): Promise<void> {
+// 모든 markJob* 함수는 ownerId 가드를 받아 service-role 우회 시 다른 사용자 job을 건드리지 않게 함.
+// 호출처는 enqueueJob 결과의 job.owner_id를 같이 넘긴다.
+
+export async function markJobRunning(opts: { jobId: string; ownerId: string }): Promise<void> {
   const admin = getAdminSupabase();
   await admin
     .from("jobs")
     .update({ status: "running", started_at: new Date().toISOString() })
-    .eq("id", jobId);
+    .eq("id", opts.jobId)
+    .eq("owner_id", opts.ownerId);
 }
 
 export async function markJobDone(opts: {
   jobId: string;
+  ownerId: string;
   result: Record<string, unknown>;
   modelId: string;
   usage: {
@@ -167,10 +172,15 @@ export async function markJobDone(opts: {
       generation_id: opts.generationId ?? null,
       finished_at: new Date().toISOString(),
     })
-    .eq("id", opts.jobId);
+    .eq("id", opts.jobId)
+    .eq("owner_id", opts.ownerId);
 }
 
-export async function markJobError(opts: { jobId: string; errorMessage: string }): Promise<void> {
+export async function markJobError(opts: {
+  jobId: string;
+  ownerId: string;
+  errorMessage: string;
+}): Promise<void> {
   const admin = getAdminSupabase();
   await admin
     .from("jobs")
@@ -179,7 +189,8 @@ export async function markJobError(opts: { jobId: string; errorMessage: string }
       error_message: opts.errorMessage,
       finished_at: new Date().toISOString(),
     })
-    .eq("id", opts.jobId);
+    .eq("id", opts.jobId)
+    .eq("owner_id", opts.ownerId);
 }
 
 /**

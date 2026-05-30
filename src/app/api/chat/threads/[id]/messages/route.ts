@@ -47,24 +47,7 @@ export async function GET(
 
   const admin = getAdminSupabase();
   // owner 검증을 먼저 — service-role bypass에 §4-1 가드.
-  // types.ts에 chat_threads 아직 없어서 unknown cast (regen 후 정리).
-  const threadCheck = await (
-    admin as unknown as {
-      from: (t: string) => {
-        select: (cols: string) => {
-          eq: (
-            c: string,
-            v: string,
-          ) => {
-            eq: (
-              c: string,
-              v: string,
-            ) => { maybeSingle: () => Promise<{ data: { id: string } | null; error: unknown }> };
-          };
-        };
-      };
-    }
-  )
+  const threadCheck = await admin
     .from("chat_threads")
     .select("id")
     .eq("id", threadId)
@@ -74,28 +57,7 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "스레드를 찾을 수 없어요" }, { status: 404 });
   }
 
-  const { data, error } = await (
-    admin as unknown as {
-      from: (t: string) => {
-        select: (cols: string) => {
-          eq: (
-            c: string,
-            v: string,
-          ) => {
-            eq: (
-              c: string,
-              v: string,
-            ) => {
-              order: (
-                c: string,
-                opts: { ascending: boolean },
-              ) => Promise<{ data: MessageRow[] | null; error: unknown }>;
-            };
-          };
-        };
-      };
-    }
-  )
+  const { data, error } = await admin
     .from("chat_messages")
     .select("id, role, content, citations, created_at")
     .eq("thread_id", threadId)
@@ -107,7 +69,16 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "조회 실패" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, messages: data ?? [] });
+  // citations는 jsonb라 DB 타입상 generic Json. 저장 시점에 ChatCitation[] 형태로만 쓰여서
+  // 런타임에 다른 모양일 일이 없어 한 번 narrow.
+  const messages: MessageRow[] = (data ?? []).map((row) => ({
+    id: row.id,
+    role: row.role,
+    content: row.content,
+    citations: Array.isArray(row.citations) ? (row.citations as unknown as ChatCitation[]) : [],
+    created_at: row.created_at,
+  }));
+  return NextResponse.json({ ok: true, messages });
 }
 
 /**

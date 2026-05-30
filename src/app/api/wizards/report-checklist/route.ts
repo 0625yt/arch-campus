@@ -63,7 +63,7 @@ export async function POST(req: Request): Promise<NextResponse> {
 
   after(async () => {
     try {
-      await markJobRunning(job.id);
+      await markJobRunning({ jobId: job.id, ownerId });
       const result = await runReportChecklist({
         ownerId,
         assignmentTitle: body.assignmentTitle,
@@ -73,12 +73,13 @@ export async function POST(req: Request): Promise<NextResponse> {
       });
 
       if (!result.ok) {
-        await markJobError({ jobId: job.id, errorMessage: result.error });
+        await markJobError({ jobId: job.id, ownerId, errorMessage: result.error });
         return;
       }
 
       await markJobDone({
         jobId: job.id,
+        ownerId,
         result: { output: result.output },
         modelId: result.modelId,
         usage: result.usage,
@@ -86,7 +87,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      await markJobError({ jobId: job.id, errorMessage: msg });
+      await markJobError({ jobId: job.id, ownerId, errorMessage: msg });
     }
   });
 

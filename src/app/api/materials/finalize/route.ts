@@ -196,9 +196,9 @@ export async function POST(
       const errMsg = e instanceof Error ? e.message : "파일을 못 찾았어요";
       // 잡들 모두 error 마킹 — 사용자 dock에서 빨간 상태로 보임
       await Promise.all([
-        markBgJobError(summarizeEnqueue.job.id, errMsg),
-        markBgJobError(quizEnqueue.job.id, errMsg),
-        convertEnqueue ? markBgJobError(convertEnqueue.job.id, errMsg) : Promise.resolve(),
+        markBgJobError(summarizeEnqueue.job.id, ownerId, errMsg),
+        markBgJobError(quizEnqueue.job.id, ownerId, errMsg),
+        convertEnqueue ? markBgJobError(convertEnqueue.job.id, ownerId, errMsg) : Promise.resolve(),
       ]);
       return;
     }
@@ -223,9 +223,9 @@ export async function POST(
       } else {
         const errMsg = e instanceof Error ? e.message : "파싱 실패";
         await Promise.all([
-          markBgJobError(summarizeEnqueue.job.id, errMsg),
-          markBgJobError(quizEnqueue.job.id, errMsg),
-          convertEnqueue ? markBgJobError(convertEnqueue.job.id, errMsg) : Promise.resolve(),
+          markBgJobError(summarizeEnqueue.job.id, ownerId, errMsg),
+          markBgJobError(quizEnqueue.job.id, ownerId, errMsg),
+          convertEnqueue ? markBgJobError(convertEnqueue.job.id, ownerId, errMsg) : Promise.resolve(),
         ]);
         return;
       }
@@ -297,7 +297,7 @@ export async function POST(
   });
 }
 
-async function markBgJobError(jobId: string, message: string): Promise<void> {
+async function markBgJobError(jobId: string, ownerId: string, message: string): Promise<void> {
   const { markJobError } = await import("@/lib/data/jobs");
-  await markJobError({ jobId, errorMessage: message });
+  await markJobError({ jobId, ownerId, errorMessage: message });
 }

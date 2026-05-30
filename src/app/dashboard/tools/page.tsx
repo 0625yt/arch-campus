@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback } from "react";
 import { ToolsEntryCard } from "./tools-entry-card";
 
 const CATEGORY = {
@@ -159,8 +160,35 @@ const FILTERS: ("전체" | Category)[] = ["전체", "발표", "과제", "시험"
 
 type FilterId = "전체" | Category;
 
+function parseFilter(value: string | null): FilterId {
+  if (value === "발표" || value === "과제" || value === "시험") return value;
+  return "전체";
+}
+
 export default function ToolsPage() {
-  const [filter, setFilter] = useState<FilterId>("전체");
+  return (
+    <Suspense fallback={null}>
+      <ToolsPageInner />
+    </Suspense>
+  );
+}
+
+function ToolsPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const filter = parseFilter(searchParams.get("filter"));
+
+  // URL ?filter=... 로 유지 → 뒤로가기·딥링크·다른 페이지 다녀와도 필터 보존.
+  const setFilter = useCallback(
+    (next: FilterId) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "전체") params.delete("filter");
+      else params.set("filter", next);
+      const qs = params.toString();
+      router.replace(qs ? `/dashboard/tools?${qs}` : "/dashboard/tools", { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   const filtered =
     filter === "전체" ? LIVE_WIZARDS : LIVE_WIZARDS.filter((w) => w.category === filter);
@@ -198,7 +226,7 @@ export default function ToolsPage() {
             style={{ letterSpacing: "-0.012em" }}
           >
             막혔을 때 바로 쓰는{" "}
-            <span className="text-[var(--color-apple-muted)]">{LIVE_WIZARDS.length}개 도구.</span>
+            <span className="text-[var(--color-apple-muted)]">{LIVE_WIZARDS.length}개 도구</span>
           </h1>
           <p
             className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
@@ -223,7 +251,7 @@ export default function ToolsPage() {
               className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
               style={{ letterSpacing: "-0.012em" }}
             >
-              바로 쓰는 도구.
+              바로 쓰는 도구
             </h2>
             <span
               className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
@@ -326,7 +354,6 @@ function Filters({
             f === "전체"
               ? LIVE_WIZARDS.length
               : LIVE_WIZARDS.filter((w) => w.category === f).length;
-          const dotColor = f === "전체" ? null : CATEGORY[f as Category];
           return (
             <li key={f}>
               <button
@@ -340,13 +367,6 @@ function Filters({
                 }
                 style={{ letterSpacing: "-0.012em" }}
               >
-                {dotColor && (
-                  <span
-                    aria-hidden
-                    className="inline-block h-1.5 w-1.5 rounded-full"
-                    style={{ backgroundColor: dotColor }}
-                  />
-                )}
                 {f}
                 <span
                   className={
@@ -405,15 +425,11 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
       />
 
       <div className="relative flex items-center justify-between gap-2">
+        {/* 좌측 ribbon이 이미 카테고리 색 표시. 라벨 옆 도트는 DESIGN §10 위반·중복. */}
         <span
-          className="inline-flex items-center gap-1.5 text-[11px] wght-700 uppercase tracking-[0.06em]"
+          className="inline-flex items-center text-[11px] wght-700 uppercase tracking-[0.06em]"
           style={{ color: dotColor, letterSpacing: "0.06em" }}
         >
-          <span
-            aria-hidden
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: dotColor }}
-          />
           {wizard.category}
         </span>
         <span className="inline-flex items-center gap-2">

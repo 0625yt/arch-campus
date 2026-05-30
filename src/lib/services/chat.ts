@@ -3,6 +3,7 @@ import { type GenerateUsage, streamChatReply } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
 import { extractRelevantChunks, formatChunksAsHint } from "@/lib/rag/extract-relevant";
 import { getAdminSupabase } from "@/lib/supabase/admin";
+import type { Json } from "@/lib/supabase/types";
 
 /**
  * AI Chat 서비스 — 자료 1개에 잠긴 RAG 챗봇.
@@ -81,23 +82,7 @@ async function fetchThreadWithOwnerGuard(
 ): Promise<ChatThreadRow | null> {
   const admin = getAdminSupabase();
   // service-role이라 RLS 우회 — owner_id .eq() 가드 필수 (CLAUDE.md §6 admin.ts §4-1)
-  const { data, error } = await (
-    admin as unknown as {
-      from: (t: string) => {
-        select: (cols: string) => {
-          eq: (
-            c: string,
-            v: string,
-          ) => {
-            eq: (
-              c: string,
-              v: string,
-            ) => { maybeSingle: () => Promise<{ data: ChatThreadRow | null; error: unknown }> };
-          };
-        };
-      };
-    }
-  )
+  const { data, error } = await admin
     .from("chat_threads")
     .select(
       "id, owner_id, material_id, course_id, title, material_full_text, material_snapshot_chars",
@@ -136,28 +121,7 @@ async function fetchRecentMessages(
   limit: number,
 ): Promise<Array<{ role: "user" | "assistant"; content: string }>> {
   const admin = getAdminSupabase();
-  const { data, error } = await (
-    admin as unknown as {
-      from: (t: string) => {
-        select: (cols: string) => {
-          eq: (
-            c: string,
-            v: string,
-          ) => {
-            order: (
-              c: string,
-              opts: { ascending: boolean },
-            ) => {
-              limit: (n: number) => Promise<{
-                data: Array<{ role: "user" | "assistant"; content: string }> | null;
-                error: unknown;
-              }>;
-            };
-          };
-        };
-      };
-    }
-  )
+  const { data, error } = await admin
     .from("chat_messages")
     .select("role, content")
     .eq("thread_id", threadId)
@@ -250,20 +214,12 @@ export async function startChatTurn(input: StartChatTurnInput): Promise<StartCha
 
   // user turn을 먼저 INSERT — 응답이 끊겨도 사용자 입력은 기록 유지
   const admin = getAdminSupabase();
-  const { error: userInsertErr } = await (
-    admin as unknown as {
-      from: (t: string) => {
-        insert: (row: Record<string, unknown>) => Promise<{ error: unknown }>;
-      };
-    }
-  )
-    .from("chat_messages")
-    .insert({
-      thread_id: input.threadId,
-      owner_id: input.ownerId,
-      role: "user",
-      content: input.userMessage,
-    });
+  const { error: userInsertErr } = await admin.from("chat_messages").insert({
+    thread_id: input.threadId,
+    owner_id: input.ownerId,
+    role: "user",
+    content: input.userMessage,
+  });
   if (userInsertErr) {
     console.error("[chat] user message insert failed", userInsertErr);
     return { ok: false, status: 500, error: "메시지 저장 실패" };
@@ -312,27 +268,21 @@ interface PersistAssistantInput {
 
 async function persistAssistantMessage(input: PersistAssistantInput): Promise<void> {
   const admin = getAdminSupabase();
-  const { error } = await (
-    admin as unknown as {
-      from: (t: string) => {
-        insert: (row: Record<string, unknown>) => Promise<{ error: unknown }>;
-      };
-    }
-  )
-    .from("chat_messages")
-    .insert({
-      thread_id: input.threadId,
-      owner_id: input.ownerId,
-      role: "assistant",
-      content: input.body,
-      citations: input.citations,
-      input_tokens: input.usage.inputTokens,
-      output_tokens: input.usage.outputTokens,
-      cache_read_tokens: input.usage.cacheReadTokens,
-      cache_creation_tokens: input.usage.cacheCreationTokens,
-      cost_usd: input.costUsd,
-      model_id: input.modelId,
-    });
+  const { error } = await admin.from("chat_messages").insert({
+    thread_id: input.threadId,
+    owner_id: input.ownerId,
+    role: "assistant",
+    content: input.body,
+    // citations는 jsonb. ChatCitation[]은 plain object 배열이라 Json과 호환되지만
+    // generic 매개변수에 명시적으로 캐스팅 필요.
+    citations: input.citations as unknown as Json,
+    input_tokens: input.usage.inputTokens,
+    output_tokens: input.usage.outputTokens,
+    cache_read_tokens: input.usage.cacheReadTokens,
+    cache_creation_tokens: input.usage.cacheCreationTokens,
+    cost_usd: input.costUsd,
+    model_id: input.modelId,
+  });
   if (error) {
     console.error("[chat] assistant message insert failed", error);
     // 실패해도 stream 응답은 이미 전송됨 — 사용자 차단 X

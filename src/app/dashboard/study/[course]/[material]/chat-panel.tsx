@@ -318,9 +318,12 @@ export function ChatPanel({
         onClick={onClose}
       />
 
-      {/* 패널 본체 */}
+      {/* 패널 본체.
+          모바일: inset-0이지만 키보드가 올라오면 100vh 기준으로 하단이 가려진다.
+          dvh(visualViewport 반영)로 입력창이 항상 보이게.
+          데스크탑(md↑)에선 sidebar fixed라 무관. */}
       <aside
-        className="fixed inset-0 z-50 flex flex-col bg-white md:inset-y-0 md:right-0 md:left-auto md:w-[380px] md:border-l md:border-[var(--color-apple-hairline)] md:shadow-xl"
+        className="fixed inset-x-0 top-0 z-50 flex h-dvh flex-col bg-white md:inset-y-0 md:right-0 md:left-auto md:h-auto md:w-[380px] md:border-l md:border-[var(--color-apple-hairline)] md:shadow-xl"
         aria-label="자료 챗"
       >
         <header className="border-b border-[var(--color-apple-hairline)] px-5 py-3.5">

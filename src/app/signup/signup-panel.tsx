@@ -3,46 +3,75 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
-import { getBrowserSupabase } from "@/lib/supabase/client";
 import { friendlyAuthError } from "@/lib/auth-errors";
+import { getBrowserSupabase } from "@/lib/supabase/client";
 
 /**
- * 로그인 패널 — 이메일+비밀번호 폼 + Google OAuth.
+ * 회원가입 패널 — 이메일+비밀번호+비밀번호 확인 + Google OAuth.
  *
  * 동작:
- *   1) 이메일+비밀번호 제출 → signInWithPassword → 성공 시 next 또는 /dashboard/today
- *   2) "구글로 로그인" → OAuth 흐름 (/auth/callback에서 마무리)
+ *   1) 폼 제출 → signUp → 이메일 인증 메일 발송 → /signup/verify로 이동
+ *   2) 구글로 가입 → OAuth → /auth/callback에서 신규/기존 분기
  *
- * 에러는 폼 안 inline 표시. 입력값은 유지 (실패 시 다시 안 적어도 됨).
+ * 비밀번호 정책: 8자 이상. 영문·숫자 권장(Supabase 측 정책은 dashboard에서).
  */
-export function LoginPanel({ next, error }: { next?: string; error?: string }) {
+export function SignupPanel({ next, error }: { next?: string; error?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [loading, setLoading] = useState<"none" | "email" | "google">("none");
   const [formError, setFormError] = useState<string | null>(error ?? null);
 
-  async function handleEmailLogin(e: FormEvent) {
+  function validate(): string | null {
+    if (password.length < 8) return "비밀번호는 8자 이상으로 만들어 주세요.";
+    if (password !== passwordConfirm) return "비밀번호 확인이 일치하지 않아요.";
+    return null;
+  }
+
+  async function handleEmailSignup(e: FormEvent) {
     e.preventDefault();
     if (loading !== "none") return;
     setFormError(null);
+    const validation = validate();
+    if (validation) {
+      setFormError(validation);
+      return;
+    }
     setLoading("email");
+
+    const trimmedEmail = email.trim();
+
+    // Supabase signUp. 이메일 확인 정책 ON일 때 session=null이고 user만 옴.
+    // 이미 가입된 이메일은 보안상 "가짜 성공" 응답을 주는데, 그 경우 user.identities가 빈 배열로 옴 —
+    // 이걸로 중복을 판별해 "메일 확인하세요" 안내 대신 명확한 안내를 띄움.
     const supabase = getBrowserSupabase();
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+    const emailRedirectTo = new URL("/auth/callback", window.location.origin);
+    if (next) emailRedirectTo.searchParams.set("next", next);
+    const { data, error: authError } = await supabase.auth.signUp({
+      email: trimmedEmail,
       password,
+      options: { emailRedirectTo: emailRedirectTo.toString() },
     });
     if (authError) {
       setFormError(friendlyAuthError(authError));
       setLoading("none");
       return;
     }
-    // 세션 쿠키가 박힘 — middleware가 next로 보내거나, 직접 push.
-    router.push(next ?? "/dashboard/today");
-    router.refresh();
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      setFormError("이미 가입된 이메일이에요. 로그인을 진행해 주세요.");
+      setLoading("none");
+      return;
+    }
+    if (data.session) {
+      router.push(next ?? "/dashboard/today");
+      router.refresh();
+    } else {
+      router.push(`/signup/verify?email=${encodeURIComponent(trimmedEmail)}`);
+    }
   }
 
-  async function handleGoogleLogin() {
+  async function handleGoogleSignup() {
     if (loading !== "none") return;
     setFormError(null);
     setLoading("google");
@@ -57,14 +86,13 @@ export function LoginPanel({ next, error }: { next?: string; error?: string }) {
       setFormError(friendlyAuthError(oauthError));
       setLoading("none");
     }
-    // 성공이면 페이지가 Google로 떠나니까 loading 유지.
   }
 
   const busy = loading !== "none";
 
   return (
     <div className="mt-10">
-      <form onSubmit={handleEmailLogin} className="flex flex-col gap-3">
+      <form onSubmit={handleEmailSignup} className="flex flex-col gap-3">
         <label className="block">
           <span className="sr-only">이메일</span>
           <input
@@ -85,9 +113,25 @@ export function LoginPanel({ next, error }: { next?: string; error?: string }) {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="비밀번호"
-            autoComplete="current-password"
+            placeholder="비밀번호 (8자 이상)"
+            autoComplete="new-password"
             required
+            minLength={8}
+            disabled={busy}
+            className="h-[52px] w-full rounded-[14px] border border-[var(--color-apple-hairline)] bg-white px-4 text-[15px] wght-450 text-[var(--color-apple-ink)] outline-none transition-colors placeholder:text-[var(--color-apple-muted)]/70 focus:border-[var(--color-apple-action)] disabled:opacity-60"
+            style={{ letterSpacing: "-0.012em" }}
+          />
+        </label>
+        <label className="block">
+          <span className="sr-only">비밀번호 확인</span>
+          <input
+            type="password"
+            value={passwordConfirm}
+            onChange={(e) => setPasswordConfirm(e.target.value)}
+            placeholder="비밀번호 확인"
+            autoComplete="new-password"
+            required
+            minLength={8}
             disabled={busy}
             className="h-[52px] w-full rounded-[14px] border border-[var(--color-apple-hairline)] bg-white px-4 text-[15px] wght-450 text-[var(--color-apple-ink)] outline-none transition-colors placeholder:text-[var(--color-apple-muted)]/70 focus:border-[var(--color-apple-action)] disabled:opacity-60"
             style={{ letterSpacing: "-0.012em" }}
@@ -100,7 +144,7 @@ export function LoginPanel({ next, error }: { next?: string; error?: string }) {
           className="mt-2 flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[var(--color-apple-ink)] text-[15px] wght-560 text-white shadow-[0_2px_8px_rgba(15,23,42,0.12)] transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
           style={{ letterSpacing: "-0.012em" }}
         >
-          {loading === "email" ? <Spinner light /> : "로그인"}
+          {loading === "email" ? <Spinner light /> : "가입하기"}
         </button>
       </form>
 
@@ -117,7 +161,7 @@ export function LoginPanel({ next, error }: { next?: string; error?: string }) {
 
       <button
         type="button"
-        onClick={handleGoogleLogin}
+        onClick={handleGoogleSignup}
         disabled={busy}
         className="mt-5 flex h-[52px] w-full items-center justify-center gap-3 rounded-full bg-white text-[15px] wght-560 text-[var(--color-apple-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_12px_rgba(122,166,214,0.10),0_0_0_1px_rgba(0,0,0,0.06)] transition-all hover:-translate-y-[1px] hover:shadow-[0_2px_4px_rgba(0,0,0,0.04),0_6px_20px_rgba(122,166,214,0.18),0_0_0_1px_rgba(0,0,0,0.08)] active:translate-y-0 active:scale-[0.98] disabled:opacity-60"
         style={{ letterSpacing: "-0.012em" }}
@@ -127,7 +171,7 @@ export function LoginPanel({ next, error }: { next?: string; error?: string }) {
         ) : (
           <>
             <GoogleIcon />
-            구글로 계속하기
+            구글로 가입하기
           </>
         )}
       </button>
@@ -141,22 +185,36 @@ export function LoginPanel({ next, error }: { next?: string; error?: string }) {
         </p>
       )}
 
-      <div className="mt-7 flex items-center justify-between text-[13px]">
-        <Link
-          href="/login/forgot"
-          className="wght-450 text-[var(--color-apple-muted)] underline-offset-2 hover:text-[var(--color-apple-ink)] hover:underline"
+      <div className="mt-7 text-center text-[13px]">
+        <span
+          className="wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          비밀번호를 잊으셨나요?
-        </Link>
+          이미 가입하셨나요?{" "}
+        </span>
         <Link
-          href={`/signup${next ? `?next=${encodeURIComponent(next)}` : ""}`}
+          href={`/login${next ? `?next=${encodeURIComponent(next)}` : ""}`}
           className="wght-560 text-[var(--color-apple-action)] underline-offset-2 hover:underline"
           style={{ letterSpacing: "-0.012em" }}
         >
-          회원가입 ›
+          로그인 ›
         </Link>
       </div>
+
+      <p
+        className="mt-8 text-center text-[11.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        계속하면{" "}
+        <a className="underline underline-offset-2" href="/terms">
+          이용약관
+        </a>{" "}
+        ·{" "}
+        <a className="underline underline-offset-2" href="/privacy">
+          개인정보처리방침
+        </a>
+        에 동의해요.
+      </p>
     </div>
   );
 }

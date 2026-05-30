@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { activityColor } from "@/lib/activity-color";
 import { tryGetOwnerId } from "@/lib/auth";
 import { type Activity, getRecentActivities } from "@/lib/data/activity";
+import { kstParts } from "@/lib/kst";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ function Header() {
           className="mt-3 text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[44px] md:text-[52px]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          학습 활동.
+          학습 활동
         </h1>
       </div>
       <Link
@@ -157,25 +158,28 @@ function ActivityList({ activities, className }: { activities: Activity[]; class
 function formatDayLabel(day: string): string {
   const today = isoDay(new Date());
   if (day === today) return "오늘";
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
+  // 24h 전 시각의 KST 날짜.
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
   if (day === isoDay(yesterday)) return "어제";
-  const d = new Date(day + "T00:00:00");
+  // day는 YYYY-MM-DD (KST). KST 자정 시각으로 명시 파싱.
+  const d = new Date(day + "T00:00:00+09:00");
   if (!Number.isFinite(d.getTime())) return day;
-  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  const { month, day: dd } = kstParts(d);
+  return `${month}월 ${dd}일`;
 }
 
 function isoDay(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  // Vercel UTC 서버에서 getFullYear/getMonth가 KST 자정 직전 어긋남 → KST 기준.
+  const { year, month, day } = kstParts(d);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return "";
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
+  // UTC ISO → KST 시각.
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  const hh = String(kst.getUTCHours()).padStart(2, "0");
+  const mm = String(kst.getUTCMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
 }

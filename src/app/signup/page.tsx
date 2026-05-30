@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { LoginPanel } from "./login-panel";
+import { SignupPanel } from "./signup-panel";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({
+export default async function SignupPage({
   searchParams,
 }: {
   searchParams: Promise<{ next?: string; error?: string }>;
@@ -40,20 +40,20 @@ export default async function LoginPage({
           >
             한 학기,
             <br />
-            흩어지지 않게.
+            함께 시작해요.
           </h1>
 
           <p
             className="mx-auto mt-5 max-w-[300px] text-[14px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            강의자료와 강의계획서를 올리면
+            가입은 30초.
             <br />
-            오늘 손대야 할 일이 보입니다.
+            바로 자료부터 올려볼 수 있어요.
           </p>
         </header>
 
-        <LoginPanel next={next} error={error} />
+        <SignupPanel next={next} error={error} />
       </div>
     </main>
   );

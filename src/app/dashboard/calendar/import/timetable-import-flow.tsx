@@ -463,7 +463,7 @@ function ReviewSection({
             className="text-[22px] wght-620 text-[var(--color-apple-ink)] sm:text-[24px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            추출된 강의.
+            추출된 강의
           </h2>
           <span className="text-[12px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
             {keepIds.size}/{extracted.courses.length} 선택됨

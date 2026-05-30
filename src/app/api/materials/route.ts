@@ -260,7 +260,7 @@ export async function runSummarizeJob(opts: {
   parserWarnings: string[];
 }): Promise<void> {
   try {
-    await markJobRunning(opts.jobId);
+    await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId });
     const result = await runSummarize({
       ownerId: opts.ownerId,
       materialId: opts.materialId,
@@ -272,11 +272,12 @@ export async function runSummarizeJob(opts: {
       parserWarnings: opts.parserWarnings,
     });
     if (!result.ok) {
-      await markJobError({ jobId: opts.jobId, errorMessage: result.error });
+      await markJobError({ jobId: opts.jobId, ownerId: opts.ownerId, errorMessage: result.error });
       return;
     }
     await markJobDone({
       jobId: opts.jobId,
+      ownerId: opts.ownerId,
       result: { summary: result.summary },
       modelId: result.modelId,
       usage: result.usage,
@@ -285,6 +286,7 @@ export async function runSummarizeJob(opts: {
   } catch (e) {
     await markJobError({
       jobId: opts.jobId,
+      ownerId: opts.ownerId,
       errorMessage: e instanceof Error ? e.message : String(e),
     });
   }
@@ -305,7 +307,7 @@ export async function runQuizJob(opts: {
   requestedCount: number;
 }): Promise<void> {
   try {
-    await markJobRunning(opts.jobId);
+    await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId });
     const result = await runQuizGeneration({
       ownerId: opts.ownerId,
       materialId: opts.materialId,
@@ -320,11 +322,12 @@ export async function runQuizJob(opts: {
       requestedCount: opts.requestedCount,
     });
     if (!result.ok) {
-      await markJobError({ jobId: opts.jobId, errorMessage: result.error });
+      await markJobError({ jobId: opts.jobId, ownerId: opts.ownerId, errorMessage: result.error });
       return;
     }
     await markJobDone({
       jobId: opts.jobId,
+      ownerId: opts.ownerId,
       result: { quizId: result.quizId },
       modelId: result.modelId,
       usage: result.usage,
@@ -333,6 +336,7 @@ export async function runQuizJob(opts: {
   } catch (e) {
     await markJobError({
       jobId: opts.jobId,
+      ownerId: opts.ownerId,
       errorMessage: e instanceof Error ? e.message : String(e),
     });
   }
@@ -364,7 +368,7 @@ export async function runConvertPdfJob(opts: {
   filename: string;
 }): Promise<void> {
   try {
-    await markJobRunning(opts.jobId);
+    await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId });
 
     const sourceUrl = await createSignedReadUrl({
       storagePath: opts.sourceStoragePath,
@@ -398,6 +402,7 @@ export async function runConvertPdfJob(opts: {
     // markJobDone은 모델 호출용 시그니처라 더미 값 — convert-pdf는 AI 호출 없음
     await markJobDone({
       jobId: opts.jobId,
+      ownerId: opts.ownerId,
       result: { pdfPath },
       modelId: "cloudconvert",
       usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
@@ -418,6 +423,7 @@ export async function runConvertPdfJob(opts: {
   } catch (e) {
     await markJobError({
       jobId: opts.jobId,
+      ownerId: opts.ownerId,
       errorMessage: e instanceof Error ? e.message : String(e),
     });
   }

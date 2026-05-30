@@ -137,7 +137,12 @@ export function QuizResultView({
 
       <WizardWatermark modelText={watermark} />
 
-      <div className="sticky bottom-4 flex flex-col gap-2 sm:flex-row">
+      {/* 모바일: sticky 풀고 일반 흐름. sticky로 두면 5개 버튼이 세로 누적해 화면 절반 점유 + mobile-nav(h-14)에 가려짐.
+          sm↑: sticky 유지, mobile-nav 없음. */}
+      <div
+        className="mt-6 flex flex-col gap-2 sm:sticky sm:bottom-4 sm:flex-row"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px))" }}
+      >
         {wrongCount > 0 && (
           <Link
             href={`/dashboard/quiz/${quizId}/wrong`}

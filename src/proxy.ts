@@ -2,15 +2,23 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import type { Database } from "./lib/supabase/types";
 
-const PUBLIC_PREFIXES = ["/", "/login", "/auth", "/terms", "/privacy"];
+const PUBLIC_PREFIXES = [
+  "/",
+  "/login",
+  "/signup",
+  "/auth",
+  "/terms",
+  "/privacy",
+];
 
 /**
  * 모든 요청마다 Supabase 세션 쿠키 갱신 + 보호 라우트 게이트.
  *
  * 정책:
- * - /, /login, /auth/*, /terms, /privacy, 정적 자원은 통과
+ * - PUBLIC_PREFIXES 안 라우트는 통과 (로그인·회원가입·인증 콜백·약관)
  * - 그 외 라우트는 user 없으면 /login으로 (production만)
  * - DEV (NODE_ENV !== production)에서는 auth.ts의 DEV_FALLBACK_USER_ID 사용
+ * - 로그인 상태에서 /login·/signup 접근 시 /dashboard/today로 (UX 마찰 제거)
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -50,7 +58,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && pathname === "/login") {
+  // 로그인 상태에서 인증 페이지 진입 → 대시보드로. /login/forgot, /signup/verify, /auth/reset은
+  // 중간 상태이거나 외부 콜백이라 양쪽 모두 허용 (verify는 메일 클릭 전, reset은 메일 클릭 직후).
+  if (user && (pathname === "/login" || pathname === "/signup")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard/today";
     return NextResponse.redirect(url);

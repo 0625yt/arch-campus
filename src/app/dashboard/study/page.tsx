@@ -77,7 +77,7 @@ function Hero({ courseCount, totalMaterials }: { courseCount: number; totalMater
         className="max-w-[820px] text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[48px] md:text-[56px]"
         style={{ letterSpacing: "-0.012em" }}
       >
-        이번 학기, <span className="text-[var(--color-apple-muted)]">{courseCount} 강의.</span>
+        이번 학기, <span className="text-[var(--color-apple-muted)]">{courseCount}개 강의</span>
       </h1>
       <p
         className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"

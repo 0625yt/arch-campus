@@ -347,6 +347,72 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["quiz_attempts"]["Insert"]>;
         Relationships: [];
       };
+      /** 0018: 자료 기반 RAG 챗 스레드. material_full_text는 thread 생성 시 동결. */
+      chat_threads: {
+        Row: {
+          id: string;
+          owner_id: string;
+          material_id: string;
+          course_id: string | null;
+          title: string;
+          material_full_text: string;
+          material_snapshot_chars: number;
+          created_at: string;
+          updated_at: string;
+          last_message_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          material_id: string;
+          course_id?: string | null;
+          title?: string;
+          material_full_text: string;
+          material_snapshot_chars: number;
+          created_at?: string;
+          updated_at?: string;
+          last_message_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["chat_threads"]["Insert"]>;
+        Relationships: [];
+      };
+      /** 0018: 챗 turn별 row. role=user|assistant, citations는 assistant만. */
+      chat_messages: {
+        Row: {
+          id: string;
+          thread_id: string;
+          owner_id: string;
+          role: "user" | "assistant";
+          content: string;
+          citations: Json;
+          input_tokens: number;
+          output_tokens: number;
+          cache_read_tokens: number;
+          cache_creation_tokens: number;
+          cost_usd: number;
+          model_id: string | null;
+          refusal_reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          thread_id: string;
+          owner_id: string;
+          role: "user" | "assistant";
+          content: string;
+          citations?: Json;
+          input_tokens?: number;
+          output_tokens?: number;
+          cache_read_tokens?: number;
+          cache_creation_tokens?: number;
+          cost_usd?: number;
+          model_id?: string | null;
+          refusal_reason?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["chat_messages"]["Insert"]>;
+        Relationships: [];
+      };
     };
   };
 }

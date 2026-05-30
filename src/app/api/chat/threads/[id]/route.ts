@@ -52,30 +52,7 @@ export async function PATCH(
   }
 
   const admin = getAdminSupabase();
-  const result = await (
-    admin as unknown as {
-      from: (t: string) => {
-        update: (row: Record<string, unknown>) => {
-          eq: (
-            c: string,
-            v: string,
-          ) => {
-            eq: (
-              c: string,
-              v: string,
-            ) => {
-              select: (cols: string) => {
-                maybeSingle: () => Promise<{
-                  data: { id: string; title: string } | null;
-                  error: unknown;
-                }>;
-              };
-            };
-          };
-        };
-      };
-    }
-  )
+  const result = await admin
     .from("chat_threads")
     .update({ title })
     .eq("id", threadId)
@@ -113,20 +90,7 @@ export async function DELETE(
   const { id: threadId } = await ctx.params;
 
   const admin = getAdminSupabase();
-  const result = await (
-    admin as unknown as {
-      from: (t: string) => {
-        delete: (opts: { count: "exact" }) => {
-          eq: (
-            c: string,
-            v: string,
-          ) => {
-            eq: (c: string, v: string) => Promise<{ count: number | null; error: unknown }>;
-          };
-        };
-      };
-    }
-  )
+  const result = await admin
     .from("chat_threads")
     .delete({ count: "exact" })
     .eq("id", threadId)

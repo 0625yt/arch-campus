@@ -229,14 +229,27 @@ export function MaterialView({
       </div>
 
       {!chatOpen && (
+        // mobile-nav가 bottom-0 h-14 + safe-area라 그 위에 띄움. 이모지 본문 X (DESIGN §10).
         <button
           type="button"
           onClick={() => setChatOpen(true)}
-          className="fixed right-5 bottom-5 z-30 inline-flex h-12 items-center gap-2 rounded-full bg-[var(--color-apple-ink)] px-5 text-[13px] wght-560 text-white shadow-lg transition-opacity hover:opacity-90 md:hidden"
-          style={{ letterSpacing: "-0.012em" }}
+          className="fixed right-5 z-30 inline-flex h-12 items-center gap-2 rounded-full bg-[var(--color-apple-ink)] px-5 text-[13px] wght-560 text-white shadow-lg transition-opacity hover:opacity-90 md:hidden"
+          style={{
+            letterSpacing: "-0.012em",
+            bottom: "calc(56px + env(safe-area-inset-bottom, 0px) + 12px)",
+          }}
           aria-label="이 자료 같이 보기"
         >
-          💬 같이 보기
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M21 12a9 9 0 1 1-3.46-7.1L21 4l-1.1 3.46A8.96 8.96 0 0 1 21 12Z"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          같이 보기
         </button>
       )}
 

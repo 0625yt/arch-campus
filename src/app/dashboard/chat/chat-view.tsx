@@ -22,6 +22,9 @@ export function ChatView() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // iOS Safari: position:sticky bottom:0은 layout viewport 기준이라 키보드 올라오면 가려짐.
+  // visualViewport로 keyboard 차지한 만큼 transform 보정.
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
 
   const listEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -67,6 +70,26 @@ export function ChatView() {
   useLayoutEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
+
+  // 모바일 가상 키보드가 입력창을 가리지 않도록 visualViewport 보정.
+  // iOS Safari: window.innerHeight는 키보드 무시. visualViewport.height만 줄어듦. 그 차이만큼 sticky form을 위로.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      const delta = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      // 데스크탑·작은 변동(스크롤바 등)은 무시.
+      setKeyboardOffset(delta > 80 ? delta : 0);
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, []);
 
   useEffect(() => {
     const el = inputRef.current;
@@ -231,10 +254,11 @@ export function ChatView() {
           <div ref={listEndRef} />
         </div>
 
-        {/* 하단 고정 입력창 */}
+        {/* 하단 고정 입력창. iOS 키보드 가림 대응 — keyboardOffset만큼 위로 올림. */}
         <form
           onSubmit={onSubmit}
-          className="pointer-events-none sticky bottom-0 left-0 right-0 -mx-6 sm:-mx-10 md:-mx-12"
+          className="pointer-events-none sticky bottom-0 left-0 right-0 -mx-6 transition-transform sm:-mx-10 md:-mx-12"
+          style={{ transform: keyboardOffset > 0 ? `translateY(-${keyboardOffset}px)` : undefined }}
         >
           <div className="pointer-events-auto bg-gradient-to-t from-[var(--color-apple-pearl)] via-[var(--color-apple-pearl)] via-70% to-transparent px-6 pb-6 pt-10 sm:px-10 md:px-12">
             <div className="mx-auto flex w-full items-end gap-2 rounded-[18px] border border-[var(--color-apple-hairline-soft)] bg-white px-4 py-3 transition-colors focus-within:border-[var(--color-apple-action)]">

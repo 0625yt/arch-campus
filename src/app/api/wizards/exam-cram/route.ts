@@ -86,7 +86,7 @@ export async function POST(req: Request): Promise<NextResponse> {
 
   after(async () => {
     try {
-      await markJobRunning(job.id);
+      await markJobRunning({ jobId: job.id, ownerId });
 
       // 선택한 자료와 연결된 오답을 끌어와 모델에 priority 신호로 전달.
       const allWrong = await listWrongItems({ ownerId, sinceDays: 60, limit: 200 });
@@ -112,12 +112,13 @@ export async function POST(req: Request): Promise<NextResponse> {
       });
 
       if (!result.ok) {
-        await markJobError({ jobId: job.id, errorMessage: result.error });
+        await markJobError({ jobId: job.id, ownerId, errorMessage: result.error });
         return;
       }
 
       await markJobDone({
         jobId: job.id,
+        ownerId,
         result: { output: result.output },
         modelId: result.modelId,
         usage: result.usage,
@@ -125,7 +126,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      await markJobError({ jobId: job.id, errorMessage: msg });
+      await markJobError({ jobId: job.id, ownerId, errorMessage: msg });
     }
   });
 

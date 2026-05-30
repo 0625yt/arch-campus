@@ -105,7 +105,7 @@ export async function POST(
   // 백그라운드 실행
   after(async () => {
     try {
-      await markJobRunning(job.id);
+      await markJobRunning({ jobId: job.id, ownerId });
       const result = await runExamExtract({
         ownerId,
         materialId: material.id,
@@ -116,12 +116,13 @@ export async function POST(
       });
 
       if (!result.ok) {
-        await markJobError({ jobId: job.id, errorMessage: result.error });
+        await markJobError({ jobId: job.id, ownerId, errorMessage: result.error });
         return;
       }
 
       await markJobDone({
         jobId: job.id,
+        ownerId,
         result: { quizId: result.quizId, extracted: result.result },
         modelId: result.modelId,
         usage: result.usage,
@@ -129,7 +130,7 @@ export async function POST(
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      await markJobError({ jobId: job.id, errorMessage: msg });
+      await markJobError({ jobId: job.id, ownerId, errorMessage: msg });
     }
   });
 

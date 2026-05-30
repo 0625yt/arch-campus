@@ -110,7 +110,7 @@ export async function POST(
 
   after(async () => {
     try {
-      await markJobRunning(job.id);
+      await markJobRunning({ jobId: job.id, ownerId });
 
       let parsed: Awaited<ReturnType<typeof parseDocument>>;
       try {
@@ -123,6 +123,7 @@ export async function POST(
         if (e instanceof ParserRejectedError) {
           await markJobError({
             jobId: job.id,
+          ownerId,
             errorMessage: `파일을 읽을 수 없어요: ${e.message}`,
           });
           return;
@@ -142,6 +143,7 @@ export async function POST(
       if (parsed.sanitizedText.trim().length < 80) {
         await markJobError({
           jobId: job.id,
+          ownerId,
           errorMessage: "본문 추출이 너무 짧아 강의계획서를 파싱할 수 없어요",
         });
         return;
@@ -159,12 +161,13 @@ export async function POST(
       });
 
       if (!result.ok) {
-        await markJobError({ jobId: job.id, errorMessage: result.error });
+        await markJobError({ jobId: job.id, ownerId, errorMessage: result.error });
         return;
       }
 
       await markJobDone({
         jobId: job.id,
+        ownerId,
         result: {
           extracted: {
             materialId: material.id,
@@ -180,7 +183,7 @@ export async function POST(
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "강의계획서 분석 실패";
-      await markJobError({ jobId: job.id, errorMessage: message });
+      await markJobError({ jobId: job.id, ownerId, errorMessage: message });
     }
   });
 

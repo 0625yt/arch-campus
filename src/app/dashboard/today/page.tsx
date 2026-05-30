@@ -10,6 +10,7 @@ import {
 } from "@/lib/data/attempts";
 import { type EventView, listUpcomingEvents } from "@/lib/data/events";
 import { formatEventLabel } from "@/lib/format-event";
+import { kstDateLabel, kstParts } from "@/lib/kst";
 import { TodayHero } from "./today-hero";
 
 export const dynamic = "force-dynamic";
@@ -215,9 +216,8 @@ function ResumeAttemptCard({ attempt }: { attempt: RecentAttempt }) {
 }
 
 function TopBar() {
-  const now = new Date();
-  const days = ["일", "월", "화", "수", "목", "금", "토"];
-  const dateLabel = `${now.getMonth() + 1}월 ${now.getDate()}일 ${days[now.getDay()]}요일`;
+  // Vercel은 UTC. KST 자정 직전(UTC 15시 이후) 사용자에게 어제로 표시 안 되게 KST 기준.
+  const dateLabel = kstDateLabel();
 
   return (
     <header className="fade-up flex items-baseline justify-between gap-3">
@@ -293,7 +293,7 @@ function UpcomingList({
             className="mt-2 text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[44px]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            한눈에 들어오게.
+            한눈에 들어오게
           </h2>
         </div>
         <Link
@@ -419,12 +419,15 @@ function upcomingTint(kind: EventView["kind"]): {
 function formatEventTime(event: EventView): string {
   const d = new Date(event.startsAt);
   if (!Number.isFinite(d.getTime())) return "";
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  if (event.allDay) return `${m}/${day}`;
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${m}/${day} ${hh}:${mm}`;
+  // event.startsAt은 UTC ISO. 서버가 UTC라 getMonth/getHours를 그대로 쓰면 KST 사용자에게 어긋남.
+  const { month, day } = kstParts(d);
+  const m = String(month).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  if (event.allDay) return `${m}/${dd}`;
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  const hh = String(kst.getUTCHours()).padStart(2, "0");
+  const mm = String(kst.getUTCMinutes()).padStart(2, "0");
+  return `${m}/${dd} ${hh}:${mm}`;
 }
 
 function RecentSection({ activities, className }: { activities: Activity[]; className?: string }) {
@@ -441,7 +444,7 @@ function RecentSection({ activities, className }: { activities: Activity[]; clas
         className="mt-2 text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[44px]"
         style={{ letterSpacing: "-0.022em" }}
       >
-        흐름이 보인다.
+        흐름이 보인다
       </h2>
       <ul className="elev-1 mt-6 overflow-hidden rounded-[12px] bg-white">
         {activities.map((a, idx) => (

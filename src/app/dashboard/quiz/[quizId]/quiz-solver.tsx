@@ -560,7 +560,11 @@ function SolveSection({
         {/* sticky 액션 — 두 모드:
              1) answering: "확인" + (이전/자료로/건너뛰기)
              2) reviewing: "다음 문제" or 마지막이면 "결과 보기" */}
-        <div className="sticky bottom-4 z-10 rounded-[24px] border border-[var(--color-apple-hairline)] bg-white/92 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+        {/* sticky: mobile-nav(h-14)와 안 겹치게 bottom을 safe-area 위로. */}
+        <div
+          className="sticky z-10 rounded-[24px] border border-[var(--color-apple-hairline)] bg-white/92 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl"
+          style={{ bottom: "calc(56px + env(safe-area-inset-bottom, 0px) + 8px)" }}
+        >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex-1">
               <p className="text-[14px] wght-560 text-[var(--color-apple-ink)]">
