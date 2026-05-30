@@ -100,8 +100,8 @@ function EmptyCourses({ className }: { className?: string }) {
           아직 공부 주제가 없어요
         </p>
         <p className="mx-auto mt-3 max-w-[460px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
-          시간표 한 장이면 한 학기 정규 강의가 한 번에 등록돼요. 자격증·시험 같은 개인 공부는 따로
-          주제를 만들어 같은 방식으로 학습 루프를 돌릴 수 있어요.
+          시간표 한 장이면 한 학기 정규 강의가 한 번에 등록. 자격증·시험 같은 개인 공부는 따로
+          주제를 만들어 같은 흐름으로 진행 가능.
         </p>
         <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link

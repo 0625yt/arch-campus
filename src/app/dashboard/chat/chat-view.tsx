@@ -317,7 +317,7 @@ function EmptyHint({ onPick }: { onPick: (q: string) => void }) {
         className="mt-4 max-w-[440px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
         style={{ letterSpacing: "-0.022em" }}
       >
-        강의명을 말씀하시면 자료로 요약·문제를 만들고, 일정·발표·과제도 안내해 드려요.
+        강의명을 말하면 자료에서 요약·문제 생성, 일정·발표·과제 안내까지 한 번에.
       </p>
 
       {/* 칩 — 클릭하면 입력창에 자동 입력. 사용자가 첫 질문을 떠올리는 비용을 0으로. */}
