@@ -13,6 +13,7 @@ import {
 import { formatEventLabel } from "@/lib/format-event";
 import { kstHour, kstParts, kstStartOfDay } from "@/lib/kst";
 import { inferSemester } from "@/lib/semester";
+import { DashboardClient } from "./dashboard-client";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +40,19 @@ export default async function DashboardHomePage() {
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
-        <Hero greeting={greeting} semesterLabel={semester.label} />
+      <div className="mx-auto w-full max-w-[1180px] px-6 pb-24 pt-6 sm:px-10 sm:pb-28 sm:pt-10 md:px-12">
+        {/* 상단 chrome — 학기 라벨 + 시간표 다시 올리기 (Hero 위 라인). */}
+        <TopChrome semesterLabel={semester.label} />
 
-        <SemesterSafetyPanel safety={safety} className="mt-10 fade-up fade-up-2 sm:mt-14" />
+        {/* 메인 hero — 시간표 시각화 + 강의 클릭 → CourseSheet. */}
+        <div className="mt-6 sm:mt-8">
+          <DashboardClient courses={allCourses} studentName={profile?.displayName ?? null} />
+        </div>
 
-        <CampusIntake courses={allCourses} className="mt-12 fade-up fade-up-3 sm:mt-16" />
+        {/* 정체성 카피 — 시간표 아래, 보조 톤으로. */}
+        <IdentityRow greeting={greeting} className="mt-16 fade-up fade-up-2 sm:mt-20" />
+
+        <SemesterSafetyPanel safety={safety} className="mt-12 fade-up fade-up-3 sm:mt-14" />
 
         {upcoming.length > 0 && (
           <UpcomingStrip
@@ -52,6 +60,8 @@ export default async function DashboardHomePage() {
             className="mt-14 fade-up fade-up-4 sm:mt-16"
           />
         )}
+
+        <CampusIntake courses={allCourses} className="mt-14 fade-up fade-up-4 sm:mt-16" />
 
         {allCourses.length > 0 && (
           <CoursesGrid
@@ -65,54 +75,61 @@ export default async function DashboardHomePage() {
   );
 }
 
-function Hero({ greeting, semesterLabel }: { greeting: string; semesterLabel: string }) {
+/* 상단 chrome — 학기 + 시간표 업로드 진입. */
+function TopChrome({ semesterLabel }: { semesterLabel: string }) {
   return (
-    <header className="fade-up fade-up-1">
-      <div className="flex items-start justify-between gap-3">
-        <p
-          className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-action)]"
-          style={{ letterSpacing: "0.06em" }}
-        >
-          {semesterLabel}
-        </p>
-        {/* 학기 시작·시간표 변경 시 자주 쓰는 진입점 — Hero 우상단에 미니멀하게 */}
-        <Link
-          href="/dashboard/calendar/import?kind=timetable"
-          className="group inline-flex items-center gap-1 rounded-full border border-[var(--color-apple-hairline)] bg-white px-3 py-1.5 text-[11.5px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)] sm:text-[12px]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
-            <title>시간표 올리기</title>
-            <path
-              d="M8 11V3.5M8 3.5l-2.5 2.5M8 3.5l2.5 2.5"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M3 11.5v.5c0 .8.7 1.5 1.5 1.5h7c.8 0 1.5-.7 1.5-1.5v-.5"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-            />
-          </svg>
-          시간표 다시 올리기
-        </Link>
-      </div>
-      <h1
-        className="mt-4 text-[40px] leading-[1.04] wght-700 text-[var(--color-apple-ink)] sm:text-[56px] md:text-[64px]"
-        style={{ letterSpacing: "-0.022em" }}
-      >
-        {greeting}. <span className="text-[var(--color-apple-muted)]">지금 손대야 할 것만.</span>
-      </h1>
+    <header className="fade-up flex items-center justify-between gap-3">
       <p
-        className="mt-5 max-w-[640px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px]"
+        className="text-[11px] wght-560 uppercase tracking-[0.08em] text-[var(--color-apple-action)]"
+        style={{ letterSpacing: "0.08em" }}
+      >
+        {semesterLabel}
+      </p>
+      <Link
+        href="/dashboard/calendar/import?kind=timetable"
+        className="group spring-press inline-flex items-center gap-1 rounded-full border border-[var(--color-apple-hairline)] bg-white px-3 py-1.5 text-[11.5px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)] sm:text-[12px]"
         style={{ letterSpacing: "-0.012em" }}
       >
-        arch는 한 학기에서 놓치면 손해 보는 것을 자료에서 찾아, 오늘 바로 할 일로 바꿔줍니다.
-      </p>
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <title>시간표 올리기</title>
+          <path
+            d="M8 11V3.5M8 3.5l-2.5 2.5M8 3.5l2.5 2.5"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M3 11.5v.5c0 .8.7 1.5 1.5 1.5h7c.8 0 1.5-.7 1.5-1.5v-.5"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+        </svg>
+        시간표 다시 올리기
+      </Link>
     </header>
+  );
+}
+
+/* 정체성 카피 — "오늘 무엇이 손에 잡힐지" 톤. 시간표 아래 보조 라인. */
+function IdentityRow({ greeting, className }: { greeting: string; className?: string }) {
+  return (
+    <section className={className}>
+      <h2
+        className="max-w-[820px] text-[28px] leading-[1.1] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[44px]"
+        style={{ letterSpacing: "-0.022em" }}
+      >
+        {greeting}.{" "}
+        <span className="text-[var(--color-apple-muted)]">놓치면 손해인 것만 먼저</span>
+      </h2>
+      <p
+        className="mt-4 max-w-[600px] text-[14.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[16px]"
+        style={{ letterSpacing: "-0.012em" }}
+      >
+        arch는 한 학기에서 놓치면 손해 보는 것을 자료에서 찾아, 오늘 바로 할 일로 바꿔드려요.
+      </p>
+    </section>
   );
 }
 

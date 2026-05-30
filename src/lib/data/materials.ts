@@ -49,6 +49,9 @@ export interface CourseListItem {
   name: string;
   professor: string | null;
   color: string | null;
+  /** courses.schedule (예: ["월 09:00-10:50", "수 09:00-10:50"]) */
+  schedule: string[] | null;
+  location: string | null;
   materialCount: number;
   /** 0010: 정규 강의 vs 개인 공부 (자격증·시험) */
   category: CourseCategory;
@@ -176,7 +179,7 @@ export async function listCoursesWithMaterialCount(opts: {
   const admin = getAdminSupabase();
   const { data: courses, error } = await admin
     .from("courses")
-    .select("id, name, professor, color, category")
+    .select("id, name, professor, color, category, schedule, location")
     .eq("owner_id", opts.ownerId)
     .eq("archived", false)
     .order("created_at", { ascending: true });
@@ -190,6 +193,8 @@ export async function listCoursesWithMaterialCount(opts: {
       name: c.name,
       professor: c.professor,
       color: c.color,
+      schedule: (c.schedule as string[] | null) ?? null,
+      location: c.location,
       materialCount: 0,
       category: (c.category ?? "semester") as CourseCategory,
     }));
@@ -214,6 +219,8 @@ export async function listCoursesWithMaterialCount(opts: {
     name: c.name,
     professor: c.professor,
     color: c.color,
+    schedule: (c.schedule as string[] | null) ?? null,
+    location: c.location,
     materialCount: tally.get(c.id) ?? 0,
     category: (c.category ?? "semester") as CourseCategory,
   }));

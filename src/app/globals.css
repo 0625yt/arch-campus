@@ -588,3 +588,92 @@ html {
     grid-template-rows: repeat(var(--rows, 6), minmax(96px, 1fr));
   }
 }
+
+/* ──────────────────────────────────────────────────────────
+ * Dashboard 다이내믹 모션 토큰 (2026-05 sprint).
+ * Apple WWDC 키노트 사이트의 절제된 motion 디테일을 학생 도구 톤으로.
+ * 모든 토큰은 prefers-reduced-motion 가드 안에 들어가야 함 (위 521라인에서 일괄 처리).
+ * ────────────────────────────────────────────────────────── */
+
+/* Spring scale — 클릭 시 0.92로 떨어졌다 1로 튀어오름. cubic-bezier가 진짜 spring 느낌. */
+@keyframes spring-press {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+.spring-press:active {
+  animation: spring-press 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Now glow — "지금 진행 중" 강의 카드에 조용한 발광. AI 티 안 나도록 1.6s breathe. */
+@keyframes now-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(0, 113, 227, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.65),
+      0 8px 28px -10px rgba(0, 113, 227, 0.32);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(0, 113, 227, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.75),
+      0 12px 36px -10px rgba(0, 113, 227, 0.48);
+  }
+}
+.now-glow {
+  animation: now-glow 2400ms ease-in-out infinite;
+}
+
+/* Sheet up — 우측·하단에서 시트가 spring으로 올라옴. CourseSheet 진입용. */
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.sheet-up {
+  animation: sheet-up 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Sheet 안 콘텐츠 stagger — 자료 카드 4개가 시차로 들어옴. */
+@keyframes sheet-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.sheet-item-in {
+  animation: sheet-item-in 320ms var(--ease-out) both;
+}
+.sheet-stagger > *:nth-child(1) { animation-delay: 60ms; }
+.sheet-stagger > *:nth-child(2) { animation-delay: 110ms; }
+.sheet-stagger > *:nth-child(3) { animation-delay: 160ms; }
+.sheet-stagger > *:nth-child(4) { animation-delay: 210ms; }
+.sheet-stagger > *:nth-child(5) { animation-delay: 260ms; }
+.sheet-stagger > *:nth-child(6) { animation-delay: 310ms; }
+
+/* Backdrop — Sheet 진입 시 뒤에 깔리는 어두운 layer. blur는 GPU 부담 작게 4px만. */
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.backdrop-in {
+  animation: backdrop-in 280ms var(--ease-out) both;
+}
+
+/* Time-bar progress — 현재 시각이 시간표 안에서 어디 지나가는지 알려주는 가로 라인 */
+@keyframes time-bar-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+.time-bar-pulse {
+  animation: time-bar-pulse 2200ms ease-in-out infinite;
+}
