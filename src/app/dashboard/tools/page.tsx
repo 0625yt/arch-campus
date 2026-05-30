@@ -198,8 +198,7 @@ function ToolsPageInner() {
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
-        {/* Top bar */}
+      <div className="mx-auto w-full max-w-[1080px] px-5 pb-20 pt-6 sm:px-8 sm:pb-24 sm:pt-8 md:px-10">
         <header className="fade-up flex items-baseline justify-between gap-3">
           <p
             className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
@@ -219,51 +218,44 @@ function ToolsPageInner() {
           </Link>
         </header>
 
-        {/* Hero */}
-        <header className="mt-10 fade-up fade-up-1 sm:mt-14">
+        <header className="mt-6 fade-up fade-up-1 sm:mt-8">
           <h1
-            className="max-w-[820px] text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[48px] md:text-[56px]"
-            style={{ letterSpacing: "-0.012em" }}
+            className="max-w-[820px] text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
+            style={{ letterSpacing: "-0.022em" }}
           >
             막혔을 때 바로 쓰는{" "}
             <span className="text-[var(--color-apple-muted)]">{LIVE_WIZARDS.length}개 도구</span>
           </h1>
           <p
-            className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
-            style={{ letterSpacing: "-0.022em" }}
+            className="mt-2 max-w-[600px] text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
+            style={{ letterSpacing: "-0.012em" }}
           >
             과제·시험·발표에서 막힐 때 꺼내는 도구
           </p>
         </header>
 
-        {/* 자연어 진입 카드 — "어떤 게 막혀 있어요?" 입구. */}
-        <div className="mt-8 max-w-[720px] fade-up fade-up-2">
+        <div className="mt-5 max-w-[720px] fade-up fade-up-2">
           <ToolsEntryCard />
         </div>
 
-        {/* 이번 주 자주 막히는 순간 — Bento 3 */}
-        <UrgentBoard wizards={urgent} className="mt-12 fade-up fade-up-3 sm:mt-14" />
+        <UrgentBoard wizards={urgent} className="mt-8 fade-up fade-up-3 sm:mt-10" />
 
-        {/* 필터 + 리스트 */}
-        <section className="mt-16 fade-up fade-up-4 sm:mt-20">
+        <section className="mt-10 fade-up fade-up-4 sm:mt-12">
           <div className="flex items-baseline justify-between gap-3">
             <h2
-              className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
+              className="text-[17px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] sm:text-[19px]"
               style={{ letterSpacing: "-0.012em" }}
             >
-              바로 쓰는 도구
+              바로 쓰는 도구{" "}
+              <span className="ml-1 text-[12px] wght-450 text-[var(--color-apple-muted)]">
+                · {filtered.length}개
+              </span>
             </h2>
-            <span
-              className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              {filtered.length}개
-            </span>
           </div>
 
-          <Filters active={filter} onChange={setFilter} className="mt-6" />
+          <Filters active={filter} onChange={setFilter} className="mt-4" />
 
-          <ToolList wizards={filtered} className="mt-6" />
+          <ToolList wizards={filtered} className="mt-4" />
         </section>
       </div>
     </div>

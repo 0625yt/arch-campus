@@ -35,11 +35,11 @@ export default async function CourseDetailPage({
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[1200px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
+      <div className="mx-auto w-full max-w-[1200px] px-5 pb-20 pt-6 sm:px-8 sm:pb-24 sm:pt-8 md:px-10">
         <Breadcrumb courseName={course.name} dotColor={dotColor} />
 
         {/* 데스크톱: hero + safety panel 2-컬럼 한 화면. 모바일: 세로 적층 그대로. */}
-        <div className="mt-10 grid gap-8 sm:mt-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-10">
+        <div className="mt-6 grid gap-5 sm:mt-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-6">
           <Hero course={course} dotColor={dotColor} safety={safety} />
           <CourseSafetyPanel
             course={course}
@@ -53,23 +53,20 @@ export default async function CourseDetailPage({
           dotColor={dotColor}
           moveTargets={moveTargets}
           currentCourseId={course.id}
-          className="mt-14 fade-up fade-up-3 sm:mt-16"
+          className="mt-8 fade-up fade-up-3 sm:mt-10"
         />
 
-        <section id="upload-zone" className="mt-14 fade-up fade-up-5 sm:mt-16">
+        <section id="upload-zone" className="mt-8 fade-up fade-up-5 sm:mt-10">
           <h2
-            className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
+            className="text-[17px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] sm:text-[19px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            새 자료 추가
+            새 자료 추가{" "}
+            <span className="ml-1 text-[12px] wght-450 text-[var(--color-apple-muted)]">
+              · 60초 안에 요약·첫 문제까지
+            </span>
           </h2>
-          <p
-            className="mt-3 text-[14px] wght-450 text-[var(--color-apple-muted)]"
-            style={{ letterSpacing: "-0.022em" }}
-          >
-            끌어다 놓거나 클릭해서 선택하면 60초 안에 요약과 첫 점검 문제가 준비됩니다.
-          </p>
-          <div className="mt-6">
+          <div className="mt-3">
             <UploadZone courseId={course.id} courseName={course.name} />
           </div>
         </section>
@@ -117,14 +114,14 @@ function Hero({
         {course.location && ` · ${course.location}`}
       </p>
       <h1
-        className="mt-3 text-[40px] leading-[1.05] wght-620 text-[var(--color-apple-ink)] sm:text-[56px] md:text-[60px]"
-        style={{ letterSpacing: "-0.012em", color: dotColor }}
+        className="mt-2 text-[28px] leading-[1.05] wght-700 sm:text-[36px] md:text-[42px]"
+        style={{ letterSpacing: "-0.022em", color: dotColor }}
       >
         {course.name}
       </h1>
 
       <div
-        className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 text-[14px] wght-450 text-[var(--color-apple-muted)]"
+        className="mt-4 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[12.5px] wght-450 text-[var(--color-apple-muted)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         <span
@@ -173,7 +170,7 @@ function CourseSafetyPanel({
     <section className={className}>
       <div className="elev-1 h-full overflow-hidden rounded-[18px] bg-white">
         <div className="grid h-full gap-0 md:grid-cols-[0.9fr_1.1fr] lg:grid-cols-1 xl:grid-cols-[0.9fr_1.1fr]">
-          <div className="px-6 py-6 sm:px-7">
+          <div className="px-5 py-5 sm:px-6">
             <span
               className="inline-flex rounded-full px-2.5 py-1 text-[11px] wght-700"
               style={{ backgroundColor: tone.bg, color: tone.fg, letterSpacing: "-0.012em" }}
@@ -181,47 +178,47 @@ function CourseSafetyPanel({
               {tone.label}
             </span>
             <h2
-              className="mt-4 text-[26px] leading-[1.12] wght-700 text-[var(--color-apple-ink)] sm:text-[34px]"
+              className="mt-3 text-[20px] leading-[1.15] wght-700 text-[var(--color-apple-ink)] sm:text-[24px]"
               style={{ letterSpacing: "-0.018em" }}
             >
               오늘은 {todayTask}
             </h2>
             <p
-              className="mt-3 text-[13.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
+              className="mt-2 text-[12.5px] leading-[1.5] wght-450 text-[var(--color-apple-muted)]"
               style={{ letterSpacing: "-0.012em" }}
             >
-              이 과목에서 점수 손해로 이어질 수 있는 신호만 모았습니다.
+              이 과목에서 점수 손해로 이어질 수 있는 신호
             </p>
           </div>
 
-          <div className="border-t border-[var(--color-apple-hairline-soft)] px-6 py-6 sm:px-7 md:border-l md:border-t-0 lg:border-l-0 lg:border-t xl:border-l xl:border-t-0">
+          <div className="border-t border-[var(--color-apple-hairline-soft)] px-5 py-5 sm:px-6 md:border-l md:border-t-0 lg:border-l-0 lg:border-t xl:border-l xl:border-t-0">
             <ul className="grid gap-3 sm:grid-cols-3">
               <CourseMetric label="안 본 자료" value={safety.unreadMaterials.length} />
               <CourseMetric label="오답" value={safety.wrongCount} />
               <CourseMetric label="확인 필요" value={safety.unconfirmedCount} />
             </ul>
-            <ul className="mt-5 flex flex-col gap-2">
+            <ul className="mt-4 flex flex-col gap-1.5">
               {safety.reasons.map((reason) => (
                 <li
                   key={reason}
-                  className="rounded-[10px] bg-[var(--color-apple-pearl)] px-4 py-3 text-[13px] wght-560 text-[var(--color-apple-ink)]"
+                  className="rounded-[8px] bg-[var(--color-apple-pearl)] px-3 py-2 text-[12px] wght-560 text-[var(--color-apple-ink)]"
                   style={{ letterSpacing: "-0.012em" }}
                 >
                   {reason}
                 </li>
               ))}
             </ul>
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <Link
                 href="#upload-zone"
-                className="inline-flex h-[38px] items-center rounded-full bg-[var(--color-apple-ink)] px-4 text-[12.5px] wght-620 text-white"
+                className="spring-press inline-flex h-[34px] items-center rounded-full bg-[var(--color-apple-ink)] px-4 text-[12px] wght-620 text-white"
                 style={{ letterSpacing: "-0.012em" }}
               >
                 자료 넣기
               </Link>
               <Link
                 href="/dashboard/review"
-                className="inline-flex h-[38px] items-center rounded-full bg-[var(--color-apple-pearl)] px-4 text-[12.5px] wght-620 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)]"
+                className="spring-press inline-flex h-[34px] items-center rounded-full bg-[var(--color-apple-pearl)] px-4 text-[12px] wght-620 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)]"
                 style={{ letterSpacing: "-0.012em" }}
               >
                 오답 보기
@@ -237,15 +234,14 @@ function CourseSafetyPanel({
 
 function CourseMetric({ label, value }: { label: string; value: number }) {
   return (
-    <li className="rounded-[12px] bg-[var(--color-apple-pearl)] px-3 py-3">
+    <li className="rounded-[10px] bg-[var(--color-apple-pearl)] px-3 py-2.5">
       <p
-        className="text-[10.5px] wght-620 text-[var(--color-apple-muted)]"
-        style={{ letterSpacing: "-0.012em" }}
+        className="text-[10px] wght-700 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
       >
         {label}
       </p>
       <p
-        className="mt-1 text-[24px] wght-700 tabular-nums text-[var(--color-apple-ink)]"
+        className="mt-0.5 text-[20px] wght-700 tabular-nums text-[var(--color-apple-ink)]"
         style={{ letterSpacing: "-0.022em" }}
       >
         {value}
@@ -271,17 +267,14 @@ function Materials({
     <section className={className}>
       <div className="flex items-baseline justify-between gap-3">
         <h2
-          className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
+          className="text-[17px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] sm:text-[19px]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          자료
+          자료{" "}
+          <span className="ml-1 text-[12px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
+            · {course.materials.length}개
+          </span>
         </h2>
-        <span
-          className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {course.materials.length}개
-        </span>
       </div>
 
       <MaterialsGrid

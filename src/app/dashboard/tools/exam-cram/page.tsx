@@ -45,7 +45,7 @@ export default async function ExamCramPage() {
   return (
     <div className="lg:pr-[280px]">
       <WizardHistorySidebar items={history} pageTitle="시험 벼락치기" />
-      <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
+      <div className="mx-auto w-full max-w-[820px] px-5 pb-24 pt-6 sm:px-8 sm:pb-28 sm:pt-8 md:px-10">
         <AppleHeroTopBar back={{ href: "/dashboard/tools", label: "도구" }} chip="시험 · 3단계" />
         <AppleHero
           eyebrow="시험 벼락치기"
@@ -55,7 +55,7 @@ export default async function ExamCramPage() {
           sub="자료에서 단원 우선순위 · 시간 블록 · 자기 점검 질문까지. 평균 1분 안쪽."
         />
 
-        <div className="mt-12 fade-up fade-up-3 sm:mt-14">
+        <div className="mt-6 fade-up fade-up-3 sm:mt-8">
           <ExamCramWizard courses={courses} materials={materials} />
         </div>
       </div>

@@ -67,18 +67,18 @@ export default async function ReviewPage() {
           </Link>
         </header>
 
-        <header className="mt-10 fade-up fade-up-1 sm:mt-14">
+        <header className="mt-6 fade-up fade-up-1 sm:mt-8">
           <h1
-            className="text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[48px] md:text-[56px]"
-            style={{ letterSpacing: "-0.012em" }}
+            className="text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
+            style={{ letterSpacing: "-0.022em" }}
           >
             오답 <span className="text-[var(--color-apple-muted)]">복습</span>
           </h1>
           <p
-            className="mt-4 text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px]"
-            style={{ letterSpacing: "-0.022em" }}
+            className="mt-3 text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
+            style={{ letterSpacing: "-0.012em" }}
           >
-            최근 60일 동안 틀린 {uniqueQuestions}문제. 자주 틀린 자료부터 다시 풀어보세요.
+            최근 60일 틀린 {uniqueQuestions}문제 · 자주 틀린 자료부터
           </p>
         </header>
 
@@ -89,7 +89,7 @@ export default async function ReviewPage() {
             {/* 약점 단원 — 학생이 어디부터 다시 봐야 하는지 1차 신호.
                 3개 이상 있을 때만 의미 있음 (1~2개면 통계로서 약함) */}
             {weakTopics.length >= 3 && (
-              <section className="mt-12 fade-up fade-up-2 sm:mt-16">
+              <section className="mt-6 fade-up fade-up-2 sm:mt-8">
                 <h2
                   className="text-[14px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
                   style={{ letterSpacing: "0.06em" }}
@@ -110,7 +110,7 @@ export default async function ReviewPage() {
               </section>
             )}
 
-            <section className="mt-12 fade-up fade-up-2 sm:mt-16">
+            <section className="mt-6 fade-up fade-up-2 sm:mt-8">
               <h2
                 className="text-[14px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
                 style={{ letterSpacing: "0.06em" }}

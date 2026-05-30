@@ -90,16 +90,16 @@ export function AppleHero({
   }
 
   return (
-    <section className={`mt-10 fade-up fade-up-1 sm:mt-14 ${className}`}>
+    <section className={`mt-6 fade-up fade-up-1 sm:mt-8 ${className}`}>
       <p
-        className="text-[12px] wght-560 uppercase tracking-[0.06em]"
+        className="text-[11px] wght-700 uppercase tracking-[0.08em]"
         style={{ color: eyebrowColor }}
       >
         {eyebrow}
       </p>
       <h1
-        className="mt-3 text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[44px] md:text-[52px]"
-        style={{ letterSpacing: "-0.012em" }}
+        className="mt-2 text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
+        style={{ letterSpacing: "-0.022em" }}
       >
         {title}
         {titleMuted && (
@@ -111,8 +111,8 @@ export function AppleHero({
       </h1>
       {sub && (
         <p
-          className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
-          style={{ letterSpacing: "-0.022em" }}
+          className="mt-2.5 max-w-[600px] text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
+          style={{ letterSpacing: "-0.012em" }}
         >
           {sub}
         </p>

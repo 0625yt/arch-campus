@@ -53,18 +53,18 @@ export default async function StudyIndexPage() {
 
             <SemesterSection
               courses={grouped.semester}
-              className="mt-10 fade-up fade-up-2 sm:mt-12"
+              className="mt-6 fade-up fade-up-2 sm:mt-8"
             />
 
             <PersonalSection
               courses={grouped.personal}
-              className="mt-14 fade-up fade-up-3 sm:mt-16"
+              className="mt-6 fade-up fade-up-3 sm:mt-8"
             />
           </>
         )}
 
         {recent.length > 0 && (
-          <RecentActivity activities={recent} className="mt-14 fade-up fade-up-4 sm:mt-16" />
+          <RecentActivity activities={recent} className="mt-6 fade-up fade-up-4 sm:mt-8" />
         )}
       </AppleShell>
     </div>
@@ -73,18 +73,18 @@ export default async function StudyIndexPage() {
 
 function Hero({ courseCount, totalMaterials }: { courseCount: number; totalMaterials: number }) {
   return (
-    <header className="mt-10 fade-up fade-up-1 sm:mt-14">
+    <header className="mt-6 fade-up fade-up-1 sm:mt-8">
       <h1
-        className="max-w-[820px] text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[48px] md:text-[56px]"
-        style={{ letterSpacing: "-0.012em" }}
+        className="max-w-[820px] text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
+        style={{ letterSpacing: "-0.022em" }}
       >
         이번 학기, <span className="text-[var(--color-apple-muted)]">{courseCount}개 강의</span>
       </h1>
       <p
-        className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
-        style={{ letterSpacing: "-0.022em" }}
+        className="mt-2 max-w-[600px] text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
+        style={{ letterSpacing: "-0.012em" }}
       >
-        자료 {totalMaterials}개 등록되어 있어요.
+        자료 {totalMaterials}개 등록
       </p>
     </header>
   );
@@ -128,23 +128,18 @@ function SemesterSection({
   return (
     <section className={className}>
       <div className="flex items-baseline justify-between gap-3">
-        <div>
-          <p
-            className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            이번 학기 정규 강의 {courses.length > 0 && `· ${courses.length}`}
-          </p>
-          <h2
-            className="mt-2 text-[22px] leading-[1.15] wght-620 text-[var(--color-apple-ink)] sm:text-[26px]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            과목 폴더
-          </h2>
-        </div>
+        <h2
+          className="text-[17px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] sm:text-[19px]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          과목 폴더{" "}
+          <span className="ml-1 text-[12px] wght-450 text-[var(--color-apple-muted)]">
+            {courses.length > 0 ? `· ${courses.length}개 정규 강의` : "· 이번 학기"}
+          </span>
+        </h2>
         <Link
           href="/dashboard/calendar/import"
-          className="text-[12px] wght-450 text-[var(--color-apple-action)] hover:underline"
+          className="text-[12px] wght-560 text-[var(--color-apple-action)] hover:underline"
           style={{ letterSpacing: "-0.012em" }}
         >
           시간표 다시 올리기 ›
@@ -152,9 +147,9 @@ function SemesterSection({
       </div>
 
       {courses.length === 0 ? (
-        <SemesterEmpty className="mt-5" />
+        <SemesterEmpty className="mt-4" />
       ) : (
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 sm:gap-5">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-3.5">
           {courses.map((c) => (
             <CourseCard key={c.id} course={c} />
           ))}
@@ -195,27 +190,24 @@ function PersonalSection({
   return (
     <section className={className}>
       <div className="flex items-baseline justify-between gap-3">
-        <div>
-          <p
-            className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            개인 공부 {courses.length > 0 && `· ${courses.length}`}
-          </p>
-          <h2
-            className="mt-2 text-[22px] leading-[1.15] wght-620 text-[var(--color-apple-ink)] sm:text-[26px]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            자격증·시험·개인 공부
-          </h2>
-        </div>
+        <h2
+          className="text-[17px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] sm:text-[19px]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          자격증·시험·개인 공부{" "}
+          {courses.length > 0 && (
+            <span className="ml-1 text-[12px] wght-450 text-[var(--color-apple-muted)]">
+              · {courses.length}개
+            </span>
+          )}
+        </h2>
         <AddPersonalButton variant="ghost" />
       </div>
 
       {courses.length === 0 ? (
-        <PersonalEmpty className="mt-5" />
+        <PersonalEmpty className="mt-4" />
       ) : (
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 sm:gap-5">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-3.5">
           {courses.map((c) => (
             <CourseCard key={c.id} course={c} />
           ))}
@@ -272,10 +264,9 @@ function CourseCard({ course }: { course: CourseListItem }) {
         </div>
         <Link
           href={`/dashboard/study/${encodeURIComponent(course.name)}`}
-          className="group card-glow-ribbon elev-hover-2 relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-[18px] bg-white p-7 sm:p-8"
+          className="group card-glow-ribbon elev-hover-2 spring-press relative flex min-h-[140px] flex-col justify-between overflow-hidden rounded-[14px] bg-white p-5 sm:p-5"
           style={{ ["--ribbon-color" as string]: ribbon }}
         >
-          {/* hover 시 우상단에 미세한 컬러 워시 — Apple Mail/Notes 컬러 폴더 호버 톤 */}
           <span
             aria-hidden
             className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -284,34 +275,32 @@ function CourseCard({ course }: { course: CourseListItem }) {
             }}
           />
 
-          <div className="relative pr-10">
-            {/* 카드 좌측 ribbon이 이미 dotColor 단서 역할. DESIGN.md §10 금지 — 별도 동그라미 점 X. */}
+          <div className="relative pr-8">
             <span
-              className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-              style={{ letterSpacing: "-0.012em" }}
+              className="text-[11px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
             >
               {isPersonal ? "개인 공부" : (course.professor ?? "교수 미정")}
             </span>
             <h3
-              className="mt-4 text-[28px] leading-[1.05] wght-620 text-[var(--color-apple-ink)] sm:text-[32px]"
-              style={{ letterSpacing: "-0.012em" }}
+              className="mt-2 text-[20px] leading-[1.1] wght-700 text-[var(--color-apple-ink)] sm:text-[22px]"
+              style={{ letterSpacing: "-0.018em" }}
             >
               {course.name}
             </h3>
           </div>
 
-          <div className="relative mt-6 flex items-baseline justify-between">
+          <div className="relative mt-4 flex items-baseline justify-between">
             <span
-              className="text-[13px] wght-450 text-[var(--color-apple-muted)]"
+              className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
               style={{ letterSpacing: "-0.012em" }}
             >
               자료{" "}
-              <span className="tabular-nums wght-560 text-[var(--color-apple-ink)]">
+              <span className="tabular-nums wght-620 text-[var(--color-apple-ink)]">
                 {course.materialCount}
               </span>
               개
             </span>
-            <span className="text-[14px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
+            <span className="text-[13px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
               ›
             </span>
           </div>
@@ -326,23 +315,23 @@ function RecentActivity({ activities, className }: { activities: Activity[]; cla
     <section className={className}>
       <div className="flex items-baseline justify-between gap-3">
         <h2
-          className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
+          className="text-[17px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] sm:text-[19px]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          최근 활동.
+          최근 활동
         </h2>
         <Link
           href="/dashboard/history"
-          className="group inline-flex items-baseline text-[14px] wght-450 text-[var(--color-apple-action)]"
+          className="group inline-flex items-baseline text-[12.5px] wght-560 text-[var(--color-apple-action)]"
         >
           <span className="border-b border-transparent group-hover:border-[var(--color-apple-action)]">
             전체 기록
           </span>
-          <span className="ml-1">›</span>
+          <span className="ml-0.5">›</span>
         </Link>
       </div>
 
-      <ul className="mt-8 overflow-hidden rounded-[12px] border border-[var(--color-apple-hairline)] bg-white">
+      <ul className="mt-4 overflow-hidden rounded-[10px] border border-[var(--color-apple-hairline)] bg-white">
         {activities.map((a, idx) => {
           const accent = activityColor(a.kind);
           return (

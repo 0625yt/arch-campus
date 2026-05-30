@@ -64,44 +64,60 @@ export function TodayHero({
 
   return (
     <section className={className}>
-      <div className="overflow-hidden rounded-[22px] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_18px_48px_-32px_rgba(0,0,0,0.22)]">
-        <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="px-6 py-7 sm:px-8 sm:py-9">
-            <p
-              className="flex items-baseline gap-2 text-[13px] wght-700 tabular-nums sm:text-[14px]"
-              style={{ letterSpacing: "-0.012em", color: kindStyle.dot }}
-            >
-              <span>지금 1개</span>
-              <span className="text-[var(--color-apple-muted)] wght-450">
-                · {dDayLabel || "오늘"} · {kindLabel[focus.kind]}
-                {focus.weightPercent != null && ` · ${focus.weightPercent}%`}
-              </span>
-            </p>
+      <div
+        className="relative overflow-hidden rounded-[20px] bg-white"
+        style={{
+          boxShadow:
+            "0 1px 2px rgba(0,0,0,0.04), 0 20px 50px -28px rgba(0,0,0,0.22)",
+          backgroundImage: `linear-gradient(135deg, ${kindStyle.tintBg} 0%, transparent 42%)`,
+        }}
+      >
+        {/* 좌측 색상 ribbon — 카테고리 시그널 */}
+        <div
+          aria-hidden
+          className="absolute left-0 top-0 h-full w-[3px]"
+          style={{ background: kindStyle.dot }}
+        />
+
+        <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="px-5 py-5 sm:px-7 sm:py-6">
+            <div className="flex items-baseline justify-between gap-3">
+              <p
+                className="flex items-baseline gap-2 text-[12px] wght-700 tabular-nums"
+                style={{ letterSpacing: "-0.012em", color: kindStyle.dot }}
+              >
+                <span>지금 1개</span>
+                <span className="text-[var(--color-apple-muted)] wght-450">
+                  · {dDayLabel || "오늘"} · {kindLabel[focus.kind]}
+                  {focus.weightPercent != null && ` · ${focus.weightPercent}%`}
+                </span>
+              </p>
+            </div>
 
             <h1
-              className="mt-4 text-[36px] leading-[1.04] wght-700 text-[var(--color-apple-ink)] sm:text-[50px] md:text-[58px]"
+              className="mt-3 text-[28px] leading-[1.05] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
               style={{ letterSpacing: "-0.022em" }}
             >
-              {formatEventHeading(focus)}.
+              {formatEventHeading(focus)}
             </h1>
 
-            <div className="mt-7 grid gap-3">
+            <div className="mt-5 grid gap-2">
               <FactLine label="이유" value={reason} tone={kindStyle.tintInk} />
               <FactLine label="유의" value={caution} />
               <FactLine label="근거" value={evidence} />
             </div>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+            <div className="mt-5 flex flex-wrap items-center gap-2">
               <Link
                 href={startHref}
-                className="inline-flex h-[46px] items-center rounded-full bg-[var(--color-apple-ink)] px-6 text-[14px] wght-700 text-white transition-all hover:opacity-90 active:scale-[0.97]"
+                className="spring-press inline-flex h-[40px] items-center rounded-full bg-[var(--color-apple-ink)] px-5 text-[13px] wght-700 text-white transition-all hover:opacity-90"
                 style={{ letterSpacing: "-0.012em" }}
               >
                 바로 시작
               </Link>
               <Link
                 href="/dashboard/calendar"
-                className="inline-flex h-[46px] items-center rounded-full bg-[var(--color-apple-pearl)] px-5 text-[13px] wght-620 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)]"
+                className="spring-press inline-flex h-[40px] items-center rounded-full bg-[var(--color-apple-pearl)] px-4 text-[12.5px] wght-620 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)]"
                 style={{ letterSpacing: "-0.012em" }}
               >
                 일정 보기
@@ -110,19 +126,19 @@ export function TodayHero({
           </div>
 
           <aside
-            className="border-t border-[var(--color-apple-hairline-soft)] px-6 py-7 sm:px-8 lg:border-l lg:border-t-0"
+            className="relative border-t border-[var(--color-apple-hairline-soft)] px-5 py-5 sm:px-7 sm:py-6 lg:border-l lg:border-t-0"
             style={{
-              background: "linear-gradient(180deg, rgba(248,249,251,0.92), rgba(255,255,255,0.98))",
+              background:
+                "linear-gradient(180deg, rgba(248,249,251,0.92), rgba(255,255,255,0.98))",
             }}
           >
             <p
-              className="text-[12px] wght-620 text-[var(--color-apple-muted)]"
-              style={{ letterSpacing: "-0.012em" }}
+              className="text-[11px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
             >
               남은 시간
             </p>
             <div
-              className={`mt-4 flex items-baseline gap-2 ${isUrgent ? "urgent-pulse" : ""}`}
+              className={`mt-3 flex items-baseline gap-1.5 ${isUrgent ? "urgent-pulse" : ""}`}
               style={{ color: isUrgent ? "var(--color-urgent)" : "var(--color-apple-ink)" }}
             >
               {within24h ? (
@@ -136,15 +152,16 @@ export function TodayHero({
               )}
             </div>
 
-            <div className="mt-8 rounded-[14px] bg-white px-4 py-4">
+            <div
+              className="mt-5 rounded-[12px] border border-[var(--color-apple-hairline-soft)] bg-white px-3.5 py-3"
+            >
               <p
-                className="text-[11.5px] wght-620 text-[var(--color-apple-muted)]"
-                style={{ letterSpacing: "-0.012em" }}
+                className="text-[10.5px] wght-700 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
               >
                 이거 끝나면
               </p>
               <p
-                className="mt-2 text-[14px] leading-[1.45] wght-620 text-[var(--color-apple-ink)]"
+                className="mt-1.5 text-[13px] leading-[1.4] wght-620 text-[var(--color-apple-ink)]"
                 style={{ letterSpacing: "-0.012em" }}
               >
                 {nextLabel}
@@ -284,10 +301,10 @@ function formatSimpleWhen(event: EventView): string {
 function ClockCell({ value, unit }: { value: number; unit: string }) {
   const display = String(value).padStart(2, "0");
   return (
-    <span className="inline-flex items-baseline gap-1">
+    <span className="inline-flex items-baseline gap-0.5">
       <span
         key={display}
-        className="clock-tick inline-block text-[44px] wght-620 leading-none tabular-nums sm:text-[60px]"
+        className="clock-tick inline-block text-[32px] wght-620 leading-none tabular-nums sm:text-[40px]"
         style={{
           letterSpacing: "-0.024em",
           minWidth: `${display.length}ch`,
@@ -296,7 +313,7 @@ function ClockCell({ value, unit }: { value: number; unit: string }) {
       >
         {display}
       </span>
-      <span className="text-[14px] wght-560 text-[var(--color-apple-muted)] sm:text-[16px]">
+      <span className="text-[12px] wght-560 text-[var(--color-apple-muted)] sm:text-[13px]">
         {unit}
       </span>
     </span>

@@ -49,27 +49,27 @@ export default async function TodayPage() {
             focus={focus}
             nextEvent={nextAfterFocus}
             kindLabel={KIND_LABEL}
-            className="mt-10 fade-up fade-up-1 sm:mt-14"
+            className="mt-6 fade-up fade-up-1 sm:mt-8"
           />
         ) : (
-          <NoFocus className="mt-10 fade-up fade-up-1 sm:mt-14" />
+          <NoFocus className="mt-6 fade-up fade-up-1 sm:mt-8" />
         )}
 
         {showStudyRow && (
           <StudyRow
             wrongStats={wrongStats}
             recentAttempts={recentAttempts}
-            className="mt-12 fade-up fade-up-2 sm:mt-14"
+            className="mt-6 fade-up fade-up-2 sm:mt-8"
           />
         )}
 
         <UpcomingList
           events={upcoming}
           kindLabel={KIND_LABEL}
-          className="mt-12 fade-up fade-up-2 sm:mt-14"
+          className="mt-6 fade-up fade-up-2 sm:mt-8"
         />
 
-        <RecentSection activities={recent} className="mt-12 fade-up fade-up-3 sm:mt-14" />
+        <RecentSection activities={recent} className="mt-6 fade-up fade-up-3 sm:mt-8" />
       </AppleShell>
     </div>
   );
@@ -98,18 +98,18 @@ function StudyRow({
 function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
   if (wrongStats.totalWrong === 0) {
     return (
-      <article className="elev-1 rounded-[18px] bg-white p-6">
-        <p className="text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]">
+      <article className="elev-1 rounded-[14px] bg-white p-4">
+        <p className="text-[11px] wght-700 uppercase tracking-[0.06em] text-[var(--color-apple-success)]">
           오답 없음
         </p>
         <h2
-          className="mt-3 text-[17px] leading-[1.35] wght-620 text-[var(--color-apple-ink)]"
+          className="mt-2 text-[15px] leading-[1.3] wght-620 text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          최근 14일 동안 풀이 오답 없음
+          최근 14일 풀이 오답 없음
         </h2>
-        <p className="mt-2 text-[13px] wght-450 leading-[1.55] text-[var(--color-apple-muted)]">
-          새 자료에서 문제를 만들면 여기서 복습 큐가 잡힙니다
+        <p className="mt-1 text-[12px] wght-450 leading-[1.5] text-[var(--color-apple-muted)]">
+          새 자료에서 문제 만들면 복습 큐 자동 생성
         </p>
       </article>
     );
@@ -117,7 +117,7 @@ function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
 
   const topLine = wrongStats.byMaterial[0];
   return (
-    <article className="elev-hover-2 rounded-[18px] bg-white p-6">
+    <article className="elev-hover-2 rounded-[14px] bg-white p-4">
       <span
         className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] wght-620"
         style={{
@@ -129,14 +129,14 @@ function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
         오답 {wrongStats.totalWrong}문제
       </span>
       <h2
-        className="mt-4 text-[18px] leading-[1.3] wght-620 text-[var(--color-apple-ink)]"
+        className="mt-3 text-[15px] leading-[1.3] wght-700 text-[var(--color-apple-ink)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         {topLine ? `${topLine.quizTitle}부터 다시` : "오답 다시 풀기"}
       </h2>
       {wrongStats.byMaterial.length > 0 && (
         <ul
-          className="mt-4 flex flex-col gap-1.5 text-[13px] wght-450 text-[var(--color-apple-muted)]"
+          className="mt-3 flex flex-col gap-1 text-[12px] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.012em" }}
         >
           {wrongStats.byMaterial.slice(0, 3).map((m) => (
@@ -149,7 +149,7 @@ function ReviewQueueCard({ wrongStats }: { wrongStats: WrongStats }) {
       )}
       <Link
         href="/dashboard/review"
-        className="mt-7 inline-flex h-[40px] items-center rounded-full bg-[var(--color-apple-ink)] px-5 text-[13px] wght-560 text-white transition-all hover:opacity-90"
+        className="spring-press mt-4 inline-flex h-[36px] items-center rounded-full bg-[var(--color-apple-ink)] px-4 text-[12.5px] wght-620 text-white transition-all hover:opacity-90"
         style={{ letterSpacing: "-0.012em" }}
       >
         오답 복습 시작 →
@@ -173,7 +173,7 @@ function ResumeAttemptCard({ attempt }: { attempt: RecentAttempt }) {
         : `${Math.floor(hoursAgo / 24)}일 전`;
 
   return (
-    <article className="elev-hover-2 rounded-[18px] bg-white p-6">
+    <article className="elev-hover-2 rounded-[14px] bg-white p-4">
       <span
         className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] wght-620"
         style={{
@@ -185,28 +185,28 @@ function ResumeAttemptCard({ attempt }: { attempt: RecentAttempt }) {
         직전 풀이 · {ago}
       </span>
       <h2
-        className="mt-4 text-[18px] leading-[1.3] wght-620 text-[var(--color-apple-ink)]"
+        className="mt-3 text-[15px] leading-[1.3] wght-700 text-[var(--color-apple-ink)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         {attempt.quizTitle}
       </h2>
       <p
-        className="mt-2 text-[13px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+        className="mt-1.5 text-[12px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         정답률 {ratio}% · {attempt.score}/{attempt.total}
       </p>
-      <div className="mt-7 flex gap-2">
+      <div className="mt-4 flex gap-2">
         <Link
           href={`/dashboard/quiz/${attempt.quizId}/result/${attempt.attemptId}`}
-          className="inline-flex h-[40px] flex-1 items-center justify-center rounded-full bg-[var(--color-apple-ink)] px-4 text-[13px] wght-560 text-white transition-all hover:opacity-90"
+          className="spring-press inline-flex h-[36px] flex-1 items-center justify-center rounded-full bg-[var(--color-apple-ink)] px-4 text-[12.5px] wght-620 text-white transition-all hover:opacity-90"
           style={{ letterSpacing: "-0.012em" }}
         >
           다시보기
         </Link>
         <Link
           href={`/dashboard/quiz/${attempt.quizId}/wrong`}
-          className="inline-flex h-[40px] items-center justify-center rounded-full bg-[var(--color-apple-pearl)] px-4 text-[12px] wght-560 text-[var(--color-apple-muted)] transition-all hover:bg-[var(--color-apple-hairline)] hover:text-[var(--color-apple-ink)]"
+          className="spring-press inline-flex h-[36px] items-center justify-center rounded-full bg-[var(--color-apple-pearl)] px-4 text-[12px] wght-620 text-[var(--color-apple-muted)] transition-all hover:bg-[var(--color-apple-hairline)] hover:text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
         >
           오답만
@@ -282,34 +282,31 @@ function UpcomingList({
 
   return (
     <section className={className}>
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p
-            className="text-[13px] wght-560 text-[var(--color-apple-muted)] sm:text-[14px]"
-            style={{ letterSpacing: "-0.012em" }}
+      <div className="flex items-baseline justify-between gap-3">
+        <h2
+          className="text-[17px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] sm:text-[19px]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          이번 주 일정{" "}
+          <span
+            className="ml-1 text-[12px] wght-450 text-[var(--color-apple-muted)]"
           >
-            이번 주
-          </p>
-          <h2
-            className="mt-2 text-[22px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[28px] md:text-[32px]"
-            style={{ letterSpacing: "-0.022em" }}
-          >
-            한눈에 들어오게
-          </h2>
-        </div>
+            · 가까운 순
+          </span>
+        </h2>
         <Link
           href="/dashboard/calendar"
-          className="group inline-flex shrink-0 items-baseline text-[14px] wght-450 text-[var(--color-apple-action)]"
+          className="group inline-flex shrink-0 items-baseline text-[12.5px] wght-560 text-[var(--color-apple-action)]"
           style={{ letterSpacing: "-0.012em" }}
         >
           <span className="border-b border-transparent group-hover:border-[var(--color-apple-action)]">
             전체 캘린더
           </span>
-          <span className="ml-1">›</span>
+          <span className="ml-0.5">›</span>
         </Link>
       </div>
 
-      <ul className="mt-8 grid gap-3 sm:grid-cols-2">
+      <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
         {list.map((e) => (
           <li key={e.id}>
             <UpcomingCard event={e} kindLabel={kindLabel} />
@@ -339,19 +336,19 @@ function UpcomingCard({
   // ribbon + hover glow + lift는 .card-glow-ribbon 공용 util.
   return (
     <article
-      className="group card-glow-ribbon elev-hover-2 relative overflow-hidden rounded-[14px] bg-white p-5 sm:p-6"
+      className="group card-glow-ribbon elev-hover-2 relative overflow-hidden rounded-[12px] bg-white px-3.5 py-3"
       style={{ ["--ribbon-color" as string]: tint.bar }}
     >
       <div className="relative flex items-center justify-between gap-3">
         <span
-          className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] wght-620 tracking-[-0.012em]"
+          className="inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] wght-620 tracking-[-0.012em]"
           style={{ backgroundColor: tint.chipBg, color: tint.chipFg }}
         >
           {kindLabel[event.kind]}
           {event.weightPercent != null && ` · ${event.weightPercent}%`}
         </span>
         <span
-          className={`text-[12px] wght-700 tabular-nums ${
+          className={`text-[11.5px] wght-700 tabular-nums ${
             tone === "urgent"
               ? "urgent-pulse text-[var(--color-urgent)]"
               : tone === "warn"
@@ -363,13 +360,13 @@ function UpcomingCard({
         </span>
       </div>
       <p
-        className="relative mt-4 text-[16px] leading-[1.35] wght-560 text-[var(--color-apple-ink)]"
+        className="relative mt-2 text-[14px] leading-[1.3] wght-620 text-[var(--color-apple-ink)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         {formatEventLabel(event)}
       </p>
       <p
-        className="relative mt-1.5 text-[12px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+        className="relative mt-0.5 text-[11.5px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         {formatEventTime(event)}
@@ -435,19 +432,18 @@ function RecentSection({ activities, className }: { activities: Activity[]; clas
   if (activities.length === 0) return null;
   return (
     <section className={className}>
-      <p
-        className="text-[13px] wght-560 text-[var(--color-apple-muted)] sm:text-[14px]"
+      <h2
+        className="text-[17px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] sm:text-[19px]"
         style={{ letterSpacing: "-0.012em" }}
       >
-        최근 활동
-      </p>
-      <h2
-        className="mt-2 text-[22px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[28px] md:text-[32px]"
-        style={{ letterSpacing: "-0.022em" }}
-      >
-        흐름이 보인다
+        최근 활동{" "}
+        <span
+          className="ml-1 text-[12px] wght-450 text-[var(--color-apple-muted)]"
+        >
+          · 최근 5건
+        </span>
       </h2>
-      <ul className="elev-1 mt-6 overflow-hidden rounded-[12px] bg-white">
+      <ul className="elev-1 mt-4 overflow-hidden rounded-[12px] bg-white">
         {activities.map((a, idx) => (
           <li
             key={a.id}
@@ -459,25 +455,27 @@ function RecentSection({ activities, className }: { activities: Activity[]; clas
           >
             <Link
               href={a.href}
-              className="grid grid-cols-[60px_1fr_auto] items-center gap-4 px-5 py-[18px] transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[72px_1fr_auto] sm:gap-5 sm:px-7"
+              className="group grid grid-cols-[56px_1fr_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[64px_1fr_auto] sm:px-5"
             >
-              <span className="text-[11px] wght-450 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+              <span className="text-[10.5px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
                 {a.kindLabel}
               </span>
               <span className="min-w-0">
                 <span
-                  className="block truncate text-[14px] wght-560 text-[var(--color-apple-ink)]"
+                  className="block truncate text-[13.5px] wght-620 text-[var(--color-apple-ink)]"
                   style={{ letterSpacing: "-0.012em" }}
                 >
                   {a.title}
                 </span>
                 {a.detail && (
-                  <span className="mt-1 block truncate text-[12px] wght-450 text-[var(--color-apple-muted)]">
+                  <span className="mt-0.5 block truncate text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
                     {a.detail}
                   </span>
                 )}
               </span>
-              <span className="text-[15px] text-[var(--color-apple-muted)]">›</span>
+              <span className="text-[13px] text-[var(--color-apple-muted)] transition-transform group-hover:translate-x-0.5">
+                ›
+              </span>
             </Link>
           </li>
         ))}

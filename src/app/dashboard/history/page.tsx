@@ -40,8 +40,8 @@ function Header() {
           기록
         </p>
         <h1
-          className="mt-3 text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[44px] md:text-[52px]"
-          style={{ letterSpacing: "-0.012em" }}
+          className="mt-2 text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
+          style={{ letterSpacing: "-0.022em" }}
         >
           학습 활동
         </h1>
@@ -84,13 +84,13 @@ function ActivityList({ activities, className }: { activities: Activity[]; class
 
   return (
     <section className={className}>
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-5">
         {days.map((day) => (
           <div key={day}>
-            <p className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+            <p className="text-[10.5px] wght-700 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
               {formatDayLabel(day)}
             </p>
-            <ul className="mt-3 overflow-hidden rounded-[12px] border border-[var(--color-apple-hairline)] bg-white">
+            <ul className="mt-2 overflow-hidden rounded-[10px] border border-[var(--color-apple-hairline)] bg-white">
               {byDate.get(day)!.map((a, idx, arr) => {
                 const accent = activityColor(a.kind);
                 return (
@@ -104,34 +104,33 @@ function ActivityList({ activities, className }: { activities: Activity[]; class
                   >
                     <Link
                       href={a.href}
-                      className="group relative grid grid-cols-[60px_1fr_auto] items-center gap-4 px-5 py-[18px] transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[80px_1fr_auto] sm:gap-5 sm:px-7"
+                      className="group relative grid grid-cols-[52px_1fr_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[64px_1fr_auto] sm:px-5"
                     >
-                      {/* 좌측 컬러 단서 — 평소 작고 hover에서 늘어남 */}
                       <span
                         aria-hidden
-                        className="absolute left-0 top-1/2 h-[8px] w-[2px] -translate-y-1/2 rounded-full transition-all duration-200 group-hover:h-[24px] group-hover:w-[2.5px]"
+                        className="absolute left-0 top-1/2 h-[6px] w-[2px] -translate-y-1/2 rounded-full transition-all duration-200 group-hover:h-[20px] group-hover:w-[2.5px]"
                         style={{ backgroundColor: accent }}
                       />
                       <span
-                        className="text-[11px] wght-620 uppercase tabular-nums"
-                        style={{ letterSpacing: "0.06em", color: accent }}
+                        className="text-[10.5px] wght-700 uppercase tabular-nums tracking-[0.06em]"
+                        style={{ color: accent }}
                       >
                         {a.kindLabel}
                       </span>
                       <span className="min-w-0">
                         <span
-                          className="block truncate text-[14px] wght-560 text-[var(--color-apple-ink)]"
+                          className="block truncate text-[13.5px] wght-620 text-[var(--color-apple-ink)]"
                           style={{ letterSpacing: "-0.012em" }}
                         >
                           {a.title}
                         </span>
                         {a.detail && (
-                          <span className="mt-1 block truncate text-[12px] wght-450 text-[var(--color-apple-muted)]">
+                          <span className="mt-0.5 block truncate text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
                             {a.detail}
                           </span>
                         )}
                       </span>
-                      <span className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)] transition-colors group-hover:text-[var(--color-apple-ink)]">
+                      <span className="text-[10.5px] wght-450 tabular-nums text-[var(--color-apple-muted)] transition-colors group-hover:text-[var(--color-apple-ink)]">
                         {formatTime(a.createdAt)}
                       </span>
                     </Link>

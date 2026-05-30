@@ -41,27 +41,27 @@ export default async function QuizIndexPage() {
           </Link>
         </header>
 
-        <header className="mt-10 fade-up fade-up-1 sm:mt-14">
+        <header className="mt-6 fade-up fade-up-1 sm:mt-8">
           <h1
-            className="text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[48px] md:text-[56px]"
-            style={{ letterSpacing: "-0.012em" }}
+            className="text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
+            style={{ letterSpacing: "-0.022em" }}
           >
             내 문제 <span className="text-[var(--color-apple-muted)]">전부</span>
           </h1>
           <p
-            className="mt-4 text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px]"
-            style={{ letterSpacing: "-0.022em" }}
+            className="mt-3 text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
+            style={{ letterSpacing: "-0.012em" }}
           >
             {quizzes.length > 0
-              ? `만든 문제 ${quizzes.length}세트. 풀어본 적 없는 세트부터 한 번 풀어보세요.`
-              : "아직 만든 문제가 없어요. 자료를 올리면 거기에서 바로 만들 수 있어요."}
+              ? `만든 문제 ${quizzes.length}세트 · 안 풀어본 세트부터`
+              : "자료 올리면 바로 첫 문제 생성"}
           </p>
         </header>
 
         {quizzes.length === 0 ? (
           <EmptyState />
         ) : (
-          <section className="mt-12 fade-up fade-up-2 sm:mt-16">
+          <section className="mt-6 fade-up fade-up-2 sm:mt-8">
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {quizzes.map((q) => (
                 <QuizCard key={q.id} quiz={q} />
@@ -84,31 +84,31 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
     <li>
       <Link
         href={href}
-        className="card-glow-ribbon elev-1 group relative block overflow-hidden rounded-[16px] bg-white px-5 py-5 transition-shadow hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+        className="card-glow-ribbon elev-1 spring-press group relative block overflow-hidden rounded-[14px] bg-white px-4 py-3.5 transition-shadow hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
         style={{ ["--ribbon-color" as string]: dotColor }}
       >
         <div className="flex items-baseline justify-between gap-3">
           <p
-            className="text-[11px] wght-560 uppercase tracking-[0.06em]"
-            style={{ color: dotColor, letterSpacing: "0.06em" }}
+            className="text-[10.5px] wght-700 uppercase tracking-[0.06em]"
+            style={{ color: dotColor }}
           >
             {quiz.courseName ?? "자료"}
           </p>
           <span
-            className="shrink-0 text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+            className="shrink-0 text-[10.5px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
             {formatRelative(quiz.createdAt)}
           </span>
         </div>
         <p
-          className="mt-3 line-clamp-2 text-[16px] leading-[1.35] wght-620 text-[var(--color-apple-ink)]"
+          className="mt-2 line-clamp-2 text-[14px] leading-[1.3] wght-620 text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
         >
           {quiz.title}
         </p>
         <div
-          className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] wght-450 text-[var(--color-apple-muted)]"
+          className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.012em" }}
         >
           <span className="tabular-nums">{quiz.questionCount}문제</span>
@@ -116,10 +116,10 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
           <span>{quiz.difficulty}</span>
           <span className="text-[var(--color-apple-hairline)]">·</span>
           {quiz.attemptCount === 0 ? (
-            <span className="wght-560 text-[var(--color-apple-action)]">아직 안 풀었어요</span>
+            <span className="wght-620 text-[var(--color-apple-action)]">새 세트</span>
           ) : quiz.lastScore !== null ? (
             <span className="tabular-nums">
-              최근 {quiz.lastScore}/{quiz.questionCount} · {quiz.attemptCount}회 풀이
+              {quiz.lastScore}/{quiz.questionCount} · {quiz.attemptCount}회
             </span>
           ) : (
             <span className="tabular-nums">{quiz.attemptCount}회 풀이</span>

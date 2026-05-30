@@ -16,7 +16,7 @@ export default async function ReportChecklistPage() {
   return (
     <div className="lg:pr-[280px]">
       <WizardHistorySidebar items={history} pageTitle="교수 요구사항 체크" />
-      <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
+      <div className="mx-auto w-full max-w-[820px] px-5 pb-24 pt-6 sm:px-8 sm:pb-28 sm:pt-8 md:px-10">
         <AppleHeroTopBar back={{ href: "/dashboard/tools", label: "도구" }} chip="과제 · 2단계" />
         <AppleHero
           eyebrow="교수 요구사항 체크"
@@ -25,7 +25,7 @@ export default async function ReportChecklistPage() {
           sub="분량·형식·인용·마감·제출 방식까지 체크리스트로 정리. 본문은 본인이 직접."
         />
 
-        <div className="mt-12 fade-up fade-up-3 sm:mt-14">
+        <div className="mt-6 fade-up fade-up-3 sm:mt-8">
           <ReportChecklistWizard />
         </div>
       </div>
