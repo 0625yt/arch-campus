@@ -60,33 +60,33 @@ function TopChrome({ semesterLabel }: { semesterLabel: string }) {
   return (
     <header className="fade-up flex items-center justify-between gap-3">
       <p
-        className="text-[10.5px] wght-620 uppercase text-[var(--color-apple-action)]"
+        className="text-[11px] wght-700 uppercase text-[var(--color-apple-action)]"
         style={{ letterSpacing: "0.08em" }}
       >
         {semesterLabel}
       </p>
       <Link
         href="/dashboard/calendar/import?kind=timetable"
-        className="group spring-press inline-flex items-center gap-1 rounded-full border border-[var(--color-apple-hairline)] bg-white px-3 py-1 text-[11px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)]"
+        className="group spring-press inline-flex items-center gap-2 rounded-full bg-[var(--color-apple-ink)] px-4 py-2 text-[12.5px] wght-620 text-white shadow-[0_6px_18px_-8px_rgba(0,0,0,0.35)] transition-all hover:-translate-y-px hover:shadow-[0_10px_24px_-8px_rgba(0,0,0,0.4)]"
         style={{ letterSpacing: "-0.012em" }}
       >
-        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden>
-          <title>시간표 올리기</title>
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <title>시간표 수정</title>
           <path
             d="M8 11V3.5M8 3.5l-2.5 2.5M8 3.5l2.5 2.5"
             stroke="currentColor"
-            strokeWidth="1.4"
+            strokeWidth="1.6"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
           <path
             d="M3 11.5v.5c0 .8.7 1.5 1.5 1.5h7c.8 0 1.5-.7 1.5-1.5v-.5"
             stroke="currentColor"
-            strokeWidth="1.4"
+            strokeWidth="1.6"
             strokeLinecap="round"
           />
         </svg>
-        시간표 다시 올리기
+        시간표 수정
       </Link>
     </header>
   );
