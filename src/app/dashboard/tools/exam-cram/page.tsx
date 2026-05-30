@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AppleHero, AppleHeroTopBar } from "@/components/apple-hero";
 import { WizardHistorySidebar } from "@/components/wizard-history-sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listAllWizardHistory } from "@/lib/data/wizard-history";
@@ -46,40 +46,14 @@ export default async function ExamCramPage() {
     <div className="lg:pr-[280px]">
       <WizardHistorySidebar items={history} pageTitle="시험 벼락치기" />
       <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
-        <header className="fade-up flex items-baseline justify-between gap-3">
-          <Link
-            href="/dashboard/tools"
-            className="group inline-flex items-baseline gap-1 text-[12px] wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            <span className="transition-transform group-hover:-translate-x-0.5">‹</span>
-            도구
-          </Link>
-          <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-            시험 · 3단계
-          </span>
-        </header>
-
-        <section className="mt-10 fade-up fade-up-1 sm:mt-14">
-          <p
-            className="text-[12px] wght-560 uppercase tracking-[0.06em]"
-            style={{ color: "var(--color-urgent)" }}
-          >
-            시험 벼락치기
-          </p>
-          <h1
-            className="mt-3 text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[44px] md:text-[52px]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            남은 시간을 <span className="text-[var(--color-apple-muted)]">한 블록씩 쪼갭니다</span>
-          </h1>
-          <p
-            className="mt-4 max-w-[560px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
-            style={{ letterSpacing: "-0.022em" }}
-          >
-            올린 자료에서 단원 우선순위 + 시간 블록 + 자기 점검 질문까지. 평균 1분 안쪽.
-          </p>
-        </section>
+        <AppleHeroTopBar back={{ href: "/dashboard/tools", label: "도구" }} chip="시험 · 3단계" />
+        <AppleHero
+          eyebrow="시험 벼락치기"
+          eyebrowColor="var(--color-urgent)"
+          title="남은 시간을"
+          titleMuted="한 블록씩"
+          sub="자료에서 단원 우선순위 · 시간 블록 · 자기 점검 질문까지. 평균 1분 안쪽."
+        />
 
         <div className="mt-12 fade-up fade-up-3 sm:mt-14">
           <ExamCramWizard courses={courses} materials={materials} />

@@ -232,7 +232,7 @@ function ToolsPageInner() {
             className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            기능을 많이 늘리는 대신, 과제·시험·발표에서 지금 바로 도움이 되는 흐름만 남겼어요.
+            과제·시험·발표에서 막힐 때 꺼내는 도구
           </p>
         </header>
 

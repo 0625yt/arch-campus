@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AppleHero, AppleHeroTopBar } from "@/components/apple-hero";
 import { WizardHistorySidebar } from "@/components/wizard-history-sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listAllWizardHistory } from "@/lib/data/wizard-history";
@@ -46,42 +46,14 @@ export default async function ReportStructurePage() {
     <div className="lg:pr-[280px]">
       <WizardHistorySidebar items={history} pageTitle="리포트 구조 설계" />
       <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
-        <header className="fade-up flex items-baseline justify-between gap-3">
-          <Link
-            href="/dashboard/tools"
-            className="group inline-flex items-baseline gap-1 text-[12px] wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            <span className="transition-transform group-hover:-translate-x-0.5">‹</span>
-            도구
-          </Link>
-          <span className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-            과제 · 4단계
-          </span>
-        </header>
-
-        <section className="mt-10 fade-up fade-up-1 sm:mt-14">
-          <p
-            className="text-[12px] wght-560 uppercase tracking-[0.06em]"
-            style={{ color: "var(--color-apple-warn)" }}
-          >
-            리포트 구조 설계
-          </p>
-          <h1
-            className="mt-3 text-[34px] leading-[1.07] wght-620 text-[var(--color-apple-ink)] sm:text-[44px] md:text-[52px]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            본문 쓰기 전,{" "}
-            <span className="text-[var(--color-apple-muted)]">목차부터</span>
-          </h1>
-          <p
-            className="mt-4 max-w-[600px] text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[17px] sm:leading-[1.5]"
-            style={{ letterSpacing: "-0.022em" }}
-          >
-            본문은 본인이 직접 써야 학습이 돼요. 우리는 흐름·각 섹션 핵심 질문·체크리스트만
-            잡아드려요.
-          </p>
-        </section>
+        <AppleHeroTopBar back={{ href: "/dashboard/tools", label: "도구" }} chip="과제 · 4단계" />
+        <AppleHero
+          eyebrow="리포트 구조 설계"
+          eyebrowColor="var(--color-apple-warn)"
+          title="본문 쓰기 전,"
+          titleMuted="목차부터"
+          sub="본문은 본인이 직접. 흐름·섹션별 핵심 질문·체크리스트만 잡습니다."
+        />
 
         <div className="mt-12 fade-up fade-up-3 sm:mt-14">
           <Wizard courses={courses} materials={materials} />
