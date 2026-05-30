@@ -40,7 +40,7 @@ export default async function DashboardHomePage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="mx-auto flex w-full max-w-[1280px] min-h-0 flex-1 flex-col gap-3 px-5 pt-4 pb-4 sm:gap-4 sm:px-8 sm:pt-6 sm:pb-5 md:px-10">
+      <div className="mx-auto flex w-full min-h-0 max-w-[1440px] flex-1 flex-col gap-3 px-5 pt-4 pb-4 sm:gap-4 sm:px-8 sm:pt-6 sm:pb-5 md:px-10 xl:px-14">
         <TopChrome semesterLabel={semester.label} />
         <div className="flex min-h-0 flex-1 flex-col">
           <DashboardClient

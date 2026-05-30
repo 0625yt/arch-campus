@@ -98,15 +98,31 @@ export function TimetableSideRail({
       .slice(0, 2);
   }, [events, now]);
 
-  // 모두 비었으면 — 사이드 없음 (시간표가 더 넓게).
-  const isEmpty =
-    !current && !next && todaysRemaining.length === 0 && todaysEvents.length === 0 && upcomingDeadlines.length === 0;
-  if (isEmpty) return null;
+  // 다음 강의가 오늘도 다음 주에도 없으면 "내일 첫 강의" 찾기.
+  const nextDayFirst = useMemo<CourseSlot | null>(() => {
+    if (current || next) return null;
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    const order: Weekday[] = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    // 내일부터 7일 안에서 첫 강의를 찾음.
+    for (let i = 1; i <= 7; i++) {
+      const targetDay = order[(kst.getUTCDay() + i) % 7];
+      const candidates = data.slots
+        .filter((s) => s.slot.weekday === targetDay)
+        .sort((a, b) => a.slot.startMinute - b.slot.startMinute);
+      if (candidates[0]) return candidates[0];
+    }
+    return null;
+  }, [data.slots, current, next, now]);
 
   return (
     <aside className="fade-up fade-up-2 flex h-full min-h-0 flex-col overflow-hidden rounded-[16px] border border-[var(--color-apple-hairline-soft)] bg-white elev-1">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <SectionNow current={current} next={next} now={now} />
+        <SectionNow
+          current={current}
+          next={next}
+          nextDayFirst={nextDayFirst}
+          now={now}
+        />
         {(todaysRemaining.length > 0 || todaysEvents.length > 0) && (
           <SectionToday
             slots={todaysRemaining.filter((s) => s.courseId !== current?.courseId)}
@@ -127,10 +143,12 @@ export function TimetableSideRail({
 function SectionNow({
   current,
   next,
+  nextDayFirst,
   now,
 }: {
   current: CourseSlot | null;
   next: CourseSlot | null;
+  nextDayFirst: CourseSlot | null;
   now: Date;
 }) {
   if (current) {
@@ -215,6 +233,32 @@ function SectionNow({
         >
           {next.slot.startLabel}
           {next.location ? ` · ${next.location}` : ""}
+        </p>
+      </div>
+    );
+  }
+  if (nextDayFirst) {
+    return (
+      <div className="p-4">
+        <SectionLabel tone="muted">내일 첫 강의</SectionLabel>
+        <h3
+          className="mt-2 line-clamp-1 text-[18px] leading-[1.18] wght-700 text-[var(--color-apple-ink)]"
+          style={{ letterSpacing: "-0.022em" }}
+        >
+          {nextDayFirst.courseName}
+        </h3>
+        <p
+          className="mt-1 text-[11.5px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          {nextDayFirst.slot.startLabel}
+          {nextDayFirst.location ? ` · ${nextDayFirst.location}` : ""}
+        </p>
+        <p
+          className="mt-2 text-[11.5px] wght-450 text-[var(--color-apple-muted)]"
+          style={{ letterSpacing: "-0.012em" }}
+        >
+          오늘은 강의가 없어요. 자료 정리 좋은 시간이에요.
         </p>
       </div>
     );
