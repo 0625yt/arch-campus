@@ -35,15 +35,18 @@ export default async function CourseDetailPage({
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[1080px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
+      <div className="mx-auto w-full max-w-[1200px] px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12">
         <Breadcrumb courseName={course.name} dotColor={dotColor} />
-        <Hero course={course} dotColor={dotColor} safety={safety} />
 
-        <CourseSafetyPanel
-          course={course}
-          safety={safety}
-          className="mt-10 fade-up fade-up-2 sm:mt-12"
-        />
+        {/* 데스크톱: hero + safety panel 2-컬럼 한 화면. 모바일: 세로 적층 그대로. */}
+        <div className="mt-10 grid gap-8 sm:mt-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-10">
+          <Hero course={course} dotColor={dotColor} safety={safety} />
+          <CourseSafetyPanel
+            course={course}
+            safety={safety}
+            className="fade-up fade-up-2"
+          />
+        </div>
 
         <Materials
           course={course}
@@ -53,7 +56,7 @@ export default async function CourseDetailPage({
           className="mt-14 fade-up fade-up-3 sm:mt-16"
         />
 
-        <section className="mt-14 fade-up fade-up-5 sm:mt-16">
+        <section id="upload-zone" className="mt-14 fade-up fade-up-5 sm:mt-16">
           <h2
             className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
             style={{ letterSpacing: "-0.012em" }}
@@ -64,7 +67,7 @@ export default async function CourseDetailPage({
             className="mt-3 text-[14px] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            끌어다 놓거나 클릭해서 선택하면 60초 안에 요약과 첫 점검 문제가 준비돼요.
+            끌어다 놓거나 클릭해서 선택하면 60초 안에 요약과 첫 점검 문제가 준비됩니다.
           </p>
           <div className="mt-6">
             <UploadZone courseId={course.id} courseName={course.name} />
@@ -105,7 +108,7 @@ function Hero({
 }) {
   const tone = riskTone(safety.risk);
   return (
-    <header className="mt-10 fade-up fade-up-1 sm:mt-14">
+    <header className="fade-up fade-up-1">
       <p
         className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
         style={{ letterSpacing: "-0.012em" }}
@@ -114,7 +117,7 @@ function Hero({
         {course.location && ` · ${course.location}`}
       </p>
       <h1
-        className="mt-3 text-[40px] leading-[1.05] wght-620 text-[var(--color-apple-ink)] sm:text-[56px] md:text-[64px]"
+        className="mt-3 text-[40px] leading-[1.05] wght-620 text-[var(--color-apple-ink)] sm:text-[56px] md:text-[60px]"
         style={{ letterSpacing: "-0.012em", color: dotColor }}
       >
         {course.name}
@@ -168,8 +171,8 @@ function CourseSafetyPanel({
 
   return (
     <section className={className}>
-      <div className="elev-1 overflow-hidden rounded-[18px] bg-white">
-        <div className="grid gap-0 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="elev-1 h-full overflow-hidden rounded-[18px] bg-white">
+        <div className="grid h-full gap-0 md:grid-cols-[0.9fr_1.1fr] lg:grid-cols-1 xl:grid-cols-[0.9fr_1.1fr]">
           <div className="px-6 py-6 sm:px-7">
             <span
               className="inline-flex rounded-full px-2.5 py-1 text-[11px] wght-700"
@@ -181,7 +184,7 @@ function CourseSafetyPanel({
               className="mt-4 text-[26px] leading-[1.12] wght-700 text-[var(--color-apple-ink)] sm:text-[34px]"
               style={{ letterSpacing: "-0.018em" }}
             >
-              오늘은 {todayTask}.
+              오늘은 {todayTask}
             </h2>
             <p
               className="mt-3 text-[13.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
@@ -191,7 +194,7 @@ function CourseSafetyPanel({
             </p>
           </div>
 
-          <div className="border-t border-[var(--color-apple-hairline-soft)] px-6 py-6 sm:px-7 lg:border-l lg:border-t-0">
+          <div className="border-t border-[var(--color-apple-hairline-soft)] px-6 py-6 sm:px-7 md:border-l md:border-t-0 lg:border-l-0 lg:border-t xl:border-l xl:border-t-0">
             <ul className="grid gap-3 sm:grid-cols-3">
               <CourseMetric label="안 본 자료" value={safety.unreadMaterials.length} />
               <CourseMetric label="오답" value={safety.wrongCount} />
@@ -271,7 +274,7 @@ function Materials({
           className="text-[24px] leading-[1.1] wght-620 text-[var(--color-apple-ink)] sm:text-[28px]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          자료.
+          자료
         </h2>
         <span
           className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
