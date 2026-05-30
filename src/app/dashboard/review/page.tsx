@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AppleEmptyState } from "@/components/apple-empty";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listWrongItems, type WrongItem } from "@/lib/data/attempts";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -139,20 +140,16 @@ export default async function ReviewPage() {
 
 function EmptyState() {
   return (
-    <section className="elev-1 mt-16 rounded-[18px] bg-white p-12 text-center fade-up fade-up-2">
-      <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-success)]">
-        지금 복습할 오답이 없어요
-      </p>
-      <p className="mt-4 text-[16px] leading-[1.55] wght-450 text-[var(--color-apple-ink)]">
-        퀴즈를 풀고 틀린 문제가 생기면 이 화면에서 모아 다시 풀 수 있어요.
-      </p>
-      <Link
-        href="/dashboard/study"
-        className="mt-7 inline-flex h-[44px] items-center rounded-full bg-[var(--color-apple-ink)] px-6 text-[14px] wght-560 text-white hover:opacity-90"
-      >
-        자료에서 문제 만들기 →
-      </Link>
-    </section>
+    <div className="mt-16 fade-up fade-up-2">
+      <AppleEmptyState
+        eyebrow="복습 큐"
+        eyebrowColor="var(--color-apple-success)"
+        size="md"
+        title="지금 복습할 오답이 없어요"
+        sub="퀴즈를 풀고 틀린 문제가 생기면 여기로 모입니다"
+        ctaPrimary={{ href: "/dashboard/study", label: "자료에서 문제 만들기 →", tone: "primary" }}
+      />
+    </div>
   );
 }
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AppleEmptyState } from "@/components/apple-empty";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listGeneratedQuizzes, type QuizListItem } from "@/lib/data/quizzes";
 
@@ -130,31 +131,14 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
 
 function EmptyState() {
   return (
-    <section className="mt-14 fade-up fade-up-2 sm:mt-20">
-      <div className="elev-1 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
-        <p
-          className="text-[18px] wght-620 text-[var(--color-apple-ink)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          아직 만든 문제가 없어요
-        </p>
-        <p
-          className="mx-auto mt-3 max-w-[460px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.022em" }}
-        >
-          자료를 한 번 올리고 요약을 만들면, 그 자리에서 바로 문제를 만들 수 있어요.
-        </p>
-        <div className="mt-7">
-          <Link
-            href="/dashboard/study"
-            className="inline-flex items-center gap-2 rounded-full bg-[var(--color-apple-ink)] px-5 py-2.5 text-[13.5px] wght-560 text-white transition-opacity hover:opacity-90"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            자료 올리러 가기
-          </Link>
-        </div>
-      </div>
-    </section>
+    <div className="mt-14 fade-up fade-up-2 sm:mt-20">
+      <AppleEmptyState
+        size="sm"
+        title="아직 만든 문제가 없어요"
+        sub="자료를 한 번 올리고 요약을 만들면, 그 자리에서 바로 만들 수 있어요"
+        ctaPrimary={{ href: "/dashboard/study", label: "자료 올리러 가기", tone: "primary" }}
+      />
+    </div>
   );
 }
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AppleEmptyState } from "@/components/apple-empty";
 import { activityColor } from "@/lib/activity-color";
 import { tryGetOwnerId } from "@/lib/auth";
 import { type Activity, getRecentActivities } from "@/lib/data/activity";
@@ -59,25 +60,14 @@ function Header() {
 
 function Empty({ className }: { className?: string }) {
   return (
-    <section className={className}>
-      <div className="rounded-[18px] bg-white px-7 py-16 text-center sm:py-20">
-        <p
-          className="text-[20px] wght-620 text-[var(--color-apple-ink)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          아직 활동 기록이 없어요
-        </p>
-        <p className="mx-auto mt-3 max-w-[440px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
-          자료를 올리고 요약·문제를 만들면 여기에 시간순으로 쌓여요.
-        </p>
-        <Link
-          href="/dashboard/study"
-          className="mt-7 inline-flex h-[44px] items-center rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)]"
-        >
-          공부하러 가기 →
-        </Link>
-      </div>
-    </section>
+    <div className={className}>
+      <AppleEmptyState
+        size="md"
+        title="아직 활동 기록이 없어요"
+        sub="자료를 올리고 요약·문제를 만들면 여기에 시간순으로 쌓입니다"
+        ctaPrimary={{ href: "/dashboard/study", label: "공부하러 가기 →", tone: "action" }}
+      />
+    </div>
   );
 }
 
