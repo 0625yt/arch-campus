@@ -24,19 +24,44 @@ export function DownloadSummaryButton({
 }) {
   const handle = useCallback(() => {
     if (typeof window === "undefined") return;
+    const target = document.querySelector<HTMLElement>(".arch-print-target");
+    if (!target) {
+      window.alert("요약 영역을 찾지 못했어요. 페이지를 새로고침한 뒤 다시 시도해주세요.");
+      return;
+    }
+
+    // ancestor의 sticky·100vh·split-view layout이 print 시 빈 공간을 차지하는 문제를
+    // 피하기 위해 target을 잠시 body 직속으로 옮긴다. afterprint에서 원래 자리로 복귀.
+    const originalParent = target.parentElement;
+    const originalNextSibling = target.nextSibling;
+    if (!originalParent) {
+      window.alert("요약 영역의 부모를 찾지 못했어요.");
+      return;
+    }
+
     const originalTitle = document.title;
     document.title = filename;
+    document.body.appendChild(target);
     document.body.classList.add("arch-printing");
+
+    let cleaned = false;
     const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
       document.body.classList.remove("arch-printing");
       document.title = originalTitle;
+      // 원래 자리로 복귀 — nextSibling이 살아있으면 그 앞에, 아니면 부모 끝에
+      if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
+        originalParent.insertBefore(target, originalNextSibling);
+      } else {
+        originalParent.appendChild(target);
+      }
       window.removeEventListener("afterprint", cleanup);
     };
     window.addEventListener("afterprint", cleanup);
-    // 일부 브라우저는 afterprint 이벤트를 안 쏘는 경우가 있어 안전망 — print() 동기 반환 후 정리
     window.print();
-    // print()는 모달 닫힐 때까지 블록하지만 일부 브라우저(Safari)는 비동기 → 안전망
-    setTimeout(cleanup, 1000);
+    // afterprint를 못 받는 브라우저 안전망
+    setTimeout(cleanup, 1500);
   }, [filename]);
 
   return (
