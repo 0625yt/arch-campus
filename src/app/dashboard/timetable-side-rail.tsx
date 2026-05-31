@@ -160,11 +160,6 @@ function SectionNow({
     const color = current.color ?? "#0071e3";
     return (
       <div className="relative p-4">
-        <span
-          aria-hidden
-          className="absolute left-0 top-4 bottom-4 w-[3px] rounded-full"
-          style={{ backgroundColor: color }}
-        />
         <SectionLabel tone="action">진행 중</SectionLabel>
         <h3
           className="mt-2 line-clamp-1 text-[18px] leading-[1.18] wght-700 text-[var(--color-apple-ink)]"

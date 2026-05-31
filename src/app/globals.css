@@ -232,6 +232,19 @@ html[data-theme="dark"] {
 }
 
 /*
+ * 다크 모드 대시보드 — Apple Mail/Music 다크와 같은 deep ink + 미세 sky tint.
+ *   배경: #0c0c0e (Apple system background dark)
+ *   blob: action 컬러 더 옅게 (4%) 깔고 하단에 라일락 톤 hint.
+ */
+html[data-theme="dark"] .dashboard-canvas {
+  background-color: #0c0c0e;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0, 113, 227, 0.07), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(142, 126, 224, 0.05), transparent 60%);
+  background-attachment: fixed;
+}
+
+/*
  * 카드 elevation 유틸리티 — Tailwind v4에서 임의값 대신 명시 클래스로.
  *
  * sky-blue 캔버스 위 흰 카드가 "같은 톤이라 떠 있는 게 안 보인다"는 피드백 해결:
@@ -267,6 +280,80 @@ html[data-theme="dark"] {
     0 6px 18px rgba(20, 30, 50, 0.06),
     0 36px 78px -14px rgba(20, 30, 50, 0.18);
 }
+
+/*
+ * 다크 모드 elevation — Apple Mail/Notes 다크 카드 톤.
+ * hairline은 매우 옅은 화이트, inset highlight도 화이트 5% (글래스 refraction),
+ * shadow는 더 깊은 검정.
+ */
+html[data-theme="dark"] .elev-1 {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    0 6px 18px -8px rgba(0, 0, 0, 0.6);
+}
+html[data-theme="dark"] .elev-2 {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.55),
+    0 16px 38px -10px rgba(0, 0, 0, 0.7);
+}
+html[data-theme="dark"] .elev-3 {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 6px 18px rgba(0, 0, 0, 0.6),
+    0 36px 78px -14px rgba(0, 0, 0, 0.85);
+}
+
+/*
+ * 다크 모드 surface 자동 매핑 — bg-white·bg-white/N 인라인이 다크에서 깨지는 걸 일괄 해결.
+ *
+ * 27+ 파일에 bg-white 흩어져있어 다 찾아 바꾸는 게 위험. CSS 한 룰로 다크에서만
+ * Apple Notes 다크 카드 톤(#1a1a1c)으로 매핑. 사용자가 토큰 안 거쳐도 자동 적용.
+ *
+ * 텍스트 색은 이미 var(--color-apple-ink)로 박혀있어 다크 ink(#f5f5f7)로 자동 전환됨.
+ *
+ * 주의: 의도적으로 흰색이어야 하는 곳(다크에서도)은 클래스에 `dark-keep-white` 박아 예외.
+ */
+html[data-theme="dark"] .bg-white:not(.dark-keep-white) {
+  background-color: #1a1a1c;
+}
+html[data-theme="dark"] .bg-white\/95:not(.dark-keep-white) {
+  background-color: rgba(26, 26, 28, 0.95);
+}
+html[data-theme="dark"] .bg-white\/92:not(.dark-keep-white) {
+  background-color: rgba(26, 26, 28, 0.92);
+}
+html[data-theme="dark"] .bg-white\/90:not(.dark-keep-white) {
+  background-color: rgba(26, 26, 28, 0.9);
+}
+html[data-theme="dark"] .bg-white\/85:not(.dark-keep-white) {
+  background-color: rgba(26, 26, 28, 0.85);
+}
+html[data-theme="dark"] .bg-white\/72:not(.dark-keep-white) {
+  background-color: rgba(26, 26, 28, 0.72);
+}
+html[data-theme="dark"] .bg-white\/60:not(.dark-keep-white) {
+  background-color: rgba(26, 26, 28, 0.6);
+}
+html[data-theme="dark"] .bg-white\/40:not(.dark-keep-white) {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/*
+ * 다크 hover bg-white 변형 — 같은 패턴.
+ */
+html[data-theme="dark"] .hover\:bg-white:not(.dark-keep-white):hover {
+  background-color: #242427;
+}
+
+/*
+ * 다크 모드 — border-white 톤 자동 변환 (보더 패턴).
+ * border-[#xxx] 형태 인라인은 어쩔 수 없으니 사용자 토큰 가이드.
+ */
 .elev-hover-2 {
   box-shadow:
     0 0 0 1px rgba(20, 30, 50, 0.035),

@@ -72,13 +72,6 @@ export function TodayHero({
           backgroundImage: `linear-gradient(135deg, ${kindStyle.tintBg} 0%, transparent 42%)`,
         }}
       >
-        {/* 좌측 색상 ribbon — 카테고리 시그널 */}
-        <div
-          aria-hidden
-          className="absolute left-0 top-0 h-full w-[3px]"
-          style={{ background: kindStyle.dot }}
-        />
-
         <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="px-5 py-5 sm:px-7 sm:py-6">
             <div className="flex items-baseline justify-between gap-3">

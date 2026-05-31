@@ -107,11 +107,6 @@ function ActivityList({ activities, className }: { activities: Activity[]; class
                       className="group relative grid grid-cols-[52px_1fr_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[64px_1fr_auto] sm:px-5"
                     >
                       <span
-                        aria-hidden
-                        className="absolute left-0 top-1/2 h-[6px] w-[2px] -translate-y-1/2 rounded-full transition-all duration-200 group-hover:h-[20px] group-hover:w-[2.5px]"
-                        style={{ backgroundColor: accent }}
-                      />
-                      <span
                         className="text-[10.5px] wght-700 uppercase tabular-nums tracking-[0.06em]"
                         style={{ color: accent }}
                       >

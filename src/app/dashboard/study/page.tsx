@@ -347,12 +347,6 @@ function RecentActivity({ activities, className }: { activities: Activity[]; cla
                 href={a.href}
                 className="group relative grid grid-cols-[60px_1fr_auto] items-center gap-4 px-5 py-[18px] transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[72px_1fr_auto] sm:gap-5 sm:px-7"
               >
-                {/* 좌측 컬러 단서 — 평소 작고 hover에서 늘어남 (캘린더 EventChip 좌측 bar 톤) */}
-                <span
-                  aria-hidden
-                  className="absolute left-0 top-1/2 h-[8px] w-[2px] -translate-y-1/2 rounded-full transition-all duration-200 group-hover:h-[24px] group-hover:w-[2.5px]"
-                  style={{ backgroundColor: accent }}
-                />
                 <span
                   className="text-[11px] wght-620 uppercase tabular-nums"
                   style={{ letterSpacing: "0.06em", color: accent }}

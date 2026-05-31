@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
 import { SearchTrigger } from "@/components/search-trigger";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { inferSemester } from "@/lib/semester";
 import { cn } from "@/lib/utils";
 
 /**
@@ -41,15 +43,23 @@ export function GlobalTopbar() {
       className="liquid-glass-bar sticky top-0 z-40 hidden border-b border-[var(--color-apple-hairline-soft)] md:block"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <div className="mx-auto flex h-11 max-w-[1440px] items-center gap-4 px-5 md:px-8 xl:px-10">
-        <BrandLink />
+      <div className="mx-auto flex h-12 max-w-[1440px] items-center gap-3 px-5 md:px-8 xl:px-10">
+        {/* Leading edge — brand + 학기 chip */}
+        <div className="flex items-center gap-2">
+          <BrandLink />
+          <SemesterChip />
+        </div>
 
+        {/* Center — 주 메뉴 */}
         <div className="flex flex-1 justify-center">
           <SegmentedNav pathname={pathname} />
         </div>
 
-        <div className="flex items-center gap-1.5">
+        {/* Trailing edge — 검색·테마·구분선·프로필 (HIG cluster 패턴) */}
+        <div className="flex items-center gap-0.5">
           <SearchTrigger variant="icon" />
+          <ThemeToggle />
+          <span aria-hidden className="mx-1 h-5 w-px bg-[var(--color-apple-hairline-soft)]" />
           <ProfileMenu />
         </div>
       </div>
@@ -70,6 +80,51 @@ function BrandLink() {
         style={{ letterSpacing: "-0.014em" }}
       >
         arch
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * 학기·주차 chip — Apple Mail의 "Inbox · 12" 카운터 톤.
+ * 사용자가 매번 보는 정보 (지금 몇 주차인지)를 nav에 영구적으로 박는다.
+ */
+function SemesterChip() {
+  const sem = inferSemester();
+  // 학기 첫날부터 경과 주차 계산 (1주차부터)
+  const start = new Date(sem.termStart);
+  const now = new Date();
+  const diffMs = now.getTime() - start.getTime();
+  const week = Math.max(1, Math.min(16, Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1));
+
+  return (
+    <Link
+      href="/dashboard/calendar"
+      aria-label={`${sem.label} ${week}주차 — 캘린더로 이동`}
+      className="group hidden items-center gap-1.5 rounded-full border border-[var(--color-apple-hairline-soft)] bg-[var(--color-apple-pearl)]/60 px-2.5 py-1 transition-colors hover:bg-[var(--color-apple-pearl)] lg:inline-flex"
+    >
+      <span
+        aria-hidden
+        className="h-1.5 w-1.5 rounded-full bg-[var(--color-apple-action)]"
+        style={{ boxShadow: "0 0 6px var(--color-apple-action)" }}
+      />
+      <span
+        className="text-[11px] wght-560 text-[var(--color-apple-muted)] group-hover:text-[var(--color-apple-ink)]"
+        style={{ letterSpacing: "-0.011em" }}
+      >
+        {sem.label}
+      </span>
+      <span
+        aria-hidden
+        className="text-[10px] wght-700 tabular-nums text-[var(--color-apple-muted)]/70"
+      >
+        ·
+      </span>
+      <span
+        className="text-[11px] wght-700 tabular-nums text-[var(--color-apple-ink)]"
+        style={{ letterSpacing: "-0.011em" }}
+      >
+        {week}주차
       </span>
     </Link>
   );

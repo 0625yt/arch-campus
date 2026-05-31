@@ -411,12 +411,6 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
       wizard={wizard}
       className="group elev-hover-2 relative flex h-full flex-col overflow-hidden rounded-[12px] bg-white p-5 sm:p-6"
     >
-      {/* 좌측 카테고리 리본 — 평소 거의 안 보이다가 hover에 살짝 더 진해짐 */}
-      <span
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-[2.5px] opacity-50 transition-all group-hover:opacity-100"
-        style={{ backgroundColor: dotColor }}
-      />
       {/* hover 시 우상단 미세한 컬러 워시 */}
       <span
         aria-hidden
