@@ -80,7 +80,7 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
   // 시간표·강의 카드와 동일 파스텔 시스템.
   // 강의명이 있으면 강의 색, 없으면 quiz title 자체로 안정 매핑 (자료 단위 quiz).
   const seedName = quiz.courseName ?? quiz.title;
-  const cardTint = courseTint(seedName, quiz.courseColor, 0.07);
+  const cardTint = courseTint(seedName, quiz.courseColor, 0.32);
   const hoverGrad = courseGradient(seedName, quiz.courseColor);
   const inkColor = courseInkColor(seedName, quiz.courseColor);
 
@@ -88,7 +88,7 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
     <li>
       <Link
         href={href}
-        className="card-glow-ribbon elev-1 spring-press group relative block overflow-hidden rounded-[14px] bg-white px-4 py-3.5 transition-shadow hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+        className="card-glow-ribbon dark-surface-card elev-1 spring-press group relative block overflow-hidden rounded-[14px] bg-white px-4 py-3.5 transition-shadow hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
         style={{ backgroundColor: cardTint }}
       >
         <span

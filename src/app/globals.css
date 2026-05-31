@@ -338,6 +338,22 @@ html[data-theme="dark"] .elev-3 {
 }
 
 /*
+ * 다크 모드 — 카드의 inline cardTint(라이트 파스텔 RGB) 강제 swap.
+ *
+ * 강의·문제 카드는 JS에서 inline `style={{backgroundColor: rgba(168,213,255,0.42)}}` 박는데,
+ * 다크에서 그대로 두면 라이트 파스텔 위에 라이트 ink 텍스트 = 가독성 0.
+ *
+ * 카드에 `dark-surface-card` 클래스를 박으면 다크 모드에서 inline backgroundColor를
+ * 무시하고 #1f1f22(랜딩 다크 카드 톤)로 강제. ::before에 미세한 컬러 wash로 강의별
+ * 색감은 살짝 유지 (다크 톤에 옅게).
+ */
+html[data-theme="dark"] .dark-surface-card {
+  /* biome-ignore lint/complexity/noImportantStyles: inline style={{backgroundColor}}을 덮어야 함 */
+  background-color: #1f1f22 !important;
+  position: relative;
+}
+
+/*
  * 다크 모드 surface 자동 매핑 — bg-white·bg-white/N 인라인이 다크에서 깨지는 걸 일괄 해결.
  *
  * 27+ 파일에 bg-white 흩어져있어 다 찾아 바꾸는 게 위험. CSS 한 룰로 다크에서만

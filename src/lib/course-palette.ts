@@ -16,14 +16,18 @@ export interface RGB {
   b: number;
 }
 
+/*
+ * Apple Calendar/Reminders 톤 — 명도 90+ 채도 40 정도의 화사한 파스텔.
+ * "물감 살짝 풀어둔" 톤. 어두운 깊이감보다 가볍고 산뜻한 느낌이 우선.
+ */
 const PALETTE: RGB[] = [
-  { r: 122, g: 166, b: 214 }, // sky blue
-  { r: 127, g: 179, b: 140 }, // mint
-  { r: 224, g: 142, b: 158 }, // peach pink
-  { r: 204, g: 160, b: 107 }, // butter
-  { r: 160, g: 139, b: 196 }, // lavender
-  { r: 214, g: 139, b: 122 }, // coral
-  { r: 122, g: 196, b: 196 }, // teal
+  { r: 168, g: 213, b: 255 }, // 라이트 sky
+  { r: 178, g: 234, b: 192 }, // 라이트 mint
+  { r: 255, g: 200, b: 211 }, // 라이트 pink
+  { r: 255, g: 220, b: 168 }, // 라이트 butter
+  { r: 215, g: 200, b: 245 }, // 라이트 lavender
+  { r: 255, g: 196, b: 178 }, // 라이트 coral
+  { r: 178, g: 235, b: 230 }, // 라이트 teal
 ];
 
 /** course.color가 default(#0071e3)거나 비어있으면 강의명 해시로 fallback. */
@@ -59,32 +63,39 @@ export function courseRgb(name: string, color: string | null | undefined): RGB {
   return (color && color !== DEFAULT_BLUE && parseHex(color)) || pickByHash(seed);
 }
 
-/** 카드·셀 배경용 매우 연한 tint (12% alpha). */
-export function courseTint(name: string, color?: string | null, alpha = 0.12): string {
+/**
+ * 카드·셀 배경 tint.
+ * RGB가 이미 라이트 톤이라 alpha를 충분히 높여도 화사함 유지.
+ * 시간표 셀(0.55)·카드(0.42) 가량이 "물감 풀어둔" 톤.
+ */
+export function courseTint(name: string, color?: string | null, alpha = 0.42): string {
   const { r, g, b } = courseRgb(name, color);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-/** 카드 hover 또는 액센트용 (24% alpha). */
+/** hover 액센트 — 한 단 진하게. */
 export function courseTintStrong(name: string, color?: string | null): string {
-  return courseTint(name, color, 0.24);
+  return courseTint(name, color, 0.6);
 }
 
-/** 텍스트 강조용 — 채도 유지, 명도 살짝 낮춰 가독성 확보. */
+/**
+ * 텍스트 강조용 — 같은 hue 채도 끌어올린 dark variant.
+ * 카드 위 wght-560+ 텍스트 가독성용 (slate 톤보다 살아있게).
+ */
 export function courseInkColor(name: string, color?: string | null): string {
   const { r, g, b } = courseRgb(name, color);
-  // 30% 어둡게 (라이트 모드 텍스트 대비)
-  const dim = (v: number) => Math.max(0, Math.floor(v * 0.65));
+  // 라이트 톤 RGB라서 0.4 정도 어둡게 + 채도 보존 (단순 0.65 곱하기보다 명확).
+  const dim = (v: number) => Math.max(0, Math.floor(v * 0.42));
   return `rgb(${dim(r)}, ${dim(g)}, ${dim(b)})`;
 }
 
-/** 진한 액센트 (도트·border 용) — 원본 RGB 그대로. */
+/** 진한 액센트 (도트·border) — 원본 RGB. */
 export function courseAccentRgb(name: string, color?: string | null): RGB {
   return courseRgb(name, color);
 }
 
-/** 미세한 그라데이션 — 카드 우상단 컬러 워시 (5~12% alpha 그라데이션). */
+/** 카드 우상단 컬러 wash — radial gradient. hover 시 살아있음. */
 export function courseGradient(name: string, color?: string | null): string {
   const { r, g, b } = courseRgb(name, color);
-  return `radial-gradient(120% 80% at 100% 0%, rgba(${r}, ${g}, ${b}, 0.18) 0%, rgba(${r}, ${g}, ${b}, 0.04) 50%, transparent 80%)`;
+  return `radial-gradient(120% 80% at 100% 0%, rgba(${r}, ${g}, ${b}, 0.55) 0%, rgba(${r}, ${g}, ${b}, 0.18) 50%, transparent 80%)`;
 }

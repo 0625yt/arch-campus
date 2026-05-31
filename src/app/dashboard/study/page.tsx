@@ -240,8 +240,8 @@ function PersonalEmpty({ className }: { className?: string }) {
 function CourseCard({ course }: { course: CourseListItem }) {
   const isPersonal = course.category === "personal";
   // 시간표 셀과 동일한 파스텔 팔레트 — 강의명 해시로 안정 매핑.
-  // 카드 면 전체에 매우 연한 tint(8%) + hover 시 우상단 더 진한 wash로 깊이감.
-  const cardTint = courseTint(course.name, course.color, 0.08);
+  // 라이트 톤 RGB라 alpha 0.42여도 산뜻 (애플 Calendar 톤).
+  const cardTint = courseTint(course.name, course.color);
   const hoverGrad = courseGradient(course.name, course.color);
 
   return (
@@ -264,7 +264,7 @@ function CourseCard({ course }: { course: CourseListItem }) {
         </div>
         <Link
           href={`/dashboard/study/${encodeURIComponent(course.name)}`}
-          className="group card-glow-ribbon elev-hover-2 spring-press relative flex min-h-[140px] flex-col justify-between overflow-hidden rounded-[14px] bg-white p-5 sm:p-5"
+          className="group card-glow-ribbon dark-surface-card elev-hover-2 spring-press relative flex min-h-[140px] flex-col justify-between overflow-hidden rounded-[14px] bg-white p-5 sm:p-5"
           style={{ backgroundColor: cardTint }}
         >
           <span

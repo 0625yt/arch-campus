@@ -360,7 +360,7 @@ function TimetableGrid({
 
           {/* Cells */}
           <div className="relative min-w-0 flex-1 border-l border-[var(--color-apple-hairline-soft)]/60">
-            {/* 오늘 컬럼 통째 wash — Apple Calendar week view 패턴 */}
+            {/* 오늘 컬럼 통째 wash — 사용자가 한눈에 볼 수 있는 수준(8%) */}
             {shownDays.map((w, dayIdx) => {
               if (!isKstToday(w, now)) return null;
               const colWidth = 100 / shownDays.length;
@@ -368,7 +368,7 @@ function TimetableGrid({
                 <div
                   key={`today-wash-${w}`}
                   aria-hidden
-                  className="pointer-events-none absolute inset-y-0 bg-[var(--color-apple-action)]/[0.025]"
+                  className="pointer-events-none absolute inset-y-0 bg-[var(--color-apple-action)]/[0.08]"
                   style={{
                     left: `${dayIdx * colWidth}%`,
                     width: `${colWidth}%`,
@@ -377,7 +377,7 @@ function TimetableGrid({
               );
             })}
 
-            {/* 과거 시간대 dim wash — 오늘 컬럼 안, now 라인 위쪽 */}
+            {/* 과거 시간대 dim — 라이트 8% · 다크 30% (확실히 보이게) */}
             {nowFrac !== null &&
               shownDays.map((w, dayIdx) => {
                 if (!isKstToday(w, now)) return null;
@@ -386,7 +386,7 @@ function TimetableGrid({
                   <div
                     key={`past-wash-${w}`}
                     aria-hidden
-                    className="pointer-events-none absolute top-0 bg-black/[0.025] dark:bg-black/[0.18]"
+                    className="pointer-events-none absolute top-0 bg-black/[0.08] dark:bg-black/[0.30]"
                     style={{
                       left: `${dayIdx * colWidth}%`,
                       width: `${colWidth}%`,
@@ -442,8 +442,8 @@ function TimetableGrid({
                     type="button"
                     onClick={() => onPickCourse(s)}
                     className={`spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[10px] px-2.5 py-2 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.18)] hover:brightness-[1.02] ${
-                      isNow ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)]/35 shadow-[0_8px_24px_-6px_rgba(0,113,227,0.28)]" : ""
-                    } ${isPast ? "opacity-55" : ""}`}
+                      isNow ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)] shadow-[0_10px_28px_-4px_rgba(0,113,227,0.5)] brightness-105" : ""
+                    } ${isPast ? "opacity-35 saturate-50" : ""}`}
                     style={{
                       top: `calc(${top}% + 2px)`,
                       height: `calc(${height}% - 4px)`,
