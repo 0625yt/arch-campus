@@ -77,11 +77,14 @@ export interface SummarizeInput {
  */
 const CHUNK_SIZE = 50_000;
 /**
- * 한 자료에서 처리할 최대 chunk 수. 자료가 정말 큰 책 1권(>500K자) 같은 경우
- * 비용 폭주 방지 — 보통 강의자료·교재 1챕터는 100~300K자라 6개로 충분.
- * 초과분은 마지막 reviewSpots에 안내.
+ * 한 자료에서 처리할 최대 chunk 수. 50K자 × 10 = 500K자까지 커버.
+ * 빽빽한 교재 100장+도 끊김 없이 전체 요약 가능.
+ *
+ * 비용: chunk 10개 ≈ Haiku $0.01, 시간 ≈ 100~120초 (Vercel maxDuration 300s 안).
+ * 학생이 시험 직전 한 학기 분량 PDF를 통째로 올려도 안 빠짐 — 우선순위.
+ * 초과분(500K자 이상)은 reviewSpots에 안내.
  */
-const MAX_CHUNKS = 6;
+const MAX_CHUNKS = 10;
 
 export async function runSummarize(input: SummarizeInput): Promise<SummarizeResult> {
   const isMetadataOnly = !input.sanitizedText || input.sanitizedText.trim().length < 60;
@@ -307,7 +310,7 @@ function buildDynamicContext(meta: {
  * Map-Reduce 요약 — 본문을 chunk로 쪼개 각각 요약 → 결과 머지.
  *
  * 사용자 피드백: "20장 PDF인데 5장까지만 요약됨, 자료 전체 무조건 다 나와야 함"
- * → 60K자 cap 제거. CHUNK_SIZE(50K자) 단위로 분할, 최대 MAX_CHUNKS(6)개까지 처리.
+ * → 60K자 cap 제거. CHUNK_SIZE(50K자) 단위로 분할, 최대 MAX_CHUNKS(10)개까지 처리.
  *
  * 동작:
  *   1) 본문을 단락 경계(개행) 기준으로 chunk 분할 — 문장 중간 X
@@ -545,7 +548,7 @@ function mergePartialSummaries(
     mergedReviewSpots = [
       {
         title: `⚠ 자료가 매우 길어 일부 뒤쪽이 빠졌어요`,
-        why: `이 자료는 약 ${Math.round(meta.totalLength / 1000)}K자인데 ${meta.chunkCount}부분(약 ${meta.chunkCount * 50}K자)까지 정리했어요. 뒤 약 ${truncatedKchars}K자가 빠졌어요. 더 정확한 정리가 필요하면 단원별로 쪼개서 따로 올려주세요.`,
+        why: `이 자료는 약 ${Math.round(meta.totalLength / 1000)}K자인데 ${meta.chunkCount}부분(약 ${Math.round((meta.chunkCount * meta.chunkSize) / 1000)}K자)까지 정리했어요. 뒤 약 ${truncatedKchars}K자가 빠졌어요. 더 정확한 정리가 필요하면 단원별로 쪼개서 따로 올려주세요.`,
       },
       ...mergedReviewSpots,
     ];
