@@ -123,26 +123,32 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     classificationDomain: classification?.domain ?? null,
     materialTitle: primary.title,
   });
-  const dynamicContext = buildDynamicContext({
-    title: primary.title,
-    type: primary.type,
-    difficulty: input.difficulty,
-    requestedCount: input.requestedCount,
-    pageCount: primary.pageCount ?? undefined,
-    isMetadataOnly,
-    parserWarnings: input.parserWarnings,
-    classification,
-    fullText: sanitizedText,
-    subject,
-    kinds: input.kinds,
-    scope: input.scope,
-    intentNote: input.intentNote,
-    multiMaterial: input.materials.length > 1 ? input.materials : null,
-    previousStems,
-  });
+  // 청크 분할 — 큰 요청은 병렬 호출로 속도 단축.
+  //   ≤5    : 1청크 (병렬 의미 없음)
+  //   6~15  : 2청크
+  //   16~30 : 3청크
+  // 각 청크는 자기 몫에 +2 여유분(drop 흡수). 합쳐서 약간 over-generation.
+  const chunkSizes = splitIntoChunks(input.requestedCount);
+
   const tokenBudget = breakdown({
     rule: rulePrompt,
-    dynamic: dynamicContext,
+    dynamic: buildDynamicContext({
+      title: primary.title,
+      type: primary.type,
+      difficulty: input.difficulty,
+      requestedCount: input.requestedCount,
+      pageCount: primary.pageCount ?? undefined,
+      isMetadataOnly,
+      parserWarnings: input.parserWarnings,
+      classification,
+      fullText: sanitizedText,
+      subject,
+      kinds: input.kinds,
+      scope: input.scope,
+      intentNote: input.intentNote,
+      multiMaterial: input.materials.length > 1 ? input.materials : null,
+      previousStems,
+    }),
     user: sanitizedText,
   });
 
@@ -154,23 +160,58 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       ? compactForQuiz(sanitizedText, 120_000)
       : `[본문 자동 추출 실패 — 파일명 ${primary.title} · 종류 ${primary.type}]`;
 
-  let result: Awaited<ReturnType<typeof generate>>;
-  try {
-    result = await generate({
-      tool: "quiz",
-      rulePrompt,
-      dynamicContext,
-      userInput: quizInput,
-      maxTokens: 8192,
-      temperature: 0.4,
-    });
-  } catch (e) {
+  // 각 청크에 +2 여유분을 줘서 drop 흡수. 모든 청크는 자료 전체를 보고 만들되,
+  // 청크 인덱스로 출제 영역을 분담하라는 힌트만 줌 (자료 앞부분/중간/뒷부분).
+  // 첫 청크가 실패해도 다른 청크 결과는 살림.
+  const results = await Promise.all(
+    chunkSizes.map(async (size, idx) => {
+      const chunkContext = buildDynamicContext({
+        title: primary.title,
+        type: primary.type,
+        difficulty: input.difficulty,
+        requestedCount: size + 2,
+        pageCount: primary.pageCount ?? undefined,
+        isMetadataOnly,
+        parserWarnings: input.parserWarnings,
+        classification,
+        fullText: sanitizedText,
+        subject,
+        kinds: input.kinds,
+        scope: input.scope,
+        intentNote: input.intentNote,
+        multiMaterial: input.materials.length > 1 ? input.materials : null,
+        previousStems,
+        chunkHint:
+          chunkSizes.length > 1
+            ? { index: idx, total: chunkSizes.length }
+            : undefined,
+      });
+      try {
+        const r = await generate({
+          tool: "quiz",
+          rulePrompt,
+          dynamicContext: chunkContext,
+          userInput: quizInput,
+          maxTokens: 8192,
+          temperature: 0.4,
+        });
+        return { ok: true as const, result: r };
+      } catch (e) {
+        return { ok: false as const, error: e instanceof Error ? e.message : String(e) };
+      }
+    }),
+  );
+
+  // 모든 청크 실패면 502
+  const successResults = results.filter((r) => r.ok);
+  if (successResults.length === 0) {
+    const firstErr = results[0]?.ok === false ? results[0].error : "unknown";
     await logGeneration({
       ownerId: input.ownerId,
       materialId: primary.materialId,
       modelId: getModelIdFor("quiz"),
       status: "error",
-      errorMessage: e instanceof Error ? e.message : String(e),
+      errorMessage: `모든 청크 호출 실패: ${firstErr}`,
     });
     return {
       ok: false,
@@ -179,40 +220,77 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     };
   }
 
-  let parsedQuiz: QuizOutputT;
-  try {
-    parsedQuiz = parseModelJson(QuizOutput, result.text);
-  } catch (e) {
+  // 청크 결과 parse + 합치기. 일부 청크가 reject 또는 zod 실패해도 나머지는 살림.
+  const dropped: ReturnType<typeof validateEvidence>["dropped"] = [];
+  const allQuestions: typeof successResults[number] extends { result: infer R }
+    ? R extends { text: string }
+      ? QuizOutputT["questions"]
+      : never
+    : never = [] as never;
+  const aggregated: QuizQuestionT[] = [];
+  let firstResult: Awaited<ReturnType<typeof generate>> | null = null;
+  let totalUsage = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+  };
+  let firstReject: { reason: string } | null = null;
+
+  for (const r of successResults) {
+    const res = r.result;
+    if (!firstResult) firstResult = res;
+    totalUsage = {
+      inputTokens: totalUsage.inputTokens + res.usage.inputTokens,
+      outputTokens: totalUsage.outputTokens + res.usage.outputTokens,
+      cacheReadTokens: totalUsage.cacheReadTokens + res.usage.cacheReadTokens,
+      cacheCreationTokens:
+        totalUsage.cacheCreationTokens + res.usage.cacheCreationTokens,
+    };
+    try {
+      const parsed = parseModelJson(QuizOutput, res.text);
+      if (parsed.rejected) {
+        if (!firstReject) firstReject = { reason: parsed.reason };
+        continue;
+      }
+      aggregated.push(...parsed.questions);
+    } catch {
+      // 한 청크의 zod 실패는 무시하고 다음 청크로
+    }
+  }
+
+  // 모든 청크가 reject면 422
+  if (aggregated.length === 0 && firstReject) {
+    return { ok: false, status: 422, error: firstReject.reason };
+  }
+  if (aggregated.length === 0) {
     await logGeneration({
       ownerId: input.ownerId,
       materialId: primary.materialId,
-      modelId: result.modelId,
-      usage: result.usage,
-      cost: estimateCost(result.usage, result.modelId),
+      modelId: firstResult?.modelId ?? getModelIdFor("quiz"),
+      usage: totalUsage,
+      cost: estimateCost(totalUsage, firstResult?.modelId ?? getModelIdFor("quiz")),
       status: "error",
-      errorMessage: `Zod 검증 실패: ${e instanceof Error ? e.message : String(e)}`,
-      payload: { rawText: result.text.slice(0, 4000) },
+      errorMessage: "모든 청크 zod 검증 실패",
+      payload: { rawText: firstResult?.text.slice(0, 4000) },
     });
     return { ok: false, status: 502, error: "문제 형식이 맞지 않았어요. 다시 시도해주세요." };
   }
 
-  if (parsedQuiz.rejected) {
-    return { ok: false, status: 422, error: parsedQuiz.reason };
-  }
-
-  // Evidence 검증 — 환각 차단. 자료 본문에 없는 evidence는 drop.
-  const { kept, dropped } = validateEvidence(parsedQuiz.questions, sanitizedText, {
+  // Evidence 검증
+  const { kept, dropped: evDropped } = validateEvidence(aggregated, sanitizedText, {
     isMetadataOnly,
   });
+  dropped.push(...evDropped);
 
-  // 이전 stem과 중복되는 문제도 drop. 같은 fingerprint가 이미 있으면 새 문제 아님.
+  // 이전 stem + 청크 간 중복 dedup
   const previousFingerprints = new Set(previousStems.map(fingerprint));
   const deduped = kept.filter((q) => {
     const fp = fingerprint(q.stem);
     if (previousFingerprints.has(fp)) {
       dropped.push({
         questionId: q.id,
-        reason: "이전 quiz와 중복 stem",
+        reason: "이전 quiz와 중복 stem 또는 청크 간 중복",
         evidence: q.stem.slice(0, 80),
       });
       return false;
@@ -221,10 +299,20 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     return true;
   });
 
-  // 보충 호출 — 요청 수 미달이면 추가로 더 만들어달라고 시도. 최대 2회.
-  // 이미 만든 stem들은 중복 방지로 같이 보내서 LLM이 다른 각도로 만들도록.
-  let collected = deduped;
-  let totalUsage = result.usage;
+  // 첫 성공 청크 — 모델 ID·watermark는 여기서 가져옴
+  const result = firstResult!;
+
+  // watermark는 첫 성공 청크의 응답에서 추출. parse 다시 (저렴).
+  let watermark = "";
+  try {
+    const firstParsed = parseModelJson(QuizOutput, result.text);
+    if (!firstParsed.rejected) watermark = firstParsed.watermark;
+  } catch {
+    // 첫 청크가 zod 통과 못 했어도 다른 청크 결과는 살아있을 수 있음. watermark는 빈 문자로.
+  }
+
+  // 보충 호출 — 청크 합산 후에도 미달이면 추가로. 이미 만든 stem들은 중복 방지로 같이 보냄.
+  const collected = deduped;
   let topupCount = 0;
   // 부족하면 끝까지 보충. 5회는 사용자가 요청한 정확도 보장 + 무한루프 차단.
   // 한 호출당 ~$0.07 (Sonnet 30개 기준)이라 최악의 경우 1회 quiz ≈ $0.35.
@@ -326,14 +414,12 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
 
   const normalizedQuestions = normalizeQuizQuestions(finalQuestions);
 
-  // usage는 누적된 걸로 교체 — 보충 호출 비용까지 결제·로깅에 반영
-  result = { ...result, usage: totalUsage };
+  // 누적 usage (청크 합산 + 보충 호출 포함)
+  const finalUsage = totalUsage;
 
   // quizzes 저장 — owner_id 강제, RLS 정책과 같은 키
-  // material_id는 primary 자료. 묶음 자료 ID들은 questions[].evidenceMaterialId가 아닌
-  // payload·source 메타에 보존 (스키마 변경 최소화). 향후 quizzes 테이블에 material_ids 컬럼 추가 가능.
   const admin = getAdminSupabase();
-  const costUsd = estimateCost(result.usage, result.modelId);
+  const costUsd = estimateCost(finalUsage, result.modelId);
   const titleForRow =
     input.materials.length > 1
       ? `${primary.title} 외 ${input.materials.length - 1}개 묶음`
@@ -348,7 +434,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       difficulty: input.difficulty,
       question_count: normalizedQuestions.length,
       questions: normalizedQuestions,
-      watermark: parsedQuiz.watermark,
+      watermark,
       model_id: result.modelId,
     })
     .select("id")
@@ -366,13 +452,15 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     ownerId: input.ownerId,
     materialId: primary.materialId,
     modelId: result.modelId,
-    usage: result.usage,
+    usage: finalUsage,
     cost: costUsd,
     status: "ok",
     payload: {
       quizId: quizRow.id,
       questionCount: normalizedQuestions.length,
       droppedCount: dropped.length,
+      chunks: chunkSizes.length,
+      topupCount,
       materialIds: input.materials.map((m) => m.materialId),
     },
   });
@@ -380,9 +468,13 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   return {
     ok: true,
     quizId: quizRow.id,
-    quiz: { ...parsedQuiz, questions: normalizedQuestions },
+    quiz: {
+      questions: normalizedQuestions,
+      watermark,
+      rejected: false as const,
+    },
     modelId: result.modelId,
-    usage: result.usage,
+    usage: finalUsage,
     costUsd,
     tokenBudget,
   };
@@ -468,6 +560,8 @@ function buildDynamicContext(meta: {
   multiMaterial?: QuizMaterialInput[] | null;
   /** 같은 자료에서 이전에 만든 stem들 — 중복 출제 방지 힌트. */
   previousStems?: string[];
+  /** 병렬 호출 시 청크 인덱스. 청크별로 자료의 다른 영역을 우선 출제하라는 힌트. */
+  chunkHint?: { index: number; total: number };
 }): string {
   const detected = detectForeignLanguage(meta.fullText);
 
@@ -600,7 +694,48 @@ function buildDynamicContext(meta: {
     );
   }
 
+  // 병렬 호출 시 청크별로 자료 영역 분담 (앞·중·뒤) — 청크 간 중복 줄여줌.
+  // 모든 청크가 자료 전체를 보고 만들되, "이번엔 이 영역 우선" 식 약한 힌트.
+  if (meta.chunkHint && meta.chunkHint.total > 1) {
+    const { index, total } = meta.chunkHint;
+    const region =
+      total === 2
+        ? index === 0
+          ? "자료의 **앞~중반부**"
+          : "자료의 **중~후반부**"
+        : index === 0
+          ? "자료의 **앞부분**"
+          : index === total - 1
+            ? "자료의 **뒷부분**"
+            : "자료의 **중간 부분**";
+    lines.push(
+      "",
+      "## 출제 영역 분담 (병렬 출제 중)",
+      `지금 ${total}개 그룹으로 나눠 동시에 만들고 있어요. 이 호출은 ${index + 1}/${total} 그룹.`,
+      `${region}을 우선 출제해요. (다른 그룹은 다른 영역을 만들고 있음 — 같은 문제 X)`,
+      "단 자료 전체를 봐도 되고, 위 영역에 적합한 내용이 없으면 다른 영역에서 만들어도 OK.",
+    );
+  }
+
   return lines.join("\n");
+}
+
+/**
+ * requestedCount를 청크 크기 배열로. 청크 수는 1~3.
+ *   ≤5    → [n]
+ *   6~15  → 두 개로 균등 분할
+ *   16~30 → 세 개로 균등 분할
+ */
+function splitIntoChunks(total: number): number[] {
+  if (total <= 5) return [total];
+  const chunks = total <= 15 ? 2 : 3;
+  const base = Math.floor(total / chunks);
+  const rem = total - base * chunks;
+  const sizes: number[] = [];
+  for (let i = 0; i < chunks; i++) {
+    sizes.push(base + (i < rem ? 1 : 0));
+  }
+  return sizes;
 }
 
 function detectForeignLanguage(text: string): "영어" | "중국어" | "일본어" | null {
