@@ -30,12 +30,12 @@
 
 ```
 1. leadSentence — 이 자료가 다루는 주제 한 문장
-2. blocks — h2/para/bullets/callout **5~100개**
-3. keywords — 자료 본문에 substring 매칭되는 핵심 용어 **5~100개**
+2. blocks — h2/para/bullets/callout **5~500개**
+3. keywords — 자료 본문에 substring 매칭되는 핵심 용어 **3~500개**
 4. reviewSpots — 시험에서 헷갈릴 수 있는 부분 **1~8개**
 5. watermark — "이 자료는 학습 보조용..." 으로 시작
 
-**★ 한도 안내**: 위 숫자(blocks 100·keywords 100·reviewSpots 8)는 zod 스키마 hard cap이다. 초과하면 응답이 거부돼 "요약 형식이 맞지 않았어요" 에러가 뜬다. 단, 서비스 레이어에서 안전 보정도 한다(parseSummarizeWithCap). **자료에 의미 있는 키워드가 100개 안 되면 굳이 100개 채우려 일반어("the", "you")까지 넣지 말 것** — 진짜 핵심만.
+**★ 한도 안내**: 위 숫자(blocks 500·keywords 500·reviewSpots 8)는 zod 스키마 hard cap이다. 초과하면 응답이 거부돼 "요약 형식이 맞지 않았어요" 에러가 뜬다. 서비스 레이어에서 안전 보정도 한다(parseSummarizeWithCap). **억지로 채우지 말 것** — 의미 있는 핵심만. 일반어("the", "you", 조사)는 keywords에 넣지 X.
 ```
 
 ---
@@ -173,7 +173,7 @@
 - 각 `para`: 20~800자 — 정의·예문·표는 통째로 인용해도 OK
 - `bullets.items`: 1~20개, 각 항목 300자 이내 (어휘 리스트는 끝까지)
 - `h2.content`: 80자 이내 — 페이지 번호·섹션 제목 같이 OK (예: "Unit 6 — 어휘: 건강한 생활습관 (p.3~4)")
-- `keywords`: 3~100개, 자료 본문 substring 매칭. 어학·전공·강의 슬라이드처럼 어휘 풍부한 자료는 80개 이상도 OK. 단 의미 있는 것만 — 일반어·조사 제외
+- `keywords`: 3~500개, 자료 본문 substring 매칭. 어학·전공·강의 슬라이드처럼 어휘 풍부한 자료는 100개 이상도 OK. 단 의미 있는 것만 — 일반어·조사 제외
 - `reviewSpots`: 1~8개, `why`는 400자 이내 — 단순 반복 X, "왜 헷갈리는지"·"어디 다시 보면 좋은지"
 
 ---

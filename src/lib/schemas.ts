@@ -40,13 +40,12 @@ export const SummarizeOutput = z.object({
       ]),
     )
     // 최소 5 — 너무 짧은 요약이 안 나오게. 자료 짧으면 reviewSpots로 보충.
-    // max 100 — 강의 슬라이드 50쪽+ 자료에서 페이지마다 그림 설명·예문·라벨까지 다 담으려면
-    // 60으론 중간이 비어 보임 (사용자 피드백 2026-05-31). 한 자료당 토큰 증가는 감수.
+    // max 500 — 2026-05-31 사용자 결정: Gemini Flash로 모델 바꾸며 cap 5배 (100→500).
+    // 합본·100p 자료에서도 잘릴 일 없게.
     .min(5)
-    .max(100),
-  // max 100 — 강의 슬라이드·어학 자료처럼 핵심 어휘가 많은 자료에서 50으론 부족.
-  // 사용자 피드백 2026-05-31: "키워드를 50으로 가둘 이유가 없다, 자료에 있는 거 다 담아라".
-  keywords: z.array(z.string().min(1).max(60)).min(3).max(100),
+    .max(500),
+  // max 500 — blocks와 같은 정책. 어학 자료처럼 단어가 많아도 다 담음.
+  keywords: z.array(z.string().min(1).max(60)).min(3).max(500),
   reviewSpots: z
     .array(
       z.object({

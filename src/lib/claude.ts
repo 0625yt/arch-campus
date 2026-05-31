@@ -144,18 +144,20 @@ function envSaysGoogle(raw: string | undefined): boolean {
  * 미지정·미인식 값이면 TOOL_MODEL 기본값 그대로.
  */
 function resolveModel(tool: ToolKind): string {
-  // 0) Prod 안전장치 — 실수로 Vercel production env에 vendor=google 박혀도 무시.
-  //    2026-05-28 A/B 1회 결과 Gemini Flash evidence 매칭 0% (CLAUDE.md §4 치팅 라인 위배).
-  //    자료 5~10건 검증 + 프롬프트 보강이 끝날 때까지 dev/preview에서만 Gemini 사용.
-  //    NEXT-STEPS·MODEL-OPTIONS에서 통과 결정 나면 이 가드 제거.
+  // 0) Prod 안전장치 — quiz는 여전히 prod에서 막아둠 (evidence 매칭 검증 부족).
+  //    summarize는 2026-05-31 결정: Haiku가 31p+ 합본 자료에서 maxTokens(8192) 초과로
+  //    JSON 잘려 죽음. Gemini Flash는 출력 64K 지원 + 가격 1/2 → prod 포함 기본 ON.
   const isProd =
     process.env.VERCEL_ENV === "production" || process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
 
-  // 1) Vendor 분기 — Gemini로 우회할 도구 (prod 외 환경에서만)
+  // 1) Vendor 분기 — Gemini로 우회할 도구
   if (!isProd && tool === "quiz" && envSaysGoogle(process.env.QUIZ_MODEL_VENDOR)) {
     return MODELS.geminiFlash;
   }
-  if (!isProd && tool === "summarize" && envSaysGoogle(process.env.SUMMARY_MODEL_VENDOR)) {
+  // summarize는 prod 포함 Gemini Flash가 기본. SUMMARY_MODEL_VENDOR=anthropic으로 강제하면 Haiku.
+  if (tool === "summarize") {
+    const raw = process.env.SUMMARY_MODEL_VENDOR?.trim().toLowerCase();
+    if (raw === "anthropic" || raw === "claude") return MODELS.haiku;
     return MODELS.geminiFlash;
   }
   // PDF OCR — prod 포함 전 환경에서 Gemini Flash 기본. unpdf로 강제하려면 PDF_OCR_VENDOR=anthropic.

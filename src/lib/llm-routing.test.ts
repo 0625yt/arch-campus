@@ -36,15 +36,20 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     expect(getModelIdFor("quiz")).toBe(MODELS.sonnet);
   });
 
-  it("env 안 켜면 summarize는 Haiku (기존 동작)", () => {
+  it("env 안 켜면 summarize는 Gemini Flash (2026-05-31 결정: prod 포함 기본)", () => {
+    expect(getModelIdFor("summarize")).toBe(MODELS.geminiFlash);
+  });
+
+  it("SUMMARY_MODEL_VENDOR=anthropic으로 강제하면 Haiku", () => {
+    process.env.SUMMARY_MODEL_VENDOR = "anthropic";
     expect(getModelIdFor("summarize")).toBe(MODELS.haiku);
   });
 
   it("QUIZ_MODEL_VENDOR=google → quiz만 Gemini Flash", () => {
     process.env.QUIZ_MODEL_VENDOR = "google";
     expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlash);
-    // 다른 도구는 영향 X
-    expect(getModelIdFor("summarize")).toBe(MODELS.haiku);
+    // summarize는 기본 Gemini, presentation은 Sonnet 그대로
+    expect(getModelIdFor("summarize")).toBe(MODELS.geminiFlash);
     expect(getModelIdFor("presentation")).toBe(MODELS.sonnet);
   });
 
@@ -60,7 +65,7 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlash);
   });
 
-  it("SUMMARY_MODEL_VENDOR=google → summarize만 Gemini Flash", () => {
+  it("SUMMARY_MODEL_VENDOR=google → summarize는 Gemini (이미 기본)", () => {
     process.env.SUMMARY_MODEL_VENDOR = "google";
     expect(getModelIdFor("summarize")).toBe(MODELS.geminiFlash);
     // quiz는 영향 X
@@ -89,7 +94,7 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
 
   it("vendor 플래그가 안 걸린 도구는 영향 X — chat은 항상 Anthropic 라우팅", () => {
     process.env.QUIZ_MODEL_VENDOR = "google";
-    process.env.SUMMARY_MODEL_VENDOR = "google";
+    // summarize는 어차피 기본 Gemini라 SUMMARY_MODEL_VENDOR=google 의미 없음
     expect(getModelIdFor("chat")).toBe(MODELS.haiku);
     expect(getModelIdFor("chat-free")).toBe(MODELS.haiku);
   });
@@ -102,9 +107,14 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     expect(getModelIdFor("quiz")).toBe(MODELS.sonnet);
   });
 
-  it("VERCEL_ENV=production이면 SUMMARY_MODEL_VENDOR=google 무시", () => {
+  it("VERCEL_ENV=production이어도 summarize는 Gemini Flash (2026-05-31 결정)", () => {
     process.env.VERCEL_ENV = "production";
-    process.env.SUMMARY_MODEL_VENDOR = "google";
+    expect(getModelIdFor("summarize")).toBe(MODELS.geminiFlash);
+  });
+
+  it("VERCEL_ENV=production에서도 SUMMARY_MODEL_VENDOR=anthropic이면 Haiku로 복귀", () => {
+    process.env.VERCEL_ENV = "production";
+    process.env.SUMMARY_MODEL_VENDOR = "anthropic";
     expect(getModelIdFor("summarize")).toBe(MODELS.haiku);
   });
 

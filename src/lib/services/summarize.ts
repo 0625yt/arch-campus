@@ -145,7 +145,10 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
         input.sanitizedText.trim().length > 0
           ? input.sanitizedText
           : `[본문 자동 추출 실패 — 파일명 ${input.title} · 종류 ${input.type}]`,
-      maxTokens: 8192,
+      // 2026-05-31 결정: 31p+ 합본 자료에서 Haiku가 8192에서 잘려 JSON 깨지던 문제 해결.
+      // Gemini Flash로 모델 교체 + maxTokens 10배(8K→81K). 모델은 보통 6~10K만 뱉으므로
+      // 평균 비용 영향 거의 없음 — 극단 케이스에만 길게 뱉음. (CLAUDE.md §1 비용 통제 검토 완료)
+      maxTokens: 81920,
       temperature: 0.3,
     });
   } catch (e) {
@@ -238,13 +241,15 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
  * 안의 다른 검증(타입·내용 길이)은 그대로 zod로.
  */
 function parseSummarizeWithCap(raw: string): SummarizeOutputT {
+  // 2026-05-31: 사용자 결정으로 cap 5배 — keywords 100→500, blocks 100→500.
+  // Gemini 64K 출력 한도 안에서 충분히 담김. 합본·강의 슬라이드 자료가 길어도 안 잘림.
   const body = extractJsonBodyForCap(raw);
   const parsed = JSON.parse(body) as Record<string, unknown>;
-  if (Array.isArray(parsed.keywords) && parsed.keywords.length > 100) {
-    parsed.keywords = parsed.keywords.slice(0, 100);
+  if (Array.isArray(parsed.keywords) && parsed.keywords.length > 500) {
+    parsed.keywords = parsed.keywords.slice(0, 500);
   }
-  if (Array.isArray(parsed.blocks) && parsed.blocks.length > 100) {
-    parsed.blocks = parsed.blocks.slice(0, 100);
+  if (Array.isArray(parsed.blocks) && parsed.blocks.length > 500) {
+    parsed.blocks = parsed.blocks.slice(0, 500);
   }
   if (Array.isArray(parsed.reviewSpots) && parsed.reviewSpots.length > 8) {
     parsed.reviewSpots = parsed.reviewSpots.slice(0, 8);
