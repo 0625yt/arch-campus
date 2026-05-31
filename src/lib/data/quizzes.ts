@@ -28,7 +28,7 @@ export interface QuizSolveView {
         topic: string;
         stem: string;
         choices: { key: "A" | "B" | "C" | "D"; text: string }[];
-        hint?: string;
+        hint?: string | null;
       }
     | {
         id: number;
@@ -38,7 +38,7 @@ export interface QuizSolveView {
         stem: string;
         placeholder: string;
         answerGuide: string;
-        hint?: string;
+        hint?: string | null;
       }
   >;
   total: number;

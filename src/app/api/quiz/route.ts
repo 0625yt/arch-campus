@@ -23,7 +23,7 @@ interface QuizResponseOk {
     stem: string;
     // 객관식 외에는 null
     choices: { key: "A" | "B" | "C" | "D"; text: string }[] | null;
-    hint?: string;
+    hint?: string | null;
   }>;
   total: number;
   watermark: string;

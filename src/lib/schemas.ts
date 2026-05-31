@@ -94,14 +94,14 @@ export const QuizQuestion = z.object({
   explanation: z.string().min(20).max(500),
   evidence: z.string().min(0).max(2000),
   evidencePage: z.number().int().nullable().optional(),
-  trapAnalysis: z.string().optional(),
-  hint: z.string().min(5).max(200).optional(),
+  trapAnalysis: z.string().nullable().optional(),
+  hint: z.string().min(5).max(200).nullable().optional(),
 });
 export type QuizQuestionT = z.infer<typeof QuizQuestion>;
 
 export const QuizOutput = z.union([
   z.object({
-    questions: z.array(QuizQuestion).min(1).max(10),
+    questions: z.array(QuizQuestion).min(1).max(40),
     rejected: z.literal(false).optional(),
     watermark: z.string().min(10),
   }),
