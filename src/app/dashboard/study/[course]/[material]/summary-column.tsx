@@ -1,5 +1,6 @@
 "use client";
 
+import { FeedbackTriggerButton } from "@/components/feedback-trigger-button";
 import { WizardWatermark } from "@/components/wizard-shell";
 import type { SummarizeOutputT } from "@/lib/schemas";
 import { PageChip } from "./material-view";
@@ -14,12 +15,26 @@ import { PageChip } from "./material-view";
 export function SummaryColumn({
   summary,
   onPageClick,
+  materialId,
+  generationId,
 }: {
   summary: SummarizeOutputT;
   onPageClick: (page: number) => void;
+  materialId?: string;
+  generationId?: string;
 }) {
   return (
     <article className="arch-print-target rounded-[18px] bg-white p-7 sm:p-9">
+      {materialId && (
+        <div className="mb-2 flex justify-end print:hidden">
+          <FeedbackTriggerButton
+            targetType="summary"
+            targetId={materialId}
+            generationId={generationId}
+            label="이 요약 피드백"
+          />
+        </div>
+      )}
       <p
         className="text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
         style={{ letterSpacing: "-0.022em" }}
