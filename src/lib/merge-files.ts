@@ -39,7 +39,7 @@ export interface MergedResult {
   warnings: string[];
 }
 
-/** PDF만의 진짜 merge — pdf-lib로 페이지 단위로 옮겨붙임. */
+/** PDF만의 진짜 merge — pdf-lib로 페이지 단위로 옮겨붙임. 견고하게: 한 PDF 깨져도 진행. */
 export async function mergePdfs(files: MergeInputFile[]): Promise<MergedResult> {
   if (files.length === 0) throw new Error("merge할 파일이 없어요");
   if (files.some((f) => f.mimeType !== "application/pdf")) {
@@ -48,28 +48,66 @@ export async function mergePdfs(files: MergeInputFile[]): Promise<MergedResult> 
 
   const out = await PDFDocument.create();
   const warnings: string[] = [];
+  // 각 파일을 개별 try — 한 PDF가 깨져도 나머지로 진행. pdf-lib는 일부 PDF (특히
+  // 비표준 폰트 테이블 / 암호화 / 손상)에서 throw하는데, 사용자 자료는 강의에서 받은
+  // 다양한 형식이라 한 파일 깨짐으로 전체 막히면 안 됨.
   for (const f of files) {
     try {
-      const src = await PDFDocument.load(f.bytes, { ignoreEncryption: true });
+      const src = await PDFDocument.load(f.bytes, {
+        ignoreEncryption: true,
+        // 비표준 PDF 관용도 ↑ (pdf-lib v1.17+)
+        throwOnInvalidObject: false,
+        updateMetadata: false,
+      });
       const pages = await out.copyPages(src, src.getPageIndices());
       for (const p of pages) out.addPage(p);
     } catch (e) {
-      warnings.push(`${f.filename}: PDF 병합 실패 (${e instanceof Error ? e.message : "unknown"})`);
+      warnings.push(
+        `${f.filename}: PDF 병합 실패 — ${e instanceof Error ? e.message : "unknown"}`,
+      );
     }
   }
 
+  // 모든 PDF가 깨졌으면 텍스트 fallback — 각 파일을 parseDocument로 텍스트만 뽑아 concat.
+  // 이러면 사용자 입장에서 "0/N 자료 안 됨" 대신 "텍스트만 합쳐서 정리해드림" 결과를 받음.
   if (out.getPageCount() === 0) {
-    throw new Error("모든 PDF가 병합에 실패했어요");
+    warnings.push("모든 PDF에서 페이지 추출 실패 — 텍스트만 합쳐 정리해요");
+    return await mergeAsText(files);
   }
 
-  const mergedBytes = await out.save();
+  let mergedBytes: Uint8Array;
+  try {
+    mergedBytes = await out.save();
+  } catch (e) {
+    warnings.push(
+      `merged PDF save 실패 — 텍스트 fallback: ${e instanceof Error ? e.message : "unknown"}`,
+    );
+    const textFallback = await mergeAsText(files);
+    return { ...textFallback, warnings: [...warnings, ...textFallback.warnings] };
+  }
 
-  // 병합된 PDF를 파서에 넘겨 텍스트도 추출 (full_text 채움)
-  const parsed = await parseDocument({
-    bytes: mergedBytes,
-    filename: "merged.pdf",
-    mimeType: "application/pdf",
-  });
+  // 병합된 PDF를 파서에 넘겨 텍스트도 추출 (full_text 채움) — 실패해도 빈 텍스트로 진행.
+  let parsed: Awaited<ReturnType<typeof parseDocument>>;
+  try {
+    parsed = await parseDocument({
+      bytes: mergedBytes,
+      filename: "merged.pdf",
+      mimeType: "application/pdf",
+    });
+  } catch (e) {
+    warnings.push(
+      `merged PDF 텍스트 추출 실패 — 빈 본문으로 진행: ${e instanceof Error ? e.message : "unknown"}`,
+    );
+    // 텍스트는 비어도 PDF 자체는 살아있으므로 원본 다운로드는 가능. 요약/문제는 메타로만.
+    parsed = {
+      text: `[병합 PDF 텍스트 추출 실패]`,
+      sanitizedText: `[병합 PDF 텍스트 추출 실패]`,
+      mimeType: "application/pdf",
+      source: "pdf",
+      pageCount: out.getPageCount(),
+      warnings: [],
+    };
+  }
 
   return {
     mode: "pdf",

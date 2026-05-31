@@ -241,45 +241,45 @@ export async function POST(
       .eq("id", material.id)
       .eq("owner_id", ownerId);
 
-    const jobs: Array<Promise<unknown>> = [
-      runSummarizeJob({
-        jobId: summarizeEnqueue.job.id,
-        ownerId,
-        materialId: material.id,
-        title,
-        type,
-        fullText: parsed.text,
-        sanitizedText: parsed.sanitizedText,
-        pageCount: parsed.pageCount ?? null,
-        parserWarnings: parsed.warnings,
-      }),
-      runQuizJob({
-        jobId: quizEnqueue.job.id,
-        ownerId,
-        materialId: material.id,
-        courseId: body.courseId ?? null,
-        title,
-        type,
-        fullText: parsed.text,
-        sanitizedText: parsed.sanitizedText,
-        pageCount: parsed.pageCount ?? null,
-        parserWarnings: parsed.warnings,
-        difficulty: (body.difficulty ?? "보통") as Difficulty,
-        requestedCount: body.count ?? 10,
-      }),
-    ];
+    // 순차 실행 — Anthropic concurrent connection · 분당 토큰 limit 보호.
+    // 종전: Promise.all로 summarize+quiz 동시 호출 → 사용자가 자료 N개 한 번에 올리면
+    //       동시 호출 = N*2 + classify N개 = 3N개 → 분당 10K output tokens 초과 → 일부 실패.
+    // 현재: 한 자료 안에서 summarize → quiz → convert-pdf 순서로 await.
+    //       자료 간 병렬은 클라이언트 순차 업로드(uploadAll)가 막고 있음.
+    await runSummarizeJob({
+      jobId: summarizeEnqueue.job.id,
+      ownerId,
+      materialId: material.id,
+      title,
+      type,
+      fullText: parsed.text,
+      sanitizedText: parsed.sanitizedText,
+      pageCount: parsed.pageCount ?? null,
+      parserWarnings: parsed.warnings,
+    });
+    await runQuizJob({
+      jobId: quizEnqueue.job.id,
+      ownerId,
+      materialId: material.id,
+      courseId: body.courseId ?? null,
+      title,
+      type,
+      fullText: parsed.text,
+      sanitizedText: parsed.sanitizedText,
+      pageCount: parsed.pageCount ?? null,
+      parserWarnings: parsed.warnings,
+      difficulty: (body.difficulty ?? "보통") as Difficulty,
+      requestedCount: body.count ?? 10,
+    });
     if (convertEnqueue) {
-      jobs.push(
-        runConvertPdfJob({
-          jobId: convertEnqueue.job.id,
-          ownerId,
-          materialId: material.id,
-          sourceStoragePath: body.storagePath,
-          filename: body.filename,
-        }),
-      );
+      await runConvertPdfJob({
+        jobId: convertEnqueue.job.id,
+        ownerId,
+        materialId: material.id,
+        sourceStoragePath: body.storagePath,
+        filename: body.filename,
+      });
     }
-    await Promise.all(jobs);
   });
 
   return NextResponse.json({

@@ -71,15 +71,25 @@ export interface SummarizeInput {
 }
 
 /**
- * 요약 본문 1회 호출 한도. 한국어/영어 혼합 기준 약 25K~35K 토큰.
- * 이걸 넘는 자료는 앞 60K만 요약돼서 뒷부분이 silent로 누락됨 — 사용자 모름.
- * 절단 시 reviewSpots에 안내 박아 학생이 "뒷부분 따로 올려야겠다" 알 수 있게.
+ * 한 번의 모델 호출에 안전하게 들어가는 본문 크기.
+ * 한국어 기준 50K자 ≈ 25K 토큰 → Haiku 출력 6K 토큰까지 여유.
+ * 이 한도 초과 시 chunk로 쪼개서 각 chunk 요약 후 머지 (전체 커버).
  */
-const BODY_TRUNCATION_LIMIT = 60_000;
+const CHUNK_SIZE = 50_000;
+/**
+ * 한 자료에서 처리할 최대 chunk 수. 자료가 정말 큰 책 1권(>500K자) 같은 경우
+ * 비용 폭주 방지 — 보통 강의자료·교재 1챕터는 100~300K자라 6개로 충분.
+ * 초과분은 마지막 reviewSpots에 안내.
+ */
+const MAX_CHUNKS = 6;
 
 export async function runSummarize(input: SummarizeInput): Promise<SummarizeResult> {
   const isMetadataOnly = !input.sanitizedText || input.sanitizedText.trim().length < 60;
-  const wasTruncated = input.sanitizedText.length > BODY_TRUNCATION_LIMIT;
+  // 본문이 한 호출 한도 초과 → chunk 분할 경로로 라우팅.
+  // chunk 6개 한도까지 chunking, 그 이상은 잘림(reviewSpots에 안내).
+  if (!isMetadataOnly && input.sanitizedText.length > CHUNK_SIZE) {
+    return await runSummarizeChunked(input);
+  }
 
   // 분류 — Haiku로 어떤 도메인인지
   let classification: Classification | null = null;
@@ -111,7 +121,8 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     styles,
     subject,
     intentNote: input.intentNote,
-    wasTruncated,
+    // wasTruncated 플래그는 chunk 경로에서만 의미 — 단일 호출 경로는 자료 전체가 들어감.
+    wasTruncated: false,
     originalLength: input.sanitizedText.length,
   });
   const tokenBudget = breakdown({
@@ -120,7 +131,7 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     user: input.sanitizedText,
   });
 
-  // 본 모델 호출
+  // 본 모델 호출 — 자료 전체가 CHUNK_SIZE 이하이므로 slice 없이 전체 전달.
   let result: Awaited<ReturnType<typeof generate>>;
   try {
     result = await generate({
@@ -129,7 +140,7 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
       dynamicContext,
       userInput:
         input.sanitizedText.trim().length > 0
-          ? input.sanitizedText.slice(0, BODY_TRUNCATION_LIMIT)
+          ? input.sanitizedText
           : `[본문 자동 추출 실패 — 파일명 ${input.title} · 종류 ${input.type}]`,
       maxTokens: 6144,
       temperature: 0.3,
@@ -150,13 +161,10 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     };
   }
 
-  // Zod 검증
+  // Zod 검증 — 단일 호출 경로는 자료 전체가 들어가서 절단 없음.
   let summary: SummarizeOutputT;
   try {
     summary = parseModelJson(SummarizeOutput, result.text);
-    if (wasTruncated) {
-      summary = addTruncationNotice(summary, input.sanitizedText.length);
-    }
   } catch (e) {
     await logGeneration({
       ownerId: input.ownerId,
@@ -209,25 +217,6 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     usage: result.usage,
     costUsd,
     tokenBudget,
-  };
-}
-
-/**
- * 본문이 너무 길어 앞 60K자만 요약된 경우, 결과의 reviewSpots에 안내 한 줄 prepend.
- * 학생이 "왜 뒷부분 안 보이지?" 혼란 없이 "쪼개서 올려야겠다" 행동 결정 가능.
- */
-function addTruncationNotice(summary: SummarizeOutputT, originalLength: number): SummarizeOutputT {
-  const truncatedKchars = Math.round((originalLength - BODY_TRUNCATION_LIMIT) / 1000);
-  const totalKchars = Math.round(originalLength / 1000);
-  return {
-    ...summary,
-    reviewSpots: [
-      {
-        title: "⚠ 자료가 길어 앞부분만 정리했어요",
-        why: `이 자료는 총 약 ${totalKchars}K자인데 한 번에 정리 가능한 한도(60K자)를 넘어요. 뒤 약 ${truncatedKchars}K자가 빠졌어요. 자료를 단원별로 쪼개서 따로 올리면 전체를 정리할 수 있어요.`,
-      },
-      ...summary.reviewSpots,
-    ].slice(0, 8),
   };
 }
 
@@ -312,6 +301,312 @@ function buildDynamicContext(meta: {
     );
   }
   return lines.join("\n");
+}
+
+/**
+ * Map-Reduce 요약 — 본문을 chunk로 쪼개 각각 요약 → 결과 머지.
+ *
+ * 사용자 피드백: "20장 PDF인데 5장까지만 요약됨, 자료 전체 무조건 다 나와야 함"
+ * → 60K자 cap 제거. CHUNK_SIZE(50K자) 단위로 분할, 최대 MAX_CHUNKS(6)개까지 처리.
+ *
+ * 동작:
+ *   1) 본문을 단락 경계(개행) 기준으로 chunk 분할 — 문장 중간 X
+ *   2) 각 chunk마다 runSummarize 재귀 호출 (chunk 크기 ≤ CHUNK_SIZE라 단일 경로)
+ *   3) 결과 N개를 머지: blocks/keywords/reviewSpots concat, leadSentence는 첫 chunk 것
+ *   4) 각 chunk blocks 앞에 h2 "── 부분 N/M (p.X~Y) ──" 박아 위치 안내
+ *   5) MAX_CHUNKS 초과분은 reviewSpots에 "뒤 X자 빠짐" 안내
+ *
+ * 비용:
+ *   - chunk 1개당 Haiku $0.0005 ~ $0.001
+ *   - 6 chunk 자료 → $0.006 + classify 1회
+ *   - 사용자가 자료를 정리해야 점수 오르는 시점이라 비용보다 완성도 우선
+ */
+async function runSummarizeChunked(input: SummarizeInput): Promise<SummarizeResult> {
+  const chunks = splitIntoChunks(input.sanitizedText, CHUNK_SIZE);
+  const processedChunks = chunks.slice(0, MAX_CHUNKS);
+  const truncatedChunkCount = chunks.length - processedChunks.length;
+
+  // chunk별 요약을 순차로 — Anthropic concurrent 보호 + chunk 간 분류기 재사용 위해 직렬.
+  // chunk 1개 ≈ 8~12s라 6 chunk = ~60s. Vercel maxDuration 300s 한도 안.
+  const partials: SummarizeOutputT[] = [];
+  let totalUsage = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+  };
+  let totalCost = 0;
+  let lastModelId = "";
+
+  for (let i = 0; i < processedChunks.length; i++) {
+    const partialResult = await runSummarize({
+      ...input,
+      sanitizedText: processedChunks[i],
+      // chunk마다 별개 호출이지만 materials cache는 마지막에 머지된 결과로만 갱신해야 해서
+      // chunk 단위는 ownerId/materialId 그대로 두되 cache 갱신은 직접 처리.
+    });
+
+    if (!partialResult.ok) {
+      // chunk 한 개 실패해도 나머지 진행 — 빈 chunk로 채우고 계속
+      console.warn(
+        `chunk ${i + 1}/${processedChunks.length} 요약 실패: ${partialResult.error}`,
+      );
+      continue;
+    }
+
+    partials.push(partialResult.summary);
+    totalUsage = {
+      inputTokens: totalUsage.inputTokens + partialResult.usage.inputTokens,
+      outputTokens: totalUsage.outputTokens + partialResult.usage.outputTokens,
+      cacheReadTokens: totalUsage.cacheReadTokens + partialResult.usage.cacheReadTokens,
+      cacheCreationTokens:
+        totalUsage.cacheCreationTokens + partialResult.usage.cacheCreationTokens,
+    };
+    totalCost += partialResult.costUsd;
+    lastModelId = partialResult.modelId;
+  }
+
+  if (partials.length === 0) {
+    return {
+      ok: false,
+      stage: "ai",
+      error: "자료가 너무 길어 부분 요약을 만들지 못했어요. 잠시 후 다시 시도해주세요.",
+    };
+  }
+
+  const merged = mergePartialSummaries(partials, {
+    totalLength: input.sanitizedText.length,
+    chunkCount: processedChunks.length,
+    truncatedChunkCount,
+    chunkSize: CHUNK_SIZE,
+  });
+
+  // materials cache 갱신 — 단일 호출 경로와 동일.
+  const admin = getAdminSupabase();
+  const update = await admin
+    .from("materials")
+    .update({
+      summary_payload: merged,
+      summary_keywords: merged.keywords ?? null,
+      summary_model_id: lastModelId,
+      last_summarized_at: new Date().toISOString(),
+    })
+    .eq("id", input.materialId)
+    .eq("owner_id", input.ownerId);
+  if (update.error) {
+    console.warn("materials.summary 캐시 갱신 실패 (chunked):", update.error.message);
+  }
+
+  await logGeneration({
+    ownerId: input.ownerId,
+    materialId: input.materialId,
+    modelId: lastModelId,
+    usage: totalUsage,
+    cost: totalCost,
+    status: "ok",
+    payload: {
+      summary: merged,
+      chunked: true,
+      chunkCount: processedChunks.length,
+      truncatedChunkCount,
+    },
+  });
+
+  return {
+    ok: true,
+    summary: merged,
+    modelId: lastModelId,
+    usage: totalUsage,
+    costUsd: totalCost,
+    tokenBudget: breakdown({
+      rule: "",
+      dynamic: "",
+      user: input.sanitizedText,
+    }),
+  };
+}
+
+/**
+ * 본문을 chunkSize 이하의 chunk로 분할. 가능한 단락 경계(\n\n) 기준,
+ * 단락 하나가 chunkSize보다 크면 문장(. !?) 단위, 그것도 크면 강제 절단.
+ */
+function splitIntoChunks(text: string, chunkSize: number): string[] {
+  if (text.length <= chunkSize) return [text];
+
+  const chunks: string[] = [];
+  const paragraphs = text.split(/\n\n+/);
+  let current = "";
+
+  for (const para of paragraphs) {
+    // 빈 단락 스킵
+    if (!para.trim()) continue;
+
+    // 단락 자체가 chunkSize 초과 → 문장 단위 재분할
+    if (para.length > chunkSize) {
+      if (current) {
+        chunks.push(current);
+        current = "";
+      }
+      const sentences = para.split(/(?<=[.!?。!?])\s+/);
+      for (const sent of sentences) {
+        if (current.length + sent.length + 1 > chunkSize) {
+          if (current) chunks.push(current);
+          // 한 문장도 너무 크면 (드물지만 표·코드) 강제 자르기
+          if (sent.length > chunkSize) {
+            for (let i = 0; i < sent.length; i += chunkSize) {
+              chunks.push(sent.slice(i, i + chunkSize));
+            }
+            current = "";
+          } else {
+            current = sent;
+          }
+        } else {
+          current = current ? `${current} ${sent}` : sent;
+        }
+      }
+      continue;
+    }
+
+    if (current.length + para.length + 2 > chunkSize) {
+      chunks.push(current);
+      current = para;
+    } else {
+      current = current ? `${current}\n\n${para}` : para;
+    }
+  }
+
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+/**
+ * N개의 부분 요약을 한 자료 요약으로 합침.
+ *
+ * - leadSentence: 첫 chunk의 것 + " (총 N부분 요약)" 추가
+ * - blocks: 각 chunk 시작 전 h2 "── 부분 N/M ──" prepend 후 concat
+ * - keywords: 합치고 중복 제거 (대소문자 무시), 최대 50개
+ * - reviewSpots: 합치고 중복 title 제거, 최대 8개
+ * - watermark: 첫 chunk의 것
+ */
+function mergePartialSummaries(
+  partials: SummarizeOutputT[],
+  meta: {
+    totalLength: number;
+    chunkCount: number;
+    truncatedChunkCount: number;
+    chunkSize: number;
+  },
+): SummarizeOutputT {
+  const first = partials[0];
+  const mergedBlocks: SummarizeOutputT["blocks"] = [];
+
+  partials.forEach((p, i) => {
+    if (partials.length > 1) {
+      mergedBlocks.push({
+        type: "h2" as const,
+        content: `── 부분 ${i + 1}/${partials.length} ──`,
+      });
+    }
+    mergedBlocks.push(...p.blocks);
+  });
+
+  // 머지된 blocks이 zod max(40)를 넘으면 잘림 방지를 위해 우선순위 잡아 cap.
+  // h2·callout 먼저 살리고 para·bullets는 나중. 단순히 앞에서 40개 자르면 마지막 chunk가 통째로 날아감.
+  const cappedBlocks =
+    mergedBlocks.length <= 40
+      ? mergedBlocks
+      : capBlocks(mergedBlocks, 40);
+
+  // keywords 중복 제거 (lowercase·trim 기준)
+  const keywordSet = new Map<string, string>();
+  for (const p of partials) {
+    for (const kw of p.keywords) {
+      const key = kw.toLowerCase().trim();
+      if (!keywordSet.has(key)) keywordSet.set(key, kw);
+    }
+  }
+  const mergedKeywords = Array.from(keywordSet.values()).slice(0, 50);
+
+  // reviewSpots 중복 title 제거
+  const reviewSet = new Map<string, SummarizeOutputT["reviewSpots"][number]>();
+  for (const p of partials) {
+    for (const rs of p.reviewSpots) {
+      const key = rs.title.toLowerCase().trim();
+      if (!reviewSet.has(key)) reviewSet.set(key, rs);
+    }
+  }
+  let mergedReviewSpots = Array.from(reviewSet.values());
+
+  // 잘린 chunk 안내 추가
+  if (meta.truncatedChunkCount > 0) {
+    const truncatedKchars = Math.round(
+      (meta.totalLength - meta.chunkCount * meta.chunkSize) / 1000,
+    );
+    mergedReviewSpots = [
+      {
+        title: `⚠ 자료가 매우 길어 일부 뒤쪽이 빠졌어요`,
+        why: `이 자료는 약 ${Math.round(meta.totalLength / 1000)}K자인데 ${meta.chunkCount}부분(약 ${meta.chunkCount * 50}K자)까지 정리했어요. 뒤 약 ${truncatedKchars}K자가 빠졌어요. 더 정확한 정리가 필요하면 단원별로 쪼개서 따로 올려주세요.`,
+      },
+      ...mergedReviewSpots,
+    ];
+  }
+  mergedReviewSpots = mergedReviewSpots.slice(0, 8);
+
+  return {
+    leadSentence:
+      partials.length > 1
+        ? `${first.leadSentence} (자료가 길어 ${partials.length}부분으로 나눠 정리했어요)`
+        : first.leadSentence,
+    blocks: cappedBlocks,
+    keywords: mergedKeywords,
+    reviewSpots: mergedReviewSpots,
+    watermark: first.watermark,
+  };
+}
+
+/**
+ * 머지된 blocks가 zod max(40)를 초과하면 균형 있게 솎아내기.
+ * 각 chunk(h2 부분 마커) 안에서 h2·callout은 무조건 keep, para·bullets는 비율로 줄임.
+ */
+function capBlocks(
+  blocks: SummarizeOutputT["blocks"],
+  max: number,
+): SummarizeOutputT["blocks"] {
+  if (blocks.length <= max) return blocks;
+
+  // 우선순위: h2·callout(시각 구조) > bullets(키워드) > para(설명)
+  const priority = (b: (typeof blocks)[number]): number => {
+    if (b.type === "h2") return 0;
+    if (b.type === "callout") return 1;
+    if (b.type === "bullets") return 2;
+    return 3;
+  };
+  // 원래 순서 유지하면서 우선순위 낮은 것부터 drop
+  const indexed = blocks.map((b, i) => ({ block: b, originalIndex: i, prio: priority(b) }));
+  // prio 3(para) 부터 drop, 그래도 초과면 prio 2(bullets), prio 1(callout) 순
+  let target = indexed;
+  for (let prio = 3; prio >= 1 && target.length > max; prio--) {
+    const dropCount = target.length - max;
+    const droppable = target.filter((x) => x.prio === prio);
+    if (droppable.length === 0) continue;
+    // 균등하게 솎기 — 매 N번째 drop
+    const keepRate = Math.max(0, droppable.length - dropCount) / droppable.length;
+    let kept = 0;
+    const dropSet = new Set<number>();
+    droppable.forEach((d, i) => {
+      if (Math.floor((i + 1) * keepRate) > kept) {
+        kept++;
+      } else {
+        dropSet.add(d.originalIndex);
+      }
+    });
+    target = target.filter((x) => !dropSet.has(x.originalIndex));
+  }
+
+  return target
+    .sort((a, b) => a.originalIndex - b.originalIndex)
+    .map((x) => x.block)
+    .slice(0, max);
 }
 
 async function logGeneration(opts: {

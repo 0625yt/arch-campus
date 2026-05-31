@@ -11,28 +11,101 @@ import { parseModelJson } from "./schemas";
  * 모델이 자료 도메인에 맞는 문제·요약 포맷을 만들도록 가이드.
  */
 
+/**
+ * 도메인 enum — 본 schema에서는 string으로 받고, normalizeClassification에서 정규화.
+ * Haiku가 "공학(전기·전자)" 같이 enum 밖 라벨을 자주 만들어 strict enum이 실패율 ↑.
+ */
+export const DOMAIN_VALUES = [
+  "어학",
+  "수학·통계",
+  "프로그래밍·CS",
+  "공학",
+  "자연과학",
+  "사회과학",
+  "인문학",
+  "경영·경제",
+  "예체능",
+  "강의·시험 안내",
+  "기타",
+] as const;
+export type DomainValue = (typeof DOMAIN_VALUES)[number];
+
+/**
+ * 한도들이 너무 빡빡해서 Haiku가 자주 초과 → silent로 분류 무효화 → 품질 저하.
+ * answerLanguage 200자, contentNotes 1000자로 풀고, 길게 들어오면 normalize에서 자름.
+ * domain은 string으로 받고 normalize에서 enum 매핑.
+ */
+const RawClassificationSchema = z.object({
+  primaryLanguage: z.string().min(1).max(80),
+  primarySubject: z.string().min(1).max(120),
+  domain: z.string().min(1).max(60),
+  questionStyleHints: z.array(z.string().min(2).max(300)).min(0).max(8),
+  answerLanguage: z.string().min(1).max(200),
+  contentNotes: z.string().min(0).max(1000),
+});
+
 export const ClassificationSchema = z.object({
-  primaryLanguage: z.string().min(1).max(40),
-  primarySubject: z.string().min(1).max(60),
-  domain: z.enum([
-    "어학",
-    "수학·통계",
-    "프로그래밍·CS",
-    "공학",
-    "자연과학",
-    "사회과학",
-    "인문학",
-    "경영·경제",
-    "예체능",
-    "강의·시험 안내",
-    "기타",
-  ]),
-  questionStyleHints: z.array(z.string().min(2).max(120)).min(1).max(5),
-  answerLanguage: z.string().min(1).max(40),
-  contentNotes: z.string().min(5).max(280),
+  primaryLanguage: z.string().min(1).max(80),
+  primarySubject: z.string().min(1).max(120),
+  domain: z.enum(DOMAIN_VALUES),
+  questionStyleHints: z.array(z.string().min(2).max(300)).min(1).max(8),
+  answerLanguage: z.string().min(1).max(200),
+  contentNotes: z.string().min(0).max(1000),
 });
 
 export type Classification = z.infer<typeof ClassificationSchema>;
+
+/**
+ * Haiku 출력 → Classification으로 정규화.
+ *
+ * - domain이 enum 밖이면 키워드 매칭으로 가장 가까운 enum 값, 매칭 실패면 "기타"
+ * - 너무 긴 텍스트 필드는 잘라서 통과 (silent로 분류 무효화되는 것보단 잘린 분류가 나음)
+ * - questionStyleHints 비면 기본 한 줄 채움
+ */
+function normalizeClassification(raw: z.infer<typeof RawClassificationSchema>): Classification {
+  return {
+    primaryLanguage: raw.primaryLanguage.slice(0, 80).trim() || "한국어",
+    primarySubject: raw.primarySubject.slice(0, 120).trim() || "일반",
+    domain: normalizeDomain(raw.domain),
+    questionStyleHints:
+      raw.questionStyleHints.length > 0
+        ? raw.questionStyleHints.map((h) => h.slice(0, 300).trim()).filter(Boolean)
+        : ["자료 핵심 개념 정의·구분 묻기"],
+    answerLanguage: raw.answerLanguage.slice(0, 200).trim() || "한국어",
+    contentNotes: raw.contentNotes.slice(0, 1000).trim(),
+  };
+}
+
+function normalizeDomain(raw: string): DomainValue {
+  const trimmed = raw.trim();
+  // 정확 매칭
+  if ((DOMAIN_VALUES as readonly string[]).includes(trimmed)) return trimmed as DomainValue;
+  // 부분 매칭 (Haiku가 "공학(전자)" / "프로그래밍" 같이 변형 출력 자주)
+  const lower = trimmed.toLowerCase();
+  for (const value of DOMAIN_VALUES) {
+    if (trimmed.includes(value) || value.includes(trimmed.split("·")[0])) return value;
+  }
+  if (lower.includes("language") || lower.includes("english") || lower.includes("어학")) return "어학";
+  if (lower.includes("math") || lower.includes("수학") || lower.includes("통계")) return "수학·통계";
+  if (
+    lower.includes("cs") ||
+    lower.includes("computer") ||
+    lower.includes("programming") ||
+    lower.includes("코드") ||
+    lower.includes("프로그래밍")
+  )
+    return "프로그래밍·CS";
+  if (lower.includes("engineer") || lower.includes("공학")) return "공학";
+  if (lower.includes("science") || lower.includes("물리") || lower.includes("화학") || lower.includes("생물"))
+    return "자연과학";
+  if (lower.includes("history") || lower.includes("사회") || lower.includes("정치") || lower.includes("법학"))
+    return "사회과학";
+  if (lower.includes("philosophy") || lower.includes("문학") || lower.includes("인문")) return "인문학";
+  if (lower.includes("business") || lower.includes("경영") || lower.includes("경제")) return "경영·경제";
+  if (lower.includes("art") || lower.includes("음악") || lower.includes("예체")) return "예체능";
+  if (lower.includes("syllabus") || lower.includes("강의계획") || lower.includes("안내")) return "강의·시험 안내";
+  return "기타";
+}
 
 const SYSTEM_PROMPT = `당신은 한국 대학생 학습 보조 도구의 자료 분류기예요.
 주어진 자료 본문 일부를 읽고 어떤 학습 보조가 적절한지 판별해서 JSON 한 개로만 답해요.
@@ -97,7 +170,11 @@ export async function classifyMaterial(opts: {
         { role: "user", content: userMsg },
       ],
     });
-    return parseModelJson(ClassificationSchema, result.text);
+    // Raw schema(너그러움)로 먼저 파싱 → normalize로 enum·길이 보정 → 최종 strict 검증.
+    // 종전엔 strict schema로 바로 파싱해 contentNotes 280자 초과·domain enum 외 값에서
+    // silent fail → 모든 자료의 30~50%에서 분류 무효화 (로그에서 확인됨).
+    const raw = parseModelJson(RawClassificationSchema, result.text);
+    return normalizeClassification(raw);
   } catch (e) {
     console.warn(
       "classifyMaterial 실패 — 분류 없이 진행:",

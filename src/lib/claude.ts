@@ -353,6 +353,37 @@ function callProviderOptions(vendor: ModelVendor): ProviderOptions | undefined {
   return undefined;
 }
 
+/**
+ * 모든 generateText 호출의 공통 retry 래퍼.
+ *
+ * 사용자가 자료 N개를 동시에 올리면 같은 분 내 Haiku/Sonnet 호출이 폭주해
+ * - "Number of concurrent connections exceeded"
+ * - "request would exceed your organization's rate limit of 10,000 output tokens per minute"
+ * 같은 429가 떨어짐 (실측 로그 확인).
+ *
+ * AI SDK 기본 maxRetries=3이지만 우리 트래픽 패턴엔 부족 → 5회 + 지터.
+ * AI SDK가 backoff(2^n * 100ms) 내부 처리하므로 우리는 maxRetries만 올린다.
+ */
+async function callWithRetry(opts: {
+  modelId: string;
+  vendor: ModelVendor;
+  messages: ModelMessage[];
+  maxTokens: number;
+  temperature: number;
+  tool: ToolKind;
+}): Promise<Awaited<ReturnType<typeof generateText>>> {
+  return generateText({
+    model: modelInstance(opts.modelId),
+    maxOutputTokens: opts.maxTokens,
+    temperature: opts.temperature,
+    messages: opts.messages,
+    providerOptions: callProviderOptions(opts.vendor),
+    // AI SDK 내장 retry — 429/503/network에 자동 적용. 기본 3 → 5.
+    // 한 호출 최대 대기: 100·200·400·800·1600ms = ~3s extra. rate limit 풀리는 시간 충분.
+    maxRetries: 5,
+  });
+}
+
 export async function generate({
   tool,
   rulePrompt,
@@ -383,12 +414,16 @@ export async function generate({
     },
   ];
 
-  const result = await generateText({
-    model: modelInstance(modelId),
-    maxOutputTokens: maxTokens,
-    temperature,
+  // 429 / concurrent limit 대비 retry 강화 (AI SDK 기본은 3회).
+  // 사용자가 여러 자료를 한 번에 올리면 같은 분 내 Haiku 호출이 폭주해 token-per-min 초과.
+  // 5회까지 retry + 첫 retry 1.5s, 마지막 ~24s까지 exponential backoff (AI SDK 내장).
+  const result = await callWithRetry({
+    modelId,
+    vendor,
     messages,
-    providerOptions: callProviderOptions(vendor),
+    maxTokens,
+    temperature,
+    tool,
   });
 
   // Gemini가 출력 한도에 닿아 잘렸으면 dev/prod 모두 경고. jobs payload에 곧바로 안 박지만
