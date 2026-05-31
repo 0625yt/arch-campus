@@ -43,25 +43,26 @@ export function GlobalTopbar() {
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       {/*
-        Apple Mail macOS toolbar 톤 재배치 (사용자 요청):
-          ┌─ Leading: brand만 (좌측 가볍게)
-          ├─ flex spacer (가운데 비움)
-          └─ Trailing cluster: nav · 검색(절반) · 학기 · 테마 · 프로필
-        nav·검색을 우측으로 묶어 unified toolbar 톤.
+        Apple Music macOS toolbar 톤 — nav를 진짜 가운데로 (사용자 요청 2026-05-31).
+          ┌─ Leading: brand
+          ├─ flex spacer
+          ├─ Center: SegmentedNav (absolute centered도 가능하지만 flex로 안정)
+          ├─ flex spacer
+          └─ Trailing cluster: 학기 · 테마 · 프로필
       */}
       <div className="mx-auto flex h-12 max-w-[1440px] items-center gap-3 px-5 md:px-8 xl:px-10">
-        {/* Leading — brand만 */}
-        <div className="flex shrink-0 items-center">
+        {/* Leading — brand */}
+        <div className="flex flex-1 shrink-0 items-center">
           <BrandLink />
         </div>
 
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Trailing cluster — nav · meta · profile (검색 제거, ⌘K로 살아있음) */}
-        <div className="flex shrink-0 items-center gap-2">
+        {/* Center — nav segmented (진짜 가운데) */}
+        <div className="flex shrink-0 items-center justify-center">
           <SegmentedNav pathname={pathname} />
-          <span aria-hidden className="mx-1 h-5 w-px bg-[var(--color-apple-hairline-soft)]" />
+        </div>
+
+        {/* Trailing cluster — meta · profile */}
+        <div className="flex flex-1 shrink-0 items-center justify-end gap-2">
           <SemesterChip />
           <ThemeToggle />
           <ProfileMenu />
