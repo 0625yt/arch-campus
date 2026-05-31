@@ -110,12 +110,29 @@ export function GenerateForm({
               extraMaterialIds: Array.from(extraMaterialIds),
             }),
       });
-      const json = (await res.json()) as { ok: boolean; jobId?: string; error?: string };
+      // 응답 body가 비거나(서버 timeout·콜드스타트·502) 비-JSON이면 res.json()이 throw —
+      // 그대로 catch로 떨어지면 "Unexpected end of JSON input"이 그대로 보임. text로 먼저 받고 안전 파싱.
+      const raw = await res.text();
+      let json: { ok?: boolean; jobId?: string; error?: string } = {};
+      if (raw.trim().length > 0) {
+        try {
+          json = JSON.parse(raw);
+        } catch {
+          // body는 있는데 JSON이 아닌 케이스 — 에러 페이지 HTML 등
+        }
+      }
       if (!res.ok || !json.ok || !json.jobId) {
-        setSubmitError(
-          json.error ??
-            (isExamMaterial ? "기출 추출을 시작하지 못했어요." : "문제로 점검할 수 없었어요."),
-        );
+        const fallbackByStatus =
+          res.status === 401
+            ? "로그인이 만료됐어요. 새로고침 후 다시 시도해주세요."
+            : res.status === 429
+              ? "요청이 잠시 많아요. 1분 뒤 다시 시도해주세요."
+              : res.status >= 500
+                ? `서버 일시 오류 (${res.status}). 잠시 후 다시 시도해주세요.`
+                : isExamMaterial
+                  ? "기출 추출을 시작하지 못했어요."
+                  : "문제로 점검할 수 없었어요.";
+        setSubmitError(json.error ?? fallbackByStatus);
         return;
       }
       setJobId(json.jobId);
