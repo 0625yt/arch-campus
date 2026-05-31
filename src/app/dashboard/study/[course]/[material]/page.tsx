@@ -18,6 +18,7 @@ import { ExtractExamView } from "./extract-exam-view";
 import { GenerateButton, type SiblingMaterialOption } from "./generate-button";
 import { MaterialTabs } from "./material-tabs";
 import { MaterialView } from "./material-view";
+import { ResummarizePanel } from "./resummarize-panel";
 import { SummarizeWithStyles } from "./summarize-with-styles";
 import { SummaryLoading } from "./summary-loading";
 
@@ -152,6 +153,13 @@ export default async function MaterialDetailPage({
             materialId={detail.id}
             className="mt-6 fade-up fade-up-3 sm:mt-8"
             fallback={<EmptySummary materialId={detail.id} defaultStyles={defaultStyles} />}
+          />
+        )}
+
+        {!isExamType && detail.summary && (
+          <ResummarizePanel
+            materialId={detail.id}
+            className="mt-6 fade-up fade-up-3 sm:mt-8"
           />
         )}
 
