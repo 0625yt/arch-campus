@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
-import { SearchTrigger } from "@/components/search-trigger";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { inferSemester } from "@/lib/semester";
 import { cn } from "@/lib/utils";
@@ -59,10 +58,9 @@ export function GlobalTopbar() {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Trailing cluster — nav · 검색 · meta · profile */}
+        {/* Trailing cluster — nav · meta · profile (검색 제거, ⌘K로 살아있음) */}
         <div className="flex shrink-0 items-center gap-2">
           <SegmentedNav pathname={pathname} />
-          <SpotlightSearch />
           <span aria-hidden className="mx-1 h-5 w-px bg-[var(--color-apple-hairline-soft)]" />
           <SemesterChip />
           <ThemeToggle />
@@ -88,23 +86,6 @@ function BrandLink() {
         arch
       </span>
     </Link>
-  );
-}
-
-/**
- * Spotlight 검색 chip — trailing cluster 안. 사용자 요청대로 절반 폭(210px).
- * lg 미만에선 아이콘만 (좁은 viewport 보호).
- */
-function SpotlightSearch() {
-  return (
-    <>
-      <div className="hidden w-[210px] lg:block">
-        <SearchTrigger variant="sidebar" />
-      </div>
-      <div className="lg:hidden">
-        <SearchTrigger variant="icon" />
-      </div>
-    </>
   );
 }
 
