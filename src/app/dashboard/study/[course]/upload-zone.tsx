@@ -78,12 +78,15 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
   const [pickedType, setPickedType] = useState<MaterialType>("lecture");
   // 2개 이상 선택 시 사용자가 고름. 기본 "각각 등록" — 안전한 기본값.
   const [mergeMode, setMergeMode] = useState<MergeMode>("separate");
+  // 첫 요약 한 줄 요청 — 자료 안에서 무엇을 강조할지. 자료 밖 생성은 서버 가드(120자 + 프롬프트)가 거부.
+  // 모달에서 입력 → finalize/finalize-merged의 intentNote로 전달 → 첫 요약부터 반영.
+  const [intentNote, setIntentNote] = useState("");
 
   /**
    * 한 파일 업로드 — 성공이면 materialId 반환, 실패면 throw.
    * 호출자(uploadAll)가 try/catch로 한 파일 실패를 batch에 기록.
    */
-  async function uploadOne(file: File, type: MaterialType): Promise<string> {
+  async function uploadOne(file: File, type: MaterialType, note: string): Promise<string> {
     // 1) signed URL 발급
     const urlRes = await fetch("/api/materials/upload-url", {
       method: "POST",
@@ -138,6 +141,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
         materialId: urlBody.materialId,
         courseId,
         type,
+        intentNote: note || undefined,
       }),
     });
     const finBody = (await finRes.json().catch(() => null)) as
@@ -165,7 +169,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
    * 진행 UI는 "N개 중 K번째 올리는 중" + 마지막에 "합치는 중…".
    * 실패 시: 서버가 "incompatible" 반환하면 자동으로 separate 폴백 호출.
    */
-  async function uploadMerged(files: File[], type: MaterialType): Promise<void> {
+  async function uploadMerged(files: File[], type: MaterialType, note: string): Promise<void> {
     setPhase("uploading");
     setErrorMsg(null);
     setUploaded([]);
@@ -260,6 +264,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
         })),
         courseId,
         type,
+        intentNote: note || undefined,
       }),
     });
     const mergeBody = (await mergeRes.json().catch(() => null)) as
@@ -273,7 +278,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
       // 서버가 "형식 섞임"으로 거부하면 → separate 폴백 자동 호출 (이미 업로드된 파일들로)
       if (mergeBody && "reason" in mergeBody && mergeBody.reason === "incompatible") {
         setErrorMsg(null);
-        await fallbackToSeparate(sources, type);
+        await fallbackToSeparate(sources, type, note);
         return;
       }
 
@@ -299,6 +304,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
   async function fallbackToSeparate(
     sources: Array<{ storagePath: string; filename: string; mimeType: string; materialId: string }>,
     type: MaterialType,
+    note: string,
   ) {
     const okList: UploadedItem[] = [];
     const failList: FailedItem[] = [];
@@ -330,6 +336,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
             materialId: s.materialId,
             courseId,
             type,
+            intentNote: note || undefined,
           }),
         });
         const finBody = (await finRes.json().catch(() => null)) as
@@ -368,7 +375,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
    * N개 파일 순차 업로드. 한 파일 실패해도 나머지 진행.
    * 한 파일이라도 성공하면 phase="done". 전부 실패면 phase="error".
    */
-  async function uploadAll(files: File[], type: MaterialType) {
+  async function uploadAll(files: File[], type: MaterialType, note: string) {
     setPhase("uploading");
     setErrorMsg(null);
     setUploaded([]);
@@ -383,7 +390,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
       setCurrentIndex(i + 1);
       setCurrentName(file.name);
       try {
-        const materialId = await uploadOne(file, type);
+        const materialId = await uploadOne(file, type, note);
         okList.push({ filename: file.name, materialId });
       } catch (e) {
         failList.push({
@@ -433,6 +440,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
   function askTypeThenUpload(files: File[]) {
     setPickedType("lecture");
     setMergeMode("separate");
+    setIntentNote("");
     setPendingFiles(files);
   }
 
@@ -441,16 +449,18 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
     const files = pendingFiles;
     const type = pickedType;
     const mode = mergeMode;
+    const note = intentNote.trim();
     setPendingFiles([]);
     if (files.length > 1 && mode === "merge") {
-      void uploadMerged(files, type);
+      void uploadMerged(files, type, note);
     } else {
-      void uploadAll(files, type);
+      void uploadAll(files, type, note);
     }
   }
 
   function cancelType() {
     setPendingFiles([]);
+    setIntentNote("");
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -792,6 +802,31 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
               </div>
             );
           })()}
+
+          {/* 첫 요약 한 줄 요청 — 자료 안에서 어디를 강조할지. 자료 밖 생성은 서버 가드가 거부.
+              비워두면 일반 요약(기존 동작). 120자 cap은 input + 서버 양쪽. */}
+          <div className="mt-6">
+            <h4
+              className="text-[11px] wght-700 tabular-nums uppercase text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "0.04em" }}
+            >
+              요약 요청 <span className="wght-450 normal-case opacity-70">(선택)</span>
+            </h4>
+            <input
+              type="text"
+              value={intentNote}
+              onChange={(e) => setIntentNote(e.target.value.slice(0, 120))}
+              placeholder="원하시는 방향에 맞게 요청해주세요 — 예: 시험 직전 정리, 예문은 영어 그대로"
+              className="mt-2.5 w-full rounded-full border border-[var(--color-apple-hairline)] bg-white px-4 py-2 text-[13px] wght-450 text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)] placeholder:text-[var(--color-apple-muted)]/55"
+              style={{ letterSpacing: "-0.012em" }}
+            />
+            <p
+              className="mt-2 text-[11px] wght-450 leading-[1.5] text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.012em" }}
+            >
+              비워두면 일반 요약으로 진행해요. 자료 안에서 강조할 지점만 적어주세요.
+            </p>
+          </div>
 
           <div className="mt-7 flex justify-end gap-2">
             <button

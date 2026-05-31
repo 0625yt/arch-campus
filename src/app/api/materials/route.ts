@@ -41,6 +41,8 @@ export async function runSummarizeJob(opts: {
   sanitizedText: string;
   pageCount: number | null;
   parserWarnings: string[];
+  /** 업로드 시 사용자가 입력한 한 줄 요청 — 첫 요약부터 반영. 120자 cap은 라우트에서. */
+  intentNote?: string;
 }): Promise<void> {
   try {
     await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId });
@@ -53,6 +55,7 @@ export async function runSummarizeJob(opts: {
       sanitizedText: opts.sanitizedText,
       pageCount: opts.pageCount,
       parserWarnings: opts.parserWarnings,
+      intentNote: opts.intentNote,
     });
     if (!result.ok) {
       await markJobError({ jobId: opts.jobId, ownerId: opts.ownerId, errorMessage: result.error });
