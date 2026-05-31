@@ -129,6 +129,27 @@ export async function createMaterialUploadUrl(opts: {
 }
 
 /**
+ * 멀티 PDF 합치기 결과 업로드 — finalize-merged 라우트가 호출.
+ *
+ * Storage path: `<ownerId>/<materialId>-merged.pdf` (suffix로 원본과 구분).
+ * 같은 materialId로 두 번 호출되어도 upsert=true라 덮어씀 (재시도 안전).
+ */
+export async function uploadMergedPdf(opts: {
+  ownerId: string;
+  materialId: string;
+  bytes: Uint8Array;
+}): Promise<{ storagePath: string }> {
+  const storagePath = `${opts.ownerId}/${opts.materialId}-merged.pdf`;
+  const admin = getAdminSupabase();
+  const { error } = await admin.storage.from(BUCKET).upload(storagePath, opts.bytes, {
+    contentType: "application/pdf",
+    upsert: true,
+  });
+  if (error) throw new Error(`merged PDF upload 실패: ${error.message}`);
+  return { storagePath };
+}
+
+/**
  * Storage 원본 파일 삭제. DB 행 지우기 전후 어디서든 호출 가능 (idempotent).
  * 잘못된 path가 와도 에러 throw하지 않고 false 반환 — 호출부가 DB 트랜잭션 망치지 않게.
  */
