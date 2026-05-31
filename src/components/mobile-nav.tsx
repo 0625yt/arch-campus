@@ -2,24 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MobileDrawer } from "@/components/mobile-drawer";
 import { SearchTrigger } from "@/components/search-trigger";
 import { cn } from "@/lib/utils";
 
-/* 자체 SVG icons — sidebar.tsx와 동일 톤 */
+/* 자체 SVG icons — Apple iOS bottom-tab 톤 */
 function IconHome({ active }: { active?: boolean }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <title>홈</title>
       <path
-        d="M4 8.2 9 4l5 4.2v5.5c0 .9-.6 1.5-1.5 1.5H5.5c-.9 0-1.5-.6-1.5-1.5V8.2z"
+        d="M4.4 9.2 10 4.4l5.6 4.8v6c0 .9-.7 1.6-1.6 1.6H6c-.9 0-1.6-.7-1.6-1.6v-6z"
         stroke="currentColor"
-        strokeWidth={active ? 1.6 : 1.3}
+        strokeWidth={active ? 1.7 : 1.4}
         strokeLinejoin="round"
       />
       <path
-        d="M7.2 15.2v-4.1h3.6v4.1"
+        d="M8 16.8v-4.5h4v4.5"
         stroke="currentColor"
-        strokeWidth={active ? 1.6 : 1.3}
+        strokeWidth={active ? 1.7 : 1.4}
         strokeLinejoin="round"
       />
     </svg>
@@ -28,71 +28,80 @@ function IconHome({ active }: { active?: boolean }) {
 
 function IconToday({ active }: { active?: boolean }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <title>지금</title>
       <circle
-        cx="9"
-        cy="9"
-        r="2.6"
+        cx="10"
+        cy="10"
+        r="2.8"
         stroke="currentColor"
         strokeWidth={active ? 1.7 : 1.4}
         fill={active ? "currentColor" : "none"}
       />
       <circle
-        cx="9"
-        cy="9"
-        r="6.5"
+        cx="10"
+        cy="10"
+        r="7"
         stroke="currentColor"
-        strokeWidth={1.2}
+        strokeWidth={1.3}
         opacity={active ? 0.5 : 0.35}
       />
     </svg>
   );
 }
-function IconStudy() {
+function IconStudy({ active }: { active?: boolean }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <title>공부</title>
       <path
-        d="M3.5 4.5h7.5c1.1 0 1.8.7 1.8 1.7v8H5.3c-1 0-1.8-.7-1.8-1.7V4.5z"
+        d="M4 5h8.5c1.2 0 2 .8 2 1.8v9.2H6c-1.1 0-2-.8-2-1.8V5z"
         stroke="currentColor"
-        strokeWidth={1.3}
+        strokeWidth={active ? 1.7 : 1.4}
         strokeLinejoin="round"
       />
-      <path d="M3.5 4.5v10h9.3" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round" />
+      <path
+        d="M4 5v11h10.5"
+        stroke="currentColor"
+        strokeWidth={active ? 1.7 : 1.4}
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
-function IconCalendar() {
+function IconCalendar({ active }: { active?: boolean }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <title>일정</title>
       <rect
-        x="3"
-        y="4.4"
-        width="12"
-        height="10.4"
-        rx="1.4"
+        x="3.4"
+        y="5"
+        width="13.2"
+        height="11.4"
+        rx="1.6"
         stroke="currentColor"
-        strokeWidth={1.3}
+        strokeWidth={active ? 1.7 : 1.4}
       />
-      <path d="M3 7.4h12" stroke="currentColor" strokeWidth={1.3} />
+      <path d="M3.4 8.4h13.2" stroke="currentColor" strokeWidth={active ? 1.7 : 1.4} />
       <path
-        d="M6.5 3.2v2M11.5 3.2v2"
+        d="M7.4 3.6v2.2M12.6 3.6v2.2"
         stroke="currentColor"
-        strokeWidth={1.3}
+        strokeWidth={active ? 1.7 : 1.4}
         strokeLinecap="round"
       />
     </svg>
   );
 }
-function IconTools() {
+function IconTools({ active }: { active?: boolean }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <title>도구</title>
       <path
-        d="M4 14l5.4-5.4M11.5 5.8l1.9-1.9 1.3 1.3-1.9 1.9-1.3-1.3z"
+        d="M4.5 15.5l6-6M12.5 6.6l2.1-2.1 1.4 1.4-2.1 2.1-1.4-1.4z"
         stroke="currentColor"
-        strokeWidth={1.3}
+        strokeWidth={active ? 1.7 : 1.4}
         strokeLinejoin="round"
       />
-      <circle cx="4" cy="14" r="1.2" stroke="currentColor" strokeWidth={1.3} />
+      <circle cx="4.5" cy="15.5" r="1.3" stroke="currentColor" strokeWidth={active ? 1.7 : 1.4} />
     </svg>
   );
 }
@@ -105,35 +114,47 @@ const NAV = [
   { href: "/dashboard/tools", label: "도구", Icon: IconTools },
 ] as const;
 
+/**
+ * iOS 노치 보호 + 단순 wordmark + 검색. 햄버거 제거 — bottom tab으로 흐름 통일.
+ */
 export function MobileTopbar() {
-  // iOS 노치·동적 아일랜드 보호 — viewportFit=cover로 노치 영역까지 그려질 때
-  // env(safe-area-inset-top)이 들어와 메뉴 버튼이 가리지 않도록.
   return (
     <header
-      className="sticky top-0 z-30 flex h-12 items-center justify-between gap-2 border-b border-[var(--color-apple-hairline)] bg-white/85 px-3 backdrop-blur-md md:hidden"
+      className="sticky top-0 z-30 flex h-12 items-center justify-between gap-2 border-b border-[var(--color-apple-hairline-soft)] bg-white/85 px-3 backdrop-blur-xl md:hidden"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <div className="flex items-center gap-1">
-        <MobileDrawer />
-        <Link href="/dashboard" className="flex items-center gap-2 px-1">
-          <div className="relative flex h-5 w-5 items-center justify-center overflow-hidden rounded-[6px] bg-[var(--color-apple-ink)]">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
-            <span className="relative wght-700 text-[9.5px] text-white">a</span>
-          </div>
-          <span className="wght-560 text-[14px] text-[var(--color-apple-ink)]">arch</span>
-        </Link>
-      </div>
+      <Link href="/dashboard" className="flex items-center gap-2 px-1">
+        <div className="relative flex h-5 w-5 items-center justify-center overflow-hidden rounded-[6px]">
+          <div
+            className="absolute inset-0"
+            style={{
+              background: "linear-gradient(135deg, #0071e3 0%, #4f7be8 55%, #8e7ee0 100%)",
+            }}
+          />
+          <div className="absolute inset-x-1 top-0.5 h-px rounded-full bg-white/55" />
+          <span className="relative wght-700 text-[9.5px] text-white">a</span>
+        </div>
+        <span
+          className="wght-620 text-[14px] text-[var(--color-apple-ink)]"
+          style={{ letterSpacing: "-0.014em" }}
+        >
+          arch
+        </span>
+      </Link>
       <SearchTrigger variant="icon" />
     </header>
   );
 }
 
+/**
+ * iOS Tab Bar — 5칸. 활성은 위에 짧은 ink 바.
+ */
 export function MobileTabBar() {
   const pathname = usePathname();
 
   return (
     <nav
-      className="sticky bottom-0 z-30 border-t border-[var(--color-apple-hairline)] bg-white/95 backdrop-blur-md md:hidden"
+      className="sticky bottom-0 z-30 border-t border-[var(--color-apple-hairline-soft)] bg-white/92 backdrop-blur-xl md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="flex h-14 items-stretch">
@@ -151,10 +172,11 @@ export function MobileTabBar() {
                   "group relative flex h-full min-h-[44px] flex-col items-center justify-center gap-0.5 transition-colors",
                   "active:bg-[var(--color-apple-pearl)]",
                   active
-                    ? "wght-560 text-[var(--color-apple-ink)]"
+                    ? "wght-620 text-[var(--color-apple-ink)]"
                     : "wght-450 text-[var(--color-apple-muted)]",
                 )}
                 aria-current={active ? "page" : undefined}
+                style={{ letterSpacing: "-0.012em" }}
               >
                 {active && (
                   <span
@@ -163,7 +185,7 @@ export function MobileTabBar() {
                   />
                 )}
                 <Icon active={active} />
-                <span className="text-[10px] kerning-tight">{label}</span>
+                <span className="text-[10px]">{label}</span>
               </Link>
             </li>
           );

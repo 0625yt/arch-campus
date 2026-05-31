@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CommandPalette } from "@/components/command-palette";
+import { GlobalTopbar } from "@/components/global-topbar";
 import { JobsDock } from "@/components/jobs-dock";
 import { MobileTabBar, MobileTopbar } from "@/components/mobile-nav";
 import { NavigationProgress } from "@/components/navigation-progress";
-import { Sidebar } from "@/components/sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getProfile } from "@/lib/data/profile";
 
@@ -19,18 +19,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="flex h-screen-safe overflow-hidden">
+    <div className="flex h-screen-safe flex-col overflow-hidden">
       <Suspense fallback={null}>
         <NavigationProgress />
       </Suspense>
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <MobileTopbar />
-        <main className="dashboard-canvas flex-1 overflow-y-auto overscroll-contain">
-          {children}
-        </main>
-        <MobileTabBar />
-      </div>
+      <GlobalTopbar />
+      <MobileTopbar />
+      <main className="dashboard-canvas flex-1 overflow-y-auto overscroll-contain">{children}</main>
+      <MobileTabBar />
       <CommandPalette />
       <JobsDock />
     </div>
