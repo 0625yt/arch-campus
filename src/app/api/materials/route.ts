@@ -424,12 +424,50 @@ export async function runConvertPdfJob(opts: {
       filename: opts.filename,
     });
   } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    // Vercel 로그에 풀 스택 — 사용자 메시지엔 친절히, 디버깅은 raw로.
+    console.error("[convert-pdf] 실패:", {
+      jobId: opts.jobId,
+      materialId: opts.materialId,
+      filename: opts.filename,
+      raw,
+    });
     await markJobError({
       jobId: opts.jobId,
       ownerId: opts.ownerId,
-      errorMessage: e instanceof Error ? e.message : String(e),
+      errorMessage: humanizeConvertError(raw),
     });
   }
+}
+
+/**
+ * cloudconvert raw 에러를 사용자가 알아볼 수 있는 한국어로.
+ * UI에서 materials_jobs.error_message로 그대로 노출되므로 욕설·키 노출 X.
+ */
+function humanizeConvertError(raw: string): string {
+  if (raw.includes("CLOUDCONVERT_API_KEY 미설정")) {
+    return "PDF 변환 서비스가 설정되지 않았어요. 잠시 후 다시 시도해주세요.";
+  }
+  if (raw.includes("타임아웃")) {
+    return "PDF 변환이 5분 안에 끝나지 않았어요. 자료가 너무 크거나 변환 서버가 혼잡할 수 있어요. 잠시 후 다시 올려주세요.";
+  }
+  if (raw.includes("확장자를 알 수 없는")) {
+    return "이 파일 형식은 PDF로 자동 변환할 수 없어요. 미리 PDF로 저장해서 올려주세요.";
+  }
+  if (raw.includes("job 생성 실패")) {
+    return "PDF 변환 서버 요청이 거부됐어요. 잠시 후 다시 시도해주세요.";
+  }
+  if (raw.includes("변환 실패")) {
+    return "PDF로 변환하다가 실패했어요. 파일이 손상되었거나 비밀번호가 걸려있을 수 있어요. 원본을 PDF로 직접 저장해 다시 올려주세요.";
+  }
+  if (raw.includes("export URL 누락") || raw.includes("결과 PDF 다운로드 실패")) {
+    return "PDF 변환은 됐는데 결과를 받지 못했어요. 잠시 후 다시 시도해주세요.";
+  }
+  if (raw.includes("SSRF guard")) {
+    return "변환 결과 다운로드 경로가 차단됐어요. 운영자에게 문의해주세요.";
+  }
+  // 알 수 없는 케이스 — 짧게 사용자에게 보여주고 로그에서 raw 추적
+  return `PDF로 바꾸지 못했어요 (${raw.slice(0, 80)})`;
 }
 
 /**

@@ -22,7 +22,7 @@ import { breakdown } from "@/lib/tokens";
  *   - 인증, 입력 파싱, 파일 업로드(파일 케이스), HTTP 응답 매핑
  *
  * 비용 가드:
- *   - maxTokens 6144 (skills-v2 풍부도 보강 — blocks 최대 40개·sourceQuote 인용 포함)
+ *   - maxTokens 8192 (사용자 피드백 "기존보다 더 풍부하게" — 단원·흐름이 다 보이려면 충분히 길어야 함)
  *   - 분류기는 본문 60자 이상일 때만 호출 (메타만이면 스킵)
  *   - 같은 자료에 대해 강제 재요약은 호출자가 결정 (idempotency 안 함)
  */
@@ -145,7 +145,7 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
         input.sanitizedText.trim().length > 0
           ? input.sanitizedText
           : `[본문 자동 추출 실패 — 파일명 ${input.title} · 종류 ${input.type}]`,
-      maxTokens: 6144,
+      maxTokens: 8192,
       temperature: 0.3,
     });
   } catch (e) {
@@ -351,9 +351,7 @@ async function runSummarizeChunked(input: SummarizeInput): Promise<SummarizeResu
 
     if (!partialResult.ok) {
       // chunk 한 개 실패해도 나머지 진행 — 빈 chunk로 채우고 계속
-      console.warn(
-        `chunk ${i + 1}/${processedChunks.length} 요약 실패: ${partialResult.error}`,
-      );
+      console.warn(`chunk ${i + 1}/${processedChunks.length} 요약 실패: ${partialResult.error}`);
       continue;
     }
 
@@ -362,8 +360,7 @@ async function runSummarizeChunked(input: SummarizeInput): Promise<SummarizeResu
       inputTokens: totalUsage.inputTokens + partialResult.usage.inputTokens,
       outputTokens: totalUsage.outputTokens + partialResult.usage.outputTokens,
       cacheReadTokens: totalUsage.cacheReadTokens + partialResult.usage.cacheReadTokens,
-      cacheCreationTokens:
-        totalUsage.cacheCreationTokens + partialResult.usage.cacheCreationTokens,
+      cacheCreationTokens: totalUsage.cacheCreationTokens + partialResult.usage.cacheCreationTokens,
     };
     totalCost += partialResult.costUsd;
     lastModelId = partialResult.modelId;
@@ -513,12 +510,12 @@ function mergePartialSummaries(
     mergedBlocks.push(...p.blocks);
   });
 
-  // 머지된 blocks이 zod max(40)를 넘으면 잘림 방지를 위해 우선순위 잡아 cap.
-  // h2·callout 먼저 살리고 para·bullets는 나중. 단순히 앞에서 40개 자르면 마지막 chunk가 통째로 날아감.
-  const cappedBlocks =
-    mergedBlocks.length <= 40
-      ? mergedBlocks
-      : capBlocks(mergedBlocks, 40);
+  // 머지된 blocks 한도 — 사용자 피드백 "요약이 너무 길다" 반영 25개로.
+  // zod max는 40 그대로 (스키마 호환), 실제 노출은 25 캡.
+  // h2·callout 먼저 살리고 para·bullets는 나중. 단순히 앞에서 자르면 마지막 chunk가 통째로 날아감.
+  // chunk 머지 결과는 풍부도 유지 — 사용자 피드백 "기존보다 더 풍부하게, 흐름 다 보이게".
+  // zod max(60) 한도까지 살림.
+  const cappedBlocks = mergedBlocks.length <= 60 ? mergedBlocks : capBlocks(mergedBlocks, 60);
 
   // keywords 중복 제거 (lowercase·trim 기준)
   const keywordSet = new Map<string, string>();
@@ -568,13 +565,10 @@ function mergePartialSummaries(
 }
 
 /**
- * 머지된 blocks가 zod max(40)를 초과하면 균형 있게 솎아내기.
+ * 머지된 blocks가 zod max(60)를 초과하면 균형 있게 솎아내기.
  * 각 chunk(h2 부분 마커) 안에서 h2·callout은 무조건 keep, para·bullets는 비율로 줄임.
  */
-function capBlocks(
-  blocks: SummarizeOutputT["blocks"],
-  max: number,
-): SummarizeOutputT["blocks"] {
+function capBlocks(blocks: SummarizeOutputT["blocks"], max: number): SummarizeOutputT["blocks"] {
   if (blocks.length <= max) return blocks;
 
   // 우선순위: h2·callout(시각 구조) > bullets(키워드) > para(설명)

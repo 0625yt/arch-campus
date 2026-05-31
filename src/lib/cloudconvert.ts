@@ -79,16 +79,31 @@ export async function convertToPdf(opts: {
   const job = (await jobRes.json()) as CCJobResponse;
   const jobId = job.data.id;
 
-  // 2) 폴링
+  // 2) 폴링 — 첫 1분은 3초 간격(빠른 변환 잡 빠르게 catch), 그 뒤 5초 간격.
+  // status fetch가 연속 3회 실패하면 throw (네트워크 장애 빠르게 노출, 5분 대기 X).
   const startedAt = Date.now();
   const TIMEOUT_MS = 5 * 60 * 1000;
+  let consecutiveStatusFailures = 0;
   while (Date.now() - startedAt < TIMEOUT_MS) {
-    await new Promise((r) => setTimeout(r, 5_000));
+    const elapsed = Date.now() - startedAt;
+    const intervalMs = elapsed < 60_000 ? 3_000 : 5_000;
+    await new Promise((r) => setTimeout(r, intervalMs));
     const statusRes = await fetch(`${API_BASE}/jobs/${jobId}`, {
       headers: { Authorization: `Bearer ${apiKey}` },
       cache: "no-store",
+    }).catch((e) => {
+      console.warn(`[cloudconvert] status fetch 네트워크 오류: ${e}`);
+      return null;
     });
-    if (!statusRes.ok) continue; // 한 번 실패는 재시도
+    if (!statusRes || !statusRes.ok) {
+      consecutiveStatusFailures++;
+      if (consecutiveStatusFailures >= 3) {
+        const statusCode = statusRes ? `HTTP ${statusRes.status}` : "네트워크 끊김";
+        throw new Error(`CloudConvert 상태 조회 연속 실패 (${statusCode})`);
+      }
+      continue;
+    }
+    consecutiveStatusFailures = 0;
     const statusJob = (await statusRes.json()) as CCJobResponse;
     if (statusJob.data.status === "error") {
       const failed = statusJob.data.tasks.find((t) => t.status === "error");

@@ -40,8 +40,10 @@ export const SummarizeOutput = z.object({
       ]),
     )
     // 최소 5 — 너무 짧은 요약이 안 나오게. 자료 짧으면 reviewSpots로 보충.
+    // max 60 — 사용자 피드백 "기존보다 더 풍부하게, 단원·흐름 다 보이게".
+    // 50쪽+ 자료에서 단원마다 h2 + 정의 para + bullets + callout 펼치려면 40으로 부족.
     .min(5)
-    .max(40),
+    .max(60),
   keywords: z.array(z.string().min(1).max(60)).min(3).max(50),
   reviewSpots: z
     .array(

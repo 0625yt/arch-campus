@@ -13,7 +13,8 @@
       "mcp__playwright__browser_snapshot",
       "Bash(git -C /Users/hong-yuntaeg/개발/arch-campus show HEAD:src/app/dashboard/calendar/calendar-board.tsx)",
       "mcp__playwright__browser_evaluate",
-      "Bash(echo \"EXIT $?\")"
+      "Bash(echo \"EXIT $?\")",
+      "mcp__playwright__browser_type"
     ]
   },
   "enabledPlugins": {
