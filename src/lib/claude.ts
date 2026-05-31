@@ -66,7 +66,8 @@ export type ToolKind =
   | "event-parse"
   | "exam-extract"
   | "chat"
-  | "chat-free";
+  | "chat-free"
+  | "pdf-ocr";
 
 /** 도구별 기본 모델 (Anthropic). vendor 플래그로 일부를 Gemini로 우회 가능. */
 export const TOOL_MODEL: Record<ToolKind, string> = {
@@ -99,6 +100,11 @@ export const TOOL_MODEL: Record<ToolKind, string> = {
   // 환각 위험이 자료 챗의 두 배라 가드가 강해야. Haiku로 충분, 굳이 Sonnet 비용 X.
   // CHAT_FREE_MODEL=sonnet env로 격상 가능.
   "chat-free": MODELS.haiku,
+  // PDF OCR — unpdf 텍스트 추출은 스캔본·이미지 박힌 PDF·복잡한 레이아웃을 못 읽는다.
+  // Gemini Flash는 PDF를 native file input으로 받아 페이지 단위 OCR + 레이아웃 보존.
+  // 단가 $0.30/$2.50/1M이라 자료 1건당 $0.005~0.02 수준. 키 없거나 호출 실패 시
+  // parsePdf가 자동으로 unpdf 폴백. PDF_OCR_VENDOR=anthropic으로 끄면 unpdf만 사용.
+  "pdf-ocr": MODELS.geminiFlash,
 };
 
 export type ModelVendor = "anthropic" | "google";
@@ -150,6 +156,13 @@ function resolveModel(tool: ToolKind): string {
     return MODELS.geminiFlash;
   }
   if (!isProd && tool === "summarize" && envSaysGoogle(process.env.SUMMARY_MODEL_VENDOR)) {
+    return MODELS.geminiFlash;
+  }
+  // PDF OCR — prod 포함 전 환경에서 Gemini Flash 기본. unpdf로 강제하려면 PDF_OCR_VENDOR=anthropic.
+  // (사용자 명시 결정 2026-05-31: unpdf만으론 스캔본·이미지 PDF 누락 심해 OCR 품질이 더 중요.)
+  if (tool === "pdf-ocr") {
+    const raw = process.env.PDF_OCR_VENDOR?.trim().toLowerCase();
+    if (raw === "anthropic" || raw === "claude") return MODELS.haiku;
     return MODELS.geminiFlash;
   }
 
@@ -339,6 +352,8 @@ export interface GenerateResult {
   text: string;
   usage: GenerateUsage;
   modelId: string;
+  /** "length"면 maxOutputTokens에 닿아 본문이 잘림. PDF OCR 등에서 자동 재분할 트리거. */
+  finishReason?: string;
 }
 
 /** vendor에 따라 system 블록의 providerOptions(캐시·thinking)를 분기. */
@@ -441,6 +456,7 @@ export async function generate({
     text: result.text,
     modelId,
     usage,
+    finishReason: result.finishReason,
   };
 }
 
@@ -563,6 +579,7 @@ export async function generateWithFile({
     text: result.text,
     modelId,
     usage,
+    finishReason: result.finishReason,
   };
 }
 

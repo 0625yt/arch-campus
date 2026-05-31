@@ -146,16 +146,21 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     user: sanitizedText,
   });
 
+  // 본문 cap — Sonnet 4.6 컨텍스트는 200K 토큰(≈600K자) 여유지만, 한 호출 비용 통제를
+  // 위해 120K자로. 그 이상은 head/mid/tail 균등 샘플링해 자료 전 구간 출제 가능하게.
+  // (종전 60K cap은 50p+ PDF 뒤쪽 단원이 통째로 빠지던 문제 → 두 배로 + 균등 샘플링)
+  const quizInput =
+    sanitizedText.trim().length > 0
+      ? compactForQuiz(sanitizedText, 120_000)
+      : `[본문 자동 추출 실패 — 파일명 ${primary.title} · 종류 ${primary.type}]`;
+
   let result: Awaited<ReturnType<typeof generate>>;
   try {
     result = await generate({
       tool: "quiz",
       rulePrompt,
       dynamicContext,
-      userInput:
-        sanitizedText.trim().length > 0
-          ? sanitizedText.slice(0, 60_000)
-          : `[본문 자동 추출 실패 — 파일명 ${primary.title} · 종류 ${primary.type}]`,
+      userInput: quizInput,
       maxTokens: 8192,
       temperature: 0.4,
     });
@@ -294,6 +299,31 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     costUsd,
     tokenBudget,
   };
+}
+
+/**
+ * 본문이 maxChars를 초과하면 머리·중간·꼬리를 균등 비율로 샘플링.
+ * 자료 끝부분만 잘리던 종전 동작(slice) → 학기 후반 단원도 출제 후보로 진입.
+ *
+ * - maxChars 이하면 그대로 반환 (자료 전체).
+ * - 초과면 5등분 → 각 구간 머리에서 maxChars/5씩 추출, 구간 사이에 "[...중략...]" 표시.
+ *   evidence는 substring 검증을 통과해야 하므로 잘라낸 부분만 인용 가능 — 환각 차단 유지.
+ */
+function compactForQuiz(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  const segments = 5;
+  const sliceSize = Math.floor(maxChars / segments);
+  const step = Math.floor(text.length / segments);
+  const parts: string[] = [];
+  for (let i = 0; i < segments; i++) {
+    const start = i * step;
+    const end = Math.min(start + sliceSize, text.length);
+    parts.push(text.slice(start, end));
+    if (i < segments - 1 && end < text.length) {
+      parts.push(`\n\n[...자료 중간 부분 — 출제 가능 범위 표시용...]\n\n`);
+    }
+  }
+  return parts.join("");
 }
 
 /**

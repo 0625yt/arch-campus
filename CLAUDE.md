@@ -33,10 +33,11 @@
 - **모델 라우팅** (★ 비용 통제) — 무분별한 Sonnet 사용 시 무료 사용자 1인당 월 5,000원 적자. 실제 매핑은 `TOOL_MODEL`.
   - **Haiku 4.5** (`claude-haiku-4-5`): 요약·자연어 파싱·챗 (빈도 높음) — summarize, exam-extract, event-parse, post-mortem, chat, chat-free
   - **Sonnet 4.6** (`claude-sonnet-4-6`): 품질·정확도 중요 — quiz, presentation, wizard-cram, report-structure, timetable-extract(Vision), syllabus-extract(강의계획서 추출 정확도)
-  - **Gemini 2.5 Flash** (`gemini-2.5-flash`): A/B용 대안. 입력 $0.30·출력 $2.50/1M으로 Sonnet 대비 1/5 이하. 단 evidence 인용 정확도는 자료별로 검증 필요 (2026-05-28 1회 A/B 결과 0% — 프롬프트 보강 또는 자료별 재측정 필요).
+  - **Gemini 2.5 Flash** (`gemini-2.5-flash`): A/B용 대안 + **PDF OCR 기본** (`pdf-ocr`). 입력 $0.30·출력 $2.50/1M으로 Sonnet 대비 1/5 이하. 단 evidence 인용 정확도는 자료별로 검증 필요 (2026-05-28 1회 A/B 결과 0% — 프롬프트 보강 또는 자료별 재측정 필요).
   - 도구별 env override:
     - tier 분기(Anthropic 안): `QUIZ_MODEL`·`EXTRACT_MODEL`·`CHAT_MODEL`·`CHAT_FREE_MODEL`·`SYLLABUS_MODEL` (`haiku`|`sonnet`)
     - vendor 분기(Anthropic ↔ Google): `QUIZ_MODEL_VENDOR`·`SUMMARY_MODEL_VENDOR` (`anthropic` 기본 / `google`로 켜면 Gemini Flash로). vendor 분기가 tier 분기보다 우선.
+    - PDF OCR 분기: `PDF_OCR_VENDOR` (기본 `google` / `anthropic`으로 끄면 unpdf 텍스트 추출만). 키(`GOOGLE_GENERATIVE_AI_API_KEY`) 없으면 자동 폴백. 2026-05-31 결정: 스캔본·표·수식·이미지 박힌 PDF가 unpdf만으론 본문 누락이 심해 Gemini Vision OCR을 prod 포함 기본 ON.
 - **Supabase** (Auth + Postgres + Storage + Realtime). RLS 켜둠, 어드민 작업은 service-role로 우회 + userId를 세션과 재검증. (pgvector·임베딩 미사용 — RAG는 풀텍스트 기반.)
 - **Remotion 사용 X** — 이전 프로젝트와 혼동 주의. 영상 생성 없음.
 - **언어**: UI·콘텐츠·프롬프트 한국어. 변수명·함수명·주석 영어.
