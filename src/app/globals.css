@@ -49,9 +49,16 @@
   --color-apple-hairline: #d2d2d7;
   --color-apple-hairline-soft: rgba(0, 0, 0, 0.08);
 
-  /* 의미 액센트 — 도메인용 (정답률·streak·코랄·코발트) */
+  /*
+   * 의미 액센트 — Apple HIG iOS 26 system color 정렬.
+   *   success = systemGreen / streak = systemOrange / warn = systemYellow (alias)
+   *   coral은 우리 코랄 톤 유지 (트렌디·형광 빨강 회피, DESIGN.md 명시).
+   *   warn은 streak alias (학기 카운트다운·임박 일정 양쪽 같은 색 의미).
+   */
   --color-apple-success: #34c759;
   --color-apple-streak: #ff9500;
+  --color-apple-warn: #ff9500;
+  --color-apple-warn-soft: #fff4e0;
   --color-apple-coral: #e0445e;
   --color-apple-coral-soft: #fff0f3;
   --color-apple-cobalt: #7aa6d6;
@@ -140,9 +147,11 @@
   --color-apple-hairline: #d2d2d7;
   --color-apple-hairline-soft: rgba(0, 0, 0, 0.08);
   --color-apple-success: #34c759;
-  --color-apple-streak: #ff9500;
-  --color-apple-coral: #e0445e;
-  --color-apple-coral-soft: #fff0f3;
+  --color-apple-streak: #ff9f0a;
+  --color-apple-warn: #ff9f0a;
+  --color-apple-warn-soft: rgba(255, 149, 0, 0.16);
+  --color-apple-coral: #ff453a;
+  --color-apple-coral-soft: rgba(255, 69, 58, 0.12);
   --color-apple-cobalt: #7aa6d6;
   --color-apple-action-soft: #f0f7ff;
 

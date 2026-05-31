@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="arch">
+  <title>arch</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0071E3"/>
+      <stop offset="55%" stop-color="#4F7BE8"/>
+      <stop offset="100%" stop-color="#8E7EE0"/>
+    </linearGradient>
+    <linearGradient id="topShine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="40%" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="bottomGlow" cx="0.5" cy="1" r="0.7">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- iOS home screen은 자동 mask 안 함 (iOS 7+ 통째 사각 그대로 → 자체 라운디드 적용) -->
+  <rect width="180" height="180" fill="url(#bg)"/>
+  <rect width="180" height="180" fill="url(#topShine)"/>
+  <rect width="180" height="180" fill="url(#bottomGlow)"/>
+
+  <text
+    x="90" y="124"
+    text-anchor="middle"
+    font-family="SF Pro Display, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+    font-size="116"
+    font-weight="700"
+    fill="#ffffff"
+  >a</text>
+</svg>

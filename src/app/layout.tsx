@@ -2,9 +2,54 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "arch — 대학 생활을 놓치지 않게",
+  metadataBase: new URL("https://arch-campus.vercel.app"),
+  title: {
+    default: "arch — 대학 생활을 놓치지 않게",
+    template: "%s · arch",
+  },
   description:
-    "강의자료, 강의계획서, 시간표를 올려 오늘 할 일과 공부 흐름을 정리하는 대학생 캠퍼스",
+    "강의자료·강의계획서·시간표를 올리면 오늘 할 일과 공부 흐름을 자동으로 정리하는 한국 대학생 학기 운영 OS.",
+  applicationName: "arch",
+  authors: [{ name: "arch" }],
+  keywords: [
+    "대학생",
+    "학기 관리",
+    "강의자료 정리",
+    "시간표",
+    "AI 학습 보조",
+    "독후감",
+    "발표 자료",
+    "보고서",
+  ],
+  // Next.js 16 — src/app/icon.svg·apple-icon.svg가 자동으로 favicon·apple-touch-icon으로 wiring.
+  // 아래 명시는 일부 구버전 브라우저·서버 사이드 파서 안전망.
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/apple-icon.svg", sizes: "180x180", type: "image/svg+xml" }],
+  },
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    url: "https://arch-campus.vercel.app",
+    siteName: "arch",
+    title: "arch — 대학 생활을 놓치지 않게",
+    description:
+      "강의자료·강의계획서·시간표를 올리면 오늘 할 일과 공부 흐름을 자동으로 정리하는 한국 대학생 학기 운영 OS.",
+    images: [
+      {
+        url: "/opengraph-image.svg",
+        width: 1200,
+        height: 630,
+        alt: "arch — 한 학기 운영 OS",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "arch — 대학 생활을 놓치지 않게",
+    description: "강의자료·강의계획서·시간표를 한 학기 운영 OS로",
+    images: ["/opengraph-image.svg"],
+  },
 };
 
 /**

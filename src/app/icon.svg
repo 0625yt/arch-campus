@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="arch">
+  <title>arch</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0071E3"/>
+      <stop offset="55%" stop-color="#4F7BE8"/>
+      <stop offset="100%" stop-color="#8E7EE0"/>
+    </linearGradient>
+    <linearGradient id="topShine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="40%" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="bottomGlow" cx="0.5" cy="1" r="0.7">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="3" />
+    </filter>
+  </defs>
+
+  <!-- 배경 (iOS는 자동 mask) -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- 상단 종이 하이라이트 -->
+  <rect width="512" height="512" rx="112" fill="url(#topShine)"/>
+
+  <!-- 하단 글로우 (깊이감) -->
+  <rect width="512" height="512" rx="112" fill="url(#bottomGlow)"/>
+
+  <!--
+    "a" 워드마크 — SF Pro Display 톤의 두꺼운 lowercase a.
+    Path로 그려 폰트 의존 X.
+    중심에 강하게, 약간 우측으로 기울어진 carve (학기 = arch).
+  -->
+  <g transform="translate(256 296)">
+    <!-- 부드러운 그림자 (글자 깊이) -->
+    <text
+      x="0" y="0"
+      text-anchor="middle"
+      font-family="SF Pro Display, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+      font-size="320"
+      font-weight="700"
+      fill="#000000"
+      fill-opacity="0.15"
+      filter="url(#softShadow)"
+    >a</text>
+    <!-- 본 글자 -->
+    <text
+      x="0" y="0"
+      text-anchor="middle"
+      font-family="SF Pro Display, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+      font-size="320"
+      font-weight="700"
+      fill="#ffffff"
+    >a</text>
+  </g>
+</svg>
