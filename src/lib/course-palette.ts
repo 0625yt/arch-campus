@@ -17,17 +17,18 @@ export interface RGB {
 }
 
 /*
- * Apple Calendar/Reminders 톤 — 명도 90+ 채도 40 정도의 화사한 파스텔.
- * "물감 살짝 풀어둔" 톤. 어두운 깊이감보다 가볍고 산뜻한 느낌이 우선.
+ * Apple Calendar/Reminders 톤 — 명도 95+ 채도 30 정도의 "안개처럼 연한" 파스텔.
+ * 카드 위에 물감 한 방울 풀어둔 느낌. "색이 거의 안 보이는데 강의별로 다르긴 함" 임계.
+ * alpha 0.18 정도로 wash해야 사용자가 원하는 "존나 연한" 톤.
  */
 const PALETTE: RGB[] = [
-  { r: 168, g: 213, b: 255 }, // 라이트 sky
-  { r: 178, g: 234, b: 192 }, // 라이트 mint
-  { r: 255, g: 200, b: 211 }, // 라이트 pink
-  { r: 255, g: 220, b: 168 }, // 라이트 butter
-  { r: 215, g: 200, b: 245 }, // 라이트 lavender
-  { r: 255, g: 196, b: 178 }, // 라이트 coral
-  { r: 178, g: 235, b: 230 }, // 라이트 teal
+  { r: 200, g: 228, b: 255 }, // 안개 sky
+  { r: 204, g: 240, b: 214 }, // 안개 mint
+  { r: 255, g: 218, b: 225 }, // 안개 pink
+  { r: 255, g: 232, b: 196 }, // 안개 butter
+  { r: 228, g: 218, b: 250 }, // 안개 lavender
+  { r: 255, g: 214, b: 200 }, // 안개 coral
+  { r: 204, g: 240, b: 236 }, // 안개 teal
 ];
 
 /** course.color가 default(#0071e3)거나 비어있으면 강의명 해시로 fallback. */
@@ -65,17 +66,17 @@ export function courseRgb(name: string, color: string | null | undefined): RGB {
 
 /**
  * 카드·셀 배경 tint.
- * RGB가 이미 라이트 톤이라 alpha를 충분히 높여도 화사함 유지.
- * 시간표 셀(0.55)·카드(0.42) 가량이 "물감 풀어둔" 톤.
+ * 사용자 피드백: "존나 연하게, 파스텔 wash 느낌". default 0.18로 안개처럼.
+ * 시간표 셀처럼 색이 명확해야 하는 곳만 caller가 0.32 정도로 끌어올림.
  */
-export function courseTint(name: string, color?: string | null, alpha = 0.42): string {
+export function courseTint(name: string, color?: string | null, alpha = 0.18): string {
   const { r, g, b } = courseRgb(name, color);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-/** hover 액센트 — 한 단 진하게. */
+/** hover 액센트 — 한 단 진하게 (그래도 연함). */
 export function courseTintStrong(name: string, color?: string | null): string {
-  return courseTint(name, color, 0.6);
+  return courseTint(name, color, 0.32);
 }
 
 /**
@@ -94,8 +95,8 @@ export function courseAccentRgb(name: string, color?: string | null): RGB {
   return courseRgb(name, color);
 }
 
-/** 카드 우상단 컬러 wash — radial gradient. hover 시 살아있음. */
+/** 카드 우상단 컬러 wash — radial gradient. hover 시 살아있음. 톤 다운. */
 export function courseGradient(name: string, color?: string | null): string {
   const { r, g, b } = courseRgb(name, color);
-  return `radial-gradient(120% 80% at 100% 0%, rgba(${r}, ${g}, ${b}, 0.55) 0%, rgba(${r}, ${g}, ${b}, 0.18) 50%, transparent 80%)`;
+  return `radial-gradient(120% 80% at 100% 0%, rgba(${r}, ${g}, ${b}, 0.32) 0%, rgba(${r}, ${g}, ${b}, 0.10) 50%, transparent 80%)`;
 }

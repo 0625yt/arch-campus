@@ -80,7 +80,7 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
   // 시간표·강의 카드와 동일 파스텔 시스템.
   // 강의명이 있으면 강의 색, 없으면 quiz title 자체로 안정 매핑 (자료 단위 quiz).
   const seedName = quiz.courseName ?? quiz.title;
-  const cardTint = courseTint(seedName, quiz.courseColor, 0.32);
+  const cardTint = courseTint(seedName, quiz.courseColor, 0.14);
   const hoverGrad = courseGradient(seedName, quiz.courseColor);
   const inkColor = courseInkColor(seedName, quiz.courseColor);
 

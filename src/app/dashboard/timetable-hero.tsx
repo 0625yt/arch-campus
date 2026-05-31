@@ -569,5 +569,6 @@ function EmptyTimetableHero() {
 /* ─────────────────────────── Utils ─────────────────────────── */
 
 // Palette 함수는 lib/course-palette로 추출됨 (study CourseCard·quiz와 공유).
-// 셀 배경 호출은 cellTint(name, color) 시그니처 유지.
-const cellTint = (name: string, color: string | null | undefined) => courseTint(name, color);
+// 시간표 셀은 카드보다 작아 색 정체성이 더 또렷해야 함 → alpha 0.45 (카드 default 0.18보다 진함).
+const cellTint = (name: string, color: string | null | undefined) =>
+  courseTint(name, color, 0.45);

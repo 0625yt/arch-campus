@@ -21,7 +21,7 @@ export default async function OnboardingPage() {
   const defaultSemester = inferSemester(new Date());
 
   return (
-    <main className="min-h-screen bg-[var(--color-apple-pearl)]">
+    <main className="auth-light min-h-screen bg-[var(--color-apple-pearl)]">
       <div className="relative mx-auto w-full max-w-[560px] px-7 py-14 sm:py-20">
         {/* 옅은 색 글로우 */}
         <div

@@ -10,7 +10,7 @@ export default async function ForgotPage() {
 
   return (
     <main
-      className="relative min-h-screen overflow-hidden"
+      className="auth-light relative min-h-screen overflow-hidden"
       style={{
         background:
           "radial-gradient(ellipse 90% 60% at 50% 0%, rgba(122, 166, 214, 0.45), transparent 65%), radial-gradient(ellipse 60% 40% at 100% 0%, rgba(243, 207, 138, 0.40), transparent 70%), radial-gradient(ellipse 80% 55% at 0% 100%, rgba(176, 156, 200, 0.42), transparent 70%), radial-gradient(ellipse 50% 30% at 100% 100%, rgba(122, 166, 214, 0.20), transparent 70%), #ffffff",
