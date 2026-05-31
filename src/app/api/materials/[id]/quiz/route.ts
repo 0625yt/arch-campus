@@ -21,6 +21,9 @@ const RequestBody = z.object({
   scope: z.string().max(200).default(""),
   // 의도 조정 한 줄 요청 — scope(범위)와 분리. 강조·형식·톤 힌트. 자료 밖 생성은 서비스/프롬프트 가드가 거부.
   intentNote: z.string().max(120).default(""),
+  // 묶음 출제 — primary 자료 외 추가 자료 UUID들. UI에서 같은 강의 안 자료 다중 선택.
+  // 합쳐서 60,000자까지. owner 검증은 라우트에서 한 번 더.
+  extraMaterialIds: z.array(z.string().uuid()).max(5).default([]),
 });
 
 /**
@@ -65,31 +68,42 @@ export async function POST(
   }
 
   const admin = getAdminSupabase();
-  const { data: material, error: fetchErr } = await admin
+  // primary + extra 모두 한 번에 조회. owner 검증 자동.
+  const allIds = [materialId, ...body.extraMaterialIds.filter((id) => id !== materialId)];
+  const { data: materialsData, error: fetchErr } = await admin
     .from("materials")
     .select("id, course_id, title, type, full_text, page_count")
-    .eq("id", materialId)
-    .eq("owner_id", ownerId)
-    .maybeSingle();
+    .in("id", allIds)
+    .eq("owner_id", ownerId);
 
-  if (fetchErr || !material) {
+  if (fetchErr || !materialsData || materialsData.length === 0) {
     return NextResponse.json({ ok: false, error: "자료를 찾을 수 없어요" }, { status: 404 });
   }
 
-  const fullText = material.full_text ?? "";
+  // primary가 첫 번째여야 함 (제목·course_id 박힐 자료). DB 순서 보장 X → 직접 정렬.
+  const primary = materialsData.find((m) => m.id === materialId);
+  if (!primary) {
+    return NextResponse.json(
+      { ok: false, error: "primary 자료를 찾을 수 없어요" },
+      { status: 404 },
+    );
+  }
+  const extras = materialsData.filter((m) => m.id !== materialId);
+  const materialsInOrder = [primary, ...extras];
 
-  // 작업 큐 등록 (난이도·개수·kinds·scope 다른 요청도 같은 자료면 1개만)
+  // 작업 큐 등록 (난이도·개수·kinds·scope·extraIds 다른 요청도 primary 자료면 1개만)
   const { job, isNew } = await enqueueJob({
     ownerId,
-    materialId: material.id,
+    materialId: primary.id,
     tool: "quiz",
     inputParams: {
-      materialId: material.id,
+      materialId: primary.id,
       difficulty: body.difficulty,
       count: body.count,
       kinds: body.kinds,
       scope: body.scope,
       intentNote: body.intentNote,
+      extraMaterialIds: extras.map((m) => m.id),
     },
   });
 
@@ -102,13 +116,14 @@ export async function POST(
       await markJobRunning({ jobId: job.id, ownerId });
       const result = await runQuizGeneration({
         ownerId,
-        materialId: material.id,
-        courseId: material.course_id ?? null,
-        title: material.title,
-        type: material.type,
-        fullText,
-        sanitizedText: fullText,
-        pageCount: material.page_count ?? null,
+        courseId: primary.course_id ?? null,
+        materials: materialsInOrder.map((m) => ({
+          materialId: m.id,
+          title: m.title,
+          type: m.type,
+          fullText: m.full_text ?? "",
+          pageCount: m.page_count ?? null,
+        })),
         parserWarnings: [],
         difficulty: body.difficulty,
         requestedCount: body.count,

@@ -4,6 +4,12 @@ import { useState } from "react";
 import { Modal } from "@/components/modal";
 import { GenerateForm } from "./generate-form";
 
+export interface SiblingMaterialOption {
+  id: string;
+  title: string;
+  type: string;
+}
+
 interface Props {
   courseSlug: string;
   materialId: string;
@@ -11,6 +17,8 @@ interface Props {
   materialType?: string;
   /** "primary" — 다크 푸터 위 흰 pill. "compact" — 호환용 (사용 X) */
   variant?: "primary" | "compact";
+  /** 같은 강의의 다른 자료들 — 묶음 출제 옵션 (현재 자료 제외하고 넘긴다). */
+  siblingMaterials?: SiblingMaterialOption[];
 }
 
 export function GenerateButton({
@@ -19,6 +27,7 @@ export function GenerateButton({
   materialTitle,
   materialType,
   variant = "primary",
+  siblingMaterials,
 }: Props) {
   const [open, setOpen] = useState(false);
   const isExamMaterial = materialType === "exam";
@@ -50,6 +59,7 @@ export function GenerateButton({
           courseSlug={courseSlug}
           materialId={materialId}
           materialType={materialType}
+          siblingMaterials={siblingMaterials}
         />
       </Modal>
     </>

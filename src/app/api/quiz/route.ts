@@ -185,13 +185,16 @@ export async function POST(
   // 4. 서비스 호출
   const result = await runQuizGeneration({
     ownerId,
-    materialId: material.id,
     courseId: courseId || null,
-    title,
-    type: typeField,
-    fullText: parsed.text,
-    sanitizedText: parsed.sanitizedText,
-    pageCount: parsed.pageCount ?? null,
+    materials: [
+      {
+        materialId: material.id,
+        title,
+        type: typeField,
+        fullText: parsed.sanitizedText,
+        pageCount: parsed.pageCount ?? null,
+      },
+    ],
     parserWarnings: parsed.warnings,
     difficulty,
     requestedCount,

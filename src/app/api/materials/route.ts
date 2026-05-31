@@ -310,13 +310,16 @@ export async function runQuizJob(opts: {
     await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId });
     const result = await runQuizGeneration({
       ownerId: opts.ownerId,
-      materialId: opts.materialId,
       courseId: opts.courseId,
-      title: opts.title,
-      type: opts.type,
-      fullText: opts.fullText,
-      sanitizedText: opts.sanitizedText,
-      pageCount: opts.pageCount,
+      materials: [
+        {
+          materialId: opts.materialId,
+          title: opts.title,
+          type: opts.type,
+          fullText: opts.sanitizedText,
+          pageCount: opts.pageCount,
+        },
+      ],
       parserWarnings: opts.parserWarnings,
       difficulty: opts.difficulty,
       requestedCount: opts.requestedCount,

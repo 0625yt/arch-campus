@@ -15,7 +15,7 @@ import type { SummarizeOutputT } from "@/lib/schemas";
 import { createSignedReadUrl } from "@/lib/storage";
 import { detectSubject } from "@/lib/subject-detector";
 import { ExtractExamView } from "./extract-exam-view";
-import { GenerateButton } from "./generate-button";
+import { GenerateButton, type SiblingMaterialOption } from "./generate-button";
 import { MaterialTabs } from "./material-tabs";
 import { MaterialView } from "./material-view";
 import { SplitWithConvertingLeft, SplitWithFailedLeft } from "./pdf-convert-states";
@@ -135,8 +135,15 @@ export default async function MaterialDetailPage({
             <ExtractExamEmpty
               courseLabel={courseLabel}
               detail={detail}
-              extractError={extractJob?.status === "error" ? (extractJob.errorMessage ?? null) : null}
+              extractError={
+                extractJob?.status === "error" ? (extractJob.errorMessage ?? null) : null
+              }
               className="mt-6 fade-up fade-up-3 sm:mt-8"
+              siblingMaterials={siblingMaterials.map((s) => ({
+                id: s.id,
+                title: s.title,
+                type: s.type,
+              }))}
             />
           )
         ) : detail.summary ? (
@@ -194,7 +201,16 @@ export default async function MaterialDetailPage({
           />
         )}
 
-        <CtaCard detail={detail} courseLabel={courseLabel} dotColor={dotColor} />
+        <CtaCard
+          detail={detail}
+          courseLabel={courseLabel}
+          dotColor={dotColor}
+          siblingMaterials={siblingMaterials.map((s) => ({
+            id: s.id,
+            title: s.title,
+            type: s.type,
+          }))}
+        />
       </div>
     </div>
   );
@@ -226,9 +242,7 @@ function Breadcrumb({ courseLabel, dotColor }: { courseLabel: string; dotColor: 
 function Hero({ detail }: { detail: MaterialDetail }) {
   return (
     <header className="mt-5 fade-up fade-up-2 sm:mt-6">
-      <p
-        className="text-[11px] wght-700 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-      >
+      <p className="text-[11px] wght-700 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
         {labelForType(detail.type)}
       </p>
       <h1
@@ -289,11 +303,13 @@ function ExtractExamEmpty({
   detail,
   extractError,
   className,
+  siblingMaterials,
 }: {
   courseLabel: string;
   detail: MaterialDetail;
   extractError: string | null;
   className?: string;
+  siblingMaterials: SiblingMaterialOption[];
 }) {
   const isErrorState = extractError !== null;
   return (
@@ -329,6 +345,11 @@ function ExtractExamEmpty({
             materialId={detail.id}
             materialTitle={detail.title}
             materialType={detail.type}
+            siblingMaterials={siblingMaterials.map((s) => ({
+              id: s.id,
+              title: s.title,
+              type: s.type,
+            }))}
           />
         </div>
       </div>
@@ -551,7 +572,9 @@ function MaterialQuizzes({
                 style={{ letterSpacing: "-0.012em" }}
               >
                 {q.attemptCount === 0 ? (
-                  <span className="wght-560 text-[var(--color-apple-action)]">아직 안 풀었어요</span>
+                  <span className="wght-560 text-[var(--color-apple-action)]">
+                    아직 안 풀었어요
+                  </span>
                 ) : q.lastScore !== null ? (
                   <span className="tabular-nums">
                     최근 {q.lastScore}/{q.questionCount} · {q.attemptCount}회 풀이
@@ -572,10 +595,12 @@ function CtaCard({
   detail,
   courseLabel,
   dotColor,
+  siblingMaterials,
 }: {
   detail: MaterialDetail;
   courseLabel: string;
   dotColor: string;
+  siblingMaterials: SiblingMaterialOption[];
 }) {
   // type=exam은 별도 흐름 — 위쪽에 추출 결과·게이트가 이미 있으니 CTA 카드 X (정보 중복).
   if (detail.type === "exam") return null;
@@ -616,6 +641,11 @@ function CtaCard({
             materialId={detail.id}
             materialTitle={detail.title}
             materialType={detail.type}
+            siblingMaterials={siblingMaterials.map((s) => ({
+              id: s.id,
+              title: s.title,
+              type: s.type,
+            }))}
           />
         </div>
       </div>

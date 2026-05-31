@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { QuizQuestion } from "@/lib/schemas";
 import { gradeQuiz } from "@/lib/services/grade-quiz";
+import { gradeWithLlmAssist } from "@/lib/services/grade-quiz-llm";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -42,6 +43,7 @@ interface SubmitOk {
     evidence?: string;
     evidencePage?: number | null;
     gradingNote?: string;
+    llmPromoted?: boolean;
   }>;
   watermark: string;
 }
@@ -109,7 +111,12 @@ export async function POST(
       { status: 500 },
     );
   }
-  const graded = gradeQuiz(questions, body.answers);
+  const baseGraded = gradeQuiz(questions, body.answers);
+
+  // 단답형 LLM 보조 — 정확 매칭 실패한 short-answer만 Haiku에 의미 등가 확인.
+  // 정답 없는 case는 빠르게 반환(no-op)이라 비용은 단답 오답이 있을 때만 발생.
+  // 모델 실패 시 baseGraded 그대로 반환 (실패 안전).
+  const graded = await gradeWithLlmAssist(baseGraded, questions);
 
   // GradedResult는 plain object 배열이라 직렬화 안전 — JSON 캐스트로 supabase 타입에 맞춤.
   const resultsJson = JSON.parse(JSON.stringify(graded.results));
@@ -152,6 +159,7 @@ export async function POST(
       evidence: r.evidence,
       evidencePage: r.evidencePage,
       gradingNote: r.gradingNote,
+      llmPromoted: r.llmPromoted,
     })),
     watermark: quiz.watermark,
   });

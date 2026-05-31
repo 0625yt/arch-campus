@@ -26,6 +26,8 @@ interface SubmitResult {
   evidence?: string;
   evidencePage?: number | null;
   gradingNote?: string;
+  /** true면 정확 매칭 실패였는데 LLM이 의미 등가로 판단해 정답 promote (단답형만). */
+  llmPromoted?: boolean;
 }
 
 /**
@@ -42,6 +44,7 @@ interface StepGradeResult {
   evidence: string;
   evidencePage: number | null;
   gradingNote?: string;
+  llmPromoted?: boolean;
 }
 
 interface SubmitOk {
@@ -94,10 +97,7 @@ export function QuizSolver({ quiz }: { quiz: QuizSolveView }) {
   // step-by-step에서 헤더가 보여줄 카운트 — 채점 완료 문제 수가 정신 모델.
   // answers·flagged는 자식이 직접 다루고, 헤더는 보고용으로만 본다.
   const gradedCount = useMemo(() => Object.keys(stepResults).length, [stepResults]);
-  const flaggedCount = useMemo(
-    () => Object.values(flagged).filter(Boolean).length,
-    [flagged],
-  );
+  const flaggedCount = useMemo(() => Object.values(flagged).filter(Boolean).length, [flagged]);
 
   async function onSubmit() {
     setLoading(true);
@@ -447,8 +447,7 @@ function SolveSection({
                 const selected = value === choice.key;
                 // 채점 후엔 정답·내가 고른 오답을 색으로 분리. 정답 = 액션색, 오답 선택 = urgent.
                 const isCorrectChoice = isReviewing && currentGraded?.answer === choice.key;
-                const isWrongSelected =
-                  isReviewing && selected && !currentGraded?.correct;
+                const isWrongSelected = isReviewing && selected && !currentGraded?.correct;
                 return (
                   <label
                     key={choice.key}
@@ -536,9 +535,7 @@ function SolveSection({
               ) : (
                 <button
                   type="button"
-                  onClick={() =>
-                    setShownHints((prev) => ({ ...prev, [currentQuestion.id]: true }))
-                  }
+                  onClick={() => setShownHints((prev) => ({ ...prev, [currentQuestion.id]: true }))}
                   className="text-[13px] wght-560 text-[var(--color-apple-action)] hover:underline"
                 >
                   힌트 보기
@@ -548,9 +545,7 @@ function SolveSection({
           )}
 
           {/* 채점 결과 — 확인 후에만 등장. correct·answer·explanation·evidence를 한 카드에. */}
-          {isReviewing && currentGraded && (
-            <GradeFeedback graded={currentGraded} />
-          )}
+          {isReviewing && currentGraded && <GradeFeedback graded={currentGraded} />}
 
           {stepError && (
             <p className="mt-4 text-[12.5px] wght-450 text-[var(--color-urgent)]">{stepError}</p>
@@ -609,11 +604,7 @@ function SolveSection({
                   disabled={loading}
                   className="inline-flex h-[46px] items-center justify-center rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all duration-150 hover:bg-[var(--color-apple-action-hover)] disabled:opacity-50"
                 >
-                  {loading
-                    ? "채점 중…"
-                    : isLastStep
-                      ? "결과 보기"
-                      : "다음 문제 →"}
+                  {loading ? "채점 중…" : isLastStep ? "결과 보기" : "다음 문제 →"}
                 </button>
               ) : (
                 <button
@@ -667,6 +658,15 @@ function GradeFeedback({ graded }: { graded: StepGradeResult }) {
         >
           {graded.correct ? "맞았어요" : "이번엔 틀렸어요"}
         </p>
+        {graded.llmPromoted && (
+          <span
+            className="ml-1 inline-flex items-center rounded-full bg-[var(--color-apple-action-soft)] px-2 py-0.5 text-[10.5px] wght-560 text-[var(--color-apple-action)]"
+            style={{ letterSpacing: "-0.012em" }}
+            title="정확한 표기는 다르지만 의미가 같아 정답으로 인정됐어요"
+          >
+            의미 인정
+          </span>
+        )}
       </div>
 
       {graded.kind !== "multiple-choice" && (

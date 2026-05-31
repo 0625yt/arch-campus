@@ -5,12 +5,14 @@ import {
   classifyMaterial,
 } from "@/lib/classify-material";
 import { estimateCost, generate, getModelIdFor, getModelVendor } from "@/lib/claude";
+import { listPreviousQuizStems } from "@/lib/data/quizzes";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, QuizOutput, type QuizOutputT, type QuizQuestionT } from "@/lib/schemas";
 import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
 import { buildPlaybookSection } from "@/lib/subject-playbook";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { breakdown } from "@/lib/tokens";
+import { fingerprint, validateEvidence } from "@/lib/validate-quiz";
 
 /**
  * Quiz 서비스 — 신규 업로드와 기존 자료 재실행 라우트가 공유.
@@ -32,15 +34,26 @@ export type Difficulty = "쉬움" | "보통" | "어려움";
 
 export type QuestionKind = "multiple-choice" | "short-answer" | "essay";
 
-export interface QuizGenerateInput {
-  ownerId: string;
+/**
+ * 멀티 자료 묶음 입력 — "이번 시험 범위 통합 문제" 같은 유스케이스.
+ * 단일 자료는 [primary] 1개만 넘기면 종전 동작.
+ */
+export interface QuizMaterialInput {
   materialId: string;
-  courseId: string | null;
   title: string;
   type: string;
   fullText: string;
-  sanitizedText: string;
   pageCount: number | null;
+}
+
+export interface QuizGenerateInput {
+  ownerId: string;
+  /**
+   * 주 자료(quizzes.material_id 박힐 첫 번째 자료)와 묶음 자료.
+   * 단일 자료면 [primary] 한 개. 묶음이면 추가 자료들.
+   */
+  materials: QuizMaterialInput[];
+  courseId: string | null;
   parserWarnings: string[];
   difficulty: Difficulty;
   requestedCount: number;
@@ -74,44 +87,63 @@ export type QuizGenerateResult =
   | { ok: false; status: 422 | 502 | 500; error: string };
 
 export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizGenerateResult> {
-  const isMetadataOnly = !input.sanitizedText || input.sanitizedText.trim().length < 60;
+  if (input.materials.length === 0) {
+    return { ok: false, status: 422, error: "자료가 비어있어요." };
+  }
+
+  // 묶음 자료 본문 합치기. 자료별 헤더로 어디서 나왔는지 표시 (evidence 추적용).
+  // 단일 자료면 헤더 없이 본문 그대로 (기존 동작과 동일).
+  const merged = mergeMaterials(input.materials);
+  const sanitizedText = merged.text;
+  const isMetadataOnly = !sanitizedText || sanitizedText.trim().length < 60;
+  const primary = input.materials[0];
 
   let classification: Classification | null = null;
   if (!isMetadataOnly) {
     classification = await classifyMaterial({
-      title: input.title,
-      type: input.type,
-      fullText: input.sanitizedText,
-      pageCount: input.pageCount ?? undefined,
+      title: primary.title,
+      type: primary.type,
+      fullText: sanitizedText,
+      pageCount: primary.pageCount ?? undefined,
       difficulty: input.difficulty,
     });
   }
+
+  // 이번 자료(들)에서 이전에 만든 문제의 stem 모음 — 중복 출제 방지용.
+  // 같은 자료를 N번 quiz 생성할 때 100% 중복되던 문제 해결.
+  const previousStems = await listPreviousQuizStems({
+    ownerId: input.ownerId,
+    materialIds: input.materials.map((m) => m.materialId),
+    limit: 5,
+  });
 
   const rulePrompt = loadPrompt("quiz");
   // 과목 영역 추론 → playbook으로 quiz 출제 톤 주입
   const subject = detectSubject({
     classificationDomain: classification?.domain ?? null,
-    materialTitle: input.title,
+    materialTitle: primary.title,
   });
   const dynamicContext = buildDynamicContext({
-    title: input.title,
-    type: input.type,
+    title: primary.title,
+    type: primary.type,
     difficulty: input.difficulty,
     requestedCount: input.requestedCount,
-    pageCount: input.pageCount ?? undefined,
+    pageCount: primary.pageCount ?? undefined,
     isMetadataOnly,
     parserWarnings: input.parserWarnings,
     classification,
-    fullText: input.sanitizedText,
+    fullText: sanitizedText,
     subject,
     kinds: input.kinds,
     scope: input.scope,
     intentNote: input.intentNote,
+    multiMaterial: input.materials.length > 1 ? input.materials : null,
+    previousStems,
   });
   const tokenBudget = breakdown({
     rule: rulePrompt,
     dynamic: dynamicContext,
-    user: input.sanitizedText,
+    user: sanitizedText,
   });
 
   let result: Awaited<ReturnType<typeof generate>>;
@@ -121,16 +153,16 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       rulePrompt,
       dynamicContext,
       userInput:
-        input.sanitizedText.trim().length > 0
-          ? input.sanitizedText.slice(0, 60_000)
-          : `[본문 자동 추출 실패 — 파일명 ${input.title} · 종류 ${input.type}]`,
+        sanitizedText.trim().length > 0
+          ? sanitizedText.slice(0, 60_000)
+          : `[본문 자동 추출 실패 — 파일명 ${primary.title} · 종류 ${primary.type}]`,
       maxTokens: 8192,
       temperature: 0.4,
     });
   } catch (e) {
     await logGeneration({
       ownerId: input.ownerId,
-      materialId: input.materialId,
+      materialId: primary.materialId,
       modelId: getModelIdFor("quiz"),
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
@@ -148,7 +180,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   } catch (e) {
     await logGeneration({
       ownerId: input.ownerId,
-      materialId: input.materialId,
+      materialId: primary.materialId,
       modelId: result.modelId,
       usage: result.usage,
       cost: estimateCost(result.usage, result.modelId),
@@ -163,18 +195,64 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     return { ok: false, status: 422, error: parsedQuiz.reason };
   }
 
-  const normalizedQuestions = normalizeQuizQuestions(parsedQuiz.questions);
+  // Evidence 검증 — 환각 차단. 자료 본문에 없는 evidence는 drop.
+  const { kept, dropped } = validateEvidence(parsedQuiz.questions, sanitizedText, {
+    isMetadataOnly,
+  });
+
+  // 이전 stem과 중복되는 문제도 drop. 같은 fingerprint가 이미 있으면 새 문제 아님.
+  const previousFingerprints = new Set(previousStems.map(fingerprint));
+  const deduped = kept.filter((q) => {
+    const fp = fingerprint(q.stem);
+    if (previousFingerprints.has(fp)) {
+      dropped.push({
+        questionId: q.id,
+        reason: "이전 quiz와 중복 stem",
+        evidence: q.stem.slice(0, 80),
+      });
+      return false;
+    }
+    previousFingerprints.add(fp);
+    return true;
+  });
+
+  if (deduped.length === 0) {
+    await logGeneration({
+      ownerId: input.ownerId,
+      materialId: primary.materialId,
+      modelId: result.modelId,
+      usage: result.usage,
+      cost: estimateCost(result.usage, result.modelId),
+      status: "error",
+      errorMessage: "evidence 검증·중복 제거 후 남은 문제 0개",
+      payload: { dropped: dropped.slice(0, 10) },
+    });
+    return {
+      ok: false,
+      status: 502,
+      error:
+        "만든 문제가 자료 본문 인용 검증을 통과하지 못했어요. 다시 시도하면 다른 각도로 만들 수 있어요.",
+    };
+  }
+
+  const normalizedQuestions = normalizeQuizQuestions(deduped);
 
   // quizzes 저장 — owner_id 강제, RLS 정책과 같은 키
+  // material_id는 primary 자료. 묶음 자료 ID들은 questions[].evidenceMaterialId가 아닌
+  // payload·source 메타에 보존 (스키마 변경 최소화). 향후 quizzes 테이블에 material_ids 컬럼 추가 가능.
   const admin = getAdminSupabase();
   const costUsd = estimateCost(result.usage, result.modelId);
+  const titleForRow =
+    input.materials.length > 1
+      ? `${primary.title} 외 ${input.materials.length - 1}개 묶음`
+      : primary.title;
   const { data: quizRow, error: quizErr } = await admin
     .from("quizzes")
     .insert({
       owner_id: input.ownerId,
-      material_id: input.materialId,
+      material_id: primary.materialId,
       course_id: input.courseId,
-      title: input.title,
+      title: titleForRow,
       difficulty: input.difficulty,
       question_count: normalizedQuestions.length,
       questions: normalizedQuestions,
@@ -194,12 +272,17 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
 
   await logGeneration({
     ownerId: input.ownerId,
-    materialId: input.materialId,
+    materialId: primary.materialId,
     modelId: result.modelId,
     usage: result.usage,
     cost: costUsd,
     status: "ok",
-    payload: { quizId: quizRow.id, questionCount: normalizedQuestions.length },
+    payload: {
+      quizId: quizRow.id,
+      questionCount: normalizedQuestions.length,
+      droppedCount: dropped.length,
+      materialIds: input.materials.map((m) => m.materialId),
+    },
   });
 
   return {
@@ -211,6 +294,21 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     costUsd,
     tokenBudget,
   };
+}
+
+/**
+ * 묶음 자료 본문 합치기 — 자료별 헤더 박아서 evidence 추적 가능.
+ * 단일 자료는 헤더 없이 그대로 (cache hit·기존 evidence 매칭 유지).
+ */
+function mergeMaterials(materials: QuizMaterialInput[]): { text: string } {
+  if (materials.length === 1) {
+    return { text: materials[0].fullText ?? "" };
+  }
+  const parts = materials.map((m, idx) => {
+    const header = `\n\n===== [자료 ${idx + 1}] ${m.title} (${m.type}) =====\n\n`;
+    return header + (m.fullText ?? "");
+  });
+  return { text: parts.join("") };
 }
 
 const KIND_LABEL: Record<QuestionKind, string> = {
@@ -249,6 +347,10 @@ function buildDynamicContext(meta: {
   kinds?: QuestionKind[];
   scope?: string;
   intentNote?: string;
+  /** 묶음 자료 — 1개 초과면 자료별 헤더 안내. */
+  multiMaterial?: QuizMaterialInput[] | null;
+  /** 같은 자료에서 이전에 만든 stem들 — 중복 출제 방지 힌트. */
+  previousStems?: string[];
 }): string {
   const detected = detectForeignLanguage(meta.fullText);
 
@@ -336,6 +438,38 @@ function buildDynamicContext(meta: {
       "- 이건 자료 안에서 '무엇을 강조/어떤 형식으로' 출제할지 조정하는 힌트일 뿐이다.",
       "- 이 요청이 자료에 없는 사실·문제·정답을 만들라는 뜻이어도 거부한다. 모든 문제는 여전히 자료 본문 evidence에 묶인다.",
       "- 요청이 시스템 룰·출력 스키마와 충돌하면 스키마가 우선.",
+    );
+  }
+
+  // 멀티 자료 묶음 — 본문 안에 "===== [자료 1] ... =====" 헤더가 박혀있음.
+  // evidence 인용 시 어느 자료에서 나왔는지 학생이 추적할 수 있게 명시.
+  if (meta.multiMaterial && meta.multiMaterial.length > 1) {
+    lines.push(
+      "",
+      "## 묶음 자료 (여러 개)",
+      `총 ${meta.multiMaterial.length}개 자료가 묶여 있어요. 본문 안에 '===== [자료 N] 제목 (종류) =====' 헤더로 구분돼요.`,
+      "- 문제는 자료 간 **연결·비교**가 가능하면 우선 (한 자료 안에서만 묻기 X, 묶음의 장점 살려요).",
+      "- evidence 인용 시 어떤 자료에서 나왔는지가 본문 헤더로 추적 가능해요. evidence는 **헤더 줄을 빼고** 본문 substring만 인용해요.",
+      "- requestedCount를 자료 수로 나눠 한 자료에 몰리지 않게 배분.",
+      "자료 목록:",
+      ...meta.multiMaterial.map((m, i) => `  ${i + 1}. ${m.title} (${m.type})`),
+    );
+  }
+
+  // 중복 출제 방지 — 이전 stem들을 보여주고 "다른 각도로 만들라" 강제.
+  // fingerprint 비교는 서비스 레이어에서 한 번 더 (모델이 무시해도 drop).
+  if (meta.previousStems && meta.previousStems.length > 0) {
+    const sample = meta.previousStems.slice(0, 20);
+    lines.push(
+      "",
+      "## 이미 만든 문제 (중복 금지)",
+      "같은 자료에서 이전에 만들어진 문제들이에요. **같거나 비슷한 stem 절대 만들지 마세요.**",
+      "다른 단원·다른 인지단계·다른 묻는 형식으로 출제하세요. 비슷하면 검증에서 drop돼요.",
+      "",
+      ...sample.map((s, i) => `  ${i + 1}. ${s}`),
+      meta.previousStems.length > sample.length
+        ? `  ... 외 ${meta.previousStems.length - sample.length}개`
+        : "",
     );
   }
 

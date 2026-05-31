@@ -33,15 +33,24 @@ const INTENT_CHIPS = [
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export interface SiblingMaterialOption {
+  id: string;
+  title: string;
+  type: string;
+}
+
 export function GenerateForm({
   courseSlug,
   materialId,
   materialType,
+  siblingMaterials,
 }: {
   courseSlug: string;
   materialId: string;
   /** 자료 종류. "exam"이면 AI 문제 생성 대신 자료에 실린 문제·정답·해설을 그대로 추출. */
   materialType?: string;
+  /** 묶음 출제용 — 같은 강의의 다른 자료들 (현재 자료 제외). 비면 묶음 섹션 숨김. */
+  siblingMaterials?: SiblingMaterialOption[];
 }) {
   const router = useRouter();
   const isExamMaterial = materialType === "exam";
@@ -50,9 +59,16 @@ export function GenerateForm({
   const [kinds, setKinds] = useState<Set<Kind>>(new Set(["multiple-choice"]));
   const [scope, setScope] = useState("");
   const [intentNote, setIntentNote] = useState("");
+  // 묶음 출제용 — 추가로 함께 출제할 다른 자료 ID들. 최대 5개 (서비스/route cap과 일치).
+  const [extraMaterialIds, setExtraMaterialIds] = useState<Set<string>>(new Set());
   const [jobId, setJobId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const { job, error: pollError } = useJob(jobId);
+  const EXTRA_MAX = 5;
+  // siblings에서 현재 자료·기출은 제외 (기출은 별도 추출 흐름)
+  const eligibleSiblings = (siblingMaterials ?? []).filter(
+    (s) => s.id !== materialId && s.type !== "exam",
+  );
 
   function toggleKind(k: Kind) {
     setKinds((prev) => {
@@ -91,12 +107,14 @@ export function GenerateForm({
               kinds: Array.from(kinds),
               scope: scope.trim(),
               intentNote: intentNote.trim(),
+              extraMaterialIds: Array.from(extraMaterialIds),
             }),
       });
       const json = (await res.json()) as { ok: boolean; jobId?: string; error?: string };
       if (!res.ok || !json.ok || !json.jobId) {
         setSubmitError(
-          json.error ?? (isExamMaterial ? "기출 추출을 시작하지 못했어요." : "문제로 점검할 수 없었어요."),
+          json.error ??
+            (isExamMaterial ? "기출 추출을 시작하지 못했어요." : "문제로 점검할 수 없었어요."),
         );
         return;
       }
@@ -157,7 +175,11 @@ export function GenerateForm({
       )}
 
       {!isExamMaterial && (
-        <FieldGroup label="문제 수" hint={count >= 20 ? "1~2분 걸려요" : undefined} className="mt-7">
+        <FieldGroup
+          label="문제 수"
+          hint={count >= 20 ? "1~2분 걸려요" : undefined}
+          className="mt-7"
+        >
           <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
             {COUNT_OPTIONS.map((n) => {
               const active = count === n;
@@ -264,6 +286,53 @@ export function GenerateForm({
             className="w-full rounded-full border border-[var(--color-apple-hairline)] bg-white px-4 py-2 text-[13px] wght-450 text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)] placeholder:text-[var(--color-apple-muted)]/55"
             style={{ letterSpacing: "-0.012em" }}
           />
+        </FieldGroup>
+      )}
+
+      {!isExamMaterial && eligibleSiblings.length > 0 && (
+        <FieldGroup
+          label="다른 자료 묶기"
+          hint={`선택 — ${extraMaterialIds.size}/${EXTRA_MAX} 묶음, 같은 강의 자료끼리 연결 문제`}
+          className="mt-7"
+        >
+          <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
+            {eligibleSiblings.slice(0, 12).map((s) => {
+              const active = extraMaterialIds.has(s.id);
+              const reachedMax = !active && extraMaterialIds.size >= EXTRA_MAX;
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    disabled={reachedMax}
+                    onClick={() => {
+                      setExtraMaterialIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(s.id)) next.delete(s.id);
+                        else if (next.size < EXTRA_MAX) next.add(s.id);
+                        return next;
+                      });
+                    }}
+                    aria-pressed={active}
+                    title={s.title}
+                    className={cn(
+                      "max-w-[200px] truncate rounded-full px-3 py-1.5 text-[12px] transition-colors",
+                      active
+                        ? "wght-560 bg-[var(--color-apple-action)] text-white"
+                        : reachedMax
+                          ? "wght-450 cursor-not-allowed text-[var(--color-apple-muted)]/50"
+                          : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
+                    )}
+                  >
+                    {active && "✓ "}
+                    {s.title}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-2 text-[11px] wght-450 leading-[1.5] text-[var(--color-apple-muted)]">
+            여러 자료를 함께 묶으면 자료 간 연결·비교 문제가 나와요. 시험 범위 통합 점검에 좋아요.
+          </p>
         </FieldGroup>
       )}
 

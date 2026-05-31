@@ -279,6 +279,46 @@ export async function listQuizzesForMaterial(opts: {
   });
 }
 
+/**
+ * 한 자료에서 이전에 출제된 모든 stem을 가져온다.
+ *
+ * 용도: 중복 출제 방지 — 같은 자료에서 N번 quiz를 생성할 때 모델에게
+ * "이런 stem은 이미 만들었다, 다른 각도로 출제해라" 힌트로 박는다.
+ *
+ * 최근 quiz 5개 × 평균 10문제 = ~50개 stem 정도가 적정. 그 이상이면 프롬프트가
+ * 비대해지고 cache miss 비용이 늘어남. 너무 많으면 모델이 stem 비교에 토큰 낭비.
+ */
+export async function listPreviousQuizStems(opts: {
+  ownerId: string;
+  materialIds: string[];
+  limit?: number;
+}): Promise<string[]> {
+  if (opts.materialIds.length === 0) return [];
+  const admin = getAdminSupabase();
+  const limit = opts.limit ?? 5;
+
+  const { data, error } = await admin
+    .from("quizzes")
+    .select("questions")
+    .eq("owner_id", opts.ownerId)
+    .in("material_id", opts.materialIds)
+    .neq("mode", "extracted")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) return [];
+
+  const stems: string[] = [];
+  for (const row of data) {
+    const parsed = QuestionsArray.safeParse(row.questions);
+    if (!parsed.success) continue;
+    for (const q of parsed.data) {
+      if (q.stem) stems.push(q.stem);
+    }
+  }
+  return stems;
+}
+
 const ExtractedArray = z.array(ExamExtractedQuestion);
 
 export interface ExtractedExamView {

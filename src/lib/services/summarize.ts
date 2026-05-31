@@ -70,8 +70,16 @@ export interface SummarizeInput {
   intentNote?: string;
 }
 
+/**
+ * 요약 본문 1회 호출 한도. 한국어/영어 혼합 기준 약 25K~35K 토큰.
+ * 이걸 넘는 자료는 앞 60K만 요약돼서 뒷부분이 silent로 누락됨 — 사용자 모름.
+ * 절단 시 reviewSpots에 안내 박아 학생이 "뒷부분 따로 올려야겠다" 알 수 있게.
+ */
+const BODY_TRUNCATION_LIMIT = 60_000;
+
 export async function runSummarize(input: SummarizeInput): Promise<SummarizeResult> {
   const isMetadataOnly = !input.sanitizedText || input.sanitizedText.trim().length < 60;
+  const wasTruncated = input.sanitizedText.length > BODY_TRUNCATION_LIMIT;
 
   // 분류 — Haiku로 어떤 도메인인지
   let classification: Classification | null = null;
@@ -103,6 +111,8 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     styles,
     subject,
     intentNote: input.intentNote,
+    wasTruncated,
+    originalLength: input.sanitizedText.length,
   });
   const tokenBudget = breakdown({
     rule: rulePrompt,
@@ -119,7 +129,7 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
       dynamicContext,
       userInput:
         input.sanitizedText.trim().length > 0
-          ? input.sanitizedText.slice(0, 60_000)
+          ? input.sanitizedText.slice(0, BODY_TRUNCATION_LIMIT)
           : `[본문 자동 추출 실패 — 파일명 ${input.title} · 종류 ${input.type}]`,
       maxTokens: 6144,
       temperature: 0.3,
@@ -144,6 +154,9 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
   let summary: SummarizeOutputT;
   try {
     summary = parseModelJson(SummarizeOutput, result.text);
+    if (wasTruncated) {
+      summary = addTruncationNotice(summary, input.sanitizedText.length);
+    }
   } catch (e) {
     await logGeneration({
       ownerId: input.ownerId,
@@ -199,6 +212,25 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
   };
 }
 
+/**
+ * 본문이 너무 길어 앞 60K자만 요약된 경우, 결과의 reviewSpots에 안내 한 줄 prepend.
+ * 학생이 "왜 뒷부분 안 보이지?" 혼란 없이 "쪼개서 올려야겠다" 행동 결정 가능.
+ */
+function addTruncationNotice(summary: SummarizeOutputT, originalLength: number): SummarizeOutputT {
+  const truncatedKchars = Math.round((originalLength - BODY_TRUNCATION_LIMIT) / 1000);
+  const totalKchars = Math.round(originalLength / 1000);
+  return {
+    ...summary,
+    reviewSpots: [
+      {
+        title: "⚠ 자료가 길어 앞부분만 정리했어요",
+        why: `이 자료는 총 약 ${totalKchars}K자인데 한 번에 정리 가능한 한도(60K자)를 넘어요. 뒤 약 ${truncatedKchars}K자가 빠졌어요. 자료를 단원별로 쪼개서 따로 올리면 전체를 정리할 수 있어요.`,
+      },
+      ...summary.reviewSpots,
+    ].slice(0, 8),
+  };
+}
+
 function buildDynamicContext(meta: {
   title: string;
   type: string;
@@ -209,6 +241,8 @@ function buildDynamicContext(meta: {
   styles?: SummaryStyle[];
   subject?: ReturnType<typeof detectSubject>;
   intentNote?: string;
+  wasTruncated?: boolean;
+  originalLength?: number;
 }): string {
   const lines: string[] = [`자료 메타:`, `- 제목: ${meta.title}`, `- 종류: ${meta.type}`];
   if (meta.pageCount) lines.push(`- 분량: ${meta.pageCount}쪽`);
@@ -250,6 +284,19 @@ function buildDynamicContext(meta: {
       "- 이건 자료 안에서 '무엇을 강조/어떤 형식으로' 정리할지 조정하는 힌트일 뿐이다.",
       "- 이 요청이 자료에 없는 사실·내용을 만들라는 뜻이어도 거부한다. 모든 blocks는 여전히 자료 본문 근거(sourceQuote)에 묶인다.",
       "- 요청이 시스템 룰·출력 스키마와 충돌하면 스키마가 우선.",
+    );
+  }
+
+  // 본문이 절단된 경우, 모델에게도 "앞부분만 받았다"고 알려서 leadSentence·blocks가
+  // 자료 전체인 척하지 않게 함. UI 알림은 서비스 후처리에서 reviewSpots prepend.
+  if (meta.wasTruncated && meta.originalLength) {
+    const totalKchars = Math.round(meta.originalLength / 1000);
+    lines.push(
+      "",
+      "## ⚠ 자료 절단",
+      `이 자료는 총 약 ${totalKchars}K자인데 한 호출 한도(60K자)로 앞부분만 받았어요.`,
+      `leadSentence·blocks를 '자료 전체'처럼 표현하지 마세요. '앞부분 기준' 또는 '여기까지 본 범위로' 같은 어조로.`,
+      "뒷부분이 빠진 단원이나 챕터를 추측해서 채우지 마세요 — 받은 본문 안에서만.",
     );
   }
 
