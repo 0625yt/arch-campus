@@ -461,6 +461,55 @@ export function replaceBannedWords(text: string): string {
   return out;
 }
 
+/**
+ * 독후감 본문 — 8개 본문 도구 중 첫번째 (CLAUDE.md §4 개정 후).
+ *
+ * 본문 초안 허용 + 4중 가드:
+ *   1. watermark — 결과물 머리·꼬리 양쪽 강제 (한 곳 누락이라도 reject)
+ *   2. paragraphs[].citations — 본인 메모 인용 substring 필수 (책 본문 직접 인용 X — 저작권)
+ *   3. paraphrasePromptSeed — "다시 쓰기" 1급 버튼이 다시 호출할 때 쓰는 시드
+ *   4. disclaimer — 결과물 풋터 약관 한 줄
+ *
+ * 길이 가드:
+ *   - paragraphs 4~8개 (서론·본론 2~6·결론). 너무 짧으면 가치 X, 너무 길면 학생이 안 읽음.
+ *   - 각 단락 본문 80~600자 — 자기소개서·발표대본도 비슷한 호흡.
+ */
+export const BookReviewParagraph = z.object({
+  /** 단락 역할 — 학생이 어디가 서론인지 보기 위함 */
+  role: z.enum(["intro", "body", "outro"]),
+  /** 단락 본문 — paragraph 단위 텍스트 */
+  text: z.string().min(80).max(600),
+  /** 이 단락에 박힌 인용 — 본인 메모 substring. 비면 가드 통과지만 한 도큐먼트당 1+ 강제는 서비스 레이어 */
+  citations: z
+    .array(
+      z.object({
+        /** 본인 메모 발췌 (책 본문 X — 저작권) */
+        quote: z.string().min(5).max(300),
+        /** "내 메모 #2" / "p.42 메모" 등 자유 라벨 */
+        sourceLabel: z.string().min(1).max(40),
+      }),
+    )
+    .max(4),
+});
+export type BookReviewParagraphT = z.infer<typeof BookReviewParagraph>;
+
+export const BookReviewOutput = z.object({
+  /** 머리 워터마크 — WATERMARK substring 포함 강제 */
+  watermark: z.string().min(10),
+  /** 작품 제목·저자 — 학생 입력 그대로 (모델이 환각 못 만들게 서비스에서 다시 검증) */
+  bookTitle: z.string().min(1).max(120),
+  bookAuthor: z.string().max(80),
+  /** 제목 (학생이 쓸 독후감 제목 안내) */
+  title: z.string().min(4).max(80),
+  /** 본문 단락 */
+  paragraphs: z.array(BookReviewParagraph).min(4).max(8),
+  /** 다시 쓰기 시드 — paraphrase 호출 때 톤 가이드 */
+  paraphrasePromptSeed: z.string().min(20).max(400),
+  /** 풋터 약관 한 줄 */
+  disclaimer: z.string().min(10),
+});
+export type BookReviewOutputT = z.infer<typeof BookReviewOutput>;
+
 export const WATERMARK = "이 자료는 학습 보조용이며" as const;
 
 export function hasWatermark(output: { watermark?: string }): boolean {

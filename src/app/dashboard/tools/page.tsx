@@ -127,6 +127,16 @@ const WIZARDS: Wizard[] = [
     query: "회의 내용을 결정사항과 담당자별 할 일로 정리해줘",
   },
   {
+    slug: "book-review",
+    category: "과제",
+    title: "독후감 초안",
+    situation: "책은 읽었는데 첫 문단부터 안 써질 때",
+    output: "서론·본론·결론 + 내 메모 인용 + 다시 쓰기",
+    minutes: 3,
+    ready: true,
+    query: "책과 내 메모를 바탕으로 독후감 초안을 만들어줘",
+  },
+  {
     slug: "career-cover",
     category: "진로",
     title: "자기소개서 구조화",
@@ -485,6 +495,7 @@ function wizardHref(wizard: Wizard): string | null {
   if (wizard.slug === "exam-cram") return "/dashboard/tools/exam-cram";
   if (wizard.slug === "report-checklist") return "/dashboard/tools/report-checklist";
   if (wizard.slug === "report-structure") return "/dashboard/tools/report-structure";
+  if (wizard.slug === "book-review") return "/dashboard/tools/book-review";
   return null;
 }
 
