@@ -106,13 +106,13 @@ export function SplitWithFailedLeft({
             className="text-[15px] wght-560 text-[var(--color-apple-ink)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            원본을 PDF로 바꾸지 못했어요
+            이 파일은 미리보기를 지원하지 않아요
           </p>
           <p
             className="mt-2 max-w-[340px] text-[13px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            요약은 정상이에요. 원본 파일은 아래에서 받을 수 있어요.
+            요약·문제는 오른쪽에서 정상으로 볼 수 있어요. 원본 파일이 필요하면 아래로 받으세요.
           </p>
           <button
             type="button"

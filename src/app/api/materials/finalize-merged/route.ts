@@ -3,6 +3,7 @@ import { z } from "zod";
 import { runConvertPdfJob, runQuizJob, runSummarizeJob, stripExt } from "@/app/api/materials/route";
 import { pickRequestContext, recordAudit } from "@/lib/audit";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
+import { isConvertibleToPdf } from "@/lib/cloudconvert";
 import { enqueueJob } from "@/lib/data/jobs";
 import { detectMergeMode, mergeAsText, mergePdfs } from "@/lib/merge-files";
 import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
@@ -205,8 +206,10 @@ export async function POST(
     }),
   ]);
 
-  // PDF가 아니면 convert-pdf 잡도 (text-concat 모드)
-  const needsPdfConvert = mode !== "pdf";
+  // PDF가 아니면 convert-pdf 잡 — 단 첫 파일이 cloudconvert가 처리 가능한 Office 형식일 때만.
+  // 멀티 파일 text-concat 모드에서 첫 파일이 TXT·MD·이미지면 잡 자체 X (변환 의미 없음).
+  // 첫 파일이 PPT·DOC면 그것만이라도 PDF로 변환해 미리보기 제공.
+  const needsPdfConvert = mode !== "pdf" && isConvertibleToPdf(primary.filename);
   const convertEnqueue = needsPdfConvert
     ? await enqueueJob({
         ownerId,

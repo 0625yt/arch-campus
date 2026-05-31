@@ -3,6 +3,7 @@ import { z } from "zod";
 import { runConvertPdfJob, runQuizJob, runSummarizeJob, stripExt } from "@/app/api/materials/route";
 import { pickRequestContext, recordAudit } from "@/lib/audit";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
+import { isConvertibleToPdf } from "@/lib/cloudconvert";
 import { enqueueJob } from "@/lib/data/jobs";
 import { ParserRejectedError, parseDocument } from "@/lib/parsers";
 import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
@@ -169,7 +170,11 @@ export async function POST(
     }),
   ]);
 
-  const needsPdfConvert = mimeType !== "application/pdf";
+  // convert-pdf 큐잉 조건: (a) 이미 PDF 아니고 (b) cloudconvert가 처리 가능한 Office 확장자.
+  // 텍스트·이미지·미지원 형식은 잡 자체를 안 만들어 사용자에게 "PDF로 못 바꿈" 에러 노출 X.
+  // 원본은 dock에서 그대로 다운로드 가능.
+  const needsPdfConvert =
+    mimeType !== "application/pdf" && isConvertibleToPdf(body.filename);
   const convertEnqueue = needsPdfConvert
     ? await enqueueJob({
         ownerId,

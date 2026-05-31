@@ -128,11 +128,33 @@ export async function convertToPdf(opts: {
   throw new Error("CloudConvert 변환 타임아웃 (5분 초과)");
 }
 
+/**
+ * cloudconvert에 보내도 PDF로 바뀌어 돌아올 수 있는 Office 계열 확장자.
+ * PDF·이미지·텍스트(txt/md/json/csv 등)는 변환 대상 X — 호출자가 사전 차단해야 함.
+ */
+export const CONVERTIBLE_EXTENSIONS = [
+  "pptx",
+  "ppt",
+  "docx",
+  "doc",
+  "hwpx",
+  "hwp",
+  "odt",
+  "odp",
+  "rtf",
+] as const;
+
+/**
+ * 파일명이 cloudconvert로 PDF 변환 가능한지 체크. enqueue 전에 호출.
+ */
+export function isConvertibleToPdf(filename: string): boolean {
+  const ext = filename2ext(filename);
+  return ext !== null;
+}
+
 function filename2ext(name: string): string | null {
   const dot = name.lastIndexOf(".");
   if (dot === -1) return null;
   const ext = name.slice(dot + 1).toLowerCase();
-  // CloudConvert가 받는 Office 확장자 화이트리스트
-  const allowed = ["pptx", "ppt", "docx", "doc", "hwpx", "hwp", "odt", "odp", "rtf"];
-  return allowed.includes(ext) ? ext : null;
+  return (CONVERTIBLE_EXTENSIONS as readonly string[]).includes(ext) ? ext : null;
 }
