@@ -87,10 +87,13 @@ export async function mergePdfs(files: MergeInputFile[]): Promise<MergedResult> 
   }
 
   // 병합된 PDF를 파서에 넘겨 텍스트도 추출 (full_text 채움) — 실패해도 빈 텍스트로 진행.
+  // unpdf는 받은 Uint8Array의 underlying ArrayBuffer를 worker로 transfer해 detach 시킨다.
+  // 그대로 넘기면 호출 후 mergedBytes가 0바이트가 되어 Storage에 빈 객체가 올라간다.
+  // (timetable.ts·syllabus.ts와 동일 패턴 — 항상 독립 복사본을 넘긴다.)
   let parsed: Awaited<ReturnType<typeof parseDocument>>;
   try {
     parsed = await parseDocument({
-      bytes: mergedBytes,
+      bytes: mergedBytes.slice(),
       filename: "merged.pdf",
       mimeType: "application/pdf",
     });
