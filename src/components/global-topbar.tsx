@@ -43,21 +43,29 @@ export function GlobalTopbar() {
       className="liquid-glass-bar sticky top-0 z-40 hidden border-b border-[var(--color-apple-hairline-soft)] md:block"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <div className="mx-auto flex h-12 max-w-[1440px] items-center gap-3 px-5 md:px-8 xl:px-10">
-        {/* Leading edge — brand + 학기 chip */}
-        <div className="flex items-center gap-2">
+      {/*
+        Apple Mail/Music macOS toolbar 톤:
+          ┌─ Leading: brand + nav (좌측 그룹화)
+          ├─ Center: 큰 검색 chip (Spotlight 톤)
+          └─ Trailing: 학기 chip + 테마 + divider + 프로필
+        nav를 좌측으로 옮겨 검색이 가운데 1급. 검색이 사용자에게 가장 잘 보이고 즉시 호출됨.
+      */}
+      <div className="mx-auto flex h-12 max-w-[1440px] items-center gap-4 px-5 md:px-8 xl:px-10">
+        {/* Leading — brand + nav */}
+        <div className="flex items-center gap-3 shrink-0">
           <BrandLink />
-          <SemesterChip />
-        </div>
-
-        {/* Center — 주 메뉴 */}
-        <div className="flex flex-1 justify-center">
+          <span aria-hidden className="h-5 w-px bg-[var(--color-apple-hairline-soft)]" />
           <SegmentedNav pathname={pathname} />
         </div>
 
-        {/* Trailing edge — 검색·테마·구분선·프로필 (HIG cluster 패턴) */}
-        <div className="flex items-center gap-0.5">
-          <SearchTrigger variant="icon" />
+        {/* Center — Spotlight 톤 큰 검색 chip */}
+        <div className="flex flex-1 justify-center">
+          <SpotlightSearch />
+        </div>
+
+        {/* Trailing — 학기 + 테마 + divider + 프로필 */}
+        <div className="flex items-center gap-1 shrink-0">
+          <SemesterChip />
           <ThemeToggle />
           <span aria-hidden className="mx-1 h-5 w-px bg-[var(--color-apple-hairline-soft)]" />
           <ProfileMenu />
@@ -82,6 +90,18 @@ function BrandLink() {
         arch
       </span>
     </Link>
+  );
+}
+
+/**
+ * Spotlight 톤 큰 검색 chip — 중앙에 박힘.
+ * SearchTrigger sidebar variant 재사용 + 최대폭 제한 (가운데 1급이지만 nav 안 침범).
+ */
+function SpotlightSearch() {
+  return (
+    <div className="w-full max-w-[420px]">
+      <SearchTrigger variant="sidebar" />
+    </div>
   );
 }
 

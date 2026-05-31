@@ -201,15 +201,44 @@
  * inline script (layout.tsx)가 hydration 전 localStorage 읽어 dataset에 박음.
  */
 html[data-theme="dark"] {
+  /*
+   * 대시보드 다크 — 랜딩 다크와 동일 surface 시스템.
+   * 핵심: pearl(secondary surface)을 #18181a로 (랜딩 카드와 동일 톤).
+   * hairline은 옅은 화이트 06%, soft는 04% — 흑백 사이 부드러운 계층.
+   */
   --color-apple-ink: #f5f5f7;
   --color-apple-muted: #a1a1a6;
-  --color-apple-pearl: #1d1d1f;
-  --color-apple-hairline: #3a3a3d;
-  --color-apple-hairline-soft: rgba(255, 255, 255, 0.10);
-  --color-surface-mist: #161618;
+  --color-apple-pearl: #18181a;
+  --color-apple-hairline: rgba(255, 255, 255, 0.10);
+  --color-apple-hairline-soft: rgba(255, 255, 255, 0.06);
+  --color-surface-mist: #131315;
   --color-surface-cream: #1a1a1c;
   --color-apple-action-soft: rgba(0, 113, 227, 0.18);
+  --color-apple-action-hover: #1a85ff;
 
+  /* 다크에서 cobalt는 더 밝게 (시인성) */
+  --color-apple-cobalt: #8eb8e0;
+
+  /* Kind tints — 다크에서 채도 한 단 낮추고 톤은 살림 */
+  --color-tint-exam: rgba(255, 69, 58, 0.14);
+  --color-tint-exam-strong: rgba(255, 69, 58, 0.24);
+  --color-tint-exam-ink: #ff7a73;
+  --color-tint-assign: rgba(255, 149, 0, 0.14);
+  --color-tint-assign-strong: rgba(255, 149, 0, 0.24);
+  --color-tint-assign-ink: #ffb866;
+  --color-tint-prez: rgba(0, 113, 227, 0.14);
+  --color-tint-prez-strong: rgba(0, 113, 227, 0.24);
+  --color-tint-prez-ink: #6cabff;
+  --color-tint-class: rgba(48, 209, 88, 0.14);
+  --color-tint-class-strong: rgba(48, 209, 88, 0.24);
+  --color-tint-class-ink: #6ce097;
+  --color-tint-etc: rgba(191, 90, 242, 0.14);
+  --color-tint-etc-strong: rgba(191, 90, 242, 0.24);
+  --color-tint-etc-ink: #c79bf2;
+  --color-tint-streak: rgba(255, 159, 10, 0.16);
+  --color-tint-streak-ink: #ffb866;
+
+  /* 랜딩 토큰 (이전 그대로) */
   --color-landing-bg: #0c0c0e;
   --color-landing-text-strong: #f5f5f7;
   --color-landing-text-muted: #a1a1a6;
@@ -217,6 +246,11 @@ html[data-theme="dark"] {
   --color-landing-card-strong: #1a1a1c;
   --color-landing-hairline: rgba(255, 255, 255, 0.10);
   --color-landing-pearl: #1d1d1f;
+
+  /* 다크 canvas blob — 코발트·라일락 미세 (그라데이션 보이도록) */
+  --surface-canvas-blob:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0, 113, 227, 0.10), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(142, 126, 224, 0.07), transparent 60%);
 }
 
 /*
@@ -232,16 +266,11 @@ html[data-theme="dark"] {
 }
 
 /*
- * 다크 모드 대시보드 — Apple Mail/Music 다크와 같은 deep ink + 미세 sky tint.
- *   배경: #0c0c0e (Apple system background dark)
- *   blob: action 컬러 더 옅게 (4%) 깔고 하단에 라일락 톤 hint.
+ * 다크 모드 대시보드 — 랜딩 다크와 동일 surface 시스템.
+ * --surface-canvas-blob이 다크 토큰 블록에서 자동 override됨.
  */
 html[data-theme="dark"] .dashboard-canvas {
   background-color: #0c0c0e;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0, 113, 227, 0.07), transparent 60%),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(142, 126, 224, 0.05), transparent 60%);
-  background-attachment: fixed;
 }
 
 /*
@@ -585,21 +614,12 @@ select:focus-visible {
   animation: clock-tick 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* 좌측 컬러 ribbon + hover glow — 카드형 컴포넌트 카테고리 식별 패턴.
+/*
+ * Card lift utility — 좌측 ribbon은 제거됨 (2026-05-31 사용자 결정).
  *
- * 사용 위치: today UpcomingCard, study CourseCard, review ReviewCard 등.
- * (캘린더 EventChip의 좌측 색 bar 톤을 카드 크기로 확장한 것.)
- *
- * 사용법:
- *   <article class="group card-glow-ribbon" style="--ribbon-color: #e0445e;">
- *     ...
- *   </article>
- *
- * 자동으로:
- *   - 좌측 2.5px ribbon이 그려지고 hover 시 3.5px로 굵어짐
- *   - 좌측에 옅은 glow가 hover 시 번짐
- *   - 카드 자체는 hover 시 -0.5 translate 살짝 떠오름
- *   - position: relative · overflow: hidden은 호출자 책임 (다른 absolute 자식과 충돌 방지)
+ * 이전: 좌측 2.5px 컬러 bar + hover glow. 너무 단조롭고 모든 카드에 같은 패턴이라
+ *       AI 흔한 톤. 사용자 명시 제거 요청 (반복).
+ * 현재: hover translate -2px만 유지. 카테고리 시각화는 카드 내부 chip·color text로.
  */
 .card-glow-ribbon {
   transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -607,37 +627,11 @@ select:focus-visible {
 .card-glow-ribbon:hover {
   transform: translateY(-2px);
 }
+/* ::before / ::after 의도적으로 비움 — 이전 ribbon·glow 제거 */
 .card-glow-ribbon::before,
 .card-glow-ribbon::after {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  left: 0;
-  pointer-events: none;
+  content: none;
 }
-.card-glow-ribbon::before {
-  width: 2.5px;
-  background-color: var(--ribbon-color, var(--color-apple-hairline));
-  opacity: 0.7;
-  transition:
-    width 300ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 300ms ease;
-}
-.card-glow-ribbon:hover::before {
-  width: 3.5px;
-  opacity: 1;
-}
-.card-glow-ribbon::after {
-  width: 8px;
-  background-color: var(--ribbon-color, transparent);
-  filter: blur(8px);
-  opacity: 0;
-  transition: opacity 300ms ease;
-}
-.card-glow-ribbon:hover::after {
-  opacity: 0.4;
-}
-
 /* 페이지 진입 — 생활형 도구라 첫 정보가 늦게 뜨지 않게 짧게 */
 @keyframes fade-up {
   from {
