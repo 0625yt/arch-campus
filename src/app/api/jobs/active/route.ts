@@ -15,6 +15,8 @@ const TOOL_LABEL: Record<string, string> = {
   "syllabus-extract": "강의계획서 분석",
   "timetable-extract": "시간표 분석",
   "post-mortem": "시험 후 회고",
+  // PPTX·DOCX 같은 Office는 PDF로 변환 후에 Gemini OCR로 본문을 읽는다. 보통 10~30초.
+  "convert-pdf": "원본을 PDF로 변환 중",
 };
 
 /**

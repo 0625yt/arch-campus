@@ -23,7 +23,58 @@ interface CCJobResponse {
 }
 
 /**
- * Office 파일을 PDF로 변환한다. 흐름:
+ * 일시적 장애로 분류해 재시도할 가치가 있는지 판단.
+ *
+ * 재시도 O: 네트워크 오류, 5xx, 429 (rate limit), job 생성 HTTP 실패.
+ * 재시도 X: API 키 누락(영구), 4xx 거절(파일 형식·권한), 변환 자체 실패(같은 파일·같은 결과).
+ */
+function isRetriableConvertError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes("CLOUDCONVERT_API_KEY 미설정")) return false;
+  if (msg.includes("확장자를 알 수 없는")) return false;
+  if (msg.includes("변환 실패")) return false; // CloudConvert가 명시적으로 status=error
+  // job 생성 4xx — 잘못된 요청. 5xx·네트워크면 재시도.
+  const httpMatch = msg.match(/job 생성 실패: (\d{3})/);
+  if (httpMatch) {
+    const code = Number(httpMatch[1]);
+    return code >= 500 || code === 429;
+  }
+  // 상태 조회 실패·타임아웃·다운로드 실패는 일시적일 수 있음
+  return true;
+}
+
+/**
+ * Office 파일을 PDF로 변환. 일시적 장애(네트워크·5xx·429·다운로드 실패) 시 자동 재시도.
+ *
+ * 백오프: 1s → 3s → 8s. 최대 3회 시도. 영구 실패(키 누락·잘못된 파일)는 즉시 throw.
+ * convertToPdfOnce가 실제 한 번 호출 로직, convertToPdf는 재시도 래퍼.
+ */
+export async function convertToPdf(opts: {
+  sourceUrl: string;
+  filename: string;
+}): Promise<Uint8Array> {
+  const RETRY_DELAYS_MS = [1000, 3000, 8000];
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await convertToPdfOnce(opts);
+    } catch (e) {
+      lastErr = e;
+      if (!isRetriableConvertError(e) || attempt >= RETRY_DELAYS_MS.length) {
+        throw e;
+      }
+      const delay = RETRY_DELAYS_MS[attempt];
+      console.warn(
+        `[cloudconvert] 재시도 ${attempt + 1}/${RETRY_DELAYS_MS.length} (${delay}ms 대기): ${e instanceof Error ? e.message : e}`,
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
+/**
+ * 한 번 호출 — 흐름:
  *   1) /jobs POST — import-url(우리 signed URL) → convert(pdf) → export-url 3-task 묶음
  *   2) /jobs/:id GET 폴링 (5s × 최대 60회 = 5분)
  *   3) export task의 result.files[0].url에서 PDF 바이트 다운로드
@@ -33,7 +84,7 @@ interface CCJobResponse {
  *
  * 에러: API 키 누락, 변환 실패, 폴링 5분 초과, 결과 다운로드 실패 — 각각 throw.
  */
-export async function convertToPdf(opts: {
+async function convertToPdfOnce(opts: {
   sourceUrl: string;
   filename: string;
 }): Promise<Uint8Array> {

@@ -1,28 +1,14 @@
 import { after, NextResponse } from "next/server";
-import { z } from "zod";
-import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { convertToPdf } from "@/lib/cloudconvert";
 import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
-import { ParserRejectedError, parseDocument } from "@/lib/parsers";
-import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
+import { parseDocument } from "@/lib/parsers";
 import { type Difficulty, runQuizGeneration } from "@/lib/services/quiz";
 import { runSummarize } from "@/lib/services/summarize";
-import { createSignedReadUrl, storeMaterialFile } from "@/lib/storage";
+import { createSignedReadUrl } from "@/lib/storage";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-
-interface PipelineOk {
-  ok: true;
-  materialId: string;
-  parser: string;
-  pageCount: number | null;
-  jobs: {
-    summarize: { id: string; status: "pending" | "running" | "done" | "error" | "cancelled" };
-    quiz: { id: string; status: "pending" | "running" | "done" | "error" | "cancelled" };
-  };
-}
 
 interface PipelineErr {
   ok: false;
@@ -30,223 +16,36 @@ interface PipelineErr {
   reason?: string;
 }
 
-const ALLOWED_TYPES = ["lecture", "assignment", "exam", "team", "syllabus", "notice"] as const;
-type MaterialType = (typeof ALLOWED_TYPES)[number];
-
-const MetaSchema = z.object({
-  courseId: z.string().optional(),
-  title: z.string().max(200).optional(),
-  type: z.enum(ALLOWED_TYPES).optional(),
-  difficulty: z.enum(["쉬움", "보통", "어려움"]).optional(),
-  // 자료 업로드 직후 자동 생성 — 사용자가 명시 안 하면 10(=default). 최대 30.
-  count: z.coerce.number().int().min(1).max(30).optional(),
-});
-
 /**
- * 자료 업로드 단일 진입점 — 한 번의 multipart로 다음을 일괄 처리:
+ * @deprecated 2026-05-31 — multipart 단일 업로드는 더 이상 지원하지 않음.
  *
- *   1) Storage 저장
- *   2) 파일 파싱 (실패해도 placeholder로 진행)
- *   3) materials 행 INSERT
- *   4) summarize · quiz 잡 두 개 동시 큐잉 (병렬)
- *   5) materialId + jobIds 즉시 반환
+ * 종전 흐름: file 업로드 + parseDocument 동기 호출 → materials INSERT + jobs 실행.
+ * 문제:
+ *   - Office 파일을 cloudconvert로 변환하기 전에 officeparser로 빈약하게 파싱 → 요약 실패
+ *   - finalize / finalize-merged와 흐름이 갈라져 OCR·convert-first 가드가 두 곳만 박혀있음
  *
- * 클라이언트는 두 jobId를 useJob으로 동시 폴링 → 끝나는 대로 화면에 흘려준다.
- * 학생이 한 번 업로드만 하면 60초 안에 요약과 10문제가 양쪽에서 도착.
+ * 새 흐름 (클라이언트가 사용 중):
+ *   1) POST /api/materials/upload-url — signed URL 발급
+ *   2) 클라이언트가 Supabase Storage에 직접 PUT
+ *   3) POST /api/materials/finalize — 파싱·잡 큐잉 (Office는 cloudconvert 먼저 → Gemini OCR)
  *
- * 비용:
- *   - summarize: Sonnet 4.6 ~ $0.02/회
- *   - quiz: Sonnet 4.6 ~ $0.03/회 (5~10문제)
- *   - 분류기 Haiku ~ $0.0001 × 2
- *   합계 ~ $0.05/업로드.
- *
- * 기존 /api/summarize·/api/quiz는 single-purpose 호출이 필요한 케이스를 위해 유지.
- * 새 업로드 동선은 이 라우트 하나로 통일.
+ * 본 핸들러는 410 Gone — 외부에서 잘못 호출해도 새 엔드포인트로 안내.
+ * export 함수(runSummarizeJob·runQuizJob·runConvertPdfJob·stripExt)는 다른 라우트에서
+ * 재사용 중이라 본문 아래쪽에 그대로 유지.
  */
-export async function POST(
-  req: Request,
-): Promise<NextResponse<PipelineOk | PipelineErr | RateLimitErrBody>> {
-  let ownerId: string;
-  try {
-    ownerId = await getOwnerId();
-  } catch (e) {
-    if (e instanceof UnauthorizedError) {
-      return NextResponse.json({ ok: false, error: e.message }, { status: 401 });
-    }
-    throw e;
-  }
-
-  // ★ 한 번 호출이 Sonnet × 2 (summarize ~ $0.02 + quiz ~ $0.03) 트리거 — 무가드면 비용 무한 누적.
-  //   같은 ownerId 반복 호출을 upload 버킷(30회/시간)과 ai 버킷(6회/분)로 막는다.
-  const uploadBlock = await guardRateLimit("upload", ownerId);
-  if (uploadBlock) return uploadBlock;
-  const aiBlock = await guardRateLimit("ai", ownerId);
-  if (aiBlock) return aiBlock;
-
-  let form: FormData;
-  try {
-    form = await req.formData();
-  } catch (e) {
-    const detail = e instanceof Error ? e.message : String(e);
-    return NextResponse.json(
-      { ok: false, error: `form-data 파싱 실패: ${detail}` },
-      { status: 400 },
-    );
-  }
-
-  const file = form.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return NextResponse.json({ ok: false, error: "file 필드가 비어있어요" }, { status: 400 });
-  }
-
-  let meta: z.infer<typeof MetaSchema>;
-  try {
-    meta = MetaSchema.parse({
-      courseId: emptyToUndef(form.get("courseId")),
-      title: emptyToUndef(form.get("title")),
-      type: emptyToUndef(form.get("type")),
-      difficulty: emptyToUndef(form.get("difficulty")),
-      count: emptyToUndef(form.get("count")),
-    });
-  } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: `메타 입력 검증 실패: ${e instanceof Error ? e.message : "unknown"}` },
-      { status: 400 },
-    );
-  }
-
-  // 1) Storage
-  let uploaded: Awaited<ReturnType<typeof storeMaterialFile>>;
-  try {
-    uploaded = await storeMaterialFile({
-      ownerId,
-      file,
-      filename: file.name,
-      mimeType: file.type,
-    });
-  } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "업로드 실패" },
-      { status: 500 },
-    );
-  }
-
-  // 2) Parse — rejected는 placeholder로
-  let parsed: Awaited<ReturnType<typeof parseDocument>>;
-  try {
-    parsed = await parseDocument({
-      bytes: uploaded.bytes,
-      filename: uploaded.filename,
-      mimeType: uploaded.mimeType,
-    });
-  } catch (e) {
-    if (e instanceof ParserRejectedError) {
-      const message = e.message;
-      parsed = {
-        text: `[자동 추출 실패]\n파일명: ${uploaded.filename}\n사유: ${message}`,
-        sanitizedText: `[자동 추출 실패]\n파일명: ${uploaded.filename}\n사유: ${message}`,
-        mimeType: uploaded.mimeType,
-        source: "rejected",
-        warnings: [message],
-      };
-    } else {
-      return NextResponse.json(
-        { ok: false, error: e instanceof Error ? e.message : "파싱 실패" },
-        { status: 500 },
-      );
-    }
-  }
-
-  // 3) materials 행
-  const admin = getAdminSupabase();
-  const title = (meta.title ?? "").trim() || stripExt(file.name);
-  const type: MaterialType = meta.type ?? "lecture";
-
-  const { data: material, error: materialErr } = await admin
-    .from("materials")
-    .insert({
-      owner_id: ownerId,
-      course_id: meta.courseId ?? null,
-      title,
-      type,
-      original_filename: uploaded.filename,
-      mime_type: uploaded.mimeType,
-      storage_path: uploaded.storagePath,
-      page_count: parsed.pageCount ?? null,
-      full_text: parsed.sanitizedText.slice(0, 200_000),
-    })
-    .select("id")
-    .single();
-
-  if (materialErr || !material) {
-    return NextResponse.json(
-      { ok: false, error: `materials 저장 실패: ${materialErr?.message ?? "unknown"}` },
-      { status: 500 },
-    );
-  }
-
-  // 4) 두 잡 큐잉 (병렬). enqueueJob의 active dedupe 덕에 race-safe.
-  const [summarizeEnqueue, quizEnqueue] = await Promise.all([
-    enqueueJob({
-      ownerId,
-      materialId: material.id,
-      tool: "summarize",
-      inputParams: { materialId: material.id, title, type },
-    }),
-    enqueueJob({
-      ownerId,
-      materialId: material.id,
-      tool: "quiz",
-      inputParams: {
-        materialId: material.id,
-        difficulty: meta.difficulty ?? "보통",
-        count: meta.count ?? 10,
-      },
-    }),
-  ]);
-
-  // 5) 백그라운드 실행 — 두 잡이 동시에 돈다. 각 잡은 자기 markRunning/Done/Error.
-  after(async () => {
-    await Promise.all([
-      runSummarizeJob({
-        jobId: summarizeEnqueue.job.id,
-        ownerId,
-        materialId: material.id,
-        title,
-        type,
-        fullText: parsed.text,
-        sanitizedText: parsed.sanitizedText,
-        pageCount: parsed.pageCount ?? null,
-        parserWarnings: parsed.warnings,
-      }),
-      runQuizJob({
-        jobId: quizEnqueue.job.id,
-        ownerId,
-        materialId: material.id,
-        courseId: meta.courseId ?? null,
-        title,
-        type,
-        fullText: parsed.text,
-        sanitizedText: parsed.sanitizedText,
-        pageCount: parsed.pageCount ?? null,
-        parserWarnings: parsed.warnings,
-        difficulty: (meta.difficulty ?? "보통") as Difficulty,
-        requestedCount: meta.count ?? 10,
-      }),
-    ]);
-  });
-
-  return NextResponse.json({
-    ok: true,
-    materialId: material.id,
-    parser: parsed.source,
-    pageCount: parsed.pageCount ?? null,
-    jobs: {
-      summarize: { id: summarizeEnqueue.job.id, status: summarizeEnqueue.job.status },
-      quiz: { id: quizEnqueue.job.id, status: quizEnqueue.job.status },
+export async function POST(_req: Request): Promise<NextResponse<PipelineErr>> {
+  return NextResponse.json(
+    {
+      ok: false,
+      error:
+        "이 엔드포인트는 더 이상 지원하지 않아요. /api/materials/upload-url → PUT → /api/materials/finalize 흐름을 사용해주세요.",
+      reason: "deprecated",
     },
-  });
+    { status: 410 },
+  );
 }
+
+// 종전 multipart POST 본문은 제거 — git log e0e6047 이전 commit에서 확인.
 
 export async function runSummarizeJob(opts: {
   jobId: string;
@@ -567,7 +366,7 @@ async function reparseAndRerunAi(opts: {
   }
 }
 
-function emptyToUndef(v: FormDataEntryValue | null): string | undefined {
+function _emptyToUndef(v: FormDataEntryValue | null): string | undefined {
   if (v === null) return undefined;
   if (typeof v !== "string") return undefined;
   const t = v.trim();
