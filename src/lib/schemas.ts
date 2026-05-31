@@ -44,7 +44,9 @@ export const SummarizeOutput = z.object({
     // 60으론 중간이 비어 보임 (사용자 피드백 2026-05-31). 한 자료당 토큰 증가는 감수.
     .min(5)
     .max(100),
-  keywords: z.array(z.string().min(1).max(60)).min(3).max(50),
+  // max 100 — 강의 슬라이드·어학 자료처럼 핵심 어휘가 많은 자료에서 50으론 부족.
+  // 사용자 피드백 2026-05-31: "키워드를 50으로 가둘 이유가 없다, 자료에 있는 거 다 담아라".
+  keywords: z.array(z.string().min(1).max(60)).min(3).max(100),
   reviewSpots: z
     .array(
       z.object({

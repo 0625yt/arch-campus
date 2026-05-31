@@ -7,7 +7,7 @@ import {
 import { estimateCost, generate, getModelVendor } from "@/lib/claude";
 import { MAX_STYLES_PER_REQUEST, STYLE_LABEL, type SummaryStyle } from "@/lib/material-policy";
 import { loadPrompt } from "@/lib/prompts";
-import { parseModelJson, SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
+import { SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
 import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
 import { buildPlaybookSection } from "@/lib/subject-playbook";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -165,9 +165,12 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
   }
 
   // Zod 검증 — 단일 호출 경로는 자료 전체가 들어가서 절단 없음.
+  // 모델이 keywords 50개 초과·blocks 100개 초과로 뱉으면 zod가 throw. parseSummarizeWithCap이
+  // 검증 전에 한도 안으로 안전 보정해서 검증 통과시킴. (실측 2026-05-31 prod: Haiku가
+  // 강의 슬라이드 자료에서 keywords 50개 초과 뱉어 모든 chunk가 throw하던 버그.)
   let summary: SummarizeOutputT;
   try {
-    summary = parseModelJson(SummarizeOutput, result.text);
+    summary = parseSummarizeWithCap(result.text);
   } catch (e) {
     await logGeneration({
       ownerId: input.ownerId,
@@ -221,6 +224,44 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     costUsd,
     tokenBudget,
   };
+}
+
+/**
+ * 모델 raw 응답을 SummarizeOutput으로 검증하되, **검증 직전에 한도 초과 배열을 잘라낸다.**
+ *
+ * 왜 필요한가 (2026-05-31 prod 버그):
+ *   - Haiku가 강의 슬라이드 자료를 요약할 때 keywords·blocks를 한도 초과로 뱉음.
+ *   - zod가 throw → "요약 형식이 맞지 않았어요" 에러.
+ *   - chunk 경로(MAX_CHUNKS=10)에서 모든 chunk가 같은 이유로 throw → partials.length === 0 → "요약 못 만듦".
+ *
+ * 해결: 검증 직전 한도(keywords 100·blocks 100·reviewSpots 8) 초과분을 잘라낸다.
+ * 안의 다른 검증(타입·내용 길이)은 그대로 zod로.
+ */
+function parseSummarizeWithCap(raw: string): SummarizeOutputT {
+  const body = extractJsonBodyForCap(raw);
+  const parsed = JSON.parse(body) as Record<string, unknown>;
+  if (Array.isArray(parsed.keywords) && parsed.keywords.length > 100) {
+    parsed.keywords = parsed.keywords.slice(0, 100);
+  }
+  if (Array.isArray(parsed.blocks) && parsed.blocks.length > 100) {
+    parsed.blocks = parsed.blocks.slice(0, 100);
+  }
+  if (Array.isArray(parsed.reviewSpots) && parsed.reviewSpots.length > 8) {
+    parsed.reviewSpots = parsed.reviewSpots.slice(0, 8);
+  }
+  return SummarizeOutput.parse(parsed);
+}
+
+function extractJsonBodyForCap(raw: string): string {
+  const trimmed = raw.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenced) return fenced[1].trim();
+  const fencedOpen = trimmed.match(/```(?:json)?\s*([\s\S]*)$/i);
+  if (fencedOpen) return fencedOpen[1].trim();
+  const first = trimmed.indexOf("{");
+  const last = trimmed.lastIndexOf("}");
+  if (first !== -1 && last > first) return trimmed.slice(first, last + 1);
+  return trimmed;
 }
 
 function buildDynamicContext(meta: {
@@ -523,7 +564,7 @@ function mergePartialSummaries(
       if (!keywordSet.has(key)) keywordSet.set(key, kw);
     }
   }
-  const mergedKeywords = Array.from(keywordSet.values()).slice(0, 50);
+  const mergedKeywords = Array.from(keywordSet.values()).slice(0, 100);
 
   // reviewSpots 중복 title 제거
   const reviewSet = new Map<string, SummarizeOutputT["reviewSpots"][number]>();

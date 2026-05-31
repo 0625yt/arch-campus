@@ -3,13 +3,24 @@ import { z } from "zod";
 import { runQuizJob, runSummarizeJob, stripExt } from "@/app/api/materials/route";
 import { pickRequestContext, recordAudit } from "@/lib/audit";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { convertToPdf, isConvertibleToPdf } from "@/lib/cloudconvert";
-import { enqueueJob, markJobDone } from "@/lib/data/jobs";
+import { enqueueJob } from "@/lib/data/jobs";
 import { detectMergeMode, mergeAsText, mergePdfs } from "@/lib/merge-files";
 import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
 import type { Difficulty } from "@/lib/services/quiz";
-import { createSignedReadUrl, downloadMaterialFile, uploadMergedPdf } from "@/lib/storage";
+import { downloadMaterialFile, uploadMergedPdf } from "@/lib/storage";
 import { getAdminSupabase } from "@/lib/supabase/admin";
+
+/** Office/HWP — PDF 변환 미지원, 업로드 차단 (CloudConvert 제거 2026-05-31). */
+const REJECT_EXTENSIONS = new Set([
+  "pptx", "ppt", "doc", "docx", "hwp", "hwpx", "odt", "odp", "rtf",
+]);
+function hasOfficeFile(filenames: string[]): boolean {
+  return filenames.some((name) => {
+    const dot = name.lastIndexOf(".");
+    if (dot === -1) return false;
+    return REJECT_EXTENSIONS.has(name.slice(dot + 1).toLowerCase());
+  });
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -45,7 +56,6 @@ interface MergedOk {
   jobs: {
     summarize: { id: string; status: "pending" | "running" | "done" | "error" | "cancelled" };
     quiz: { id: string; status: "pending" | "running" | "done" | "error" | "cancelled" };
-    convertPdf?: { id: string; status: "pending" | "running" | "done" | "error" | "cancelled" };
   };
 }
 
@@ -113,6 +123,19 @@ export async function POST(
         { status: 403 },
       );
     }
+  }
+
+  // Office/HWP는 자동 변환 지원 X — 파일을 PDF로 저장해 다시 올리도록 안내.
+  if (hasOfficeFile(body.sources.map((s) => s.filename))) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "PPTX·DOCX·HWP는 자동 변환을 지원하지 않아요. 각 파일을 PDF로 저장한 뒤 다시 올려주세요.",
+        reason: "incompatible",
+      },
+      { status: 422 },
+    );
   }
 
   const mimeTypes = body.sources.map((s) => s.mimeType ?? "application/octet-stream");
@@ -206,37 +229,16 @@ export async function POST(
     }),
   ]);
 
-  // text-concat 모드에서 Office 파일이 섞여 있으면 convert-pdf 잡 (대표 잡 하나).
-  // 개별 변환은 after() 안에서 모든 Office 파일에 대해 수행되지만, dock에 보이는 잡은 1개.
-  const hasConvertibleOffice =
-    mode !== "pdf" && body.sources.some((s) => isConvertibleToPdf(s.filename));
-  const convertEnqueue = hasConvertibleOffice
-    ? await enqueueJob({
-        ownerId,
-        materialId: material.id,
-        tool: "convert-pdf",
-        inputParams: {
-          materialId: material.id,
-          sourceStoragePath: primary.storagePath,
-          filename: primary.filename,
-        },
-      })
-    : null;
-
-  // 백그라운드: download all → (Office는 PDF 변환) → merge → update materials → 잡 실행
-  //
-  // 종전: Office 파일을 그대로 mergeAsText(officeparser)로 처리 → 본문 부실 → 요약 실패.
-  // 변경: download 후 merge 전에 Office 파일들을 cloudconvert로 PDF 변환 → bytes·mimeType 교체.
-  //       그러면 mergeAsText 안에서 parseDocument가 PDF 경로(Gemini OCR)로 자동 처리 → 표·수식·이미지까지 다 읽힘.
+  // 백그라운드: download all → merge → update materials → 잡 실행
+  // Office/HWP는 위에서 이미 422 차단. 여기 도달한 자료는 PDF·이미지·텍스트뿐.
   after(async () => {
-    let downloaded: Array<{ filename: string; mimeType: string; bytes: Uint8Array; storagePath: string }>;
+    let downloaded: Array<{ filename: string; mimeType: string; bytes: Uint8Array }>;
     try {
       downloaded = await Promise.all(
         body.sources.map(async (s) => ({
           filename: s.filename,
           mimeType: s.mimeType ?? "application/octet-stream",
           bytes: await downloadMaterialFile(s.storagePath),
-          storagePath: s.storagePath,
         })),
       );
     } catch (e) {
@@ -244,61 +246,13 @@ export async function POST(
       await Promise.all([
         markBgJobError(summarizeEnqueue.job.id, ownerId, errMsg),
         markBgJobError(quizEnqueue.job.id, ownerId, errMsg),
-        convertEnqueue ? markBgJobError(convertEnqueue.job.id, ownerId, errMsg) : Promise.resolve(),
       ]);
       return;
     }
 
-    // Office 파일들을 PDF로 사전 변환. 한 파일 변환 실패 시 원본 유지(부분 폴백).
-    // 모든 변환 끝나면 convert-pdf 잡 done 마킹.
-    let convertedAnyOffice = false;
-    if (hasConvertibleOffice) {
-      const converted = await Promise.all(
-        downloaded.map(async (f) => {
-          if (!isConvertibleToPdf(f.filename) || f.mimeType === "application/pdf") return f;
-          try {
-            const sourceUrl = await createSignedReadUrl({
-              storagePath: f.storagePath,
-              ttlSec: 600,
-            });
-            const pdfBytes = await convertToPdf({ sourceUrl, filename: f.filename });
-            convertedAnyOffice = true;
-            return {
-              filename: f.filename.replace(/\.[^.]+$/, ".pdf"),
-              mimeType: "application/pdf",
-              bytes: pdfBytes,
-              storagePath: f.storagePath,
-            };
-          } catch (e) {
-            console.warn(
-              `[finalize-merged] ${f.filename} 변환 실패 → 원본 유지:`,
-              e instanceof Error ? e.message : String(e),
-            );
-            return f;
-          }
-        }),
-      );
-      downloaded = converted;
-      if (convertEnqueue) {
-        await markJobDone({
-          jobId: convertEnqueue.job.id,
-          ownerId,
-          result: { convertedAnyOffice },
-          modelId: "cloudconvert",
-          usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
-          costUsd: 0,
-        });
-      }
-    }
-
-    // 변환 후 모든 파일이 PDF가 됐으면 pdf-merge로 승격 (단일 PDF 결과).
-    // 일부만 PDF면 종전 text-concat 유지 — 텍스트 파일·이미지가 섞인 케이스.
-    const allPdfNow = downloaded.every((f) => f.mimeType === "application/pdf");
-    const effectiveMode: "pdf" | "text-concat" = allPdfNow ? "pdf" : "text-concat";
-
     let merged: Awaited<ReturnType<typeof mergePdfs>>;
     try {
-      merged = effectiveMode === "pdf" ? await mergePdfs(downloaded) : await mergeAsText(downloaded);
+      merged = mode === "pdf" ? await mergePdfs(downloaded) : await mergeAsText(downloaded);
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : "병합 실패";
       await Promise.all([
@@ -374,9 +328,6 @@ export async function POST(
     jobs: {
       summarize: { id: summarizeEnqueue.job.id, status: summarizeEnqueue.job.status },
       quiz: { id: quizEnqueue.job.id, status: quizEnqueue.job.status },
-      ...(convertEnqueue && {
-        convertPdf: { id: convertEnqueue.job.id, status: convertEnqueue.job.status },
-      }),
     },
   });
 }
