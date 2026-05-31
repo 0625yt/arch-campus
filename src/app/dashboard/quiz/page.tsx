@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AppleEmptyState } from "@/components/apple-empty";
 import { AppleShell } from "@/components/apple-shell";
 import { tryGetOwnerId } from "@/lib/auth";
+import { courseGradient, courseInkColor, courseTint } from "@/lib/course-palette";
 import { listGeneratedQuizzes, type QuizListItem } from "@/lib/data/quizzes";
 
 export const dynamic = "force-dynamic";
@@ -75,22 +76,30 @@ export default async function QuizIndexPage() {
 }
 
 function QuizCard({ quiz }: { quiz: QuizListItem }) {
-  const dotColor = quiz.courseColor ?? "var(--color-apple-action)";
-  // 풀이 화면 직진. 이미 풀었다면 결과를 보고 싶을 수도 있지만 인덱스의 1차 의도는 "다시 풀기".
-  // result 페이지는 today 카드에서 진입.
   const href = `/dashboard/quiz/${quiz.id}`;
+  // 시간표·강의 카드와 동일 파스텔 시스템.
+  // 강의명이 있으면 강의 색, 없으면 quiz title 자체로 안정 매핑 (자료 단위 quiz).
+  const seedName = quiz.courseName ?? quiz.title;
+  const cardTint = courseTint(seedName, quiz.courseColor, 0.07);
+  const hoverGrad = courseGradient(seedName, quiz.courseColor);
+  const inkColor = courseInkColor(seedName, quiz.courseColor);
 
   return (
     <li>
       <Link
         href={href}
         className="card-glow-ribbon elev-1 spring-press group relative block overflow-hidden rounded-[14px] bg-white px-4 py-3.5 transition-shadow hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
-        style={{ ["--ribbon-color" as string]: dotColor }}
+        style={{ backgroundColor: cardTint }}
       >
-        <div className="flex items-baseline justify-between gap-3">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          style={{ background: hoverGrad }}
+        />
+        <div className="relative flex items-baseline justify-between gap-3">
           <p
             className="text-[10.5px] wght-700 uppercase tracking-[0.06em]"
-            style={{ color: dotColor }}
+            style={{ color: inkColor }}
           >
             {quiz.courseName ?? "자료"}
           </p>

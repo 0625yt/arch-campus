@@ -44,30 +44,28 @@ export function GlobalTopbar() {
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       {/*
-        Apple Mail/Music macOS toolbar 톤:
-          ┌─ Leading: brand + nav (좌측 그룹화)
-          ├─ Center: 큰 검색 chip (Spotlight 톤)
-          └─ Trailing: 학기 chip + 테마 + divider + 프로필
-        nav를 좌측으로 옮겨 검색이 가운데 1급. 검색이 사용자에게 가장 잘 보이고 즉시 호출됨.
+        Apple Mail macOS toolbar 톤 재배치 (사용자 요청):
+          ┌─ Leading: brand만 (좌측 가볍게)
+          ├─ flex spacer (가운데 비움)
+          └─ Trailing cluster: nav · 검색(절반) · 학기 · 테마 · 프로필
+        nav·검색을 우측으로 묶어 unified toolbar 톤.
       */}
-      <div className="mx-auto flex h-12 max-w-[1440px] items-center gap-4 px-5 md:px-8 xl:px-10">
-        {/* Leading — brand + nav */}
-        <div className="flex items-center gap-3 shrink-0">
+      <div className="mx-auto flex h-12 max-w-[1440px] items-center gap-3 px-5 md:px-8 xl:px-10">
+        {/* Leading — brand만 */}
+        <div className="flex shrink-0 items-center">
           <BrandLink />
-          <span aria-hidden className="h-5 w-px bg-[var(--color-apple-hairline-soft)]" />
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Trailing cluster — nav · 검색 · meta · profile */}
+        <div className="flex shrink-0 items-center gap-2">
           <SegmentedNav pathname={pathname} />
-        </div>
-
-        {/* Center — Spotlight 톤 큰 검색 chip */}
-        <div className="flex flex-1 justify-center">
           <SpotlightSearch />
-        </div>
-
-        {/* Trailing — 학기 + 테마 + divider + 프로필 */}
-        <div className="flex items-center gap-1 shrink-0">
+          <span aria-hidden className="mx-1 h-5 w-px bg-[var(--color-apple-hairline-soft)]" />
           <SemesterChip />
           <ThemeToggle />
-          <span aria-hidden className="mx-1 h-5 w-px bg-[var(--color-apple-hairline-soft)]" />
           <ProfileMenu />
         </div>
       </div>
@@ -94,14 +92,19 @@ function BrandLink() {
 }
 
 /**
- * Spotlight 톤 큰 검색 chip — 중앙에 박힘.
- * SearchTrigger sidebar variant 재사용 + 최대폭 제한 (가운데 1급이지만 nav 안 침범).
+ * Spotlight 검색 chip — trailing cluster 안. 사용자 요청대로 절반 폭(210px).
+ * lg 미만에선 아이콘만 (좁은 viewport 보호).
  */
 function SpotlightSearch() {
   return (
-    <div className="w-full max-w-[420px]">
-      <SearchTrigger variant="sidebar" />
-    </div>
+    <>
+      <div className="hidden w-[210px] lg:block">
+        <SearchTrigger variant="sidebar" />
+      </div>
+      <div className="lg:hidden">
+        <SearchTrigger variant="icon" />
+      </div>
+    </>
   );
 }
 
@@ -158,7 +161,7 @@ function SegmentedNav({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="주 메뉴"
-      className="relative inline-flex items-center gap-0.5 rounded-full border border-[var(--color-apple-hairline-soft)] bg-[var(--color-apple-pearl)]/65 p-[3px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.04),inset_0_0_0_0.5px_rgba(255,255,255,0.7)]"
+      className="relative inline-flex items-center gap-0.5 rounded-full border border-[var(--color-apple-hairline-soft)] bg-gradient-to-b from-[var(--color-apple-pearl)]/85 to-[var(--color-apple-pearl)]/55 p-[3px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.05),inset_0_0_0_0.5px_rgba(255,255,255,0.75),0_1px_2px_rgba(0,0,0,0.02)]"
     >
       {NAV.map((item) => {
         const exact = "exact" in item && item.exact;

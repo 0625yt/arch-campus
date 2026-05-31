@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AppleShell } from "@/components/apple-shell";
 import { activityColor } from "@/lib/activity-color";
 import { tryGetOwnerId } from "@/lib/auth";
+import { courseGradient, courseTint } from "@/lib/course-palette";
 import { type Activity, getRecentActivities } from "@/lib/data/activity";
 import { type CourseListItem, listCoursesGrouped } from "@/lib/data/materials";
 import { AddPersonalButton } from "./add-personal-button";
@@ -237,12 +238,11 @@ function PersonalEmpty({ className }: { className?: string }) {
 }
 
 function CourseCard({ course }: { course: CourseListItem }) {
-  const dotColor = course.color ?? "#7aa6d6";
-  // 정규 강의는 코발트 톤, 개인 공부는 보라 톤 — 카드 hover 시에만 발색.
-  // 평소엔 흰 카드 + 좌측 3px 컬러 바로 카테고리 식별.
   const isPersonal = course.category === "personal";
-  const ribbon = isPersonal ? dotColor : dotColor;
-  const hoverTint = isPersonal ? "var(--color-tint-etc)" : "var(--color-tint-prez)";
+  // 시간표 셀과 동일한 파스텔 팔레트 — 강의명 해시로 안정 매핑.
+  // 카드 면 전체에 매우 연한 tint(8%) + hover 시 우상단 더 진한 wash로 깊이감.
+  const cardTint = courseTint(course.name, course.color, 0.08);
+  const hoverGrad = courseGradient(course.name, course.color);
 
   return (
     <CourseContextWrapper
@@ -265,14 +265,12 @@ function CourseCard({ course }: { course: CourseListItem }) {
         <Link
           href={`/dashboard/study/${encodeURIComponent(course.name)}`}
           className="group card-glow-ribbon elev-hover-2 spring-press relative flex min-h-[140px] flex-col justify-between overflow-hidden rounded-[14px] bg-white p-5 sm:p-5"
-          style={{ ["--ribbon-color" as string]: ribbon }}
+          style={{ backgroundColor: cardTint }}
         >
           <span
             aria-hidden
             className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-            style={{
-              background: `radial-gradient(180px at 100% 0%, ${hoverTint} 0%, transparent 70%)`,
-            }}
+            style={{ background: hoverGrad }}
           />
 
           <div className="relative pr-8">

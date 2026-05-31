@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { courseTint } from "@/lib/course-palette";
 import type { CourseListItem } from "@/lib/data/materials";
 import {
   buildTimetable,
@@ -567,48 +568,6 @@ function EmptyTimetableHero() {
 
 /* ─────────────────────────── Utils ─────────────────────────── */
 
-/**
- * Apple Calendar 톤 7색 파스텔 — 강의명 해시로 안정적으로 매핑.
- * course.color가 비어있거나 모두 같은 값일 때도 시각적으로 구분되게.
- * tint는 매우 연하게(7~10% alpha) + 글자는 진한 ink로 — 사용자 사진 톤.
- */
-const PASTEL_PALETTE = [
-  { r: 122, g: 166, b: 214 }, // sky blue
-  { r: 127, g: 179, b: 140 }, // mint
-  { r: 224, g: 142, b: 158 }, // peach pink
-  { r: 204, g: 160, b: 107 }, // butter
-  { r: 160, g: 139, b: 196 }, // lavender
-  { r: 214, g: 139, b: 122 }, // coral
-  { r: 122, g: 196, b: 196 }, // teal
-];
-
-function pickPaletteColor(seed: string): { r: number; g: number; b: number } {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return PASTEL_PALETTE[hash % PASTEL_PALETTE.length];
-}
-
-function parseHex(color: string): { r: number; g: number; b: number } | null {
-  if (!color.startsWith("#")) return null;
-  const c =
-    color.length === 4
-      ? `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`
-      : color;
-  if (c.length !== 7) return null;
-  const r = Number.parseInt(c.slice(1, 3), 16);
-  const g = Number.parseInt(c.slice(3, 5), 16);
-  const b = Number.parseInt(c.slice(5, 7), 16);
-  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return null;
-  return { r, g, b };
-}
-
-/**
- * 강의 셀 배경 — 사용자 사진 톤: 매우 연한 파스텔(알파 12%) + 글자는 ink.
- * course.color가 default "#0071e3" 같이 다 같으면 강의명으로 팔레트 재배정.
- */
-function cellTint(courseName: string, color: string | null | undefined): string {
-  const DEFAULT_BLUE = "#0071e3";
-  const seed = color && color !== DEFAULT_BLUE ? color : courseName;
-  const parsed = (color && color !== DEFAULT_BLUE && parseHex(color)) || pickPaletteColor(seed);
-  return `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, 0.12)`;
-}
+// Palette 함수는 lib/course-palette로 추출됨 (study CourseCard·quiz와 공유).
+// 셀 배경 호출은 cellTint(name, color) 시그니처 유지.
+const cellTint = (name: string, color: string | null | undefined) => courseTint(name, color);
