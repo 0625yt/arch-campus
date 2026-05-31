@@ -221,16 +221,94 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     return true;
   });
 
-  if (deduped.length === 0) {
+  // 보충 호출 — 요청 수 미달이면 추가로 더 만들어달라고 시도. 최대 2회.
+  // 이미 만든 stem들은 중복 방지로 같이 보내서 LLM이 다른 각도로 만들도록.
+  let collected = deduped;
+  let totalUsage = result.usage;
+  let topupCount = 0;
+  // 부족하면 끝까지 보충. 5회는 사용자가 요청한 정확도 보장 + 무한루프 차단.
+  // 한 호출당 ~$0.07 (Sonnet 30개 기준)이라 최악의 경우 1회 quiz ≈ $0.35.
+  const MAX_TOPUP = 5;
+  let stuckCount = 0; // 보충해도 새 문제가 안 늘어나는 횟수
+  while (collected.length < input.requestedCount && topupCount < MAX_TOPUP) {
+    topupCount += 1;
+    const missing = input.requestedCount - collected.length;
+    const topupTarget = missing + 2; // 보충도 약간 여유
+    const acceptedStems = collected.map((q) => q.stem);
+    const topupContext = buildDynamicContext({
+      title: primary.title,
+      type: primary.type,
+      difficulty: input.difficulty,
+      requestedCount: topupTarget,
+      pageCount: primary.pageCount ?? undefined,
+      isMetadataOnly,
+      parserWarnings: input.parserWarnings,
+      classification,
+      fullText: sanitizedText,
+      subject,
+      kinds: input.kinds,
+      scope: input.scope,
+      intentNote: input.intentNote,
+      multiMaterial: input.materials.length > 1 ? input.materials : null,
+      previousStems: [...previousStems, ...acceptedStems],
+    });
+    let topupResult: Awaited<ReturnType<typeof generate>>;
+    try {
+      topupResult = await generate({
+        tool: "quiz",
+        rulePrompt,
+        dynamicContext: topupContext,
+        userInput: quizInput,
+        maxTokens: 8192,
+        temperature: 0.5, // 보충은 다른 각도 — temp 살짝 올림
+      });
+    } catch {
+      break; // 보충 실패해도 1차 결과로 진행
+    }
+    totalUsage = {
+      inputTokens: totalUsage.inputTokens + topupResult.usage.inputTokens,
+      outputTokens: totalUsage.outputTokens + topupResult.usage.outputTokens,
+      cacheReadTokens: totalUsage.cacheReadTokens + topupResult.usage.cacheReadTokens,
+      cacheCreationTokens:
+        totalUsage.cacheCreationTokens + topupResult.usage.cacheCreationTokens,
+    };
+    let topupParsed: QuizOutputT;
+    try {
+      topupParsed = parseModelJson(QuizOutput, topupResult.text);
+    } catch {
+      break;
+    }
+    if (topupParsed.rejected) break;
+    const { kept: topupKept } = validateEvidence(topupParsed.questions, sanitizedText, {
+      isMetadataOnly,
+    });
+    const beforeLen = collected.length;
+    for (const q of topupKept) {
+      const fp = fingerprint(q.stem);
+      if (previousFingerprints.has(fp)) continue;
+      previousFingerprints.add(fp);
+      collected.push(q);
+      if (collected.length >= input.requestedCount) break;
+    }
+    // 이번 보충에서 새 문제가 0개면 stuck. 2번 연속 stuck이면 자료 본문 한계라 보고 중단.
+    if (collected.length === beforeLen) {
+      stuckCount += 1;
+      if (stuckCount >= 2) break;
+    } else {
+      stuckCount = 0;
+    }
+  }
+
+  if (collected.length === 0) {
     await logGeneration({
       ownerId: input.ownerId,
       materialId: primary.materialId,
       modelId: result.modelId,
-      usage: result.usage,
-      cost: estimateCost(result.usage, result.modelId),
+      usage: totalUsage,
+      cost: estimateCost(totalUsage, result.modelId),
       status: "error",
       errorMessage: "evidence 검증·중복 제거 후 남은 문제 0개",
-      payload: { dropped: dropped.slice(0, 10) },
+      payload: { dropped: dropped.slice(0, 10), topupCount },
     });
     return {
       ok: false,
@@ -240,7 +318,16 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     };
   }
 
-  const normalizedQuestions = normalizeQuizQuestions(deduped);
+  // 요청 수에 정확히 맞춤. 넘치면 자르고, 모자라면 그대로(여러번 보충해도 부족한 자료).
+  const finalQuestions =
+    collected.length >= input.requestedCount
+      ? collected.slice(0, input.requestedCount)
+      : collected;
+
+  const normalizedQuestions = normalizeQuizQuestions(finalQuestions);
+
+  // usage는 누적된 걸로 교체 — 보충 호출 비용까지 결제·로깅에 반영
+  result = { ...result, usage: totalUsage };
 
   // quizzes 저장 — owner_id 강제, RLS 정책과 같은 키
   // material_id는 primary 자료. 묶음 자료 ID들은 questions[].evidenceMaterialId가 아닌
