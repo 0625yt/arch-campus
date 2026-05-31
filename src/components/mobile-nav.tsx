@@ -120,7 +120,8 @@ const NAV = [
 export function MobileTopbar() {
   return (
     <header
-      className="sticky top-0 z-30 flex h-12 items-center justify-between gap-2 border-b border-[var(--color-apple-hairline-soft)] bg-white/85 px-3 backdrop-blur-xl md:hidden"
+      data-glass
+      className="liquid-glass-bar sticky top-0 z-30 flex h-11 items-center justify-between gap-2 border-b border-[var(--color-apple-hairline-soft)] px-3 md:hidden"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <Link href="/dashboard" className="flex items-center gap-2 px-1">
@@ -154,7 +155,8 @@ export function MobileTabBar() {
 
   return (
     <nav
-      className="sticky bottom-0 z-30 border-t border-[var(--color-apple-hairline-soft)] bg-white/92 backdrop-blur-xl md:hidden"
+      data-glass
+      className="liquid-glass-bar sticky bottom-0 z-30 border-t border-[var(--color-apple-hairline-soft)] md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="flex h-14 items-stretch">

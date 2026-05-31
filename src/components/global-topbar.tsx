@@ -33,10 +33,11 @@ export function GlobalTopbar() {
 
   return (
     <header
-      className="sticky top-0 z-40 hidden border-b border-[var(--color-apple-hairline-soft)] bg-white/72 backdrop-blur-xl backdrop-saturate-150 md:block"
+      data-glass
+      className="liquid-glass-bar sticky top-0 z-40 hidden border-b border-[var(--color-apple-hairline-soft)] md:block"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <div className="mx-auto flex h-12 max-w-[1440px] items-center gap-4 px-5 md:px-8 xl:px-10">
+      <div className="mx-auto flex h-11 max-w-[1440px] items-center gap-4 px-5 md:px-8 xl:px-10">
         <BrandMark />
 
         <div className="flex flex-1 justify-center">
@@ -78,7 +79,7 @@ function SegmentedNav({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="주 메뉴"
-      className="relative inline-flex items-center gap-0.5 rounded-full border border-[var(--color-apple-hairline-soft)] bg-[var(--color-apple-pearl)]/80 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]"
+      className="relative inline-flex items-center gap-0.5 rounded-full border border-[var(--color-apple-hairline-soft)] bg-[var(--color-apple-pearl)]/65 p-[3px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.04),inset_0_0_0_0.5px_rgba(255,255,255,0.7)]"
     >
       {NAV.map((item) => {
         const exact = "exact" in item && item.exact;
@@ -91,10 +92,10 @@ function SegmentedNav({ pathname }: { pathname: string }) {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "relative inline-flex h-7 items-center rounded-full px-2.5 text-[12px] transition-colors xl:px-3 xl:text-[12.5px]",
+              "relative inline-flex h-7 items-center rounded-full px-2.5 text-[12px] transition-all duration-200 xl:px-3 xl:text-[12.5px]",
               active
-                ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_0.5px_rgba(0,0,0,0.04)]"
-                : "wght-560 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]",
+                ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_3px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.8)]"
+                : "wght-560 text-[var(--color-apple-muted)] hover:bg-white/40 hover:text-[var(--color-apple-ink)]",
             )}
             style={{ letterSpacing: "-0.012em" }}
           >

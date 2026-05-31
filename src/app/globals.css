@@ -230,44 +230,115 @@ html[data-theme="dark"] {
  *   2) 미세 inset highlight — 카드 윗변에 종이 결
  *   3) 그림자 한 겹 더 — hover 시 명확하게 들리게
  */
+/*
+ * Elevation 스케일 — macOS 26 (Tahoe) Liquid Glass 톤.
+ *
+ * 2026-05-31 다듬기: 그림자 opacity를 한 단계 더 낮추고 blur 반경을 키워
+ * "AI 흔한 흰 카드 동일 그림자" 인상을 제거. hairline은 outer + inset white
+ * 두 줄 동시 — Apple Tahoe가 glass refraction 시각화에 쓰는 패턴.
+ */
 .elev-1 {
   box-shadow:
-    0 0 0 1px rgba(20, 30, 50, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 1px 2px rgba(20, 30, 50, 0.05),
-    0 4px 14px -6px rgba(20, 30, 50, 0.08);
+    0 0 0 1px rgba(20, 30, 50, 0.035),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 3px rgba(20, 30, 50, 0.035),
+    0 6px 18px -8px rgba(20, 30, 50, 0.06);
 }
 .elev-2 {
   box-shadow:
-    0 0 0 1px rgba(20, 30, 50, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 2px 4px rgba(20, 30, 50, 0.06),
-    0 12px 28px -8px rgba(20, 30, 50, 0.14);
+    0 0 0 1px rgba(20, 30, 50, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 2px 6px rgba(20, 30, 50, 0.045),
+    0 16px 38px -10px rgba(20, 30, 50, 0.11);
 }
 .elev-3 {
   box-shadow:
-    0 0 0 1px rgba(20, 30, 50, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 6px 16px rgba(20, 30, 50, 0.08),
-    0 28px 60px -12px rgba(20, 30, 50, 0.22);
+    0 0 0 1px rgba(20, 30, 50, 0.045),
+    inset 0 1px 0 rgba(255, 255, 255, 0.74),
+    0 6px 18px rgba(20, 30, 50, 0.06),
+    0 36px 78px -14px rgba(20, 30, 50, 0.18);
 }
 .elev-hover-2 {
   box-shadow:
-    0 0 0 1px rgba(20, 30, 50, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 1px 2px rgba(20, 30, 50, 0.05),
-    0 4px 14px -6px rgba(20, 30, 50, 0.08);
+    0 0 0 1px rgba(20, 30, 50, 0.035),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 3px rgba(20, 30, 50, 0.035),
+    0 6px 18px -8px rgba(20, 30, 50, 0.06);
   transition:
     box-shadow var(--duration-base) var(--ease-out),
     transform var(--duration-base) var(--ease-out);
 }
 .elev-hover-2:hover {
+  /* 2단계 점프 (B3 의도) — hover 시 무게감 분명히 바뀜 */
   box-shadow:
-    0 0 0 1px rgba(20, 30, 50, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 2px 4px rgba(20, 30, 50, 0.06),
-    0 14px 32px -8px rgba(20, 30, 50, 0.16);
+    0 0 0 1px rgba(20, 30, 50, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 3px 8px rgba(20, 30, 50, 0.05),
+    0 20px 42px -10px rgba(20, 30, 50, 0.15);
   transform: translateY(-2px);
+}
+
+/*
+ * Liquid Glass 유틸 — macOS 26 toolbar/sheet 기본 톤.
+ *
+ * 데스크톱: blur 30px + saturate 180% + opacity 85% — Apple regularMaterial 권장 값.
+ * 모바일: blur 12px + opacity 92% — 배터리·GPU 부담 줄이고 가독성 확보.
+ *
+ * 사용: `<div class="liquid-glass-bar">…</div>`. backdrop-filter를 직접 박는 게 아니라
+ * 한 유틸에 묶어 prefers-reduced-transparency 가드 한 곳에서 일괄 처리.
+ */
+.liquid-glass-bar {
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+@media (min-width: 768px) {
+  .liquid-glass-bar {
+    background-color: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+  }
+}
+@media (min-width: 1280px) {
+  .liquid-glass-bar {
+    background-color: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+  }
+}
+html[data-theme="dark"] .liquid-glass-bar {
+  background-color: rgba(28, 28, 30, 0.74);
+}
+@media (min-width: 768px) {
+  html[data-theme="dark"] .liquid-glass-bar {
+    background-color: rgba(28, 28, 30, 0.78);
+  }
+}
+@media (min-width: 1280px) {
+  html[data-theme="dark"] .liquid-glass-bar {
+    background-color: rgba(28, 28, 30, 0.82);
+  }
+}
+
+/*
+ * Reduced transparency (macOS 26·iOS 26의 새 접근성 옵션) 가드.
+ *
+ * "Reduce Transparency" 켜면 backdrop-filter 다 끄고 거의 solid로.
+ * Liquid Glass는 시각 효과는 좋지만 인지·시각 장애 사용자에겐 잡음 → 강제 solid.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  /* biome-ignore lint/complexity/noImportantStyles: 컴포넌트가 자체 backdrop-filter를 inline으로 박을 수도 있어 우선 override 필요 (a11y) */
+  .liquid-glass-bar,
+  [data-glass] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: rgba(255, 255, 255, 0.98) !important;
+  }
+  /* biome-ignore lint/complexity/noImportantStyles: 위와 동일 (다크 테마 override) */
+  html[data-theme="dark"] .liquid-glass-bar,
+  html[data-theme="dark"] [data-glass] {
+    background-color: rgba(28, 28, 30, 0.98) !important;
+  }
 }
 
 html,

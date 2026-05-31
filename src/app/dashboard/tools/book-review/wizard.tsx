@@ -117,7 +117,7 @@ export function BookReviewWizard() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="elev-1 rounded-[20px] bg-white px-5 py-6 sm:px-7 sm:py-8">
+    <form onSubmit={onSubmit} className="elev-1 rounded-[22px] bg-white px-5 py-6 sm:px-7 sm:py-8">
       {/* 1. 책 정보 */}
       <Section index={1} title="책 정보">
         <Field label="제목" required>
@@ -213,7 +213,7 @@ export function BookReviewWizard() {
                 type="button"
                 onClick={() => setLengthHint(opt.value)}
                 className={cn(
-                  "rounded-[12px] border px-3 py-2.5 text-left transition-all",
+                  "rounded-[14px] border px-3 py-2.5 text-left transition-all",
                   lengthHint === opt.value
                     ? "wght-620 border-[var(--color-apple-ink)] bg-[var(--color-apple-pearl)] text-[var(--color-apple-ink)] shadow-[inset_0_0_0_1px_var(--color-apple-ink)]"
                     : "wght-450 border-[var(--color-apple-hairline)] bg-white text-[var(--color-apple-muted)] hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-ink)]",
@@ -361,9 +361,9 @@ function ResultView({
   }
 
   return (
-    <article className="elev-1 rounded-[20px] bg-white">
+    <article className="elev-1 rounded-[22px] bg-white">
       {/* 머리 워터마크 — 굵게, 절대 못 빠뜨림 */}
-      <header className="rounded-t-[20px] border-b border-[var(--color-apple-hairline)] bg-[var(--color-apple-coral-soft)] px-5 py-3 sm:px-7">
+      <header className="rounded-t-[22px] border-b border-[var(--color-apple-hairline)] bg-[var(--color-apple-coral-soft)] px-5 py-3 sm:px-7">
         <p className="text-[12px] wght-620 text-[var(--color-apple-coral)]">⚠ {output.watermark}</p>
       </header>
 
@@ -393,7 +393,7 @@ function ResultView({
       </div>
 
       {/* 액션 바 — 다시 쓰기가 가장 크고 눈에 띄어야 함 (§4 정책) */}
-      <footer className="flex flex-col gap-3 rounded-b-[20px] border-t border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+      <footer className="flex flex-col gap-3 rounded-b-[22px] border-t border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
         <div className="flex gap-2">
           <button
             type="button"
