@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { FeedbackTriggerButton } from "@/components/feedback-trigger-button";
 import type { QuizSolveView } from "@/lib/data/quizzes";
 import { QuizResultView, type ResultQuestion } from "./quiz-result-view";
 
@@ -550,6 +551,15 @@ function SolveSection({
           {stepError && (
             <p className="mt-4 text-[12.5px] wght-450 text-[var(--color-urgent)]">{stepError}</p>
           )}
+
+          <div className="mt-4 flex justify-end print:hidden">
+            <FeedbackTriggerButton
+              targetType="quiz_item"
+              targetId={quiz.id}
+              quizQuestionIndex={stepIndex}
+              label="이 문제 이상해요"
+            />
+          </div>
         </article>
 
         {/* sticky 액션 — 두 모드:
