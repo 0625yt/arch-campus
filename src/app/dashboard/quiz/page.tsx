@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { AppleEmptyState } from "@/components/apple-empty";
 import { AppleShell } from "@/components/apple-shell";
 import { tryGetOwnerId } from "@/lib/auth";
-import { courseGradient, courseInkColor, courseLinearGradient } from "@/lib/course-palette";
-import { listGeneratedQuizzes, type QuizListItem } from "@/lib/data/quizzes";
+import { listGeneratedQuizzes } from "@/lib/data/quizzes";
+import { QuizzesGrid } from "./quizzes-grid";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
  * 이 인덱스는 만든 적 있는 모든 퀴즈를 시간역순으로 노출해 "어디 있지?" 질문을 끊는다.
  *
  * 톤 — review/today 페이지와 동일. 빈 상태에선 자료 업로드로 유도.
+ * 카드 우클릭(또는 long-press) → 삭제 메뉴 (QuizzesGrid가 처리).
  */
 export default async function QuizIndexPage() {
   const ownerId = await tryGetOwnerId();
@@ -54,7 +55,7 @@ export default async function QuizIndexPage() {
             style={{ letterSpacing: "-0.012em" }}
           >
             {quizzes.length > 0
-              ? `만든 문제 ${quizzes.length}세트 · 안 풀어본 세트부터`
+              ? `만든 문제 ${quizzes.length}세트 · 우클릭으로 삭제`
               : "자료 올리면 바로 첫 문제 생성"}
           </p>
         </header>
@@ -63,80 +64,11 @@ export default async function QuizIndexPage() {
           <EmptyState />
         ) : (
           <section className="mt-6 fade-up fade-up-2 sm:mt-8">
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {quizzes.map((q) => (
-                <QuizCard key={q.id} quiz={q} />
-              ))}
-            </ul>
+            <QuizzesGrid quizzes={quizzes} />
           </section>
         )}
       </AppleShell>
     </div>
-  );
-}
-
-function QuizCard({ quiz }: { quiz: QuizListItem }) {
-  const href = `/dashboard/quiz/${quiz.id}`;
-  // 시간표·강의 카드와 동일 파스텔 시스템.
-  // 강의명이 있으면 강의 색, 없으면 quiz title 자체로 안정 매핑 (자료 단위 quiz).
-  const seedName = quiz.courseName ?? quiz.title;
-  // 좌→우 wash — alpha 0.22가 study CourseCard보다 살짝 더 옅음 (퀴즈 카드가 더 작아 균형).
-  const linearWash = courseLinearGradient(seedName, quiz.courseColor, 0.22);
-  const hoverGrad = courseGradient(seedName, quiz.courseColor);
-  const inkColor = courseInkColor(seedName, quiz.courseColor);
-
-  return (
-    <li>
-      <Link
-        href={href}
-        className="card-glow-ribbon dark-surface-card elev-1 spring-press group relative block overflow-hidden rounded-[14px] bg-white px-4 py-3.5 transition-shadow hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
-        style={{ backgroundImage: linearWash }}
-      >
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-          style={{ background: hoverGrad }}
-        />
-        <div className="relative flex items-baseline justify-between gap-3">
-          <p
-            className="text-[10.5px] wght-700 uppercase tracking-[0.06em]"
-            style={{ color: inkColor }}
-          >
-            {quiz.courseName ?? "자료"}
-          </p>
-          <span
-            className="shrink-0 text-[10.5px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            {formatRelative(quiz.createdAt)}
-          </span>
-        </div>
-        <p
-          className="mt-2 line-clamp-2 text-[14px] leading-[1.3] wght-620 text-[var(--color-apple-ink)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {quiz.title}
-        </p>
-        <div
-          className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] wght-450 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          <span className="tabular-nums">{quiz.questionCount}문제</span>
-          <span className="text-[var(--color-apple-hairline)]">·</span>
-          <span>{quiz.difficulty}</span>
-          <span className="text-[var(--color-apple-hairline)]">·</span>
-          {quiz.attemptCount === 0 ? (
-            <span className="wght-620 text-[var(--color-apple-action)]">새 세트</span>
-          ) : quiz.lastScore !== null ? (
-            <span className="tabular-nums">
-              {quiz.lastScore}/{quiz.questionCount} · {quiz.attemptCount}회
-            </span>
-          ) : (
-            <span className="tabular-nums">{quiz.attemptCount}회 풀이</span>
-          )}
-        </div>
-      </Link>
-    </li>
   );
 }
 
@@ -151,19 +83,4 @@ function EmptyState() {
       />
     </div>
   );
-}
-
-function formatRelative(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return "최근";
-  const diff = Date.now() - then;
-  const min = Math.round(diff / 60000);
-  if (min < 1) return "방금 전";
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  const day = Math.round(hr / 24);
-  if (day < 30) return `${day}일 전`;
-  const mon = Math.round(day / 30);
-  return `${mon}개월 전`;
 }
