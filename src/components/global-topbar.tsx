@@ -17,8 +17,11 @@ import { cn } from "@/lib/utils";
  */
 
 const NAV = [
+  { href: "/dashboard", label: "홈", exact: true },
   { href: "/dashboard/today", label: "지금" },
   { href: "/dashboard/study", label: "공부" },
+  { href: "/dashboard/quiz", label: "내 문제" },
+  { href: "/dashboard/review", label: "복습" },
   { href: "/dashboard/calendar", label: "일정" },
   { href: "/dashboard/tools", label: "도구" },
 ] as const;
@@ -34,7 +37,7 @@ export function GlobalTopbar() {
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <div className="mx-auto flex h-12 max-w-[1440px] items-center gap-4 px-5 md:px-8 xl:px-10">
-        <BrandMark pathname={pathname} />
+        <BrandMark />
 
         <div className="flex flex-1 justify-center">
           <SegmentedNav pathname={pathname} />
@@ -49,15 +52,12 @@ export function GlobalTopbar() {
   );
 }
 
-function BrandMark({ pathname }: { pathname: string }) {
-  const onHome = pathname === HOME_HREF;
+function BrandMark() {
   return (
     <Link
       href={HOME_HREF}
-      className={cn(
-        "group flex items-center gap-2 rounded-[8px] px-1.5 py-1 transition-opacity",
-        onHome ? "opacity-100" : "opacity-90 hover:opacity-100",
-      )}
+      aria-label="홈"
+      className="group flex items-center gap-2 rounded-[8px] px-1.5 py-1 opacity-90 transition-opacity hover:opacity-100"
     >
       <Logo />
       <span
@@ -80,22 +80,25 @@ function SegmentedNav({ pathname }: { pathname: string }) {
       aria-label="주 메뉴"
       className="relative inline-flex items-center gap-0.5 rounded-full border border-[var(--color-apple-hairline-soft)] bg-[var(--color-apple-pearl)]/80 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]"
     >
-      {NAV.map(({ href, label }) => {
-        const active = pathname === href || pathname.startsWith(href + "/");
+      {NAV.map((item) => {
+        const exact = "exact" in item && item.exact;
+        const active = exact
+          ? pathname === item.href
+          : pathname === item.href || pathname.startsWith(item.href + "/");
         return (
           <Link
-            key={href}
-            href={href}
+            key={item.href}
+            href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "relative inline-flex h-7 items-center rounded-full px-3.5 text-[12.5px] transition-colors",
+              "relative inline-flex h-7 items-center rounded-full px-2.5 text-[12px] transition-colors xl:px-3 xl:text-[12.5px]",
               active
                 ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_0.5px_rgba(0,0,0,0.04)]"
                 : "wght-560 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]",
             )}
             style={{ letterSpacing: "-0.012em" }}
           >
-            {label}
+            {item.label}
           </Link>
         );
       })}
@@ -176,8 +179,6 @@ function ProfileMenu() {
             </div>
           </div>
           <MenuLink href="/dashboard/history" label="활동 기록" onSelect={() => setOpen(false)} />
-          <MenuLink href="/dashboard/quiz" label="내가 만든 문제" onSelect={() => setOpen(false)} />
-          <MenuLink href="/dashboard/review" label="복습 큐" onSelect={() => setOpen(false)} />
           <MenuLink href="/dashboard/settings" label="설정" onSelect={() => setOpen(false)} />
           <div className="border-t border-[var(--color-apple-hairline-soft)]">
             <form action="/auth/signout" method="post">
