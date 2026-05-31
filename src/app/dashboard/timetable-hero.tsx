@@ -441,7 +441,7 @@ function TimetableGrid({
                     key={`${s.courseId}-${w}-${s.slot.startMinute}`}
                     type="button"
                     onClick={() => onPickCourse(s)}
-                    className={`spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[10px] px-2.5 py-2 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.18)] hover:brightness-[1.02] ${
+                    className={`tt-cell spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[10px] px-2.5 py-2 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.18)] hover:brightness-[1.02] ${
                       isNow ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)] shadow-[0_10px_28px_-4px_rgba(0,113,227,0.5)] brightness-105" : ""
                     } ${isPast ? "opacity-35 saturate-50" : ""}`}
                     style={{
