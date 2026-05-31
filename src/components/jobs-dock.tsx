@@ -55,12 +55,7 @@ export function JobsDock() {
 
 function JobRow({ job }: { job: ActiveJobRow }) {
   const href = jobHref(job);
-  // convert-pdf는 "PPTX 변환" 문구만으론 사용자가 답답해함 — 자료 제목 대신 예상 소요 시간을 부제로.
-  // 이미 materialTitle이 있어도 convert-pdf일 땐 그것을 부제로 두지 않고 시간 안내가 우선.
-  const subtitle =
-    job.tool === "convert-pdf"
-      ? "보통 10~30초 · 끝나면 자동으로 정리해요"
-      : (job.materialTitle ?? null);
+  const subtitle = job.materialTitle ?? null;
   const inner = (
     <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[var(--color-apple-pearl)]">
       <Spinner />

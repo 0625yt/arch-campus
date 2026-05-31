@@ -18,7 +18,6 @@ import { ExtractExamView } from "./extract-exam-view";
 import { GenerateButton, type SiblingMaterialOption } from "./generate-button";
 import { MaterialTabs } from "./material-tabs";
 import { MaterialView } from "./material-view";
-import { SplitWithConvertingLeft, SplitWithFailedLeft } from "./pdf-convert-states";
 import { SummarizeWithStyles } from "./summarize-with-styles";
 import { SummaryLoading } from "./summary-loading";
 
@@ -46,35 +45,17 @@ export default async function MaterialDetailPage({
   const courseLabel = detail.course?.name ?? courseSlug;
   const dotColor = detail.course?.color ?? "var(--color-apple-action)";
 
-  // mime + convert-pdf job 상태로 분기:
-  //   1) PDF + signed URL OK  → MaterialView (split iframe + summary)
-  //   2) Office + 변환 중      → SplitWithConvertingLeft (polling)
-  //   3) Office + 변환 실패    → SplitWithFailedLeft (다운로드 fallback)
-  //   4) 그 외 (변환 잡 없음 등) → 기존 SummaryArticle
-  // summarize 잡도 같이 봐서 summary null인데 잡이 error면 사용자에게 이유 표시.
+  // mime 분기:
+  //   - PDF + signed URL OK → MaterialView (split iframe + summary)
+  //   - 그 외 (이미지·텍스트 등 PDF 아님)  → SummaryArticle (요약만)
+  // Office/HWP는 finalize에서 422로 차단되어 여기 도달하지 않음 (2026-05-31 CloudConvert 제거).
   const isPdf = detail.mimeType === "application/pdf";
   let pdfUrl: string | null = null;
-  let convertingPdf = false;
-  let convertFailed = false;
-  let convertErrorMessage: string | null = null;
-
   if (isPdf && detail.storagePath) {
     try {
       pdfUrl = await createSignedReadUrl({ storagePath: detail.storagePath });
     } catch {
       pdfUrl = null;
-    }
-  } else if (!isPdf) {
-    const convertJob = await getLatestJob({
-      ownerId,
-      materialId: detail.id,
-      tool: "convert-pdf",
-    });
-    if (convertJob && (convertJob.status === "pending" || convertJob.status === "running")) {
-      convertingPdf = true;
-    } else if (convertJob && convertJob.status === "error") {
-      convertFailed = true;
-      convertErrorMessage = convertJob.errorMessage ?? null;
     }
   }
 
@@ -155,19 +136,6 @@ export default async function MaterialDetailPage({
               materialTitle={detail.title}
               className="mt-6 fade-up fade-up-3 sm:mt-8"
             />
-          ) : convertingPdf ? (
-            <SplitWithConvertingLeft
-              materialId={detail.id}
-              summary={detail.summary}
-              className="mt-6 fade-up fade-up-3 sm:mt-8"
-            />
-          ) : convertFailed ? (
-            <SplitWithFailedLeft
-              materialId={detail.id}
-              summary={detail.summary}
-              filename={detail.title}
-              className="mt-6 fade-up fade-up-3 sm:mt-8"
-            />
           ) : (
             <SummaryArticle summary={detail.summary} className="mt-6 fade-up fade-up-3 sm:mt-8" />
           )
@@ -176,8 +144,6 @@ export default async function MaterialDetailPage({
             materialId={detail.id}
             filename={detail.title}
             summarizeError={summarizeError}
-            convertFailed={convertFailed}
-            convertErrorMessage={convertErrorMessage}
             defaultStyles={defaultStyles}
             className="mt-6 fade-up fade-up-3 sm:mt-8"
           />
@@ -412,36 +378,23 @@ function EmptySummary({
 
 /**
  * summary 잡이 error로 끝났을 때 — 사용자에게 이유를 보여주고 다시 시도하게.
- *
- * convertFailed가 true면 진짜 원인이 변환 실패라는 것도 같이 안내한다.
- * "그냥 다시 만들기"만 띄우면 사용자가 무한 retry할 수 있으므로 fallback 행동도 제시:
- *   - PDF로 변환 후 다시 올리기 (변환 실패 케이스)
- *   - 자료 다시 올리기 (그 외)
+ * "그냥 다시 만들기"만 띄우면 무한 retry될 수 있으니 "다른 자료 올리러 가기" fallback도 함께.
  */
 function SummaryErrorCard({
   materialId,
   filename,
   summarizeError,
-  convertFailed,
-  convertErrorMessage,
   defaultStyles,
   className,
 }: {
   materialId: string;
   filename: string;
   summarizeError: string | null;
-  convertFailed: boolean;
-  convertErrorMessage: string | null;
   defaultStyles: SummaryStyle[];
   className?: string;
 }) {
-  const title = convertFailed
-    ? "원본을 PDF로 바꾸지 못해서 요약을 만들 수 없었어요"
-    : "요약을 만들지 못했어요";
-  const body = convertFailed
-    ? "Office 파일 변환이 실패하면 본문을 읽을 수 없어요. PDF로 변환해서 다시 올려보면 대부분 풀려요."
-    : summarizeError ||
-      "잠시 후 다시 시도하면 보통 풀려요. 같은 자료를 다시 올리는 것도 방법이에요.";
+  const body =
+    summarizeError || "잠시 후 다시 시도하면 보통 풀려요. 같은 자료를 다시 올리는 것도 방법이에요.";
   return (
     <section className={className}>
       <div className="elev-1 rounded-[18px] bg-white px-7 py-10 sm:px-10 sm:py-12">
@@ -456,7 +409,7 @@ function SummaryErrorCard({
             className="text-[18px] wght-620 text-[var(--color-apple-ink)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            {title}
+            요약을 만들지 못했어요
           </p>
         </div>
         <p
@@ -465,15 +418,6 @@ function SummaryErrorCard({
         >
           {body}
         </p>
-        {convertFailed && convertErrorMessage && (
-          <p
-            className="mt-2 max-w-[560px] text-[11.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            <span aria-hidden>↳ </span>
-            {convertErrorMessage}
-          </p>
-        )}
         <div className="mt-7 flex flex-wrap items-start gap-4">
           <SummarizeWithStyles materialId={materialId} defaultStyles={defaultStyles} />
           <Link
