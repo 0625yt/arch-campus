@@ -315,7 +315,7 @@ function TimetableGrid({
 
         {/* Body — flex로 gutter | cells, 둘 다 minHeight 0 + flex-1 height 공유 */}
         <div className="relative flex min-h-0 flex-1">
-          {/* Gutter — 시간 라벨을 hour 비율로 절대 배치. 컨테이너가 flex-1이라 자동 추적. */}
+          {/* Gutter — Apple Calendar 시간 typography. 시(큰 wght-560) + 분 hint(::00 작게). */}
           <div
             aria-hidden
             className="relative shrink-0"
@@ -323,20 +323,78 @@ function TimetableGrid({
           >
             {hours.slice(0, -1).map((h, idx) => {
               const top = (idx / (hourEnd - hourStart)) * 100;
+              // 현재 시각이 이 hour 구간에 있으면 진하게
+              const isCurrentHour =
+                nowFrac !== null && Math.floor(nowMin / 60) === h;
               return (
-                <span
+                <div
                   key={`label-${h}`}
-                  className="absolute right-1.5 -translate-y-1.5 text-[10px] wght-450 tabular-nums text-[var(--color-apple-muted)]/80"
-                  style={{ top: `${top}%`, letterSpacing: "-0.012em" }}
+                  className="absolute right-1.5 flex -translate-y-1.5 items-baseline gap-px"
+                  style={{ top: `${top}%` }}
                 >
-                  {String(h).padStart(2, "0")}
-                </span>
+                  <span
+                    className={`text-[11px] tabular-nums transition-colors ${
+                      isCurrentHour
+                        ? "wght-700 text-[var(--color-apple-action)]"
+                        : "wght-560 text-[var(--color-apple-muted)]/85"
+                    }`}
+                    style={{ letterSpacing: "-0.018em" }}
+                  >
+                    {String(h).padStart(2, "0")}
+                  </span>
+                  <span
+                    className={`text-[8px] tabular-nums transition-colors ${
+                      isCurrentHour
+                        ? "wght-560 text-[var(--color-apple-action)]/70"
+                        : "wght-450 text-[var(--color-apple-muted)]/55"
+                    }`}
+                    style={{ letterSpacing: "-0.008em" }}
+                  >
+                    :00
+                  </span>
+                </div>
               );
             })}
           </div>
 
           {/* Cells */}
           <div className="relative min-w-0 flex-1 border-l border-[var(--color-apple-hairline-soft)]/60">
+            {/* 오늘 컬럼 통째 wash — Apple Calendar week view 패턴 */}
+            {shownDays.map((w, dayIdx) => {
+              if (!isKstToday(w, now)) return null;
+              const colWidth = 100 / shownDays.length;
+              return (
+                <div
+                  key={`today-wash-${w}`}
+                  aria-hidden
+                  className="pointer-events-none absolute inset-y-0 bg-[var(--color-apple-action)]/[0.025]"
+                  style={{
+                    left: `${dayIdx * colWidth}%`,
+                    width: `${colWidth}%`,
+                  }}
+                />
+              );
+            })}
+
+            {/* 과거 시간대 dim wash — 오늘 컬럼 안, now 라인 위쪽 */}
+            {nowFrac !== null &&
+              shownDays.map((w, dayIdx) => {
+                if (!isKstToday(w, now)) return null;
+                const colWidth = 100 / shownDays.length;
+                return (
+                  <div
+                    key={`past-wash-${w}`}
+                    aria-hidden
+                    className="pointer-events-none absolute top-0 bg-black/[0.025] dark:bg-black/[0.18]"
+                    style={{
+                      left: `${dayIdx * colWidth}%`,
+                      width: `${colWidth}%`,
+                      height: `${nowFrac * 100}%`,
+                    }}
+                  />
+                );
+              })}
+
             {/* Hour hairline (시작 hour 제외) */}
             {hours.slice(1, -1).map((h, idx) => {
               const top = ((idx + 1) / (hourEnd - hourStart)) * 100;
@@ -374,14 +432,17 @@ function TimetableGrid({
                   isKstToday(w, now) &&
                   nowMin >= s.slot.startMinute &&
                   nowMin < s.slot.endMinute;
+                // 과거 강의 (오늘 컬럼 안, 이미 끝난 슬롯) — 톤 다운
+                const isPast =
+                  isKstToday(w, now) && nowMin >= s.slot.endMinute;
                 return (
                   <button
                     key={`${s.courseId}-${w}-${s.slot.startMinute}`}
                     type="button"
                     onClick={() => onPickCourse(s)}
-                    className={`spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[10px] px-2.5 py-2 text-left transition-all hover:brightness-[0.97] ${
-                      isNow ? "now-glow" : ""
-                    }`}
+                    className={`spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[10px] px-2.5 py-2 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.18)] hover:brightness-[1.02] ${
+                      isNow ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)]/35 shadow-[0_8px_24px_-6px_rgba(0,113,227,0.28)]" : ""
+                    } ${isPast ? "opacity-55" : ""}`}
                     style={{
                       top: `calc(${top}% + 2px)`,
                       height: `calc(${height}% - 4px)`,
@@ -389,8 +450,18 @@ function TimetableGrid({
                       width: `calc(${colWidth}% - 6px)`,
                       backgroundColor: cellTint(s.courseName, s.color),
                     }}
-                    aria-label={`${s.courseName} ${s.slot.startLabel} - ${s.slot.endLabel}`}
+                    aria-label={`${s.courseName} ${s.slot.startLabel} - ${s.slot.endLabel}${isNow ? " (진행 중)" : ""}`}
                   >
+                    {/* 진행 중 라벨 — 셀 우상단 micro pulse dot */}
+                    {isNow && (
+                      <span
+                        aria-hidden
+                        className="absolute right-2 top-2 inline-flex h-1.5 w-1.5"
+                      >
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-apple-action)] opacity-70" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--color-apple-action)]" />
+                      </span>
+                    )}
                     <span
                       className="line-clamp-2 text-[14px] leading-[1.15] wght-700 text-[var(--color-apple-ink)]"
                       style={{ letterSpacing: "-0.018em" }}
@@ -410,15 +481,18 @@ function TimetableGrid({
               });
             })}
 
-            {/* 현재 시각 라인 */}
+            {/* 현재 시각 라인 — Fantastical 톤. 도트 + 가는 라인 + 현재 시각 라벨 */}
             {nowFrac !== null && shownDays.some((w) => isKstToday(w, now)) && (
               <div
                 aria-hidden
-                className="time-bar-pulse pointer-events-none absolute inset-x-0 z-10 flex items-center"
+                className="time-bar-pulse pointer-events-none absolute inset-x-0 z-20 flex items-center"
                 style={{ top: `${nowFrac * 100}%` }}
               >
-                <span className="-ml-1 h-1.5 w-1.5 rounded-full bg-[var(--color-apple-action)]" />
-                <span className="ml-0 h-px flex-1 bg-[var(--color-apple-action)]/70" />
+                <span className="relative -ml-1 inline-flex h-2 w-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-apple-action)] opacity-60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--color-apple-action)] shadow-[0_0_8px_rgba(0,113,227,0.5)]" />
+                </span>
+                <span className="ml-0 h-px flex-1 bg-gradient-to-r from-[var(--color-apple-action)]/85 via-[var(--color-apple-action)]/60 to-[var(--color-apple-action)]/20" />
               </div>
             )}
           </div>
