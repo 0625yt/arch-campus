@@ -510,12 +510,10 @@ function mergePartialSummaries(
     mergedBlocks.push(...p.blocks);
   });
 
-  // 머지된 blocks 한도 — 사용자 피드백 "요약이 너무 길다" 반영 25개로.
-  // zod max는 40 그대로 (스키마 호환), 실제 노출은 25 캡.
-  // h2·callout 먼저 살리고 para·bullets는 나중. 단순히 앞에서 자르면 마지막 chunk가 통째로 날아감.
-  // chunk 머지 결과는 풍부도 유지 — 사용자 피드백 "기존보다 더 풍부하게, 흐름 다 보이게".
-  // zod max(60) 한도까지 살림.
-  const cappedBlocks = mergedBlocks.length <= 60 ? mergedBlocks : capBlocks(mergedBlocks, 60);
+  // 머지된 blocks 한도 — chunk 머지 결과는 풍부도 유지.
+  // 사용자 피드백 2026-05-31: 강의 슬라이드 50쪽+에서 페이지별 그림·예문·라벨까지 다 담아야
+  // 중간이 비어 보이지 않음. zod max(100) 한도까지 살림.
+  const cappedBlocks = mergedBlocks.length <= 100 ? mergedBlocks : capBlocks(mergedBlocks, 100);
 
   // keywords 중복 제거 (lowercase·trim 기준)
   const keywordSet = new Map<string, string>();
