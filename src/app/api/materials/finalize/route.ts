@@ -1,14 +1,14 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
-import { runConvertPdfJob, runQuizJob, runSummarizeJob, stripExt } from "@/app/api/materials/route";
+import { runQuizJob, runSummarizeJob, stripExt } from "@/app/api/materials/route";
 import { pickRequestContext, recordAudit } from "@/lib/audit";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { isConvertibleToPdf } from "@/lib/cloudconvert";
-import { enqueueJob } from "@/lib/data/jobs";
+import { convertToPdf, isConvertibleToPdf } from "@/lib/cloudconvert";
+import { enqueueJob, markJobDone } from "@/lib/data/jobs";
 import { ParserRejectedError, parseDocument } from "@/lib/parsers";
 import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
 import type { Difficulty } from "@/lib/services/quiz";
-import { downloadMaterialFile } from "@/lib/storage";
+import { createSignedReadUrl, downloadMaterialFile } from "@/lib/storage";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -189,39 +189,97 @@ export async function POST(
     : null;
 
   // 3) 무거운 작업 전부 백그라운드:
-  //    a. Storage download
-  //    b. parseDocument
-  //    c. materials.full_text/page_count 보정 UPDATE
-  //    d. summarize/quiz/convert-pdf 잡 실행
+  //    a. Office면 cloudconvert로 PDF 변환 먼저 (await) — Gemini OCR이 표·수식·이미지까지 다 읽게
+  //    b. Storage download (변환된 PDF or 원본)
+  //    c. parseDocument
+  //    d. materials.full_text/page_count 보정 UPDATE
+  //    e. summarize/quiz 잡 실행
+  //
+  // 종전 흐름은 원본 PPTX를 officeparser로 텍스트만 뽑아 요약 시도 → 본문이 부실해 "요약 못 만듦"
+  // 에러가 사용자에게 노출됐다. 사용자 결정(2026-05-31): Office는 변환 끝날 때까지 대기.
   after(async () => {
     let bytes: Uint8Array;
-    try {
-      bytes = await downloadMaterialFile(body.storagePath);
-    } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "파일을 못 찾았어요";
-      // 잡들 모두 error 마킹 — 사용자 dock에서 빨간 상태로 보임
-      await Promise.all([
-        markBgJobError(summarizeEnqueue.job.id, ownerId, errMsg),
-        markBgJobError(quizEnqueue.job.id, ownerId, errMsg),
-        convertEnqueue ? markBgJobError(convertEnqueue.job.id, ownerId, errMsg) : Promise.resolve(),
-      ]);
-      return;
+    let effectiveFilename = body.filename;
+    let effectiveMimeType = mimeType;
+
+    // Office 파일 → cloudconvert로 PDF 변환 먼저 (3~30s). 성공 시 변환된 PDF로 진행,
+    // 실패 시 원본 폴백 (요약 부실 < 요약 0개).
+    if (convertEnqueue) {
+      try {
+        const sourceUrl = await createSignedReadUrl({
+          storagePath: body.storagePath,
+          ttlSec: 600,
+        });
+        const pdfBytes = await convertToPdf({ sourceUrl, filename: body.filename });
+        const pdfPath = `${ownerId}/${material.id}.pdf`;
+        const { error: putErr } = await admin.storage
+          .from("materials")
+          .upload(pdfPath, pdfBytes, { contentType: "application/pdf", upsert: true });
+        if (putErr) throw new Error(`PDF 저장 실패: ${putErr.message}`);
+        await admin
+          .from("materials")
+          .update({
+            original_storage_path: body.storagePath,
+            storage_path: pdfPath,
+            mime_type: "application/pdf",
+          })
+          .eq("id", material.id)
+          .eq("owner_id", ownerId);
+        await markJobDone({
+          jobId: convertEnqueue.job.id,
+          ownerId,
+          result: { pdfPath },
+          modelId: "cloudconvert",
+          usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
+          costUsd: 0,
+        });
+        bytes = pdfBytes;
+        effectiveFilename = body.filename.replace(/\.[^.]+$/, ".pdf");
+        effectiveMimeType = "application/pdf";
+      } catch (e) {
+        // 변환 실패 — convert 잡은 error 마킹하되 요약·퀴즈는 원본으로 시도 (완전 실패보단 부실 결과)
+        const msg = e instanceof Error ? e.message : "PDF 변환 실패";
+        console.warn("[finalize] convert 실패 → 원본 폴백:", msg);
+        await markBgJobError(convertEnqueue.job.id, ownerId, msg);
+        try {
+          bytes = await downloadMaterialFile(body.storagePath);
+        } catch (e2) {
+          const errMsg = e2 instanceof Error ? e2.message : "파일을 못 찾았어요";
+          await Promise.all([
+            markBgJobError(summarizeEnqueue.job.id, ownerId, errMsg),
+            markBgJobError(quizEnqueue.job.id, ownerId, errMsg),
+          ]);
+          return;
+        }
+      }
+    } else {
+      // PDF·이미지·텍스트 — 종전 그대로 원본 다운로드
+      try {
+        bytes = await downloadMaterialFile(body.storagePath);
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : "파일을 못 찾았어요";
+        await Promise.all([
+          markBgJobError(summarizeEnqueue.job.id, ownerId, errMsg),
+          markBgJobError(quizEnqueue.job.id, ownerId, errMsg),
+        ]);
+        return;
+      }
     }
 
     let parsed: Awaited<ReturnType<typeof parseDocument>>;
     try {
       parsed = await parseDocument({
         bytes,
-        filename: body.filename,
-        mimeType,
+        filename: effectiveFilename,
+        mimeType: effectiveMimeType,
       });
     } catch (e) {
       if (e instanceof ParserRejectedError) {
         const message = e.message;
         parsed = {
-          text: `[자동 추출 실패]\n파일명: ${body.filename}\n사유: ${message}`,
-          sanitizedText: `[자동 추출 실패]\n파일명: ${body.filename}\n사유: ${message}`,
-          mimeType,
+          text: `[자동 추출 실패]\n파일명: ${effectiveFilename}\n사유: ${message}`,
+          sanitizedText: `[자동 추출 실패]\n파일명: ${effectiveFilename}\n사유: ${message}`,
+          mimeType: effectiveMimeType,
           source: "rejected",
           warnings: [message],
         };
@@ -230,7 +288,6 @@ export async function POST(
         await Promise.all([
           markBgJobError(summarizeEnqueue.job.id, ownerId, errMsg),
           markBgJobError(quizEnqueue.job.id, ownerId, errMsg),
-          convertEnqueue ? markBgJobError(convertEnqueue.job.id, ownerId, errMsg) : Promise.resolve(),
         ]);
         return;
       }
@@ -247,10 +304,6 @@ export async function POST(
       .eq("owner_id", ownerId);
 
     // 순차 실행 — Anthropic concurrent connection · 분당 토큰 limit 보호.
-    // 종전: Promise.all로 summarize+quiz 동시 호출 → 사용자가 자료 N개 한 번에 올리면
-    //       동시 호출 = N*2 + classify N개 = 3N개 → 분당 10K output tokens 초과 → 일부 실패.
-    // 현재: 한 자료 안에서 summarize → quiz → convert-pdf 순서로 await.
-    //       자료 간 병렬은 클라이언트 순차 업로드(uploadAll)가 막고 있음.
     await runSummarizeJob({
       jobId: summarizeEnqueue.job.id,
       ownerId,
@@ -276,15 +329,6 @@ export async function POST(
       difficulty: (body.difficulty ?? "보통") as Difficulty,
       requestedCount: body.count ?? 10,
     });
-    if (convertEnqueue) {
-      await runConvertPdfJob({
-        jobId: convertEnqueue.job.id,
-        ownerId,
-        materialId: material.id,
-        sourceStoragePath: body.storagePath,
-        filename: body.filename,
-      });
-    }
   });
 
   return NextResponse.json({
