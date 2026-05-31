@@ -4,12 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export interface ContextMenuItem {
+  /** "---" 한 줄이면 separator (group divider) */
   label: string;
-  onClick: () => void;
+  onClick?: () => void;
   destructive?: boolean;
   /** 옵셔널 disabled — false 회색 + 클릭 무시 */
   disabled?: boolean;
+  /** 좌측 아이콘 — 14×14 권장 (HIG menu list 톤) */
+  icon?: React.ReactNode;
+  /** 우측 키 hint — "⌘E" 같은 단축키 */
+  shortcut?: string;
 }
+
+/** Separator item — items 배열에 그냥 SEP 박으면 1px hairline divider */
+export const SEP: ContextMenuItem = { label: "---" };
 
 interface Position {
   x: number;
@@ -169,6 +177,7 @@ export function ContextMenu({
     <div
       ref={menuRef}
       role="menu"
+      data-glass
       // 측정 전엔 화면 밖에 두고, 측정 끝나면 제자리로 — 깜빡임 방지
       style={{
         position: "fixed",
@@ -176,32 +185,54 @@ export function ContextMenu({
         left: pos.x,
         opacity: adjustedPos ? 1 : 0,
         pointerEvents: adjustedPos ? "auto" : "none",
+        transformOrigin: "top left",
+        animation: adjustedPos ? "ctxmenu-pop 160ms cubic-bezier(0.16, 1, 0.3, 1) both" : undefined,
       }}
-      className="z-[100] min-w-[160px] rounded-[10px] border border-[var(--color-apple-hairline)] bg-white py-1 shadow-[var(--shadow-lift)]"
+      className="z-[100] min-w-[180px] overflow-hidden rounded-[12px] border border-[var(--color-apple-hairline-soft)] bg-white/92 p-1 shadow-[0_8px_28px_-6px_rgba(0,0,0,0.18),0_2px_6px_-2px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-xl backdrop-saturate-150"
       onContextMenu={(e) => e.preventDefault()}
     >
-      {items.map((it, i) => (
-        <button
-          key={i}
-          type="button"
-          role="menuitem"
-          onClick={() => {
-            if (it.disabled) return;
-            onClose();
-            it.onClick();
-          }}
-          disabled={it.disabled}
-          className={
-            it.disabled
-              ? "block w-full cursor-not-allowed px-3.5 py-1.5 text-left text-[12.5px] wght-560 text-[var(--color-apple-muted)] opacity-50"
-              : it.destructive
-                ? "block w-full px-3.5 py-1.5 text-left text-[12.5px] wght-560 text-[var(--color-urgent)] hover:bg-[var(--color-urgent)]/10"
-                : "block w-full px-3.5 py-1.5 text-left text-[12.5px] wght-560 text-[var(--color-apple-ink)] hover:bg-[var(--color-apple-pearl)]"
-          }
-        >
-          {it.label}
-        </button>
-      ))}
+      {items.map((it, i) => {
+        // Separator
+        if (it.label === "---") {
+          return (
+            <div
+              key={`sep-${i}`}
+              role="separator"
+              aria-hidden
+              className="my-1 h-px bg-[var(--color-apple-hairline-soft)]"
+            />
+          );
+        }
+        return (
+          <button
+            // biome-ignore lint/suspicious/noArrayIndexKey: 같은 label 항목이 separator 사이에 반복 가능 — index가 진짜 unique 시그널
+            key={i}
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              if (it.disabled || !it.onClick) return;
+              onClose();
+              it.onClick();
+            }}
+            disabled={it.disabled}
+            className={
+              it.disabled
+                ? "flex w-full cursor-not-allowed items-center gap-2.5 rounded-[8px] px-2.5 py-1.5 text-left text-[12.5px] wght-450 text-[var(--color-apple-muted)] opacity-55"
+                : it.destructive
+                  ? "flex w-full items-center gap-2.5 rounded-[8px] px-2.5 py-1.5 text-left text-[12.5px] wght-560 text-[var(--color-apple-coral)] transition-colors hover:bg-[var(--color-apple-coral)] hover:text-white"
+                  : "flex w-full items-center gap-2.5 rounded-[8px] px-2.5 py-1.5 text-left text-[12.5px] wght-450 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-action)] hover:text-white"
+            }
+          >
+            {it.icon && <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">{it.icon}</span>}
+            <span className="flex-1 truncate">{it.label}</span>
+            {it.shortcut && (
+              <span className="shrink-0 text-[11px] wght-450 tabular-nums opacity-70">
+                {it.shortcut}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>,
     document.body,
   );

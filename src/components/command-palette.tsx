@@ -42,9 +42,10 @@ interface Command {
 }
 
 const PAGES: { href: string; label: string; hint: string }[] = [
-  { href: "/dashboard", label: "내 캠퍼스", hint: "과제·공지·팀플·마감 신호" },
-  { href: "/dashboard/today", label: "지금", hint: "다음 90분 실행 순서" },
+  { href: "/dashboard", label: "홈", hint: "과제·공지·팀플·마감 신호" },
   { href: "/dashboard/study", label: "공부", hint: "과목별 자료와 약점" },
+  { href: "/dashboard/quiz", label: "내 문제", hint: "직접 만든 문제 모음" },
+  { href: "/dashboard/review", label: "복습", hint: "오답·약점 큐" },
   { href: "/dashboard/calendar", label: "일정", hint: "수업·마감·개인 일정" },
   { href: "/dashboard/tools", label: "도구", hint: "발표·과제·시험 5분 흐름" },
   { href: "/dashboard/history", label: "약점 로그", hint: "오답과 학습 리듬" },

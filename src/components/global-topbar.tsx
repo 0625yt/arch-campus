@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { BrandMark } from "@/components/brand-mark";
 import { SearchTrigger } from "@/components/search-trigger";
 import { cn } from "@/lib/utils";
 
@@ -16,9 +17,12 @@ import { cn } from "@/lib/utils";
  * 모바일은 별도 MobileTabBar가 받음.
  */
 
+/*
+ * NAV — Apple Mail / Music macOS 톤. "지금"은 홈(/dashboard)에 통합됐고,
+ * 학습 큐(내 문제·복습)는 메인 segmented에서 살아남는다 (학생이 가장 자주 누름).
+ */
 const NAV = [
   { href: "/dashboard", label: "홈", exact: true },
-  { href: "/dashboard/today", label: "지금" },
   { href: "/dashboard/study", label: "공부" },
   { href: "/dashboard/quiz", label: "내 문제" },
   { href: "/dashboard/review", label: "복습" },
@@ -38,7 +42,7 @@ export function GlobalTopbar() {
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <div className="mx-auto flex h-11 max-w-[1440px] items-center gap-4 px-5 md:px-8 xl:px-10">
-        <BrandMark />
+        <BrandLink />
 
         <div className="flex flex-1 justify-center">
           <SegmentedNav pathname={pathname} />
@@ -53,7 +57,7 @@ export function GlobalTopbar() {
   );
 }
 
-function BrandMark() {
+function BrandLink() {
   return (
     <Link
       href={HOME_HREF}
@@ -221,17 +225,13 @@ function MenuLink({
 
 function Logo() {
   return (
-    <div
+    <span
       aria-hidden
-      className="relative flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-[7px]"
-      style={{
-        background: "linear-gradient(135deg, #0071e3 0%, #4f7be8 55%, #8e7ee0 100%)",
-        boxShadow: "0 1px 2px rgba(0, 113, 227, 0.18)",
-      }}
+      className="inline-flex shrink-0"
+      style={{ filter: "drop-shadow(0 1px 2px rgba(0, 113, 227, 0.18))" }}
     >
-      <div className="absolute inset-x-1 top-0.5 h-px rounded-full bg-white/55" />
-      <span className="relative text-[10px] wght-700 text-white">a</span>
-    </div>
+      <BrandMark size={22} />
+    </span>
   );
 }
 

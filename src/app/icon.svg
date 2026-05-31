@@ -15,45 +15,26 @@
       <stop offset="0%" stop-color="#000000" stop-opacity="0.18"/>
       <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
     </radialGradient>
-    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feGaussianBlur stdDeviation="3" />
-    </filter>
   </defs>
 
-  <!-- 배경 (iOS는 자동 mask) -->
+  <!-- 배경 squircle (iOS는 자체 마스크) -->
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-
-  <!-- 상단 종이 하이라이트 -->
   <rect width="512" height="512" rx="112" fill="url(#topShine)"/>
-
-  <!-- 하단 글로우 (깊이감) -->
   <rect width="512" height="512" rx="112" fill="url(#bottomGlow)"/>
 
   <!--
-    "a" 워드마크 — SF Pro Display 톤의 두꺼운 lowercase a.
-    Path로 그려 폰트 의존 X.
-    중심에 강하게, 약간 우측으로 기울어진 carve (학기 = arch).
+    Arch 글리프 — 두 기둥 + 위 반원. stroke 54 (size 32 기준 3.4의 비례).
+    중심 (256, 256), 폭 약 208, 높이 약 96.
   -->
-  <g transform="translate(256 296)">
-    <!-- 부드러운 그림자 (글자 깊이) -->
-    <text
-      x="0" y="0"
-      text-anchor="middle"
-      font-family="SF Pro Display, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
-      font-size="320"
-      font-weight="700"
-      fill="#000000"
-      fill-opacity="0.15"
-      filter="url(#softShadow)"
-    >a</text>
-    <!-- 본 글자 -->
-    <text
-      x="0" y="0"
-      text-anchor="middle"
-      font-family="SF Pro Display, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
-      font-size="320"
-      font-weight="700"
-      fill="#ffffff"
-    >a</text>
+  <g stroke="#ffffff" stroke-width="54" stroke-linecap="round" fill="none">
+    <!-- 좌 기둥 -->
+    <path d="M 152 356 L 152 260"/>
+    <!-- 우 기둥 -->
+    <path d="M 360 356 L 360 260"/>
+    <!-- 위 곡선 -->
+    <path d="M 152 260 A 104 104 0 0 1 360 260"/>
   </g>
+
+  <!-- ground highlight -->
+  <ellipse cx="256" cy="384" rx="104" ry="9.6" fill="#ffffff" fill-opacity="0.18"/>
 </svg>

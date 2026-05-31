@@ -1,15 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal } from "./modal";
 
 /**
- * 단순 확인 다이얼로그.
+ * Confirm dialog — Apple HIG Alerts 패턴.
  *
- * onConfirm이 Promise면 처리되는 동안 버튼 비활성화·"진행 중…" 라벨로 바뀜.
- * 결과가 throw나 reject로 끝나면 그대로 다시 사용자에게 전달 (호출부가 alert).
+ * 가이드 요약 (HIG):
+ *   - 제목은 직접·중립·친근한 한 문장 (두 줄 안)
+ *   - 행 배열: Cancel 좌측, primary 우측 (default focus)
+ *   - Primary는 capsule + borderedProminent (검정 ink / destructive 시 systemRed)
+ *   - Cancel은 plain text (borderless)
+ *   - destructive 액션은 "삭제" 같은 구체 동사로
+ *   - hit region 44pt
  *
- * 시간표 강의·자료처럼 한 번 잘못 누르면 복구 어려운 destructive 액션 앞에 항상.
+ * 인터랙션:
+ *   - Enter → confirm (default), Escape → cancel
+ *   - busy 중에는 Modal 닫힘·backdrop·키보드 다 잠금
  */
 export function ConfirmDialog({
   open,
@@ -34,6 +41,15 @@ export function ConfirmDialog({
   children?: React.ReactNode;
 }) {
   const [busy, setBusy] = useState(false);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+
+  // 열리면 primary에 default focus (Enter 키로 즉시 진행)
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => confirmRef.current?.focus(), 40);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
 
   async function handleConfirm() {
     if (busy) return;
@@ -45,13 +61,22 @@ export function ConfirmDialog({
     }
   }
 
+  // Enter = confirm. 단 textarea·input 안에서는 무시.
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== "Enter") return;
+    const t = e.target as HTMLElement;
+    if (t.tagName === "TEXTAREA" || t.tagName === "INPUT") return;
+    e.preventDefault();
+    handleConfirm();
+  }
+
   return (
     <Modal open={open} onClose={busy ? () => {} : onClose} title={title}>
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-5" onKeyDown={handleKeyDown}>
         {description && (
           <p
-            className="whitespace-pre-wrap text-[13.5px] wght-450 leading-[1.6] text-[var(--color-apple-ink)]"
-            style={{ letterSpacing: "-0.012em" }}
+            className="whitespace-pre-wrap text-[14px] wght-450 leading-[1.55] text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.011em" }}
           >
             {description}
           </p>
@@ -59,23 +84,29 @@ export function ConfirmDialog({
 
         {children}
 
-        <div className="flex justify-end gap-2">
+        {/*
+          HIG 배치: Cancel 좌측 · Primary 우측.
+          모바일은 stack(상단=primary), 데스크톱은 row(우측=primary).
+          모바일 한 손 사용 시 primary가 위에 와야 엄지 닿기 좋음.
+        */}
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="rounded-[8px] px-3.5 py-2 text-[13px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-full px-5 text-[13.5px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50 sm:min-h-[36px]"
           >
             {cancelLabel}
           </button>
           <button
+            ref={confirmRef}
             type="button"
             onClick={handleConfirm}
             disabled={busy}
             className={
               destructive
-                ? "rounded-[8px] bg-[var(--color-urgent)] px-3.5 py-2 text-[13px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                : "rounded-[8px] bg-[var(--color-apple-ink)] px-3.5 py-2 text-[13px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                ? "inline-flex min-h-[44px] items-center justify-center rounded-full bg-[var(--color-apple-coral)] px-5 text-[13.5px] wght-620 text-white shadow-[0_1px_2px_rgba(224,68,94,0.18),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_-2px_rgba(224,68,94,0.35)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:transform-none sm:min-h-[36px]"
+                : "inline-flex min-h-[44px] items-center justify-center rounded-full bg-[var(--color-apple-ink)] px-5 text-[13.5px] wght-620 text-white shadow-[0_1px_2px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.28)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:transform-none sm:min-h-[36px]"
             }
           >
             {busy ? "진행 중…" : confirmLabel}

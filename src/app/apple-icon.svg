@@ -17,17 +17,15 @@
     </radialGradient>
   </defs>
 
-  <!-- iOS home screen은 자동 mask 안 함 (iOS 7+ 통째 사각 그대로 → 자체 라운디드 적용) -->
   <rect width="180" height="180" fill="url(#bg)"/>
   <rect width="180" height="180" fill="url(#topShine)"/>
   <rect width="180" height="180" fill="url(#bottomGlow)"/>
 
-  <text
-    x="90" y="124"
-    text-anchor="middle"
-    font-family="SF Pro Display, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
-    font-size="116"
-    font-weight="700"
-    fill="#ffffff"
-  >a</text>
+  <g stroke="#ffffff" stroke-width="19" stroke-linecap="round" fill="none">
+    <path d="M 53.5 125 L 53.5 91.5"/>
+    <path d="M 126.5 125 L 126.5 91.5"/>
+    <path d="M 53.5 91.5 A 36.5 36.5 0 0 1 126.5 91.5"/>
+  </g>
+
+  <ellipse cx="90" cy="135" rx="36.5" ry="3.4" fill="#ffffff" fill-opacity="0.18"/>
 </svg>

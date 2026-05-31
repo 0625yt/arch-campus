@@ -18,30 +18,25 @@
     </linearGradient>
   </defs>
 
-  <!-- 캔버스 -->
   <rect width="1200" height="630" fill="url(#bg)"/>
-
-  <!-- 좌상단 코너 blob (시각 깊이) -->
   <circle cx="120" cy="100" r="280" fill="#0071E3" fill-opacity="0.06"/>
   <circle cx="1100" cy="540" r="320" fill="#8E7EE0" fill-opacity="0.08"/>
 
-  <!-- 좌측: 큰 로고 박스 -->
+  <!-- 좌측: 큰 brand 박스 + arch 글리프 -->
   <g transform="translate(96 175)">
     <rect width="280" height="280" rx="62" fill="url(#brand)"/>
     <rect width="280" height="280" rx="62" fill="url(#shine)"/>
-    <text
-      x="140" y="200"
-      text-anchor="middle"
-      font-family="SF Pro Display, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
-      font-size="180"
-      font-weight="700"
-      fill="#ffffff"
-    >a</text>
+    <g transform="translate(140 140)">
+      <g stroke="#ffffff" stroke-width="30" stroke-linecap="round" fill="none">
+        <path d="M -57 55 L -57 -3"/>
+        <path d="M 57 55 L 57 -3"/>
+        <path d="M -57 -3 A 57 57 0 0 1 57 -3"/>
+      </g>
+    </g>
   </g>
 
   <!-- 우측: 카피 -->
   <g transform="translate(456 200)">
-    <!-- eyebrow -->
     <text
       x="0" y="0"
       font-family="SF Pro Display, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
@@ -51,7 +46,6 @@
       letter-spacing="3"
     >ARCH · 한 학기 운영 OS</text>
 
-    <!-- title -->
     <text
       x="0" y="86"
       font-family="SF Pro Display, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
@@ -69,7 +63,6 @@
       letter-spacing="-2"
     >놓치지 않게.</text>
 
-    <!-- sub -->
     <text
       x="0" y="240"
       font-family="SF Pro Display, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
@@ -88,10 +81,7 @@
     >오늘 할 일과 공부 흐름을 자동으로 정리.</text>
   </g>
 
-  <!-- 하단 hairline -->
   <rect x="96" y="568" width="1008" height="1" fill="#1D1D1F" fill-opacity="0.08"/>
-
-  <!-- 하단 URL -->
   <text
     x="96" y="596"
     font-family="SF Pro Display, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"

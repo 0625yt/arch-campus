@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandMark } from "@/components/brand-mark";
 import { SearchTrigger } from "@/components/search-trigger";
 import { cn } from "@/lib/utils";
 
@@ -106,9 +107,12 @@ function IconTools({ active }: { active?: boolean }) {
   );
 }
 
+/*
+ * iOS Tab Bar — Apple HIG 권장 5칸 한도 안에서 "지금"은 홈에 통합.
+ * Today 콘텐츠는 /dashboard hero 영역에서 1급으로 노출되므로 별도 탭 불필요.
+ */
 const NAV = [
   { href: "/dashboard", label: "홈", Icon: IconHome },
-  { href: "/dashboard/today", label: "지금", Icon: IconToday },
   { href: "/dashboard/study", label: "공부", Icon: IconStudy },
   { href: "/dashboard/calendar", label: "일정", Icon: IconCalendar },
   { href: "/dashboard/tools", label: "도구", Icon: IconTools },
@@ -125,16 +129,7 @@ export function MobileTopbar() {
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <Link href="/dashboard" className="flex items-center gap-2 px-1">
-        <div className="relative flex h-5 w-5 items-center justify-center overflow-hidden rounded-[6px]">
-          <div
-            className="absolute inset-0"
-            style={{
-              background: "linear-gradient(135deg, #0071e3 0%, #4f7be8 55%, #8e7ee0 100%)",
-            }}
-          />
-          <div className="absolute inset-x-1 top-0.5 h-px rounded-full bg-white/55" />
-          <span className="relative wght-700 text-[9.5px] text-white">a</span>
-        </div>
+        <BrandMark size={20} />
         <span
           className="wght-620 text-[14px] text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.014em" }}
