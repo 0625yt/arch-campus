@@ -1051,3 +1051,52 @@ html {
 .time-bar-pulse {
   animation: time-bar-pulse 2200ms ease-in-out infinite;
 }
+
+/* ──────────────────────────────────────────────────────────────
+   요약 PDF 다운로드 — window.print() 기반.
+   "PDF로 저장" 버튼이 body.arch-printing 토글 → 이 영역만 인쇄.
+   visibility 토글 패턴: body 안 모두 hidden → .arch-print-target 자손만 visible.
+   ancestor chain은 자동으로 살아 있고(visibility는 상속이라 hidden->visible 가능),
+   다만 ancestor 자체는 hidden인 상태라 화면 차지만 차지하므로 position:absolute로
+   target을 최상단에 띄움.
+   ────────────────────────────────────────────────────────────── */
+@media print {
+  body.arch-printing {
+    background: white !important;
+  }
+  body.arch-printing * {
+    visibility: hidden !important;
+    box-shadow: none !important;
+  }
+  body.arch-printing .arch-print-target,
+  body.arch-printing .arch-print-target * {
+    visibility: visible !important;
+  }
+  body.arch-printing .arch-print-target {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+  }
+  body.arch-printing .arch-print-target * {
+    color: black !important;
+    background: white !important;
+  }
+  body.arch-printing .arch-print-target h1,
+  body.arch-printing .arch-print-target h2,
+  body.arch-printing .arch-print-target h3 {
+    page-break-after: avoid;
+  }
+  body.arch-printing .arch-print-target p,
+  body.arch-printing .arch-print-target li {
+    page-break-inside: avoid;
+  }
+  @page {
+    margin: 16mm;
+  }
+}

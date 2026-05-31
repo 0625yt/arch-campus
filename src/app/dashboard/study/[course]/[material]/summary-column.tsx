@@ -19,7 +19,7 @@ export function SummaryColumn({
   onPageClick: (page: number) => void;
 }) {
   return (
-    <article className="rounded-[18px] bg-white p-7 sm:p-9">
+    <article className="arch-print-target rounded-[18px] bg-white p-7 sm:p-9">
       <p
         className="text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
         style={{ letterSpacing: "-0.022em" }}

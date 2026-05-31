@@ -17,6 +17,7 @@ import { detectSubject } from "@/lib/subject-detector";
 import { ExtractExamView } from "./extract-exam-view";
 import { GenerateButton, type SiblingMaterialOption } from "./generate-button";
 import { MaterialTabs } from "./material-tabs";
+import { DownloadSummaryButton } from "./download-summary-button";
 import { MaterialView } from "./material-view";
 import { ResummarizePanel } from "./resummarize-panel";
 import { SummarizeWithStyles } from "./summarize-with-styles";
@@ -107,6 +108,12 @@ export default async function MaterialDetailPage({
           currentMaterialId={detail.id}
         />
         <Hero detail={detail} />
+
+        {!isExamType && detail.summary && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 fade-up fade-up-2">
+            <DownloadSummaryButton filename={`${detail.title} 요약`} />
+          </div>
+        )}
 
         {isExamType ? (
           extracted ? (
@@ -610,7 +617,7 @@ function CtaCard({
 function SummaryArticle({ summary, className }: { summary: SummarizeOutputT; className?: string }) {
   return (
     <section className={className}>
-      <article className="elev-1 rounded-[18px] bg-white px-7 py-9 sm:px-10 sm:py-12">
+      <article className="arch-print-target elev-1 rounded-[18px] bg-white px-7 py-9 sm:px-10 sm:py-12">
         <p
           className="text-[15px] leading-[1.65] wght-560 text-[var(--color-apple-ink)] sm:text-[16px]"
           style={{ letterSpacing: "-0.012em" }}
