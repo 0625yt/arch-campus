@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { pingSidebarCourses } from "@/components/sidebar";
+import { hexLinearGradient } from "@/lib/course-palette";
 import { useActiveJobs } from "@/lib/hooks/use-active-jobs";
 import { MaterialActionsMenu } from "./material-actions-menu";
 
@@ -215,6 +216,8 @@ export function MaterialsGrid({
       <ul className="mt-3 grid gap-3 sm:grid-cols-2">
         {visibleMaterials.map((m) => {
           const isSelected = selected.has(m.id);
+          // 좌→우 wash — 강의 dotColor 기준. study CourseCard와 시각 시스템 통일.
+          const linearWash = hexLinearGradient(dotColor, 0.22);
           return (
             <li key={m.id} className="relative">
               {/* 우상단 ⋯ 메뉴 — 선택 모드에선 숨김 */}
@@ -236,10 +239,13 @@ export function MaterialsGrid({
                   type="button"
                   onClick={() => toggle(m.id)}
                   aria-pressed={isSelected}
-                  className={`group card-glow-ribbon relative flex h-full w-full flex-col overflow-hidden rounded-[12px] bg-white p-6 text-left transition-all ${
+                  className={`group card-glow-ribbon dark-surface-card relative flex h-full w-full flex-col overflow-hidden rounded-[12px] bg-white p-6 text-left transition-all ${
                     isSelected ? "ring-2 ring-[var(--color-apple-action)]" : ""
                   }`}
-                  style={{ ["--ribbon-color" as string]: dotColor }}
+                  style={{
+                    ["--ribbon-color" as string]: dotColor,
+                    backgroundImage: linearWash,
+                  }}
                 >
                   <CardInner m={m} dotColor={dotColor} selectMode />
                   <span
@@ -256,8 +262,11 @@ export function MaterialsGrid({
               ) : (
                 <Link
                   href={`/dashboard/study/${encodeURIComponent(courseName)}/${m.id}`}
-                  className="group card-glow-ribbon relative flex h-full flex-col overflow-hidden rounded-[12px] bg-white p-6"
-                  style={{ ["--ribbon-color" as string]: dotColor }}
+                  className="group card-glow-ribbon dark-surface-card relative flex h-full flex-col overflow-hidden rounded-[12px] bg-white p-6"
+                  style={{
+                    ["--ribbon-color" as string]: dotColor,
+                    backgroundImage: linearWash,
+                  }}
                 >
                   <CardInner m={m} dotColor={dotColor} />
                 </Link>

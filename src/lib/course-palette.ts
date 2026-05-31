@@ -100,3 +100,31 @@ export function courseGradient(name: string, color?: string | null): string {
   const { r, g, b } = courseRgb(name, color);
   return `radial-gradient(120% 80% at 100% 0%, rgba(${r}, ${g}, ${b}, 0.32) 0%, rgba(${r}, ${g}, ${b}, 0.10) 50%, transparent 80%)`;
 }
+
+/**
+ * 카드 좌→우 그라데이션 — 좌측에서 색이 풍부하고 우측으로 천천히 풀려나가는 wash.
+ * 사용자 피드백: 단일 색은 평탄해 보임. 좌측에 색 잡고 우측을 흰 종이로 풀면 호흡감 살아남.
+ *
+ *   default: 좌측 alpha 0.28 → 우측 alpha 0 (완전 풀림)
+ *   strong:  hover·강조 — 좌측 0.42 → 우측 0.04
+ *
+ * radial(우상단) gradient와 같이 쓰면 두 겹 wash로 카드가 더 살아있음.
+ */
+export function courseLinearGradient(
+  name: string,
+  color?: string | null,
+  alpha = 0.28,
+): string {
+  const { r, g, b } = courseRgb(name, color);
+  return `linear-gradient(90deg, rgba(${r}, ${g}, ${b}, ${alpha}) 0%, rgba(${r}, ${g}, ${b}, ${alpha * 0.45}) 35%, rgba(${r}, ${g}, ${b}, 0) 100%)`;
+}
+
+/**
+ * hex 색 직접 받아 좌→우 그라데이션. dotColor만 들어오는 컴포넌트(자료 카드 등) 용도.
+ * hex 파싱 실패하면 cobalt 폴백.
+ */
+export function hexLinearGradient(hex: string, alpha = 0.22): string {
+  const parsed = parseHex(hex) ?? { r: 122, g: 166, b: 214 };
+  const { r, g, b } = parsed;
+  return `linear-gradient(90deg, rgba(${r}, ${g}, ${b}, ${alpha}) 0%, rgba(${r}, ${g}, ${b}, ${alpha * 0.45}) 35%, rgba(${r}, ${g}, ${b}, 0) 100%)`;
+}

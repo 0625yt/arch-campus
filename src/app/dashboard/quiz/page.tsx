@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AppleEmptyState } from "@/components/apple-empty";
 import { AppleShell } from "@/components/apple-shell";
 import { tryGetOwnerId } from "@/lib/auth";
-import { courseGradient, courseInkColor, courseTint } from "@/lib/course-palette";
+import { courseGradient, courseInkColor, courseLinearGradient } from "@/lib/course-palette";
 import { listGeneratedQuizzes, type QuizListItem } from "@/lib/data/quizzes";
 
 export const dynamic = "force-dynamic";
@@ -80,7 +80,8 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
   // 시간표·강의 카드와 동일 파스텔 시스템.
   // 강의명이 있으면 강의 색, 없으면 quiz title 자체로 안정 매핑 (자료 단위 quiz).
   const seedName = quiz.courseName ?? quiz.title;
-  const cardTint = courseTint(seedName, quiz.courseColor, 0.14);
+  // 좌→우 wash — alpha 0.22가 study CourseCard보다 살짝 더 옅음 (퀴즈 카드가 더 작아 균형).
+  const linearWash = courseLinearGradient(seedName, quiz.courseColor, 0.22);
   const hoverGrad = courseGradient(seedName, quiz.courseColor);
   const inkColor = courseInkColor(seedName, quiz.courseColor);
 
@@ -89,7 +90,7 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
       <Link
         href={href}
         className="card-glow-ribbon dark-surface-card elev-1 spring-press group relative block overflow-hidden rounded-[14px] bg-white px-4 py-3.5 transition-shadow hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
-        style={{ backgroundColor: cardTint }}
+        style={{ backgroundImage: linearWash }}
       >
         <span
           aria-hidden

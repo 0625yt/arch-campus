@@ -388,6 +388,8 @@ html[data-theme="dark"] .elev-3 {
 html[data-theme="dark"] .dark-surface-card {
   /* biome-ignore lint/complexity/noImportantStyles: inline style={{backgroundColor}}을 덮어야 함 */
   background-color: #1d1d1f !important;
+  /* biome-ignore lint/complexity/noImportantStyles: inline style={{backgroundImage}} 좌→우 wash도 덮어야 함 */
+  background-image: none !important;
   position: relative;
 }
 /*

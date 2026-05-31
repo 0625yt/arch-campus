@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AppleShell } from "@/components/apple-shell";
 import { activityColor } from "@/lib/activity-color";
 import { tryGetOwnerId } from "@/lib/auth";
-import { courseGradient, courseTint } from "@/lib/course-palette";
+import { courseGradient, courseLinearGradient } from "@/lib/course-palette";
 import { type Activity, getRecentActivities } from "@/lib/data/activity";
 import { type CourseListItem, listCoursesGrouped } from "@/lib/data/materials";
 import { AddPersonalButton } from "./add-personal-button";
@@ -239,9 +239,9 @@ function PersonalEmpty({ className }: { className?: string }) {
 
 function CourseCard({ course }: { course: CourseListItem }) {
   const isPersonal = course.category === "personal";
-  // 시간표 셀과 동일한 파스텔 팔레트 — 강의명 해시로 안정 매핑.
-  // 라이트 톤 RGB라 alpha 0.42여도 산뜻 (애플 Calendar 톤).
-  const cardTint = courseTint(course.name, course.color);
+  // 좌→우 그라데이션 — 좌측에서 강의 색이 풍부하고 우측으로 흰 종이로 풀림.
+  // 단일 색 wash보다 호흡감 살아남. hover 시 우상단 radial wash가 추가로 등장.
+  const linearWash = courseLinearGradient(course.name, course.color);
   const hoverGrad = courseGradient(course.name, course.color);
 
   return (
@@ -265,7 +265,7 @@ function CourseCard({ course }: { course: CourseListItem }) {
         <Link
           href={`/dashboard/study/${encodeURIComponent(course.name)}`}
           className="group card-glow-ribbon dark-surface-card elev-hover-2 spring-press relative flex min-h-[140px] flex-col justify-between overflow-hidden rounded-[14px] bg-white p-5 sm:p-5"
-          style={{ backgroundColor: cardTint }}
+          style={{ backgroundImage: linearWash }}
         >
           <span
             aria-hidden
