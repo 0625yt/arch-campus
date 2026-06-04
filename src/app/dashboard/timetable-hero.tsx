@@ -486,7 +486,7 @@ function ViewPill({
       aria-pressed={active}
       className={
         active
-          ? "spring-press inline-flex h-6 items-center rounded-full bg-[var(--color-apple-ink)] px-2.5 text-[10.5px] wght-560 text-white"
+          ? "btn-ink spring-press inline-flex h-6 items-center rounded-full bg-[var(--color-apple-ink)] px-2.5 text-[10.5px] wght-560 text-white"
           : "spring-press inline-flex h-6 items-center rounded-full border border-[var(--color-apple-hairline)] bg-white px-2.5 text-[10.5px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)] disabled:opacity-40"
       }
       style={{ letterSpacing: "-0.012em" }}
@@ -521,7 +521,7 @@ function EmptyTimetableHero() {
       </p>
       <Link
         href="/dashboard/calendar/import?kind=timetable"
-        className="spring-press mt-5 inline-flex h-10 items-center gap-1.5 rounded-full bg-[var(--color-apple-ink)] px-4 text-[12.5px] wght-560 text-white transition-opacity hover:opacity-90"
+        className="btn-ink spring-press mt-5 inline-flex h-10 items-center gap-1.5 rounded-full bg-[var(--color-apple-ink)] px-4 text-[12.5px] wght-560 text-white transition-opacity hover:opacity-90"
         style={{ letterSpacing: "-0.012em" }}
       >
         시간표 올리기 <span aria-hidden>›</span>

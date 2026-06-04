@@ -450,6 +450,17 @@ html[data-theme="dark"] .tt-cell.now-glow {
 }
 
 /*
+ * Primary "ink" 버튼 — bg-apple-ink는 다크에서 ink 토큰이 흰색으로 뒤집혀
+ * "흰 버튼 + 흰 글씨"로 깨진다. primary 버튼은 양쪽 테마에서 어두운 게 자연스러우므로
+ * 다크에선 살짝 밝은 surface(#2a2a2d)로 고정하고 글자는 흰색 유지.
+ * 적용: 시간표 수정 버튼, ViewPill 활성, 시간표 올리기 버튼.
+ */
+html[data-theme="dark"] .btn-ink {
+  background-color: #2a2a2d;
+  color: #f5f5f7;
+}
+
+/*
  * 다크 모드 surface 자동 매핑 — bg-white·bg-white/N 인라인이 다크에서 깨지는 걸 일괄 해결.
  *
  * 톤: 랜딩 카드 톤과 정확히 매칭. #1d1d1f가 #0c0c0e canvas 위에서 한 단 떠 있는 느낌.

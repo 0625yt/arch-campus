@@ -67,7 +67,7 @@ function TopChrome({ semesterLabel }: { semesterLabel: string }) {
       </p>
       <Link
         href="/dashboard/calendar/import?kind=timetable"
-        className="group spring-press inline-flex items-center gap-2 rounded-full bg-[var(--color-apple-ink)] px-4 py-2 text-[12.5px] wght-620 text-white shadow-[0_6px_18px_-8px_rgba(0,0,0,0.35)] transition-all hover:-translate-y-px hover:shadow-[0_10px_24px_-8px_rgba(0,0,0,0.4)]"
+        className="btn-ink group spring-press inline-flex items-center gap-2 rounded-full bg-[var(--color-apple-ink)] px-4 py-2 text-[12.5px] wght-620 text-white shadow-[0_6px_18px_-8px_rgba(0,0,0,0.35)] transition-all hover:-translate-y-px hover:shadow-[0_10px_24px_-8px_rgba(0,0,0,0.4)]"
         style={{ letterSpacing: "-0.012em" }}
       >
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
