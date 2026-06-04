@@ -74,6 +74,27 @@ export function courseTint(name: string, color?: string | null, alpha = 0.18): s
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/**
+ * 다크 모드 시간표 셀 — 불투명 색. 강의색을 어두운 베이스에 섞되 채도를 끌어올려
+ * Saturn·Notion처럼 선명하게 발광. alpha 합성 진흙기를 원천 차단.
+ *   1) 강의색 채도 강화(회색기 제거) → 2) 어두운 베이스(#222)에 mix
+ */
+export function courseTintDark(name: string, color?: string | null): string {
+  const { r, g, b } = courseRgb(name, color);
+  // 채도 강화: 각 채널을 평균에서 멀어지게 밀어 회색기를 걷어낸다.
+  const avg = (r + g + b) / 3;
+  const sat = 1.45;
+  const vivid = (c: number) => Math.max(0, Math.min(255, Math.round(avg + (c - avg) * sat)));
+  const vr = vivid(r),
+    vg = vivid(g),
+    vb = vivid(b);
+  // 어두운 베이스(#26)에 강의색 55% mix → 불투명·선명·글자 대비 확보.
+  const base = 38; // ≈ #262628
+  const strength = 0.55;
+  const mix = (c: number) => Math.round(c * strength + base * (1 - strength));
+  return `rgb(${mix(vr)}, ${mix(vg)}, ${mix(vb)})`;
+}
+
 /** hover 액센트 — 한 단 진하게 (그래도 연함). */
 export function courseTintStrong(name: string, color?: string | null): string {
   return courseTint(name, color, 0.32);

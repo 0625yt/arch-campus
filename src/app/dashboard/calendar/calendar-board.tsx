@@ -1024,12 +1024,12 @@ function DayCell({
         isInDragRange ? "ring-2 ring-inset ring-[var(--color-apple-action)]" : ""
       }`}
       style={{
-        // 오늘 셀은 종이 위에 살짝 따뜻한 톤. 다른 날은 흰색. 드래그 진행 중인 셀은 강조 톤.
+        // 오늘 셀은 종이 위에 살짝 따뜻한 톤. 다른 날은 day-cell 토큰(다크 자동 swap). 드래그 중은 강조 톤.
         backgroundColor: isInDragRange
           ? "var(--color-apple-action-soft, #e6f0ff)"
           : cell.isToday
             ? "var(--color-surface-cream)"
-            : "#ffffff",
+            : "var(--color-day-cell)",
       }}
     >
       <span

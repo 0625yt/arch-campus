@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { courseTint } from "@/lib/course-palette";
+import { courseTint, courseTintDark } from "@/lib/course-palette";
 import type { CourseListItem } from "@/lib/data/materials";
 import { buildTimetable, type CourseSlot, isKstToday, type Weekday } from "@/lib/timetable-grid";
+import { useIsDark } from "./use-mobile";
 
 /**
  * Dashboard 시간표 hero — 컨테이너 100% fit. 한 화면 안에 들어옴.
@@ -155,6 +156,7 @@ function TimetableGrid({
 }) {
   const [view, setView] = useState<View>("week");
   const [isMobile, setIsMobile] = useState(false);
+  const isDark = useIsDark();
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
     const apply = () => {
@@ -404,9 +406,9 @@ function TimetableGrid({
                       key={`${s.courseId}-${w}-${s.slot.startMinute}`}
                       type="button"
                       onClick={() => onPickCourse(s)}
-                      className={`tt-cell spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[10px] px-2.5 py-1.5 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.18)] hover:brightness-[1.02] ${
+                      className={`tt-cell spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[10px] px-2.5 py-1.5 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.18)] ${
                         isNow
-                          ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)] shadow-[0_10px_28px_-4px_rgba(0,113,227,0.5)] brightness-105"
+                          ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)] shadow-[0_10px_28px_-4px_rgba(0,113,227,0.5)]"
                           : ""
                       } ${isPast ? "opacity-45" : ""}`}
                       style={{
@@ -414,7 +416,9 @@ function TimetableGrid({
                         height: `${height - 4}px`,
                         left: `calc(${left}% + 3px)`,
                         width: `calc(${colWidth}% - 6px)`,
-                        backgroundColor: cellTint(s.courseName, s.color),
+                        backgroundColor: isDark
+                          ? courseTintDark(s.courseName, s.color)
+                          : cellTint(s.courseName, s.color),
                       }}
                       aria-label={`${s.courseName} ${s.slot.startLabel} - ${s.slot.endLabel}${isNow ? " (진행 중)" : ""}`}
                     >

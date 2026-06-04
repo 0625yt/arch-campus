@@ -19,3 +19,20 @@ export function useIsMobile(): boolean {
   }, []);
   return isMobile;
 }
+
+/**
+ * 현재 다크 테마 여부 (html[data-theme="dark"]). 시간표 셀 색을 다크용 불투명 색으로
+ * 갈아끼우는 데 쓴다. theme-toggle이 data-theme를 바꾸므로 MutationObserver로 추적.
+ */
+export function useIsDark(): boolean {
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const html = document.documentElement;
+    const read = () => setIsDark(html.getAttribute("data-theme") === "dark");
+    read();
+    const mo = new MutationObserver(read);
+    mo.observe(html, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => mo.disconnect();
+  }, []);
+  return isDark;
+}

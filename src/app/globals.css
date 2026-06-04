@@ -102,6 +102,7 @@
    */
   --color-surface-cream: #fbfaf7;     /* 종이에 미세하게 따뜻한 톤 */
   --color-surface-mist: #f4f6fb;      /* 종이에 미세하게 차가운 톤 */
+  --color-day-cell: #ffffff;          /* 캘린더 월간 날짜 셀 — 다크에서 #1d1d1f로 swap */
 
   /* 그림자 — 거의 보이지 않게 */
   --shadow-soft: 0 1px 2px rgba(20, 20, 20, 0.04);
@@ -177,6 +178,7 @@
   --color-tint-streak-ink: #b66a14;
   --color-surface-cream: #fbfaf7;
   --color-surface-mist: #f4f6fb;
+  --color-day-cell: #ffffff;
 
   --elev-1: 0 1px 2px rgba(20, 20, 20, 0.04);
   --elev-2: 0 1px 2px rgba(20, 20, 20, 0.04), 0 8px 24px -12px rgba(20, 20, 20, 0.1);
@@ -218,6 +220,7 @@ html[data-theme="dark"] {
   --color-apple-hairline-soft: rgba(255, 255, 255, 0.06);
   --color-surface-mist: #131315;
   --color-surface-cream: #1a1a1c;
+  --color-day-cell: #1d1d1f;
   --color-apple-action-soft: rgba(0, 113, 227, 0.22);
   --color-apple-action-hover: #1a85ff;
 
@@ -442,28 +445,12 @@ html[data-theme="dark"] .dark-surface-card::after {
  *   - 검정 오버레이를 32%로 낮춰 강의 색조가 살아남
  *   - 셀 가장자리에 미세 화이트 hairline + 위쪽 inset highlight (글래스 표면)
  */
+/* 다크 시간표 셀 — 배경색은 JS courseTintDark()가 불투명 색으로 직접 준다
+   (alpha 합성 진흙기 원천 차단, Saturn·Notion 톤). 여기선 글래스 표면감만. */
 html[data-theme="dark"] .tt-cell {
-  position: relative;
-  isolation: isolate;
-  /* 검정 오버레이 제거 — 파스텔이 다크 위에서 톤다운되며 그 자체로 색이 산다.
-     가장자리 화이트 hairline + 위 inset highlight로 글래스 표면감. */
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-html[data-theme="dark"] .tt-cell::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  /* 살짝만 어둡게(18%) — 파스텔 명도를 낮춰 글자 대비 확보, 색조는 유지. */
-  background-color: rgba(0, 0, 0, 0.18);
-  z-index: 0;
-  pointer-events: none;
-}
-html[data-theme="dark"] .tt-cell > * {
-  position: relative;
-  z-index: 1;
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 /* 진행 중 강의 — 다크에서 코발트 글로우가 더 살게 (Notion/Saturn 톤). */
 html[data-theme="dark"] .tt-cell.now-glow {
