@@ -49,6 +49,7 @@ function UrgentCard({ signal }: { signal: SafetySignal | null }) {
       tone={tone}
       title={signal.title}
       meta={signal.reason}
+      statusDot
     />
   );
 }
@@ -78,7 +79,8 @@ function NextEventCard({ event }: { event: EventView | null }) {
       label="다음 일정"
       tone={tone}
       title={formatEventLabel(event)}
-      meta={`${dDay} · ${formatTime(event)}`}
+      meta={formatTime(event)}
+      bigStat={dDay}
     />
   );
 }
@@ -117,8 +119,8 @@ function CoursesCard({ courses }: { courses: CourseListItem[] }) {
       label="강의"
       tone="calm"
       title={`${total}개 강의 진행`}
-      meta={`${withMaterials}/${total} 자료 등록 · ${pct}%`}
-      progress={pct}
+      meta={`${withMaterials}/${total} 자료 등록`}
+      donut={pct}
     />
   );
 }
@@ -165,14 +167,18 @@ function BaseCard({
   tone,
   title,
   meta,
-  progress,
+  statusDot,
+  bigStat,
+  donut,
 }: {
   href: string;
   label: string;
   tone: CardTone;
   title: string;
   meta: string;
-  progress?: number;
+  statusDot?: boolean;
+  bigStat?: string;
+  donut?: number;
 }) {
   const s = toneStyles(tone);
   return (
@@ -187,40 +193,79 @@ function BaseCard({
     >
       <div className="flex items-baseline justify-between gap-2">
         <span
-          className={`text-[10px] uppercase wght-620 ${s.label}`}
+          className={`flex items-center gap-1.5 text-[10px] uppercase wght-620 ${s.label}`}
           style={{ letterSpacing: "0.08em" }}
         >
+          {statusDot && tone !== "muted" && (
+            <span
+              aria-hidden
+              className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
+                tone === "urgent"
+                  ? "bg-[var(--color-urgent)]"
+                  : tone === "warn"
+                    ? "bg-[#cc7a30]"
+                    : "bg-[var(--color-apple-action)]"
+              }`}
+            />
+          )}
           {label}
         </span>
         <span
           aria-hidden
-          className="text-[12px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-ink)]"
+          className="text-[12px] text-[var(--color-apple-muted)] opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:opacity-100"
         >
           ›
         </span>
       </div>
-      <div className="mt-1.5 min-w-0">
-        <p
-          className="line-clamp-1 text-[14px] wght-620 text-[var(--color-apple-ink)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {title}
-        </p>
-        <p
-          className="mt-0.5 line-clamp-1 text-[11.5px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {meta}
-        </p>
-      </div>
-      {progress !== undefined && (
-        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-[var(--color-apple-pearl)]">
-          <div
-            className="h-full rounded-full bg-[var(--color-apple-action)] transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
+      <div className="mt-1.5 flex min-w-0 items-end justify-between gap-2">
+        <div className="min-w-0">
+          <p
+            className="line-clamp-1 text-[14px] wght-620 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {title}
+          </p>
+          <p
+            className="mt-0.5 line-clamp-1 text-[11.5px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {meta}
+          </p>
         </div>
-      )}
+        {bigStat && (
+          <span
+            className={`shrink-0 text-[22px] leading-none wght-700 tabular-nums ${s.label}`}
+            style={{ letterSpacing: "-0.022em" }}
+          >
+            {bigStat}
+          </span>
+        )}
+        {donut !== undefined && <DonutRing pct={donut} />}
+      </div>
     </Link>
+  );
+}
+
+/* ─────────────────────────── Donut Ring ─────────────────────────── */
+
+function DonutRing({ pct }: { pct: number }) {
+  const r = 11;
+  const c = 2 * Math.PI * r;
+  const off = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden className="-rotate-90 shrink-0">
+      <circle cx="14" cy="14" r={r} fill="none" stroke="var(--color-apple-pearl)" strokeWidth="3" />
+      <circle
+        cx="14"
+        cy="14"
+        r={r}
+        fill="none"
+        stroke="var(--color-apple-action)"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={off}
+      />
+    </svg>
   );
 }
