@@ -75,10 +75,7 @@ export function TimetableSideRail({
         const t = new Date(e.startsAt).getTime();
         return t >= today.getTime() && t < tomorrow.getTime();
       })
-      .sort(
-        (a, b) =>
-          new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
-      );
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   }, [events, now]);
 
   // 다가오는 시험·과제 (시간표 제외, 오늘 이후 최대 14일).
@@ -91,10 +88,7 @@ export function TimetableSideRail({
         const t = new Date(e.startsAt).getTime();
         return t >= today.getTime() && t <= horizon.getTime();
       })
-      .sort(
-        (a, b) =>
-          new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
-      )
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
       .slice(0, 2);
   }, [events, now]);
 
@@ -117,12 +111,7 @@ export function TimetableSideRail({
   return (
     <aside className="fade-up fade-up-2 flex h-full min-h-0 flex-col overflow-hidden rounded-[16px] border border-[var(--color-apple-hairline-soft)] bg-white elev-1">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <SectionNow
-          current={current}
-          next={next}
-          nextDayFirst={nextDayFirst}
-          now={now}
-        />
+        <SectionNow current={current} next={next} nextDayFirst={nextDayFirst} now={now} />
         {(todaysRemaining.length > 0 || todaysEvents.length > 0) && (
           <SectionToday
             slots={todaysRemaining.filter((s) => s.courseId !== current?.courseId)}
@@ -130,9 +119,7 @@ export function TimetableSideRail({
             now={now}
           />
         )}
-        {upcomingDeadlines.length > 0 && (
-          <SectionUpcoming events={upcomingDeadlines} now={now} />
-        )}
+        {upcomingDeadlines.length > 0 && <SectionUpcoming events={upcomingDeadlines} now={now} />}
       </div>
     </aside>
   );
@@ -152,11 +139,7 @@ function SectionNow({
   now: Date;
 }) {
   if (current) {
-    const minutesLeft = minutesUntil(
-      now,
-      current.slot.endMinute,
-      current.slot.weekday,
-    );
+    const minutesLeft = minutesUntil(now, current.slot.endMinute, current.slot.weekday);
     const color = current.color ?? "#0071e3";
     return (
       <div className="relative p-4">
@@ -192,11 +175,7 @@ function SectionNow({
     );
   }
   if (next) {
-    const minutesUntilStart = minutesUntil(
-      now,
-      next.slot.startMinute,
-      next.slot.weekday,
-    );
+    const minutesUntilStart = minutesUntil(now, next.slot.startMinute, next.slot.weekday);
     return (
       <div className="p-4">
         <SectionLabel tone="muted">다음 강의</SectionLabel>
@@ -249,12 +228,6 @@ function SectionNow({
           {nextDayFirst.slot.startLabel}
           {nextDayFirst.location ? ` · ${nextDayFirst.location}` : ""}
         </p>
-        <p
-          className="mt-2 text-[11.5px] wght-450 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          오늘은 강의가 없어요. 자료 정리 좋은 시간이에요.
-        </p>
       </div>
     );
   }
@@ -266,12 +239,6 @@ function SectionNow({
         style={{ letterSpacing: "-0.012em" }}
       >
         오늘 남은 강의가 없어요
-      </p>
-      <p
-        className="mt-1 text-[11.5px] wght-450 text-[var(--color-apple-muted)]"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        자료 정리하기 좋은 시간이에요
       </p>
     </div>
   );
@@ -371,9 +338,7 @@ function SectionUpcoming({ events, now }: { events: EventView[]; now: Date }) {
       <SectionLabel tone="muted">다가오는 마감</SectionLabel>
       <ul className="mt-2.5 flex flex-col gap-2.5">
         {events.map((e) => {
-          const days = Math.round(
-            (new Date(e.startsAt).getTime() - today.getTime()) / 86400000,
-          );
+          const days = Math.round((new Date(e.startsAt).getTime() - today.getTime()) / 86400000);
           const dDay = days === 0 ? "오늘" : `D-${days}`;
           const tone: "urgent" | "warn" | "calm" =
             days <= 1 ? "urgent" : days <= 3 ? "warn" : "calm";
@@ -414,19 +379,11 @@ function SectionUpcoming({ events, now }: { events: EventView[]; now: Date }) {
 
 /* ─────────────────────────── Utils ─────────────────────────── */
 
-function SectionLabel({
-  tone,
-  children,
-}: {
-  tone: "action" | "muted";
-  children: React.ReactNode;
-}) {
+function SectionLabel({ tone, children }: { tone: "action" | "muted"; children: React.ReactNode }) {
   return (
     <p
       className={`text-[10px] uppercase wght-620 ${
-        tone === "action"
-          ? "text-[var(--color-apple-action)]"
-          : "text-[var(--color-apple-muted)]"
+        tone === "action" ? "text-[var(--color-apple-action)]" : "text-[var(--color-apple-muted)]"
       }`}
       style={{ letterSpacing: "0.08em" }}
     >
@@ -484,4 +441,3 @@ function toneColor(tone: "urgent" | "warn" | "calm"): { text: string } {
       return { text: "text-[var(--color-apple-action)]" };
   }
 }
-

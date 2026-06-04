@@ -37,13 +37,7 @@ export function BottomCards({
 function UrgentCard({ signal }: { signal: SafetySignal | null }) {
   if (!signal) {
     return (
-      <BaseCard
-        href="/dashboard/today"
-        label="긴급 신호"
-        tone="muted"
-        title="지금 위험 신호 없음"
-        meta="자료 정리하기 좋은 날"
-      />
+      <BaseCard href="/dashboard/today" label="긴급 신호" tone="muted" title="이상 없음" meta="" />
     );
   }
   const tone: CardTone =
@@ -68,8 +62,8 @@ function NextEventCard({ event }: { event: EventView | null }) {
         href="/dashboard/calendar"
         label="다음 일정"
         tone="muted"
-        title="등록된 일정 없음"
-        meta="강의계획서 올리면 자동으로 채워져요"
+        title="일정 없음"
+        meta="강의계획서로 자동 등록"
       />
     );
   }
@@ -110,8 +104,8 @@ function CoursesCard({ courses }: { courses: CourseListItem[] }) {
         href="/dashboard/study"
         label="강의"
         tone="muted"
-        title="아직 강의 없음"
-        meta="강의계획서 한 장이면 시작돼요"
+        title="강의 없음"
+        meta="강의계획서 한 장으로 시작"
       />
     );
   }
