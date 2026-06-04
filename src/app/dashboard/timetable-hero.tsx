@@ -364,28 +364,19 @@ function TimetableGrid({
                   );
                 })}
 
-              {/* Hour hairline (시작 hour 제외) */}
+              {/* Hour hairline — Apple Calendar처럼 아주 옅게(타임라인 가이드).
+                  세로 요일 구분선은 제거 → "엑셀 표"가 아니라 "타임라인". */}
               {hours.slice(1, -1).map((h, idx) => {
                 const top = BODY_PAD_PX + (idx + 1) * hourPx;
                 return (
                   <div
                     key={`hline-${h}`}
                     aria-hidden
-                    className="pointer-events-none absolute inset-x-0 border-t border-[var(--color-apple-hairline-soft)]/70"
+                    className="pointer-events-none absolute inset-x-0 border-t border-[var(--color-apple-hairline-soft)]/35"
                     style={{ top: `${top}px` }}
                   />
                 );
               })}
-
-              {/* Day vertical divider */}
-              {shownDays.slice(1).map((w, i) => (
-                <div
-                  key={`vline-${w}`}
-                  aria-hidden
-                  className="pointer-events-none absolute inset-y-0 border-l border-[var(--color-apple-hairline-soft)]/70"
-                  style={{ left: `${((i + 1) / shownDays.length) * 100}%` }}
-                />
-              ))}
 
               {/* 강의 칸 — top/height는 픽셀, left/width는 컬럼 % 비율. */}
               {shownDays.flatMap((w, dayIdx) => {
@@ -406,7 +397,7 @@ function TimetableGrid({
                       key={`${s.courseId}-${w}-${s.slot.startMinute}`}
                       type="button"
                       onClick={() => onPickCourse(s)}
-                      className={`tt-cell spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[10px] px-2.5 py-1.5 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.18)] ${
+                      className={`tt-cell spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[12px] px-2.5 py-1.5 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_10px_26px_-8px_rgba(0,0,0,0.22)] ${
                         isNow
                           ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)] shadow-[0_10px_28px_-4px_rgba(0,113,227,0.5)]"
                           : ""
