@@ -6,6 +6,7 @@ import type { CourseListItem } from "@/lib/data/materials";
 import type { SafetySignal } from "@/lib/data/semester-safety";
 import { BottomCards } from "./bottom-cards";
 import { CourseSheet } from "./course-sheet";
+import { NowBanner } from "./now-banner";
 import { TimetableHeading, TimetableHero } from "./timetable-hero";
 import { TimetableSideRail } from "./timetable-side-rail";
 
@@ -39,23 +40,26 @@ export function DashboardClient({
   const [openCourse, setOpenCourse] = useState<CourseListItem | null>(null);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
-      <TimetableHeading courses={courses} studentName={studentName} />
+    <div className="flex h-full min-h-0 flex-col">
+      {/* 헤더 + 배너 = 하나의 그룹 (붙임) */}
+      <div className="shrink-0">
+        <TimetableHeading courses={courses} studentName={studentName} />
+        <div className="fade-up fade-up-1 mt-2.5">
+          <NowBanner courses={courses} />
+        </div>
+      </div>
 
-      {/* 메인 row — 시간표 + 사이드 */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="fade-up fade-up-1 flex min-h-0 min-w-0 flex-col">
-          <TimetableHero
-            courses={courses}
-            onPickCourse={(c) => setOpenCourse(c)}
-          />
+      {/* 메인 row — 시간표 + 사이드. 시간표↔하단카드는 띄워 그룹 분리(mt-4) */}
+      <div className="mt-4 grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="fade-up fade-up-2 flex min-h-0 min-w-0 flex-col">
+          <TimetableHero courses={courses} onPickCourse={(c) => setOpenCourse(c)} />
         </div>
         <div className="hidden min-h-0 min-w-0 lg:block">
           <TimetableSideRail courses={courses} events={events} />
         </div>
       </div>
 
-      <div className="fade-up fade-up-2">
+      <div className="fade-up fade-up-3 mt-3 shrink-0">
         <BottomCards signals={signals} events={events} courses={courses} />
       </div>
 

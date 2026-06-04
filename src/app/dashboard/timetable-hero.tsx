@@ -1,16 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { courseTint } from "@/lib/course-palette";
 import type { CourseListItem } from "@/lib/data/materials";
-import {
-  buildTimetable,
-  type CourseSlot,
-  findNowAndNext,
-  isKstToday,
-  type Weekday,
-} from "@/lib/timetable-grid";
+import { buildTimetable, type CourseSlot, isKstToday, type Weekday } from "@/lib/timetable-grid";
 
 /**
  * Dashboard 시간표 hero — 컨테이너 100% fit. 한 화면 안에 들어옴.
@@ -37,10 +31,13 @@ const DAY_LABELS_KO: Record<Weekday, string> = {
   SUN: "일",
 };
 
-const ROW_MIN = 5;
 const HEADER_PX = 32;
 const GUTTER_PX_MOBILE = 36;
 const GUTTER_PX_DESKTOP = 44;
+/** 첫(09:00)·끝 시간 라벨이 헤더/하단 경계에 안 먹히게 콘텐츠 상하 여백. */
+const BODY_PAD_PX = 10;
+/** 셀이 도저히 못 읽을 극단 케이스에만 스크롤로 빠지는 하한. 평소엔 fit이 우선. */
+const FLOOR_HOUR_PX = 34;
 
 /* ─────────────────────────── Public API ─────────────────────────── */
 
@@ -52,31 +49,23 @@ export function TimetableHeading({
   courses: CourseListItem[];
   studentName: string | null;
 }) {
-  const data = useTimetableData(courses);
-  const tick = useTick();
-  const { current, next } = useMemo(
-    () => findNowAndNext(data, new Date(tick)),
-    [data, tick],
-  );
+  void courses;
   const greeting = studentName ? `${studentName}님의 이번 주` : "이번 주";
 
   return (
-    <header className="flex items-end justify-between gap-3">
-      <div className="min-w-0">
-        <p
-          className="text-[10px] uppercase wght-620 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "0.08em" }}
-        >
-          시간표
-        </p>
-        <h1
-          className="mt-1 text-[22px] leading-[1.06] wght-700 text-[var(--color-apple-ink)] sm:text-[26px] md:text-[30px]"
-          style={{ letterSpacing: "-0.022em" }}
-        >
-          {greeting}
-        </h1>
-      </div>
-      <NowReadout current={current} next={next} />
+    <header className="min-w-0">
+      <p
+        className="text-[10px] uppercase wght-620 text-[var(--color-apple-muted)]"
+        style={{ letterSpacing: "0.08em" }}
+      >
+        시간표
+      </p>
+      <h1
+        className="mt-1 text-[24px] leading-[1.04] wght-700 text-[var(--color-apple-ink)] sm:text-[28px] md:text-[32px]"
+        style={{ letterSpacing: "-0.024em" }}
+      >
+        {greeting}
+      </h1>
     </header>
   );
 }
@@ -135,67 +124,20 @@ function useTick(): number {
   return tick;
 }
 
-/* ─────────────────────────── Now Readout ─────────────────────────── */
-
-function NowReadout({
-  current,
-  next,
-}: {
-  current: CourseSlot | null;
-  next: CourseSlot | null;
-}) {
-  if (current) {
-    return (
-      <div className="shrink-0 rounded-[10px] border border-[var(--color-apple-action)]/20 bg-[var(--color-apple-action)]/[0.06] px-3 py-1.5 backdrop-blur-sm">
-        <p
-          className="text-[9.5px] wght-620 uppercase text-[var(--color-apple-action)]"
-          style={{ letterSpacing: "0.08em" }}
-        >
-          진행 중
-        </p>
-        <p
-          className="mt-0.5 line-clamp-1 text-[12.5px] wght-620 tabular-nums text-[var(--color-apple-ink)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {current.courseName}
-          <span className="wght-450 text-[var(--color-apple-muted)]">
-            {" · "}
-            {current.slot.endLabel}까지
-          </span>
-        </p>
-      </div>
-    );
-  }
-  if (next) {
-    return (
-      <div className="shrink-0 rounded-[10px] border border-[var(--color-apple-hairline-soft)] bg-white/80 px-3 py-1.5 backdrop-blur-sm">
-        <p
-          className="text-[9.5px] wght-620 uppercase text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "0.08em" }}
-        >
-          다음
-        </p>
-        <p
-          className="mt-0.5 line-clamp-1 text-[12.5px] wght-620 tabular-nums text-[var(--color-apple-ink)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {next.courseName}
-          <span className="wght-450 text-[var(--color-apple-muted)]">
-            {" · "}
-            {next.slot.startLabel}
-          </span>
-        </p>
-      </div>
-    );
-  }
-  return (
-    <p
-      className="hidden text-[11.5px] wght-450 text-[var(--color-apple-muted)] sm:block"
-      style={{ letterSpacing: "-0.012em" }}
-    >
-      오늘 남은 강의 없음
-    </p>
-  );
+/** 요소의 실제 높이를 ResizeObserver로 추적 — 시간당 픽셀 동적 계산용. */
+function useMeasuredHeight() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setHeight(el.clientHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return { ref, height };
 }
 
 /* ─────────────────────────── Grid ─────────────────────────── */
@@ -241,17 +183,37 @@ function TimetableGrid({
 
   const hourStart = data.hourStart;
   const hourEnd = data.hourEnd;
-  const totalMinutes = (hourEnd - hourStart) * 60;
+  const hourSpan = hourEnd - hourStart;
+  const totalMinutes = hourSpan * 60;
   const minuteOffset = hourStart * 60;
-  const rowCount = Math.ceil(totalMinutes / ROW_MIN);
   const gutterPx = isMobile ? GUTTER_PX_MOBILE : GUTTER_PX_DESKTOP;
+
+  // Body 가용 높이 측정 → 시간당 픽셀(HOUR_PX)을 동적으로.
+  //   기본: 강의 범위(hourSpan)를 컨테이너에 꽉 맞춰 "한 화면에 다 보임" (스크롤 0).
+  //   예외: 컨테이너가 극단적으로 작아 셀이 FLOOR_HOUR_PX보다 작아질 때만 스크롤로 빠짐.
+  const { ref: bodyRef, height: bodyH } = useMeasuredHeight();
+  const usableH = Math.max(0, bodyH - BODY_PAD_PX * 2);
+  const fitHourPx = usableH > 0 ? usableH / hourSpan : FLOOR_HOUR_PX;
+  const hourPx = Math.max(FLOOR_HOUR_PX, fitHourPx);
+  const bodyContentPx = hourPx * hourSpan + BODY_PAD_PX * 2;
 
   // 현재 시각 — KST.
   const kst = useMemo(() => new Date(now.getTime() + 9 * 60 * 60 * 1000), [now]);
   const nowMin = kst.getUTCHours() * 60 + kst.getUTCMinutes();
   const nowInRange = nowMin >= minuteOffset && nowMin <= minuteOffset + totalMinutes;
-  // 현재 시각을 row 비율(0~1)로 — flex-1 grid에서도 정확.
+  // 현재 시각을 body 콘텐츠 높이 비율(0~1)로.
   const nowFrac = nowInRange ? (nowMin - minuteOffset) / totalMinutes : null;
+
+  // 마운트/스크롤 가능 시 "지금" 위치로 자동 스크롤 (상단에서 여유 한 칸).
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: nowFrac·bodyContentPx 변할 때만 재정렬
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || nowFrac === null) return;
+    const target = Math.max(0, nowFrac * bodyContentPx - hourPx);
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({ top: target, behavior: reduce ? "auto" : "smooth" });
+  }, [nowFrac, bodyContentPx, hourPx]);
 
   const hours = useMemo(() => {
     const list: number[] = [];
@@ -314,188 +276,190 @@ function TimetableGrid({
           })}
         </div>
 
-        {/* Body — flex로 gutter | cells, 둘 다 minHeight 0 + flex-1 height 공유 */}
-        <div className="relative flex min-h-0 flex-1">
-          {/* Gutter — Apple Calendar 시간 typography. 시(큰 wght-560) + 분 hint(::00 작게). */}
-          <div
-            aria-hidden
-            className="relative shrink-0"
-            style={{ width: `${gutterPx}px` }}
-          >
-            {hours.slice(0, -1).map((h, idx) => {
-              const top = (idx / (hourEnd - hourStart)) * 100;
-              // 현재 시각이 이 hour 구간에 있으면 진하게
-              const isCurrentHour =
-                nowFrac !== null && Math.floor(nowMin / 60) === h;
-              return (
-                <div
-                  key={`label-${h}`}
-                  className="absolute right-1.5 flex -translate-y-1.5 items-baseline gap-px"
-                  style={{ top: `${top}%` }}
-                >
-                  <span
-                    className={`text-[11px] tabular-nums transition-colors ${
-                      isCurrentHour
-                        ? "wght-700 text-[var(--color-apple-action)]"
-                        : "wght-560 text-[var(--color-apple-muted)]/85"
-                    }`}
-                    style={{ letterSpacing: "-0.018em" }}
+        {/* Body — 내부 세로 스크롤. 측정+스크롤을 한 요소에서.
+            공간 충분하면 콘텐츠가 딱 맞아 스크롤 없음 / 좁으면 MIN_HOUR_PX로 고정돼 스크롤. */}
+        <div
+          ref={(el) => {
+            bodyRef.current = el;
+            scrollRef.current = el;
+          }}
+          className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        >
+          {/* 콘텐츠 — 명시적 픽셀 높이. gutter | cells. */}
+          <div className="relative flex" style={{ height: `${bodyContentPx}px` }}>
+            {/* Gutter — Apple Calendar 시간 typography. 시(큰 wght-560) + 분 hint(::00 작게). */}
+            <div aria-hidden className="relative shrink-0" style={{ width: `${gutterPx}px` }}>
+              {hours.slice(0, -1).map((h, idx) => {
+                const top = BODY_PAD_PX + idx * hourPx;
+                // 현재 시각이 이 hour 구간에 있으면 진하게
+                const isCurrentHour = nowFrac !== null && Math.floor(nowMin / 60) === h;
+                return (
+                  <div
+                    key={`label-${h}`}
+                    className="absolute right-1.5 flex -translate-y-1.5 items-baseline gap-px"
+                    style={{ top: `${top}px` }}
                   >
-                    {String(h).padStart(2, "0")}
-                  </span>
-                  <span
-                    className={`text-[8px] tabular-nums transition-colors ${
-                      isCurrentHour
-                        ? "wght-560 text-[var(--color-apple-action)]/70"
-                        : "wght-450 text-[var(--color-apple-muted)]/55"
-                    }`}
-                    style={{ letterSpacing: "-0.008em" }}
-                  >
-                    :00
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                    <span
+                      className={`text-[11px] tabular-nums transition-colors ${
+                        isCurrentHour
+                          ? "wght-700 text-[var(--color-apple-action)]"
+                          : "wght-560 text-[var(--color-apple-muted)]/85"
+                      }`}
+                      style={{ letterSpacing: "-0.018em" }}
+                    >
+                      {String(h).padStart(2, "0")}
+                    </span>
+                    <span
+                      className={`text-[8px] tabular-nums transition-colors ${
+                        isCurrentHour
+                          ? "wght-560 text-[var(--color-apple-action)]/70"
+                          : "wght-450 text-[var(--color-apple-muted)]/55"
+                      }`}
+                      style={{ letterSpacing: "-0.008em" }}
+                    >
+                      :00
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
 
-          {/* Cells */}
-          <div className="relative min-w-0 flex-1 border-l border-[var(--color-apple-hairline-soft)]/60">
-            {/* 오늘 컬럼 통째 wash — 사용자가 한눈에 볼 수 있는 수준(8%) */}
-            {shownDays.map((w, dayIdx) => {
-              if (!isKstToday(w, now)) return null;
-              const colWidth = 100 / shownDays.length;
-              return (
-                <div
-                  key={`today-wash-${w}`}
-                  aria-hidden
-                  className="pointer-events-none absolute inset-y-0 bg-[var(--color-apple-action)]/[0.08]"
-                  style={{
-                    left: `${dayIdx * colWidth}%`,
-                    width: `${colWidth}%`,
-                  }}
-                />
-              );
-            })}
-
-            {/* 과거 시간대 dim — 라이트 8% · 다크 30% (확실히 보이게) */}
-            {nowFrac !== null &&
-              shownDays.map((w, dayIdx) => {
+            {/* Cells */}
+            <div className="relative min-w-0 flex-1 border-l border-[var(--color-apple-hairline-soft)]/60">
+              {/* 오늘 컬럼 통째 wash — 사용자가 한눈에 볼 수 있는 수준(8%) */}
+              {shownDays.map((w, dayIdx) => {
                 if (!isKstToday(w, now)) return null;
                 const colWidth = 100 / shownDays.length;
                 return (
                   <div
-                    key={`past-wash-${w}`}
+                    key={`today-wash-${w}`}
                     aria-hidden
-                    className="pointer-events-none absolute top-0 bg-black/[0.08] dark:bg-black/[0.30]"
+                    className="pointer-events-none absolute inset-y-0 bg-[var(--color-apple-action)]/[0.08]"
                     style={{
                       left: `${dayIdx * colWidth}%`,
                       width: `${colWidth}%`,
-                      height: `${nowFrac * 100}%`,
                     }}
                   />
                 );
               })}
 
-            {/* Hour hairline (시작 hour 제외) */}
-            {hours.slice(1, -1).map((h, idx) => {
-              const top = ((idx + 1) / (hourEnd - hourStart)) * 100;
-              return (
-                <div
-                  key={`hline-${h}`}
-                  aria-hidden
-                  className="pointer-events-none absolute inset-x-0 border-t border-[var(--color-apple-hairline-soft)]/40"
-                  style={{ top: `${top}%` }}
-                />
-              );
-            })}
+              {/* 과거 시간대 dim — 라이트 8% · 다크 30% (확실히 보이게) */}
+              {nowFrac !== null &&
+                shownDays.map((w, dayIdx) => {
+                  if (!isKstToday(w, now)) return null;
+                  const colWidth = 100 / shownDays.length;
+                  return (
+                    <div
+                      key={`past-wash-${w}`}
+                      aria-hidden
+                      className="pointer-events-none absolute top-0 bg-black/[0.08] dark:bg-black/[0.30]"
+                      style={{
+                        left: `${dayIdx * colWidth}%`,
+                        width: `${colWidth}%`,
+                        height: `${BODY_PAD_PX + nowFrac * hourPx * hourSpan}px`,
+                      }}
+                    />
+                  );
+                })}
 
-            {/* Day vertical divider */}
-            {shownDays.slice(1).map((w, i) => (
-              <div
-                key={`vline-${w}`}
-                aria-hidden
-                className="pointer-events-none absolute inset-y-0 border-l border-[var(--color-apple-hairline-soft)]/40"
-                style={{ left: `${((i + 1) / shownDays.length) * 100}%` }}
-              />
-            ))}
-
-            {/* 강의 칸 — 모두 % 비율 (top/height 둘 다 %).
-                ribbon 제거, 셀 자체에 파스텔 tint 배경 + 진한 ink 글자. */}
-            {shownDays.flatMap((w, dayIdx) => {
-              const daySlots = data.slots.filter((s) => s.slot.weekday === w);
-              return daySlots.map((s) => {
-                const top = ((s.slot.startMinute - minuteOffset) / totalMinutes) * 100;
-                const height =
-                  ((s.slot.endMinute - s.slot.startMinute) / totalMinutes) * 100;
-                const colWidth = 100 / shownDays.length;
-                const left = dayIdx * colWidth;
-                const isNow =
-                  isKstToday(w, now) &&
-                  nowMin >= s.slot.startMinute &&
-                  nowMin < s.slot.endMinute;
-                // 과거 강의 (오늘 컬럼 안, 이미 끝난 슬롯) — 톤 다운
-                const isPast =
-                  isKstToday(w, now) && nowMin >= s.slot.endMinute;
+              {/* Hour hairline (시작 hour 제외) */}
+              {hours.slice(1, -1).map((h, idx) => {
+                const top = BODY_PAD_PX + (idx + 1) * hourPx;
                 return (
-                  <button
-                    key={`${s.courseId}-${w}-${s.slot.startMinute}`}
-                    type="button"
-                    onClick={() => onPickCourse(s)}
-                    className={`tt-cell spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[10px] px-2.5 py-2 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.18)] hover:brightness-[1.02] ${
-                      isNow ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)] shadow-[0_10px_28px_-4px_rgba(0,113,227,0.5)] brightness-105" : ""
-                    } ${isPast ? "opacity-35 saturate-50" : ""}`}
-                    style={{
-                      top: `calc(${top}% + 2px)`,
-                      height: `calc(${height}% - 4px)`,
-                      left: `calc(${left}% + 3px)`,
-                      width: `calc(${colWidth}% - 6px)`,
-                      backgroundColor: cellTint(s.courseName, s.color),
-                    }}
-                    aria-label={`${s.courseName} ${s.slot.startLabel} - ${s.slot.endLabel}${isNow ? " (진행 중)" : ""}`}
-                  >
-                    {/* 진행 중 라벨 — 셀 우상단 micro pulse dot */}
-                    {isNow && (
-                      <span
-                        aria-hidden
-                        className="absolute right-2 top-2 inline-flex h-1.5 w-1.5"
-                      >
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-apple-action)] opacity-70" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--color-apple-action)]" />
-                      </span>
-                    )}
-                    <span
-                      className="line-clamp-2 text-[14px] leading-[1.15] wght-700 text-[var(--color-apple-ink)]"
-                      style={{ letterSpacing: "-0.018em" }}
-                    >
-                      {s.courseName}
-                    </span>
-                    {height > 6 && (
-                      <span
-                        className="mt-1 line-clamp-1 text-[10.5px] wght-560 tabular-nums text-[var(--color-apple-ink)]/55"
-                        style={{ letterSpacing: "-0.012em" }}
-                      >
-                        {s.slot.startLabel}–{s.slot.endLabel}
-                      </span>
-                    )}
-                  </button>
+                  <div
+                    key={`hline-${h}`}
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 border-t border-[var(--color-apple-hairline-soft)]/40"
+                    style={{ top: `${top}px` }}
+                  />
                 );
-              });
-            })}
+              })}
 
-            {/* 현재 시각 라인 — Fantastical 톤. 도트 + 가는 라인 + 현재 시각 라벨 */}
-            {nowFrac !== null && shownDays.some((w) => isKstToday(w, now)) && (
-              <div
-                aria-hidden
-                className="time-bar-pulse pointer-events-none absolute inset-x-0 z-20 flex items-center"
-                style={{ top: `${nowFrac * 100}%` }}
-              >
-                <span className="relative -ml-1 inline-flex h-2 w-2 shrink-0">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-apple-action)] opacity-60" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--color-apple-action)] shadow-[0_0_8px_rgba(0,113,227,0.5)]" />
-                </span>
-                <span className="ml-0 h-px flex-1 bg-gradient-to-r from-[var(--color-apple-action)]/85 via-[var(--color-apple-action)]/60 to-[var(--color-apple-action)]/20" />
-              </div>
-            )}
+              {/* Day vertical divider */}
+              {shownDays.slice(1).map((w, i) => (
+                <div
+                  key={`vline-${w}`}
+                  aria-hidden
+                  className="pointer-events-none absolute inset-y-0 border-l border-[var(--color-apple-hairline-soft)]/40"
+                  style={{ left: `${((i + 1) / shownDays.length) * 100}%` }}
+                />
+              ))}
+
+              {/* 강의 칸 — top/height는 픽셀, left/width는 컬럼 % 비율. */}
+              {shownDays.flatMap((w, dayIdx) => {
+                const daySlots = data.slots.filter((s) => s.slot.weekday === w);
+                return daySlots.map((s) => {
+                  const top = BODY_PAD_PX + ((s.slot.startMinute - minuteOffset) / 60) * hourPx;
+                  const height = ((s.slot.endMinute - s.slot.startMinute) / 60) * hourPx;
+                  const colWidth = 100 / shownDays.length;
+                  const left = dayIdx * colWidth;
+                  const isNow =
+                    isKstToday(w, now) && nowMin >= s.slot.startMinute && nowMin < s.slot.endMinute;
+                  // 과거 강의 (오늘 컬럼 안, 이미 끝난 슬롯) — 톤 다운
+                  const isPast = isKstToday(w, now) && nowMin >= s.slot.endMinute;
+                  return (
+                    <button
+                      key={`${s.courseId}-${w}-${s.slot.startMinute}`}
+                      type="button"
+                      onClick={() => onPickCourse(s)}
+                      className={`tt-cell spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[10px] px-2.5 py-2 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.18)] hover:brightness-[1.02] ${
+                        isNow
+                          ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)] shadow-[0_10px_28px_-4px_rgba(0,113,227,0.5)] brightness-105"
+                          : ""
+                      } ${isPast ? "opacity-35 saturate-50" : ""}`}
+                      style={{
+                        top: `${top + 2}px`,
+                        height: `${height - 4}px`,
+                        left: `calc(${left}% + 3px)`,
+                        width: `calc(${colWidth}% - 6px)`,
+                        backgroundColor: cellTint(s.courseName, s.color),
+                      }}
+                      aria-label={`${s.courseName} ${s.slot.startLabel} - ${s.slot.endLabel}${isNow ? " (진행 중)" : ""}`}
+                    >
+                      {/* 진행 중 라벨 — 셀 우상단 micro pulse dot */}
+                      {isNow && (
+                        <span
+                          aria-hidden
+                          className="absolute right-2 top-2 inline-flex h-1.5 w-1.5"
+                        >
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-apple-action)] opacity-70" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--color-apple-action)]" />
+                        </span>
+                      )}
+                      <span
+                        className="line-clamp-2 text-[14px] leading-[1.15] wght-700 text-[var(--color-apple-ink)]"
+                        style={{ letterSpacing: "-0.018em" }}
+                      >
+                        {s.courseName}
+                      </span>
+                      {height > 40 && (
+                        <span
+                          className="mt-1 line-clamp-1 text-[10.5px] wght-560 tabular-nums text-[var(--color-apple-ink)]/55"
+                          style={{ letterSpacing: "-0.012em" }}
+                        >
+                          {s.slot.startLabel}–{s.slot.endLabel}
+                        </span>
+                      )}
+                    </button>
+                  );
+                });
+              })}
+
+              {/* 현재 시각 라인 — Fantastical 톤. 도트 + 가는 라인 + 현재 시각 라벨 */}
+              {nowFrac !== null && shownDays.some((w) => isKstToday(w, now)) && (
+                <div
+                  aria-hidden
+                  className="time-bar-pulse pointer-events-none absolute inset-x-0 z-20 flex items-center"
+                  style={{ top: `${BODY_PAD_PX + nowFrac * hourPx * hourSpan}px` }}
+                >
+                  <span className="relative -ml-1 inline-flex h-2 w-2 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-apple-action)] opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--color-apple-action)] shadow-[0_0_8px_rgba(0,113,227,0.5)]" />
+                  </span>
+                  <span className="ml-0 h-px flex-1 bg-gradient-to-r from-[var(--color-apple-action)]/85 via-[var(--color-apple-action)]/60 to-[var(--color-apple-action)]/20" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -570,5 +534,4 @@ function EmptyTimetableHero() {
 
 // Palette 함수는 lib/course-palette로 추출됨 (study CourseCard·quiz와 공유).
 // 시간표 셀은 카드보다 작아 색 정체성이 더 또렷해야 함 → alpha 0.45 (카드 default 0.18보다 진함).
-const cellTint = (name: string, color: string | null | undefined) =>
-  courseTint(name, color, 0.45);
+const cellTint = (name: string, color: string | null | undefined) => courseTint(name, color, 0.45);
