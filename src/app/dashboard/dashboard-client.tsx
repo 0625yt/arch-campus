@@ -8,23 +8,19 @@ import { BottomCards } from "./bottom-cards";
 import { CourseSheet } from "./course-sheet";
 import { NowBanner } from "./now-banner";
 import { TimetableHeading, TimetableHero } from "./timetable-hero";
-import { TimetableSideRail } from "./timetable-side-rail";
 
 /**
- * Dashboard client wrapper — Apple Maps detail panel 톤.
+ * Dashboard client wrapper — 시간표 풀폭 구조 (구조안 A).
  *
- *   ┌─ heading row
- *   ├─ ┌──────────────────────┬─────────────────┐
- *   │  │                      │                 │
- *   │  │   시간표 (lg: 2/3)    │  사이드 (1/3)    │
- *   │  │                      │  - 지금/다음     │
- *   │  │                      │  - 오늘 남은     │
- *   │  │                      │  - 다가오는 마감 │
- *   │  └──────────────────────┴─────────────────┘
- *   └─ 하단 3카드 (긴급·다음·진척)
+ *   ┌─ heading (이름)
+ *   ├─ 주간 날짜 strip + 지금/다음 (NowBanner)
+ *   ├─ ┌──────────────────────────────────────┐
+ *   │  │        시간표 — 가로 풀폭 (주인공)      │
+ *   │  └──────────────────────────────────────┘
+ *   └─ 하단 3카드 (긴급·다음 일정·진척)
  *
- * 모두 부모 h-full을 flex로 나눠 가짐. 스크롤 0.
- * lg 미만에선 사이드 숨김 — 시간표만 풀폭.
+ * 빈 사이드레일 제거 → 시간표가 풀폭으로 넓어짐. "내일 첫 강의"는 다음 일정 카드가 담당.
+ * 헤더·배너·하단카드는 shrink-0 고정, 시간표만 flex-1.
  */
 export function DashboardClient({
   courses,
@@ -49,14 +45,9 @@ export function DashboardClient({
         </div>
       </div>
 
-      {/* 메인 row — 시간표 + 사이드. 시간표↔하단카드는 띄워 그룹 분리(mt-4) */}
-      <div className="mt-4 grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="fade-up fade-up-2 flex min-h-0 min-w-0 flex-col">
-          <TimetableHero courses={courses} onPickCourse={(c) => setOpenCourse(c)} />
-        </div>
-        <div className="hidden min-h-0 min-w-0 lg:block">
-          <TimetableSideRail courses={courses} events={events} />
-        </div>
+      {/* 시간표 — 가로 풀폭. 시간표↔하단카드는 띄워 그룹 분리(mt-4) */}
+      <div className="fade-up fade-up-2 mt-4 flex min-h-0 min-w-0 flex-1 flex-col">
+        <TimetableHero courses={courses} onPickCourse={(c) => setOpenCourse(c)} />
       </div>
 
       <div className="fade-up fade-up-3 mt-3 shrink-0">

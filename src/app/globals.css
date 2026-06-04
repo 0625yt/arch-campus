@@ -412,22 +412,41 @@ html[data-theme="dark"] .dark-surface-card::after {
  * 강의 색감만 살짝 비추도록 overlay. inline backgroundColor는 그대로 두되,
  * 위에 검정 multiply 덮어 명도만 떨어뜨림.
  */
+/*
+ * 다크 시간표 셀 — Saturn·Notion Calendar 톤. 색 블록이 어두운 배경에서 "발광".
+ * 이전엔 검정 55% multiply로 색을 깔아뭉갰지만, lazyweb 레퍼런스는 색을 살려 빛낸다.
+ *   - 검정 오버레이를 32%로 낮춰 강의 색조가 살아남
+ *   - 셀 가장자리에 미세 화이트 hairline + 위쪽 inset highlight (글래스 표면)
+ */
 html[data-theme="dark"] .tt-cell {
   position: relative;
   isolation: isolate;
+  /* 검정 오버레이 제거 — 파스텔이 다크 위에서 톤다운되며 그 자체로 색이 산다.
+     가장자리 화이트 hairline + 위 inset highlight로 글래스 표면감. */
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 html[data-theme="dark"] .tt-cell::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background-color: rgba(0, 0, 0, 0.55);
+  /* 살짝만 어둡게(18%) — 파스텔 명도를 낮춰 글자 대비 확보, 색조는 유지. */
+  background-color: rgba(0, 0, 0, 0.18);
   z-index: 0;
   pointer-events: none;
 }
 html[data-theme="dark"] .tt-cell > * {
   position: relative;
   z-index: 1;
+}
+/* 진행 중 강의 — 다크에서 코발트 글로우가 더 살게 (Notion/Saturn 톤). */
+html[data-theme="dark"] .tt-cell.now-glow {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(0, 113, 227, 0.6),
+    0 8px 28px -6px rgba(0, 113, 227, 0.55);
 }
 
 /*
