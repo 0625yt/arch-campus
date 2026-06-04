@@ -24,7 +24,7 @@ export function BottomCards({
   courses: CourseListItem[];
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
       <UrgentCard signal={signals[0] ?? null} />
       <NextEventCard event={events[0] ?? null} />
       <CoursesCard courses={courses} />
@@ -141,8 +141,8 @@ function toneStyles(tone: CardTone): {
       };
     case "warn":
       return {
-        label: "text-[#cc7a30]",
-        ring: "ring-1 ring-[#cc7a30]/22",
+        label: "text-[var(--color-apple-warn-ink)]",
+        ring: "ring-1 ring-[var(--color-apple-warn-ink)]/22",
         glow: "linear-gradient(135deg, rgba(204,122,48,0.04), transparent 60%)",
       };
     case "calm":
@@ -182,7 +182,7 @@ function BaseCard({
   return (
     <Link
       href={href}
-      className={`spring-press group relative flex flex-col justify-between overflow-hidden rounded-[14px] bg-white px-4 py-3.5 transition-all hover:-translate-y-px ${s.ring}`}
+      className={`spring-press elev-1 card-lift group relative flex flex-col justify-between overflow-hidden rounded-[14px] bg-white px-4 py-3.5 transition-all hover:-translate-y-px ${s.ring}`}
       style={{
         backgroundImage: s.glow,
         backgroundRepeat: "no-repeat",
@@ -201,7 +201,7 @@ function BaseCard({
                 tone === "urgent"
                   ? "bg-[var(--color-urgent)]"
                   : tone === "warn"
-                    ? "bg-[#cc7a30]"
+                    ? "bg-[var(--color-apple-warn-ink)]"
                     : "bg-[var(--color-apple-action)]"
               }`}
             />

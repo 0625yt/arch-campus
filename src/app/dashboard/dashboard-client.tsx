@@ -36,21 +36,21 @@ export function DashboardClient({
   const [openCourse, setOpenCourse] = useState<CourseListItem | null>(null);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      {/* 헤더 + 배너 = 하나의 그룹 (붙임) */}
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      {/* 헤더 + 배너 = 하나의 그룹 (타이트 붙임 mt-3) */}
       <div className="shrink-0">
         <TimetableHeading courses={courses} studentName={studentName} />
-        <div className="fade-up fade-up-1 mt-2.5">
+        <div className="fade-up fade-up-1 mt-3">
           <NowBanner courses={courses} />
         </div>
       </div>
 
-      {/* 시간표 — 가로 풀폭. 시간표↔하단카드는 띄워 그룹 분리(mt-4) */}
-      <div className="fade-up fade-up-2 mt-4 flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* 시간표 — 가로 풀폭. 배너↔시간표·시간표↔카드는 섹션 간격으로 띄워 분리 */}
+      <div className="fade-up fade-up-2 mt-4 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden sm:mt-5">
         <TimetableHero courses={courses} onPickCourse={(c) => setOpenCourse(c)} />
       </div>
 
-      <div className="fade-up fade-up-3 mt-3 shrink-0">
+      <div className="fade-up fade-up-3 mt-4 shrink-0 sm:mt-5">
         <BottomCards signals={signals} events={events} courses={courses} />
       </div>
 

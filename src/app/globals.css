@@ -59,6 +59,8 @@
   --color-apple-streak: #ff9500;
   --color-apple-warn: #ff9500;
   --color-apple-warn-soft: #fff4e0;
+  /* warn-ink — 카드 라벨·점에 쓰는 진한 살구브라운. 다크에선 밝게 오버라이드. */
+  --color-apple-warn-ink: #cc7a30;
   --color-apple-coral: #e0445e;
   --color-apple-coral-soft: #fff0f3;
   --color-apple-cobalt: #7aa6d6;
@@ -150,6 +152,7 @@
   --color-apple-streak: #ff9f0a;
   --color-apple-warn: #ff9f0a;
   --color-apple-warn-soft: rgba(255, 149, 0, 0.16);
+  --color-apple-warn-ink: #cc7a30;
   --color-apple-coral: #ff453a;
   --color-apple-coral-soft: rgba(255, 69, 58, 0.12);
   --color-apple-cobalt: #7aa6d6;
@@ -220,6 +223,11 @@ html[data-theme="dark"] {
 
   /* 다크에서 cobalt는 더 밝게 (시인성) */
   --color-apple-cobalt: #8eb8e0;
+
+  /* 다크에서 urgent·warn은 더 밝은 톤 (어두운 배경 대비) */
+  --color-urgent: #ff5a6e;
+  --color-urgent-soft: rgba(255, 90, 110, 0.18);
+  --color-apple-warn-ink: #ffb866;
 
   /* Kind tints — 다크에서 채도 한 단 낮추고 톤은 살림 */
   --color-tint-exam: rgba(255, 69, 58, 0.14);
@@ -347,6 +355,22 @@ html[data-theme="dark"] .dashboard-canvas {
     inset 0 1px 0 rgba(255, 255, 255, 0.74),
     0 6px 18px rgba(20, 30, 50, 0.06),
     0 36px 78px -14px rgba(20, 30, 50, 0.18);
+}
+
+/* card-lift — hover 시 elev-1 → elev-2 깊이감 (Tailwind hover:elev-2 불가 → 전용 유틸). */
+.card-lift:hover {
+  box-shadow:
+    0 0 0 1px rgba(20, 30, 50, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 2px 6px rgba(20, 30, 50, 0.045),
+    0 16px 38px -10px rgba(20, 30, 50, 0.11);
+}
+html[data-theme="dark"] .card-lift:hover {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.55),
+    0 16px 38px -10px rgba(0, 0, 0, 0.7);
 }
 
 /*

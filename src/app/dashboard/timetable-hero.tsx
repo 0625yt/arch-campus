@@ -61,8 +61,8 @@ export function TimetableHeading({
         시간표
       </p>
       <h1
-        className="mt-1 text-[24px] leading-[1.04] wght-700 text-[var(--color-apple-ink)] sm:text-[28px] md:text-[32px]"
-        style={{ letterSpacing: "-0.024em" }}
+        className="mt-1 text-[26px] leading-[1.05] wght-700 text-[var(--color-apple-ink)] sm:text-[32px] md:text-[38px]"
+        style={{ letterSpacing: "-0.026em" }}
       >
         {greeting}
       </h1>
@@ -222,10 +222,10 @@ function TimetableGrid({
   }, [hourStart, hourEnd]);
 
   return (
-    <section className="flex h-full min-h-0 flex-col">
+    <section className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* Toggle row */}
       <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1.5">
           <ViewPill active={view === "week"} onClick={() => setView("week")} label="한 주" />
           <ViewPill
             active={view === "today"}
@@ -236,7 +236,7 @@ function TimetableGrid({
         </div>
         <Link
           href="/dashboard/calendar"
-          className="text-[11px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-action)]"
+          className="inline-flex h-9 shrink-0 items-center rounded-full px-3 text-[12px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-action-soft)] hover:text-[var(--color-apple-action)]"
           style={{ letterSpacing: "-0.012em" }}
         >
           캘린더 ›
@@ -369,7 +369,7 @@ function TimetableGrid({
                   <div
                     key={`hline-${h}`}
                     aria-hidden
-                    className="pointer-events-none absolute inset-x-0 border-t border-[var(--color-apple-hairline-soft)]/40"
+                    className="pointer-events-none absolute inset-x-0 border-t border-[var(--color-apple-hairline-soft)]/70"
                     style={{ top: `${top}px` }}
                   />
                 );
@@ -380,7 +380,7 @@ function TimetableGrid({
                 <div
                   key={`vline-${w}`}
                   aria-hidden
-                  className="pointer-events-none absolute inset-y-0 border-l border-[var(--color-apple-hairline-soft)]/40"
+                  className="pointer-events-none absolute inset-y-0 border-l border-[var(--color-apple-hairline-soft)]/70"
                   style={{ left: `${((i + 1) / shownDays.length) * 100}%` }}
                 />
               ))}
@@ -397,16 +397,18 @@ function TimetableGrid({
                     isKstToday(w, now) && nowMin >= s.slot.startMinute && nowMin < s.slot.endMinute;
                   // 과거 강의 (오늘 컬럼 안, 이미 끝난 슬롯) — 톤 다운
                   const isPast = isKstToday(w, now) && nowMin >= s.slot.endMinute;
+                  // 짧은 셀(1시간 미만급)은 강의명 1줄 + 시각 숨김으로 잘림 방지.
+                  const compact = height < 56;
                   return (
                     <button
                       key={`${s.courseId}-${w}-${s.slot.startMinute}`}
                       type="button"
                       onClick={() => onPickCourse(s)}
-                      className={`tt-cell spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[10px] px-2.5 py-2 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.18)] hover:brightness-[1.02] ${
+                      className={`tt-cell spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[10px] px-2.5 py-1.5 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.18)] hover:brightness-[1.02] ${
                         isNow
                           ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)] shadow-[0_10px_28px_-4px_rgba(0,113,227,0.5)] brightness-105"
                           : ""
-                      } ${isPast ? "opacity-35 saturate-50" : ""}`}
+                      } ${isPast ? "opacity-45" : ""}`}
                       style={{
                         top: `${top + 2}px`,
                         height: `${height - 4}px`,
@@ -427,14 +429,14 @@ function TimetableGrid({
                         </span>
                       )}
                       <span
-                        className="line-clamp-2 text-[14px] leading-[1.15] wght-700 text-[var(--color-apple-ink)]"
+                        className={`${compact ? "line-clamp-1" : "line-clamp-2"} text-[13.5px] leading-[1.18] wght-700 text-[var(--color-apple-ink)] sm:text-[14px]`}
                         style={{ letterSpacing: "-0.018em" }}
                       >
                         {s.courseName}
                       </span>
-                      {height > 40 && (
+                      {!compact && (
                         <span
-                          className="mt-1 line-clamp-1 text-[10.5px] wght-560 tabular-nums text-[var(--color-apple-ink)]/55"
+                          className="mt-0.5 line-clamp-1 text-[10.5px] wght-560 tabular-nums text-[var(--color-apple-ink)]/55"
                           style={{ letterSpacing: "-0.012em" }}
                         >
                           {s.slot.startLabel}–{s.slot.endLabel}
@@ -486,8 +488,8 @@ function ViewPill({
       aria-pressed={active}
       className={
         active
-          ? "btn-ink spring-press inline-flex h-6 items-center rounded-full bg-[var(--color-apple-ink)] px-2.5 text-[10.5px] wght-560 text-white"
-          : "spring-press inline-flex h-6 items-center rounded-full border border-[var(--color-apple-hairline)] bg-white px-2.5 text-[10.5px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)] disabled:opacity-40"
+          ? "btn-ink spring-press inline-flex h-9 items-center rounded-full bg-[var(--color-apple-ink)] px-3.5 text-[12px] wght-560 text-white"
+          : "spring-press inline-flex h-9 items-center rounded-full border border-[var(--color-apple-hairline)] bg-white px-3.5 text-[12px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)] disabled:opacity-40"
       }
       style={{ letterSpacing: "-0.012em" }}
     >

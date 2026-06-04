@@ -8,6 +8,7 @@ import {
   findNowAndNext,
   type Weekday,
 } from "@/lib/timetable-grid";
+import { useIsMobile } from "./use-mobile";
 
 /**
  * NowBanner — 상단 주간 날짜 strip + "지금/다음" 인라인.
@@ -67,20 +68,28 @@ export function NowBanner({ courses }: { courses: CourseListItem[] }) {
     return kst.getUTCDay();
   }, [tick]);
 
+  // 모바일은 시간표가 "오늘만" 뷰 → strip도 오늘 하루만 (5일 strip↔1일 그리드 불일치 제거).
+  const isMobile = useIsMobile();
+  const displayDays = useMemo<Weekday[]>(() => {
+    if (!isMobile) return STRIP_DAYS;
+    const today = STRIP_DAYS.find((w) => JS_DAY[w] === todayJsDay);
+    return today ? [today] : STRIP_DAYS.slice(0, 1);
+  }, [isMobile, todayJsDay]);
+
   if (data.slots.length === 0) return null;
 
   const minutesUntil = next ? minutesUntilSlot(next, new Date(tick)) : null;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      {/* 주간 날짜 strip */}
-      <div className="flex items-center gap-1">
-        {STRIP_DAYS.map((w) => {
+    <div className="flex flex-nowrap items-center justify-between gap-x-3 sm:gap-x-4">
+      {/* 날짜 strip — 데스크탑 월~금, 모바일 오늘만 */}
+      <div className="flex shrink-0 items-center gap-1">
+        {displayDays.map((w) => {
           const isToday = JS_DAY[w] === todayJsDay;
           return (
             <div
               key={w}
-              className={`flex h-9 min-w-[40px] flex-col items-center justify-center rounded-[10px] px-2 transition-colors ${
+              className={`flex h-10 min-w-[44px] flex-col items-center justify-center rounded-[11px] px-2.5 transition-colors ${
                 isToday
                   ? "bg-[var(--color-apple-action)] text-white"
                   : "text-[var(--color-apple-muted)]"
@@ -90,7 +99,7 @@ export function NowBanner({ courses }: { courses: CourseListItem[] }) {
                 {KO[w]}
               </span>
               <span
-                className={`text-[13px] wght-700 tabular-nums ${
+                className={`text-[14px] wght-700 tabular-nums ${
                   isToday ? "text-white" : "text-[var(--color-apple-ink)]"
                 }`}
                 style={{ letterSpacing: "-0.018em" }}
