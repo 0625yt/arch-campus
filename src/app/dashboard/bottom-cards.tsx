@@ -254,7 +254,7 @@ function DonutRing({ pct }: { pct: number }) {
   const off = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
   return (
     <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden className="-rotate-90 shrink-0">
-      <circle cx="14" cy="14" r={r} fill="none" stroke="var(--color-apple-pearl)" strokeWidth="3" />
+      <circle cx="14" cy="14" r={r} fill="none" stroke="var(--color-apple-hairline)" strokeWidth="3" />
       <circle
         cx="14"
         cy="14"
