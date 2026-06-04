@@ -91,12 +91,20 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     return { ok: false, status: 422, error: "자료가 비어있어요." };
   }
 
+  const primary = input.materials[0];
+
+  // 자료 식별자 가드 — primary.materialId가 비면 quizzes.material_id가 NULL로 저장돼
+  // (1) evidence 검증이 본문 추적을 못 하고 (2) 중복 방지·재방문이 깨진다.
+  // 본문 없이 metadata만으로 LLM이 일반 지식 환각 문제(자료에 없는 단어)를 만드는 통로 → 원천 차단.
+  if (!primary.materialId || primary.materialId.trim().length === 0) {
+    return { ok: false, status: 422, error: "자료 연결이 끊겨 문제를 만들 수 없어요. 자료를 다시 선택해 주세요." };
+  }
+
   // 묶음 자료 본문 합치기. 자료별 헤더로 어디서 나왔는지 표시 (evidence 추적용).
   // 단일 자료면 헤더 없이 본문 그대로 (기존 동작과 동일).
   const merged = mergeMaterials(input.materials);
   const sanitizedText = merged.text;
   const isMetadataOnly = !sanitizedText || sanitizedText.trim().length < 60;
-  const primary = input.materials[0];
 
   let classification: Classification | null = null;
   if (!isMetadataOnly) {

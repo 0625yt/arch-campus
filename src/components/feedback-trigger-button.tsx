@@ -27,8 +27,21 @@ export function FeedbackTriggerButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`text-xs text-neutral-500 underline-offset-2 hover:text-neutral-800 hover:underline ${className}`}
+        className={`spring-press inline-flex items-center gap-1 rounded-full border border-[var(--color-apple-hairline)] bg-white px-2.5 py-1 text-[11.5px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)] ${className}`}
+        style={{ letterSpacing: "-0.012em" }}
       >
+        <svg
+          aria-hidden
+          viewBox="0 0 24 24"
+          className="h-3 w-3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
         {label}
       </button>
       {open && (
