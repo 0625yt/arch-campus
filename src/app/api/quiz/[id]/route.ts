@@ -45,10 +45,7 @@ export async function DELETE(
     .eq("owner_id", ownerId);
 
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: `삭제 실패: ${error.message}` },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, error: `삭제 실패: ${error.message}` }, { status: 500 });
   }
   if (count === 0) {
     // owner mismatch 거나 이미 삭제됨 — 둘 다 사용자 입장에서 같은 결과

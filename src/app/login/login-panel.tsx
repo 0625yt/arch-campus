@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
-import { getBrowserSupabase } from "@/lib/supabase/client";
 import { friendlyAuthError } from "@/lib/auth-errors";
+import { getBrowserSupabase } from "@/lib/supabase/client";
 
 /**
  * 로그인 패널 — 이메일+비밀번호 폼 + Google OAuth.

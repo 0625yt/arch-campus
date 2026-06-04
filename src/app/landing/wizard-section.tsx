@@ -38,8 +38,7 @@ export function WizardSection() {
             className="mt-5 max-w-[460px] text-[15px] leading-[1.6] wght-450"
             style={{ color: "var(--color-landing-text-muted)" }}
           >
-            발표 구조 · 리포트 목차 · 시험 벼락치기. 4~5단계로 답하면 시작점이 한 묶음으로
-            나옵니다.
+            발표 구조 · 리포트 목차 · 시험 벼락치기. 4~5단계로 답하면 시작점이 한 묶음으로 나옵니다.
           </p>
         </div>
 
@@ -123,9 +122,7 @@ function StepRow({
       <span
         className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] wght-700 tabular-nums"
         style={{
-          background: done
-            ? "var(--color-apple-action)"
-            : "var(--color-landing-card-strong)",
+          background: done ? "var(--color-apple-action)" : "var(--color-landing-card-strong)",
           color: done ? "white" : "var(--color-landing-text-muted)",
           border: done ? "none" : "1px solid var(--color-landing-hairline)",
         }}

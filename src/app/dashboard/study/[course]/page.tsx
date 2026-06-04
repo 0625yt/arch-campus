@@ -41,11 +41,7 @@ export default async function CourseDetailPage({
         {/* 데스크톱: hero + safety panel 2-컬럼 한 화면. 모바일: 세로 적층 그대로. */}
         <div className="mt-6 grid gap-5 sm:mt-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-6">
           <Hero course={course} dotColor={dotColor} safety={safety} />
-          <CourseSafetyPanel
-            course={course}
-            safety={safety}
-            className="fade-up fade-up-2"
-          />
+          <CourseSafetyPanel course={course} safety={safety} className="fade-up fade-up-2" />
         </div>
 
         <Materials
@@ -235,9 +231,7 @@ function CourseSafetyPanel({
 function CourseMetric({ label, value }: { label: string; value: number }) {
   return (
     <li className="rounded-[10px] bg-[var(--color-apple-pearl)] px-3 py-2.5">
-      <p
-        className="text-[10px] wght-700 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-      >
+      <p className="text-[10px] wght-700 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
         {label}
       </p>
       <p

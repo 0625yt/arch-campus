@@ -11,7 +11,10 @@ export function CalendarSection() {
     <section
       id="features"
       className="border-b px-5 py-20 sm:px-8 sm:py-24 lg:px-12"
-      style={{ borderColor: "var(--color-landing-hairline)", background: "var(--color-landing-pearl)" }}
+      style={{
+        borderColor: "var(--color-landing-hairline)",
+        background: "var(--color-landing-pearl)",
+      }}
     >
       <div className="mx-auto grid max-w-[1180px] gap-10 lg:grid-cols-[1.2fr_1fr] lg:items-center lg:gap-14">
         <div ref={ref} data-reveal>
@@ -94,8 +97,8 @@ export function CalendarSection() {
             className="mt-5 max-w-[460px] text-[15px] leading-[1.6] wght-450"
             style={{ color: "var(--color-landing-text-muted)" }}
           >
-            강의계획서 · 공지 · 시간표를 올리면 시험 · 과제 · 발표 일정을 자동 추출. 확인 후
-            바로 캘린더에 등록.
+            강의계획서 · 공지 · 시간표를 올리면 시험 · 과제 · 발표 일정을 자동 추출. 확인 후 바로
+            캘린더에 등록.
           </p>
         </div>
       </div>
@@ -114,12 +117,7 @@ function FileChip({ name }: { name: string }) {
       }}
     >
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-        <path
-          d="M3 1h4l2 2v8H3V1z"
-          stroke="currentColor"
-          strokeWidth="1"
-          strokeLinejoin="round"
-        />
+        <path d="M3 1h4l2 2v8H3V1z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
       </svg>
       {name}
     </div>
@@ -147,10 +145,7 @@ function EventChip({
       }}
     >
       <div className="flex items-center justify-between">
-        <span
-          className="text-[10px] wght-620 uppercase tracking-[0.06em]"
-          style={{ color }}
-        >
+        <span className="text-[10px] wght-620 uppercase tracking-[0.06em]" style={{ color }}>
           {kind}
         </span>
         <span

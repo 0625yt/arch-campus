@@ -3,13 +3,7 @@ import Link from "next/link";
 /**
  * Trust + 마무리 CTA.
  */
-export function TrustSection({
-  startHref,
-  startLabel,
-}: {
-  startHref: string;
-  startLabel: string;
-}) {
+export function TrustSection({ startHref, startLabel }: { startHref: string; startLabel: string }) {
   return (
     <section id="trust" className="px-5 py-20 sm:px-8 sm:py-28 lg:px-12">
       <div className="mx-auto max-w-[1180px]">
@@ -35,8 +29,8 @@ export function TrustSection({
             className="mx-auto mt-6 max-w-[600px] text-[15px] leading-[1.6] wght-450 sm:text-[16px]"
             style={{ color: "var(--color-landing-text-muted)" }}
           >
-            본문 작성·시험 풀이는 본인이 합니다. arch는 구조·체크리스트·복습 큐만 잡습니다.
-            결과물엔 학습 보조 워터마크가 박힙니다.
+            본문 작성·시험 풀이는 본인이 합니다. arch는 구조·체크리스트·복습 큐만 잡습니다. 결과물엔
+            학습 보조 워터마크가 박힙니다.
           </p>
         </div>
 

@@ -12,7 +12,15 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 
 /** Office/HWP — PDF 변환 미지원, 업로드 차단 (CloudConvert 제거 2026-05-31). */
 const REJECT_EXTENSIONS = new Set([
-  "pptx", "ppt", "doc", "docx", "hwp", "hwpx", "odt", "odp", "rtf",
+  "pptx",
+  "ppt",
+  "doc",
+  "docx",
+  "hwp",
+  "hwpx",
+  "odt",
+  "odp",
+  "rtf",
 ]);
 function hasOfficeFile(filenames: string[]): boolean {
   return filenames.some((name) => {
@@ -155,12 +163,13 @@ export async function POST(
 
   const admin = getAdminSupabase();
   const primary = body.sources[0];
-  const title = (body.title ?? "").trim() ||
-    `${stripExt(primary.filename)} 외 ${body.sources.length - 1}개`;
+  const title =
+    (body.title ?? "").trim() || `${stripExt(primary.filename)} 외 ${body.sources.length - 1}개`;
   const type: MaterialType = body.type ?? "lecture";
 
   // primary mimeType — pdf merge면 application/pdf, text-concat이면 첫 파일의 mime
-  const finalMimeType = mode === "pdf" ? "application/pdf" : primary.mimeType ?? "application/octet-stream";
+  const finalMimeType =
+    mode === "pdf" ? "application/pdf" : (primary.mimeType ?? "application/octet-stream");
 
   // materials row 즉시 INSERT (full_text·page_count·storage_path는 after()에서 보정)
   // storage_path는 일단 primary 원본으로 잡고, pdf merge 성공 시 새 path로 update

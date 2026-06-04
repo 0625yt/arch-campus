@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { CourseListItem } from "@/lib/data/materials";
-import { parseScheduleString, weekdayKoShort, type Weekday } from "@/lib/timetable-grid";
+import { parseScheduleString, type Weekday, weekdayKoShort } from "@/lib/timetable-grid";
 
 /**
  * Dashboard에서 강의 칸 클릭 시 우측에서 spring up되는 시트.
@@ -311,9 +311,7 @@ function EditForm({
       }
     }
 
-    const schedule = slots.map(
-      (s) => `${WEEKDAYS_KO[s.weekday]} ${s.start}-${s.end}`,
-    );
+    const schedule = slots.map((s) => `${WEEKDAYS_KO[s.weekday]} ${s.start}-${s.end}`);
 
     setBusy(true);
     try {
@@ -322,7 +320,8 @@ function EditForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name: trimmedName !== course.name ? trimmedName : undefined,
-          location: location.trim() !== (course.location ?? "") ? location.trim() || null : undefined,
+          location:
+            location.trim() !== (course.location ?? "") ? location.trim() || null : undefined,
           schedule,
         }),
       });
@@ -485,12 +484,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function CloseIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden fill="none">
-      <path
-        d="M3 3l8 8M11 3l-8 8"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
+      <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }

@@ -58,7 +58,9 @@ export function BrandMark({
         rx="7.04"
         fill={monochrome ? "currentColor" : `url(#${uid}-fill)`}
       />
-      {!monochrome && <rect x="0" y="0" width="32" height="32" rx="7.04" fill={`url(#${uid}-shine)`} />}
+      {!monochrome && (
+        <rect x="0" y="0" width="32" height="32" rx="7.04" fill={`url(#${uid}-shine)`} />
+      )}
 
       {/*
         arch 글리프 — 두 기둥 + 반원 곡선 (두께 3.4).
@@ -75,9 +77,7 @@ export function BrandMark({
       </g>
 
       {/* 미세 ground highlight — 글리프가 떠있다는 느낌 */}
-      {!monochrome && (
-        <ellipse cx="16" cy="24" rx="6.5" ry="0.6" fill="#ffffff" opacity="0.18" />
-      )}
+      {!monochrome && <ellipse cx="16" cy="24" rx="6.5" ry="0.6" fill="#ffffff" opacity="0.18" />}
     </svg>
   );
 }

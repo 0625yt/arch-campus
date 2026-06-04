@@ -14,13 +14,7 @@ import { useEffect, useState } from "react";
  *  - 진입 시 좌측 fade-up + 우측 sheet-up (delay 240ms)
  *  - 진행 중 강의 row만 now-glow
  */
-export function LandingHero({
-  startHref,
-  startLabel,
-}: {
-  startHref: string;
-  startLabel: string;
-}) {
+export function LandingHero({ startHref, startLabel }: { startHref: string; startLabel: string }) {
   return (
     <section
       className="relative isolate overflow-hidden border-b"
@@ -62,8 +56,8 @@ export function LandingHero({
             className="mt-6 max-w-[520px] text-[15px] leading-[1.6] wght-450 sm:text-[17px]"
             style={{ color: "var(--color-landing-text-muted)" }}
           >
-            흩어진 PDF · 강의계획서 · 시간표를 올리면 과제 마감 · 시험 범위 · 복습 · 발표 준비가
-            한 화면에서 이어집니다.
+            흩어진 PDF · 강의계획서 · 시간표를 올리면 과제 마감 · 시험 범위 · 복습 · 발표 준비가 한
+            화면에서 이어집니다.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -219,9 +213,7 @@ function HeroLiveTimetable() {
             className="py-1.5 text-center text-[10px] wght-700"
             style={{
               color:
-                i === now.day
-                  ? "var(--color-apple-action)"
-                  : "var(--color-landing-text-muted)",
+                i === now.day ? "var(--color-apple-action)" : "var(--color-landing-text-muted)",
               background: "var(--color-landing-card-strong)",
             }}
           >
@@ -230,13 +222,7 @@ function HeroLiveTimetable() {
         ))}
         {/* 시간 row들 */}
         {HOURS.map((h) => (
-          <Row
-            key={h}
-            hour={h}
-            currentDay={now.day}
-            currentHour={now.hour}
-            isNow={isNow}
-          />
+          <Row key={h} hour={h} currentDay={now.day} currentHour={now.hour} isNow={isNow} />
         ))}
       </div>
 

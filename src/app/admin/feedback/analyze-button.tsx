@@ -44,9 +44,7 @@ export function AnalyzeButton({ selectedIds }: { selectedIds: string[] }) {
           {loading ? "분석 중…" : `AI로 묶기 (${selectedIds.length})`}
         </button>
       </div>
-      {result !== null && (
-        <AnalyzeResultSheet clusters={result} onClose={() => setResult(null)} />
-      )}
+      {result !== null && <AnalyzeResultSheet clusters={result} onClose={() => setResult(null)} />}
     </>
   );
 }

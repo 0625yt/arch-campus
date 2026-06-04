@@ -223,7 +223,11 @@ export function ContextMenu({
                   : "flex w-full items-center gap-2.5 rounded-[8px] px-2.5 py-1.5 text-left text-[12.5px] wght-450 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-action)] hover:text-white"
             }
           >
-            {it.icon && <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">{it.icon}</span>}
+            {it.icon && (
+              <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                {it.icon}
+              </span>
+            )}
             <span className="flex-1 truncate">{it.label}</span>
             {it.shortcut && (
               <span className="shrink-0 text-[11px] wght-450 tabular-nums opacity-70">

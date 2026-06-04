@@ -53,9 +53,7 @@ export async function POST(req: Request) {
   };
   const { data: rows, error } = await admin
     .from("feedback")
-    .select(
-      "id, target_type, target_id, rating, category, body, generation_id, created_at",
-    )
+    .select("id, target_type, target_id, rating, category, body, generation_id, created_at")
     .in("id", parsed.data.ids);
 
   if (error || !rows || rows.length === 0) {
@@ -88,20 +86,14 @@ export async function POST(req: Request) {
     let promptBody = "";
     if (promptFile) {
       try {
-        promptBody = await readFile(
-          path.join(process.cwd(), "src/prompts", promptFile),
-          "utf-8",
-        );
+        promptBody = await readFile(path.join(process.cwd(), "src/prompts", promptFile), "utf-8");
       } catch {
         promptBody = "(프롬프트 파일 없음)";
       }
     }
 
     const feedbackText = group
-      .map(
-        (r) =>
-          `- id=${r.id} ★${r.rating} category=${r.category}: ${r.body ?? "(본문 없음)"}`,
-      )
+      .map((r) => `- id=${r.id} ★${r.rating} category=${r.category}: ${r.body ?? "(본문 없음)"}`)
       .join("\n");
 
     const userMsg = `다음은 학생들이 ${type}에 남긴 피드백 ${group.length}건입니다.

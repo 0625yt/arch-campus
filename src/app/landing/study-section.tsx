@@ -58,13 +58,7 @@ export function StudySection() {
             sub="페이지 인용 7곳"
             color="#7fb38c"
           />
-          <StepCard
-            step="03"
-            kind="문제"
-            title="객관식·서술 15"
-            sub="정답률 73%"
-            color="#cca06b"
-          />
+          <StepCard step="03" kind="문제" title="객관식·서술 15" sub="정답률 73%" color="#cca06b" />
           <StepCard
             step="04"
             kind="오답"
@@ -100,10 +94,7 @@ function StepCard({
       }}
     >
       <div className="flex items-baseline justify-between">
-        <span
-          className="text-[11px] wght-700 tabular-nums"
-          style={{ color }}
-        >
+        <span className="text-[11px] wght-700 tabular-nums" style={{ color }}>
           {step}
         </span>
         <span

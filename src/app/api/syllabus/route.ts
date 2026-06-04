@@ -123,7 +123,7 @@ export async function POST(
         if (e instanceof ParserRejectedError) {
           await markJobError({
             jobId: job.id,
-          ownerId,
+            ownerId,
             errorMessage: `파일을 읽을 수 없어요: ${e.message}`,
           });
           return;

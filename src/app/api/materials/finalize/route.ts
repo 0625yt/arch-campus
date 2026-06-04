@@ -12,7 +12,15 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 
 /** Office/HWP 등 PDF 변환이 필요한 확장자 — 업로드 차단 후 사용자에게 PDF 변환 안내. */
 const REJECT_EXTENSIONS = new Set([
-  "pptx", "ppt", "doc", "docx", "hwp", "hwpx", "odt", "odp", "rtf",
+  "pptx",
+  "ppt",
+  "doc",
+  "docx",
+  "hwp",
+  "hwpx",
+  "odt",
+  "odp",
+  "rtf",
 ]);
 function shouldRejectExt(filename: string): boolean {
   const dot = filename.lastIndexOf(".");

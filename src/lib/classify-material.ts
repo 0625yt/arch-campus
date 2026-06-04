@@ -85,8 +85,10 @@ function normalizeDomain(raw: string): DomainValue {
   for (const value of DOMAIN_VALUES) {
     if (trimmed.includes(value) || value.includes(trimmed.split("·")[0])) return value;
   }
-  if (lower.includes("language") || lower.includes("english") || lower.includes("어학")) return "어학";
-  if (lower.includes("math") || lower.includes("수학") || lower.includes("통계")) return "수학·통계";
+  if (lower.includes("language") || lower.includes("english") || lower.includes("어학"))
+    return "어학";
+  if (lower.includes("math") || lower.includes("수학") || lower.includes("통계"))
+    return "수학·통계";
   if (
     lower.includes("cs") ||
     lower.includes("computer") ||
@@ -96,14 +98,27 @@ function normalizeDomain(raw: string): DomainValue {
   )
     return "프로그래밍·CS";
   if (lower.includes("engineer") || lower.includes("공학")) return "공학";
-  if (lower.includes("science") || lower.includes("물리") || lower.includes("화학") || lower.includes("생물"))
+  if (
+    lower.includes("science") ||
+    lower.includes("물리") ||
+    lower.includes("화학") ||
+    lower.includes("생물")
+  )
     return "자연과학";
-  if (lower.includes("history") || lower.includes("사회") || lower.includes("정치") || lower.includes("법학"))
+  if (
+    lower.includes("history") ||
+    lower.includes("사회") ||
+    lower.includes("정치") ||
+    lower.includes("법학")
+  )
     return "사회과학";
-  if (lower.includes("philosophy") || lower.includes("문학") || lower.includes("인문")) return "인문학";
-  if (lower.includes("business") || lower.includes("경영") || lower.includes("경제")) return "경영·경제";
+  if (lower.includes("philosophy") || lower.includes("문학") || lower.includes("인문"))
+    return "인문학";
+  if (lower.includes("business") || lower.includes("경영") || lower.includes("경제"))
+    return "경영·경제";
   if (lower.includes("art") || lower.includes("음악") || lower.includes("예체")) return "예체능";
-  if (lower.includes("syllabus") || lower.includes("강의계획") || lower.includes("안내")) return "강의·시험 안내";
+  if (lower.includes("syllabus") || lower.includes("강의계획") || lower.includes("안내"))
+    return "강의·시험 안내";
   return "기타";
 }
 

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   FeedbackInsertBody,
-  SUMMARY_CATEGORIES,
-  QUIZ_ITEM_CATEGORIES,
   isValidCategoryFor,
+  QUIZ_ITEM_CATEGORIES,
+  SUMMARY_CATEGORIES,
 } from "./feedback";
 
 describe("FeedbackInsertBody", () => {

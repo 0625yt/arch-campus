@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import {
-  SUMMARY_CATEGORIES,
-  QUIZ_ITEM_CATEGORIES,
   type FeedbackTargetType,
+  QUIZ_ITEM_CATEGORIES,
+  SUMMARY_CATEGORIES,
 } from "@/lib/schemas/feedback";
 
 interface Props {
@@ -22,8 +22,7 @@ export function FeedbackModal({
   quizQuestionIndex,
   onClose,
 }: Props) {
-  const categories =
-    targetType === "summary" ? SUMMARY_CATEGORIES : QUIZ_ITEM_CATEGORIES;
+  const categories = targetType === "summary" ? SUMMARY_CATEGORIES : QUIZ_ITEM_CATEGORIES;
   const [rating, setRating] = useState<number>(0);
   const [category, setCategory] = useState<string>(categories[0].value);
   const [body, setBody] = useState("");
@@ -101,10 +100,7 @@ export function FeedbackModal({
         </div>
 
         <div className="mt-4">
-          <label
-            className="text-xs font-medium text-neutral-700"
-            htmlFor="fb-cat"
-          >
+          <label className="text-xs font-medium text-neutral-700" htmlFor="fb-cat">
             분류
           </label>
           <select
@@ -122,10 +118,7 @@ export function FeedbackModal({
         </div>
 
         <div className="mt-4">
-          <label
-            className="text-xs font-medium text-neutral-700"
-            htmlFor="fb-body"
-          >
+          <label className="text-xs font-medium text-neutral-700" htmlFor="fb-body">
             한 줄 의견 (선택, 500자)
           </label>
           <textarea
@@ -136,9 +129,7 @@ export function FeedbackModal({
             placeholder="구체적일수록 빠르게 고칠 수 있어요"
             className="mt-1 w-full resize-none rounded-lg border border-neutral-200 px-3 py-2 text-sm"
           />
-          <div className="mt-1 text-right text-xs text-neutral-400">
-            {body.length}/500
-          </div>
+          <div className="mt-1 text-right text-xs text-neutral-400">{body.length}/500</div>
         </div>
 
         {err && <div className="mt-2 text-sm text-red-600">{err}</div>}

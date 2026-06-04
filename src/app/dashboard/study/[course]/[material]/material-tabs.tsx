@@ -97,12 +97,7 @@ function DocIcon() {
         strokeWidth="1.2"
         strokeLinejoin="round"
       />
-      <path
-        d="M9 1.5V4h3"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinejoin="round"
-      />
+      <path d="M9 1.5V4h3" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
     </svg>
   );
 }

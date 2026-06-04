@@ -26,11 +26,7 @@ export function AnalyzeResultSheet({
       >
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">AI 분석 결과</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-sm text-neutral-500"
-          >
+          <button type="button" onClick={onClose} className="text-sm text-neutral-500">
             닫기
           </button>
         </div>
@@ -39,16 +35,11 @@ export function AnalyzeResultSheet({
         </div>
 
         {clusters.length === 0 ? (
-          <div className="mt-4 text-sm text-neutral-400">
-            묶인 패턴이 없어요
-          </div>
+          <div className="mt-4 text-sm text-neutral-400">묶인 패턴이 없어요</div>
         ) : (
           <div className="mt-4 space-y-3">
             {clusters.map((c, i) => (
-              <div
-                key={i}
-                className="rounded-lg border border-neutral-200 p-3"
-              >
+              <div key={i} className="rounded-lg border border-neutral-200 p-3">
                 <div className="flex items-center gap-2">
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -67,16 +58,10 @@ export function AnalyzeResultSheet({
                   묶인 피드백 {c.feedbackIds.length}건
                 </div>
                 <div className="mt-2 text-xs">
-                  <span className="font-medium text-neutral-700">
-                    의심 위치:{" "}
-                  </span>
-                  <span className="text-neutral-600">
-                    {c.suspectedPromptSection}
-                  </span>
+                  <span className="font-medium text-neutral-700">의심 위치: </span>
+                  <span className="text-neutral-600">{c.suspectedPromptSection}</span>
                 </div>
-                <div className="mt-2 text-sm text-neutral-700">
-                  {c.suggestedFix}
-                </div>
+                <div className="mt-2 text-sm text-neutral-700">{c.suggestedFix}</div>
               </div>
             ))}
           </div>

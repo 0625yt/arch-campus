@@ -17,10 +17,7 @@ export function friendlyAuthError(err: unknown): string {
       : "";
 
   // Supabase Auth 표준 에러 매핑
-  if (
-    /invalid login credentials/i.test(message) ||
-    code === "invalid_credentials"
-  ) {
+  if (/invalid login credentials/i.test(message) || code === "invalid_credentials") {
     return "이메일 또는 비밀번호가 맞지 않아요.";
   }
   if (/email not confirmed/i.test(message) || code === "email_not_confirmed") {

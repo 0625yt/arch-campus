@@ -2,12 +2,9 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import {
-  FEEDBACK_STATUSES,
-  type FeedbackStatus,
-} from "@/lib/schemas/feedback";
-import { FeedbackDetailSheet } from "./feedback-detail-sheet";
+import { FEEDBACK_STATUSES, type FeedbackStatus } from "@/lib/schemas/feedback";
 import { AnalyzeButton } from "./analyze-button";
+import { FeedbackDetailSheet } from "./feedback-detail-sheet";
 
 export interface FeedbackItem {
   id: string;
@@ -78,34 +75,23 @@ export function FeedbackListClient({
       ) : (
         <div className="divide-y divide-neutral-100 overflow-hidden rounded-lg border border-neutral-200">
           {items.map((it) => (
-            <div
-              key={it.id}
-              className="flex items-start gap-3 bg-white p-3 hover:bg-neutral-50"
-            >
+            <div key={it.id} className="flex items-start gap-3 bg-white p-3 hover:bg-neutral-50">
               <input
                 type="checkbox"
                 checked={selected.has(it.id)}
                 onChange={() => toggle(it.id)}
                 className="mt-1"
               />
-              <button
-                type="button"
-                onClick={() => setDetail(it)}
-                className="flex-1 text-left"
-              >
+              <button type="button" onClick={() => setDetail(it)} className="flex-1 text-left">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-amber-500">{"★".repeat(it.rating)}</span>
                   <span className="text-neutral-400">·</span>
-                  <span className="font-medium text-neutral-700">
-                    {it.target_type}
-                  </span>
+                  <span className="font-medium text-neutral-700">{it.target_type}</span>
                   <span className="text-neutral-400">·</span>
                   <span className="text-neutral-500">{it.category}</span>
                 </div>
                 <div className="mt-1 line-clamp-1 text-sm text-neutral-600">
-                  {it.body ?? (
-                    <span className="text-neutral-300">(본문 없음)</span>
-                  )}
+                  {it.body ?? <span className="text-neutral-300">(본문 없음)</span>}
                 </div>
                 <div className="mt-1 text-xs text-neutral-400">
                   {new Date(it.created_at).toLocaleString("ko-KR")}
@@ -116,9 +102,7 @@ export function FeedbackListClient({
         </div>
       )}
 
-      {detail && (
-        <FeedbackDetailSheet item={detail} onClose={() => setDetail(null)} />
-      )}
+      {detail && <FeedbackDetailSheet item={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

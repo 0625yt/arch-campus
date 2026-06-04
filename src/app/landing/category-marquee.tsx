@@ -24,14 +24,7 @@ const CATEGORIES = [
   "자료구조",
 ];
 
-const CHIP_DOT_COLORS = [
-  "#e0445e",
-  "#7fb38c",
-  "#7aa6d6",
-  "#cca06b",
-  "#a08bc4",
-  "#d68b7a",
-];
+const CHIP_DOT_COLORS = ["#e0445e", "#7fb38c", "#7aa6d6", "#cca06b", "#a08bc4", "#d68b7a"];
 
 export function CategoryMarquee() {
   return (
@@ -47,16 +40,14 @@ export function CategoryMarquee() {
         aria-hidden
         className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[80px] sm:w-[120px]"
         style={{
-          background:
-            "linear-gradient(to right, var(--color-landing-bg), transparent)",
+          background: "linear-gradient(to right, var(--color-landing-bg), transparent)",
         }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute inset-y-0 right-0 z-10 w-[80px] sm:w-[120px]"
         style={{
-          background:
-            "linear-gradient(to left, var(--color-landing-bg), transparent)",
+          background: "linear-gradient(to left, var(--color-landing-bg), transparent)",
         }}
       />
 

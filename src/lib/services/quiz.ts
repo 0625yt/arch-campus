@@ -181,10 +181,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
         intentNote: input.intentNote,
         multiMaterial: input.materials.length > 1 ? input.materials : null,
         previousStems,
-        chunkHint:
-          chunkSizes.length > 1
-            ? { index: idx, total: chunkSizes.length }
-            : undefined,
+        chunkHint: chunkSizes.length > 1 ? { index: idx, total: chunkSizes.length } : undefined,
       });
       try {
         const r = await generate({
@@ -222,7 +219,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
 
   // 청크 결과 parse + 합치기. 일부 청크가 reject 또는 zod 실패해도 나머지는 살림.
   const dropped: ReturnType<typeof validateEvidence>["dropped"] = [];
-  const allQuestions: typeof successResults[number] extends { result: infer R }
+  const allQuestions: (typeof successResults)[number] extends { result: infer R }
     ? R extends { text: string }
       ? QuizOutputT["questions"]
       : never
@@ -244,8 +241,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       inputTokens: totalUsage.inputTokens + res.usage.inputTokens,
       outputTokens: totalUsage.outputTokens + res.usage.outputTokens,
       cacheReadTokens: totalUsage.cacheReadTokens + res.usage.cacheReadTokens,
-      cacheCreationTokens:
-        totalUsage.cacheCreationTokens + res.usage.cacheCreationTokens,
+      cacheCreationTokens: totalUsage.cacheCreationTokens + res.usage.cacheCreationTokens,
     };
     try {
       const parsed = parseModelJson(QuizOutput, res.text);
@@ -357,8 +353,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       inputTokens: totalUsage.inputTokens + topupResult.usage.inputTokens,
       outputTokens: totalUsage.outputTokens + topupResult.usage.outputTokens,
       cacheReadTokens: totalUsage.cacheReadTokens + topupResult.usage.cacheReadTokens,
-      cacheCreationTokens:
-        totalUsage.cacheCreationTokens + topupResult.usage.cacheCreationTokens,
+      cacheCreationTokens: totalUsage.cacheCreationTokens + topupResult.usage.cacheCreationTokens,
     };
     let topupParsed: QuizOutputT;
     try {
@@ -408,9 +403,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
 
   // 요청 수에 정확히 맞춤. 넘치면 자르고, 모자라면 그대로(여러번 보충해도 부족한 자료).
   const finalQuestions =
-    collected.length >= input.requestedCount
-      ? collected.slice(0, input.requestedCount)
-      : collected;
+    collected.length >= input.requestedCount ? collected.slice(0, input.requestedCount) : collected;
 
   const normalizedQuestions = normalizeQuizQuestions(finalQuestions);
 

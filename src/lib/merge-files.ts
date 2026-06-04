@@ -62,9 +62,7 @@ export async function mergePdfs(files: MergeInputFile[]): Promise<MergedResult> 
       const pages = await out.copyPages(src, src.getPageIndices());
       for (const p of pages) out.addPage(p);
     } catch (e) {
-      warnings.push(
-        `${f.filename}: PDF 병합 실패 — ${e instanceof Error ? e.message : "unknown"}`,
-      );
+      warnings.push(`${f.filename}: PDF 병합 실패 — ${e instanceof Error ? e.message : "unknown"}`);
     }
   }
 

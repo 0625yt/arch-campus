@@ -29,8 +29,7 @@ export function TodaySection() {
             }}
           >
             오늘 처리할 것부터,
-            <br />
-            한 줄로
+            <br />한 줄로
           </h2>
           <p
             className="mt-5 max-w-[460px] text-[15px] leading-[1.6] wght-450"
@@ -113,17 +112,11 @@ function TodoRow({
         borderLeft: `3px solid ${bar}`,
       }}
     >
-      <span
-        className="text-[13px] wght-620"
-        style={{ color: "var(--color-landing-text-strong)" }}
-      >
+      <span className="text-[13px] wght-620" style={{ color: "var(--color-landing-text-strong)" }}>
         {title}
       </span>
       <span className="flex items-center gap-2">
-        <span
-          className="text-[11px] wght-560"
-          style={{ color: "var(--color-landing-text-muted)" }}
-        >
+        <span className="text-[11px] wght-560" style={{ color: "var(--color-landing-text-muted)" }}>
           {meta}
         </span>
         <span

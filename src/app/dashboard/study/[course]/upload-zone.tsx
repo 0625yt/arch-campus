@@ -39,8 +39,10 @@ function detectCompatibility(files: File[]): "pdf" | "text-concat" | "incompatib
 function guessMimeFromName(name: string): string {
   const ext = name.toLowerCase().split(".").pop() ?? "";
   if (ext === "pdf") return "application/pdf";
-  if (ext === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  if (ext === "pptx") return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  if (ext === "docx")
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (ext === "pptx")
+    return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
   if (ext === "txt") return "text/plain";
   if (ext === "md") return "text/markdown";
   if (ext === "hwpx" || ext === "hwp") return "application/x-hwp";
@@ -176,7 +178,12 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
     setFailed([]);
     setTotalCount(files.length);
 
-    const sources: Array<{ storagePath: string; filename: string; mimeType: string; materialId: string }> = [];
+    const sources: Array<{
+      storagePath: string;
+      filename: string;
+      mimeType: string;
+      materialId: string;
+    }> = [];
     const optimisticIds: string[] = [];
 
     // 1) 각 파일 Storage PUT
@@ -292,7 +299,12 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
 
     pingActiveJobs();
     pingSidebarCourses();
-    setUploaded([{ filename: `${primary.filename} 외 ${sources.length - 1}개`, materialId: mergeBody.materialId }]);
+    setUploaded([
+      {
+        filename: `${primary.filename} 외 ${sources.length - 1}개`,
+        materialId: mergeBody.materialId,
+      },
+    ]);
     setFailed([]);
     setPhase("done");
   }
@@ -530,9 +542,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
               className="mt-1.5 text-[13px] wght-450 text-[var(--color-apple-muted)]"
               style={{ letterSpacing: "-0.022em" }}
             >
-              {totalCount > 1
-                ? `${totalCount}개 중 ${currentIndex}번째 올리는 중…`
-                : "올리는 중…"}
+              {totalCount > 1 ? `${totalCount}개 중 ${currentIndex}번째 올리는 중…` : "올리는 중…"}
             </p>
           </>
         ) : phase === "done" ? (
@@ -544,9 +554,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
               className="mt-4 text-[15px] wght-560 text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
-              {uploaded.length === 1
-                ? uploaded[0].filename
-                : `자료 ${uploaded.length}개 올렸어요`}
+              {uploaded.length === 1 ? uploaded[0].filename : `자료 ${uploaded.length}개 올렸어요`}
               {failed.length > 0 && (
                 <span className="ml-1.5 text-[12px] wght-450 text-[var(--color-urgent)]">
                   · {failed.length}개 실패
@@ -721,26 +729,26 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
             })}
           </ul>
 
-          {pendingFiles.length > 1 && (() => {
-            const compat = detectCompatibility(pendingFiles);
-            const canMerge = compat !== "incompatible";
-            const mergeHint =
-              compat === "pdf"
-                ? "PDF 페이지가 순서대로 이어진 1개 자료로 합쳐져요."
-                : compat === "text-concat"
-                  ? "본문 텍스트가 파일별 헤더와 함께 합쳐져요."
-                  : "PDF와 다른 형식은 한 자료로 합칠 수 없어요. '각각 등록'만 가능해요.";
-            return (
-              <div className="mt-6">
-                <h4
-                  className="text-[11px] wght-700 tabular-nums uppercase text-[var(--color-apple-muted)]"
-                  style={{ letterSpacing: "0.04em" }}
-                >
-                  등록 방식
-                </h4>
-                <ul className="mt-2.5 -mx-1 flex flex-wrap gap-x-1 gap-y-2">
-                  {(
-                    [
+          {pendingFiles.length > 1 &&
+            (() => {
+              const compat = detectCompatibility(pendingFiles);
+              const canMerge = compat !== "incompatible";
+              const mergeHint =
+                compat === "pdf"
+                  ? "PDF 페이지가 순서대로 이어진 1개 자료로 합쳐져요."
+                  : compat === "text-concat"
+                    ? "본문 텍스트가 파일별 헤더와 함께 합쳐져요."
+                    : "PDF와 다른 형식은 한 자료로 합칠 수 없어요. '각각 등록'만 가능해요.";
+              return (
+                <div className="mt-6">
+                  <h4
+                    className="text-[11px] wght-700 tabular-nums uppercase text-[var(--color-apple-muted)]"
+                    style={{ letterSpacing: "0.04em" }}
+                  >
+                    등록 방식
+                  </h4>
+                  <ul className="mt-2.5 -mx-1 flex flex-wrap gap-x-1 gap-y-2">
+                    {[
                       {
                         value: "separate" as const,
                         label: "각각 자료로",
@@ -753,55 +761,54 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
                         subtitle: compat === "pdf" ? "PDF 페이지 이어붙임" : "본문 텍스트 합침",
                         disabled: !canMerge,
                       },
-                    ]
-                  ).map(({ value, label, subtitle, disabled }) => {
-                    const active = mergeMode === value && !disabled;
-                    return (
-                      <li key={value}>
-                        <button
-                          type="button"
-                          disabled={disabled}
-                          onClick={() => {
-                            if (!disabled) setMergeMode(value);
-                          }}
-                          aria-pressed={active}
-                          className={cn(
-                            "inline-flex items-baseline gap-1.5 rounded-full px-3.5 py-2 text-[13px] transition-colors",
-                            disabled
-                              ? "wght-450 cursor-not-allowed text-[var(--color-apple-muted)]/45"
-                              : active
-                                ? "wght-560 bg-[var(--color-apple-ink)] text-white"
-                                : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
-                          )}
-                        >
-                          {label}
-                          <span
+                    ].map(({ value, label, subtitle, disabled }) => {
+                      const active = mergeMode === value && !disabled;
+                      return (
+                        <li key={value}>
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => {
+                              if (!disabled) setMergeMode(value);
+                            }}
+                            aria-pressed={active}
                             className={cn(
-                              "text-[11px] wght-450",
-                              active
-                                ? "text-white/65"
-                                : "text-[var(--color-apple-muted)]/65",
+                              "inline-flex items-baseline gap-1.5 rounded-full px-3.5 py-2 text-[13px] transition-colors",
+                              disabled
+                                ? "wght-450 cursor-not-allowed text-[var(--color-apple-muted)]/45"
+                                : active
+                                  ? "wght-560 bg-[var(--color-apple-ink)] text-white"
+                                  : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
                             )}
                           >
-                            {subtitle}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <p
-                  className="mt-2 text-[11px] wght-450 leading-[1.5] text-[var(--color-apple-muted)]"
-                  style={{ letterSpacing: "-0.012em" }}
-                >
-                  {mergeMode === "merge" && canMerge ? mergeHint : `${pendingFiles.length}개 파일이 각각 별도 자료로 등록돼요.`}
-                  {!canMerge && (
-                    <span className="ml-1 text-[var(--color-urgent)]">{mergeHint}</span>
-                  )}
-                </p>
-              </div>
-            );
-          })()}
+                            {label}
+                            <span
+                              className={cn(
+                                "text-[11px] wght-450",
+                                active ? "text-white/65" : "text-[var(--color-apple-muted)]/65",
+                              )}
+                            >
+                              {subtitle}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <p
+                    className="mt-2 text-[11px] wght-450 leading-[1.5] text-[var(--color-apple-muted)]"
+                    style={{ letterSpacing: "-0.012em" }}
+                  >
+                    {mergeMode === "merge" && canMerge
+                      ? mergeHint
+                      : `${pendingFiles.length}개 파일이 각각 별도 자료로 등록돼요.`}
+                    {!canMerge && (
+                      <span className="ml-1 text-[var(--color-urgent)]">{mergeHint}</span>
+                    )}
+                  </p>
+                </div>
+              );
+            })()}
 
           {/* 첫 요약 한 줄 요청 — 자료 안에서 어디를 강조할지. 자료 밖 생성은 서버 가드가 거부.
               비워두면 일반 요약(기존 동작). 120자 cap은 input + 서버 양쪽. */}
@@ -844,8 +851,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
               style={{ letterSpacing: "-0.012em" }}
             >
               {pendingFiles.length > 1
-                ? mergeMode === "merge" &&
-                  detectCompatibility(pendingFiles) !== "incompatible"
+                ? mergeMode === "merge" && detectCompatibility(pendingFiles) !== "incompatible"
                   ? `${pendingFiles.length}개 합치기`
                   : `${pendingFiles.length}개 올리기`
                 : "올리기"}

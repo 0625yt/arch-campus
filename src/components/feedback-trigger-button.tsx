@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { FeedbackModal } from "./feedback-modal";
 import type { FeedbackTargetType } from "@/lib/schemas/feedback";
+import { FeedbackModal } from "./feedback-modal";
 
 interface Props {
   targetType: FeedbackTargetType;

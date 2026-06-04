@@ -2,10 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  FEEDBACK_STATUSES,
-  type FeedbackStatus,
-} from "@/lib/schemas/feedback";
+import { FEEDBACK_STATUSES, type FeedbackStatus } from "@/lib/schemas/feedback";
 import type { FeedbackItem } from "./feedback-list-client";
 
 export function FeedbackDetailSheet({
@@ -16,9 +13,7 @@ export function FeedbackDetailSheet({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [status, setStatus] = useState<FeedbackStatus>(
-    item.status as FeedbackStatus,
-  );
+  const [status, setStatus] = useState<FeedbackStatus>(item.status as FeedbackStatus);
   const [adminNote, setAdminNote] = useState(item.admin_note ?? "");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -68,15 +63,11 @@ export function FeedbackDetailSheet({
         <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-neutral-500">
           <div>
             <dt>작성자</dt>
-            <dd className="font-mono text-neutral-700">
-              {item.owner_id.slice(0, 8)}…
-            </dd>
+            <dd className="font-mono text-neutral-700">{item.owner_id.slice(0, 8)}…</dd>
           </div>
           <div>
             <dt>대상 ID</dt>
-            <dd className="font-mono text-neutral-700">
-              {item.target_id.slice(0, 8)}…
-            </dd>
+            <dd className="font-mono text-neutral-700">{item.target_id.slice(0, 8)}…</dd>
           </div>
           <div>
             <dt>generation</dt>
@@ -111,10 +102,7 @@ export function FeedbackDetailSheet({
         </div>
 
         <div className="mt-3">
-          <label
-            className="text-xs font-medium text-neutral-700"
-            htmlFor="admin-note"
-          >
+          <label className="text-xs font-medium text-neutral-700" htmlFor="admin-note">
             관리자 메모
           </label>
           <textarea

@@ -22,10 +22,7 @@ export const QUIZ_ITEM_CATEGORIES = [
 const SUMMARY_VALUES = SUMMARY_CATEGORIES.map((c) => c.value) as readonly string[];
 const QUIZ_VALUES = QUIZ_ITEM_CATEGORIES.map((c) => c.value) as readonly string[];
 
-export function isValidCategoryFor(
-  type: FeedbackTargetType,
-  category: string,
-): boolean {
+export function isValidCategoryFor(type: FeedbackTargetType, category: string): boolean {
   if (type === "summary") return SUMMARY_VALUES.includes(category);
   return QUIZ_VALUES.includes(category);
 }

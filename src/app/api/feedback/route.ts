@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import {
-  FeedbackInsertBody,
-  isValidCategoryFor,
-} from "@/lib/schemas/feedback";
+import { FeedbackInsertBody, isValidCategoryFor } from "@/lib/schemas/feedback";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -57,18 +54,12 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (dupe) {
-    return NextResponse.json(
-      { error: "최근에 이미 피드백을 남기셨어요" },
-      { status: 409 },
-    );
+    return NextResponse.json({ error: "최근에 이미 피드백을 남기셨어요" }, { status: 409 });
   }
 
   // quiz_item이면 body 앞에 [Q{n}] 자동 부착 — 어느 문항인지 식별
   let body = input.body ?? null;
-  if (
-    input.targetType === "quiz_item" &&
-    typeof input.quizQuestionIndex === "number"
-  ) {
+  if (input.targetType === "quiz_item" && typeof input.quizQuestionIndex === "number") {
     const prefix = `[Q${input.quizQuestionIndex + 1}] `;
     body = body ? `${prefix}${body}` : prefix.trim();
   }

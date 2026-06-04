@@ -6,10 +6,7 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   let ownerId: string;
   try {
     ownerId = await getOwnerId();

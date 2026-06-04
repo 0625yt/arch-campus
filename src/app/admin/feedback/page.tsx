@@ -1,6 +1,6 @@
+import type { FeedbackStatus } from "@/lib/schemas/feedback";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { FeedbackListClient } from "./feedback-list-client";
-import type { FeedbackStatus } from "@/lib/schemas/feedback";
 
 export const dynamic = "force-dynamic";
 

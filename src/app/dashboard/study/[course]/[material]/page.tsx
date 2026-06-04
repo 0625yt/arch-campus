@@ -14,10 +14,10 @@ import { getDefaultStyles, type SummaryStyle } from "@/lib/material-policy";
 import type { SummarizeOutputT } from "@/lib/schemas";
 import { createSignedReadUrl } from "@/lib/storage";
 import { detectSubject } from "@/lib/subject-detector";
+import { DownloadSummaryButton } from "./download-summary-button";
 import { ExtractExamView } from "./extract-exam-view";
 import { GenerateButton, type SiblingMaterialOption } from "./generate-button";
 import { MaterialTabs } from "./material-tabs";
-import { DownloadSummaryButton } from "./download-summary-button";
 import { MaterialView } from "./material-view";
 import { ResummarizePanel } from "./resummarize-panel";
 import { SummarizeWithStyles } from "./summarize-with-styles";
@@ -164,10 +164,7 @@ export default async function MaterialDetailPage({
         )}
 
         {!isExamType && detail.summary && (
-          <ResummarizePanel
-            materialId={detail.id}
-            className="mt-6 fade-up fade-up-3 sm:mt-8"
-          />
+          <ResummarizePanel materialId={detail.id} className="mt-6 fade-up fade-up-3 sm:mt-8" />
         )}
 
         {!isExamType && detail.summaryKeywords && detail.summaryKeywords.length > 0 && (

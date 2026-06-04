@@ -220,20 +220,12 @@ export function MaterialView({
             pointerEvents: view === "pdf-only" ? "none" : undefined,
           }}
         >
-          <SummaryColumn
-            summary={summary}
-            onPageClick={jumpDesktop}
-            materialId={materialId}
-          />
+          <SummaryColumn summary={summary} onPageClick={jumpDesktop} materialId={materialId} />
         </div>
       </div>
 
       <div className="md:hidden">
-        <SummaryColumn
-          summary={summary}
-          onPageClick={jumpMobile}
-          materialId={materialId}
-        />
+        <SummaryColumn summary={summary} onPageClick={jumpMobile} materialId={materialId} />
       </div>
 
       {!chatOpen && (
