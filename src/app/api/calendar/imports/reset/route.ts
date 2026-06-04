@@ -124,7 +124,7 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
   }
 
   revalidatePath("/dashboard");
-  revalidatePath("/dashboard/today");
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/calendar");
   revalidatePath("/dashboard/study");
 

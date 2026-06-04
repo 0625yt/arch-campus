@@ -59,7 +59,7 @@ export default async function ReviewPage() {
             복습
           </p>
           <Link
-            href="/dashboard/today"
+            href="/dashboard"
             className="text-[12px] wght-450 text-[var(--color-apple-action)]"
             style={{ letterSpacing: "-0.012em" }}
           >

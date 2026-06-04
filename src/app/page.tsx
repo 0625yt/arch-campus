@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/supabase/server";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { LandingHero } from "./landing/hero";
-import { CategoryMarquee } from "./landing/category-marquee";
-import { TodaySection } from "./landing/today-section";
+import { getCurrentUser } from "@/lib/supabase/server";
 import { CalendarSection } from "./landing/calendar-section";
+import { CategoryMarquee } from "./landing/category-marquee";
+import { LandingHero } from "./landing/hero";
 import { StudySection } from "./landing/study-section";
-import { WizardSection } from "./landing/wizard-section";
+import { TodaySection } from "./landing/today-section";
 import { TrustSection } from "./landing/trust-section";
+import { WizardSection } from "./landing/wizard-section";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function Home() {
   const user = await getCurrentUser();
-  const startHref = user ? "/dashboard/today" : "/login?mode=signup";
+  const startHref = user ? "/dashboard" : "/login?mode=signup";
   const startLabel = user ? "내 캠퍼스 열기" : "시작해보세요";
   const isSignedIn = Boolean(user);
 

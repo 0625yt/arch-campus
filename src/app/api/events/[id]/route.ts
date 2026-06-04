@@ -10,7 +10,7 @@ import type { Database } from "@/lib/supabase/types";
 function bustCalendarCache() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/calendar");
-  revalidatePath("/dashboard/today");
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/study", "layout");
 }
 

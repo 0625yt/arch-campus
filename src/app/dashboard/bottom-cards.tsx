@@ -36,9 +36,7 @@ export function BottomCards({
 
 function UrgentCard({ signal }: { signal: SafetySignal | null }) {
   if (!signal) {
-    return (
-      <BaseCard href="/dashboard/today" label="긴급 신호" tone="muted" title="이상 없음" meta="" />
-    );
+    return <BaseCard href="/dashboard" label="긴급 신호" tone="muted" title="이상 없음" meta="" />;
   }
   const tone: CardTone =
     signal.tone === "urgent" ? "urgent" : signal.tone === "warn" ? "warn" : "muted";
@@ -254,7 +252,14 @@ function DonutRing({ pct }: { pct: number }) {
   const off = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
   return (
     <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden className="-rotate-90 shrink-0">
-      <circle cx="14" cy="14" r={r} fill="none" stroke="var(--color-apple-hairline)" strokeWidth="3" />
+      <circle
+        cx="14"
+        cy="14"
+        r={r}
+        fill="none"
+        stroke="var(--color-apple-hairline)"
+        strokeWidth="3"
+      />
       <circle
         cx="14"
         cy="14"

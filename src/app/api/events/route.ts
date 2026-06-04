@@ -115,6 +115,6 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
   // today는 "다가오는 일정"을 RSC로 그리므로 빠뜨리면 새 이벤트가 안 보임 (CRUD-2 결함).
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/calendar");
-  revalidatePath("/dashboard/today");
+  revalidatePath("/dashboard");
   return NextResponse.json({ ok: true, event: { id: data.id, title: data.title } });
 }

@@ -16,7 +16,7 @@ export default async function OnboardingPage() {
   }
 
   const profile = await getProfile(ownerId);
-  if (profile?.onboarded) redirect("/dashboard/today");
+  if (profile?.onboarded) redirect("/dashboard");
 
   const defaultSemester = inferSemester(new Date());
 

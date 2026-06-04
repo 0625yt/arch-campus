@@ -48,7 +48,7 @@ export function ResetPanel() {
       setLoading(false);
       return;
     }
-    router.push("/dashboard/today");
+    router.push("/dashboard");
     router.refresh();
   }
 

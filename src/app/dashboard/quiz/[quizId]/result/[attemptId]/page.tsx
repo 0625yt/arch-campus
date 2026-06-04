@@ -62,7 +62,7 @@ export default async function AttemptReviewPage({
       <div className="mx-auto w-full max-w-[760px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12">
         <header className="mb-6 flex items-baseline justify-between gap-3 fade-up">
           <Link
-            href="/dashboard/today"
+            href="/dashboard"
             className="text-[12px] wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
             style={{ letterSpacing: "-0.012em" }}
           >

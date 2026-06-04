@@ -55,3 +55,10 @@ cal-*.png
 calendar-mobile-*.png
 verify-*.png
 supabase/.temp/
+
+# 임시·디버그·브레인스토밍 산출물 (커밋 X)
+.tmp/
+.lazyweb/
+.superpowers/
+design/
+.playwright-mcp/

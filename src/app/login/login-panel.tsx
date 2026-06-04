@@ -10,7 +10,7 @@ import { friendlyAuthError } from "@/lib/auth-errors";
  * 로그인 패널 — 이메일+비밀번호 폼 + Google OAuth.
  *
  * 동작:
- *   1) 이메일+비밀번호 제출 → signInWithPassword → 성공 시 next 또는 /dashboard/today
+ *   1) 이메일+비밀번호 제출 → signInWithPassword → 성공 시 next 또는 /dashboard
  *   2) "구글로 로그인" → OAuth 흐름 (/auth/callback에서 마무리)
  *
  * 에러는 폼 안 inline 표시. 입력값은 유지 (실패 시 다시 안 적어도 됨).
@@ -38,7 +38,7 @@ export function LoginPanel({ next, error }: { next?: string; error?: string }) {
       return;
     }
     // 세션 쿠키가 박힘 — middleware가 next로 보내거나, 직접 push.
-    router.push(next ?? "/dashboard/today");
+    router.push(next ?? "/dashboard");
     router.refresh();
   }
 

@@ -6,12 +6,12 @@ import { getServerSupabase } from "@/lib/supabase/server";
  * Google OAuth 콜백 — code를 세션으로 교환하고 온보딩 여부에 따라 라우팅.
  *
  * - 신규 사용자 (profile.university 비어있음) → /onboarding
- * - 기존 사용자 → /dashboard/today 또는 next 파라미터
+ * - 기존 사용자 → /dashboard 또는 next 파라미터
  */
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? "/dashboard/today";
+  const next = url.searchParams.get("next") ?? "/dashboard";
   const errorParam = url.searchParams.get("error_description") ?? url.searchParams.get("error");
 
   if (errorParam) {

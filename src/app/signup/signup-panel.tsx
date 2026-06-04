@@ -64,7 +64,7 @@ export function SignupPanel({ next, error }: { next?: string; error?: string }) 
       return;
     }
     if (data.session) {
-      router.push(next ?? "/dashboard/today");
+      router.push(next ?? "/dashboard");
       router.refresh();
     } else {
       router.push(`/signup/verify?email=${encodeURIComponent(trimmedEmail)}`);

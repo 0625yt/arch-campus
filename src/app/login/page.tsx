@@ -10,7 +10,7 @@ export default async function LoginPage({
   searchParams: Promise<{ next?: string; error?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (user) redirect("/dashboard/today");
+  if (user) redirect("/dashboard");
 
   const { next, error } = await searchParams;
 
