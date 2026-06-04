@@ -8,7 +8,9 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContextMenu, type ContextMenuItem, useContextMenu } from "@/components/context-menu";
 import { Modal } from "@/components/modal";
 import { Popover } from "@/components/popover";
+import { hexTintDark } from "@/lib/course-palette";
 import type { EventView } from "@/lib/data/events";
+import { useIsDark } from "../use-mobile";
 import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
 import { EventAIDraftPanel } from "./ai-draft-panel";
 import { AiEntryCard } from "./ai-entry-card";
@@ -1018,7 +1020,7 @@ function DayCell({
       onMouseUp={handleMouseUp}
       // 모바일은 64px — iPhone 14 (844 - topbar 48 - tabbar 56 - 헤더 60 ≈ 680) ÷ 6주 = 약 113px 여유, 64×6 = 384px라 한 달이 풀스크린에 들어옴.
       // 데스크톱은 118px 그대로.
-      className={`flex min-h-[64px] cursor-pointer flex-col gap-[1px] px-0.5 pt-0.5 pb-0 transition-colors duration-150 sm:min-h-[118px] sm:px-0.5 sm:pt-1 sm:pb-0.5 ${
+      className={`flex min-h-[64px] cursor-pointer flex-col gap-[1px] px-0.5 pt-0.5 pb-0 transition-all duration-200 sm:min-h-[118px] sm:px-0.5 sm:pt-1 sm:pb-0.5 ${
         cell.inMonth ? "" : "opacity-40"
       } ${isSelected ? "ring-1 ring-inset ring-[var(--color-apple-action)]" : ""} ${
         isInDragRange ? "ring-2 ring-inset ring-[var(--color-apple-action)]" : ""
@@ -1154,6 +1156,7 @@ function EventChip({
 }) {
   void event;
 
+  const isDark = useIsDark();
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
@@ -1203,8 +1206,15 @@ function EventChip({
         title={title}
         className="block w-full truncate rounded-[3px] px-[3px] py-0 text-left text-[11px] wght-560 leading-[1.4] transition-all duration-150 hover:brightness-105 active:scale-[0.98] sm:rounded-[4px] sm:px-1 sm:text-[12px] sm:leading-[1.55]"
         style={{
-          backgroundColor: selected ? toAlpha(color, 0.9) : toAlpha(color, 0.18),
-          color: selected ? "white" : "var(--color-apple-ink)",
+          // 다크: 라이트 파스텔을 alpha로 깔면 진흙 → hue 기반 진한 색으로 재구성(셀과 동일).
+          backgroundColor: selected
+            ? isDark
+              ? hexTintDark(color, true)
+              : toAlpha(color, 0.9)
+            : isDark
+              ? toAlpha(hexTintDark(color, false), 0.28)
+              : toAlpha(color, 0.18),
+          color: selected ? "white" : isDark ? "white" : "var(--color-apple-ink)",
           letterSpacing: "-0.03em",
         }}
       >
@@ -1227,7 +1237,11 @@ function EventChip({
         selected ? "wght-700" : "wght-450"
       }`}
       style={{
-        backgroundColor: selected ? toAlpha(color, 0.12) : "transparent",
+        backgroundColor: selected
+          ? isDark
+            ? toAlpha(hexTintDark(color, false), 0.2)
+            : toAlpha(color, 0.12)
+          : "transparent",
         color: "var(--color-apple-ink)",
         letterSpacing: "-0.03em",
       }}
@@ -1235,7 +1249,8 @@ function EventChip({
       <span
         aria-hidden
         className="absolute left-[1px] top-1/2 h-[8px] w-[2px] -translate-y-1/2 rounded-full sm:left-[2px] sm:h-[10px]"
-        style={{ backgroundColor: color }}
+        // 다크에선 raw 파스텔 좌측 bar가 둥둥 떠 보임 → hue 밝은 톤으로 또렷한 액센트.
+        style={{ backgroundColor: isDark ? hexTintDark(color, false) : color }}
       />
       <span className="truncate">{label}</span>
     </button>
@@ -2487,6 +2502,18 @@ export function kindColor(kind: EventView["kind"], courseColor: string | null): 
 export function eventColor(e: EventView): string {
   if (e.color) return e.color;
   return kindColor(e.kind, e.courseColor);
+}
+
+/**
+ * 테마 인지 이벤트 색 — 라이트는 원색(파스텔) 그대로, 다크는 hue 기반 밝은 액센트로.
+ *
+ * 캘린더 month/week/day 뷰가 `toAlpha(color, 0.18)` 배경 + `borderLeft: solid color`로
+ * 칠하는데, 라이트 파스텔(명도 95+)은 다크 배경에서 옅고 둥둥 떠 보인다. 다크에선
+ * 같은 hue를 S55 L58로 끌어올려(hexTintDark bg=false) 또렷한 액센트로 만든다.
+ */
+export function eventColorThemed(e: EventView, isDark: boolean): string {
+  const base = eventColor(e);
+  return isDark ? hexTintDark(base, false) : base;
 }
 
 /**

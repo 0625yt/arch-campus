@@ -315,7 +315,7 @@ function TimetableGrid({
                       className={`text-[8px] tabular-nums transition-colors ${
                         isCurrentHour
                           ? "wght-560 text-[var(--color-apple-action)]/70"
-                          : "wght-450 text-[var(--color-apple-muted)]/55"
+                          : "wght-560 text-[var(--color-apple-muted)]/70"
                       }`}
                       style={{ letterSpacing: "-0.008em" }}
                     >
@@ -401,7 +401,7 @@ function TimetableGrid({
                         isNow
                           ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)] shadow-[0_10px_28px_-4px_rgba(0,113,227,0.5)]"
                           : ""
-                      } ${isPast ? "opacity-45" : ""}`}
+                      } ${isPast ? (isDark ? "opacity-60" : "opacity-45") : ""}`}
                       style={{
                         top: `${top + 2}px`,
                         height: `${height - 4}px`,
@@ -488,7 +488,7 @@ function ViewPill({
       className={
         active
           ? "btn-ink spring-press inline-flex h-9 items-center rounded-full bg-[var(--color-apple-ink)] px-3.5 text-[12px] wght-560 text-white"
-          : "spring-press inline-flex h-9 items-center rounded-full border border-[var(--color-apple-hairline)] bg-white px-3.5 text-[12px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)] disabled:opacity-40"
+          : "spring-press inline-flex h-9 items-center rounded-full border border-[var(--color-apple-hairline)] bg-white px-3.5 text-[12px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)] disabled:opacity-50"
       }
       style={{ letterSpacing: "-0.012em" }}
     >

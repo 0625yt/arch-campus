@@ -253,6 +253,7 @@ function DonutRing({ pct }: { pct: number }) {
   return (
     <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden className="-rotate-90 shrink-0">
       <circle
+        className="ring-track"
         cx="14"
         cy="14"
         r={r}

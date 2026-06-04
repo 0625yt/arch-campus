@@ -187,11 +187,7 @@ export function courseGradient(name: string, color?: string | null): string {
  *
  * radial(우상단) gradient와 같이 쓰면 두 겹 wash로 카드가 더 살아있음.
  */
-export function courseLinearGradient(
-  name: string,
-  color?: string | null,
-  alpha = 0.28,
-): string {
+export function courseLinearGradient(name: string, color?: string | null, alpha = 0.28): string {
   const { r, g, b } = courseRgb(name, color);
   return `linear-gradient(90deg, rgba(${r}, ${g}, ${b}, ${alpha}) 0%, rgba(${r}, ${g}, ${b}, ${alpha * 0.45}) 35%, rgba(${r}, ${g}, ${b}, 0) 100%)`;
 }
@@ -208,6 +204,25 @@ export function courseLinearGradientDark(name: string, color?: string | null): s
   const { h } = rgbToHsl(courseRgb(name, color));
   const { r, g, b } = hslToRgbVals(h, 40, 26);
   return `linear-gradient(90deg, rgba(${r}, ${g}, ${b}, 0.85) 0%, rgba(${r}, ${g}, ${b}, 0.32) 38%, rgba(${r}, ${g}, ${b}, 0) 100%)`;
+}
+
+/**
+ * hex 색 직접 받아 다크 모드 불투명 틴트. 캘린더 EventChip 등 hex만 있는 곳에서
+ * courseTintDark와 동일 철학(hue 유지·채도/명도 재구성)을 적용한다.
+ *
+ *   bg=true  → 셀 배경용 (S44 L31+hue보정, courseTintDark와 동일)
+ *   bg=false → 좌측 색 bar·아이콘용 한 단 밝게 (S55 L52) — 다크 배경에서 또렷한 액센트
+ * hex 파싱 실패하면 cobalt 폴백.
+ */
+export function hexTintDark(hex: string, bg = true): string {
+  const parsed = parseHex(hex) ?? { r: 122, g: 166, b: 214 };
+  const { h } = rgbToHsl(parsed);
+  if (bg) {
+    const lAdjust =
+      h >= 70 && h <= 200 ? -5 : h >= 40 && h < 70 ? -6 : h >= 210 && h <= 290 ? 4 : 0;
+    return hslToRgb(h, 44, 31 + lAdjust);
+  }
+  return hslToRgb(h, 55, 58);
 }
 
 /**

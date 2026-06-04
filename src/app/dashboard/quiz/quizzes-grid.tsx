@@ -40,7 +40,13 @@ export function QuizzesGrid({ quizzes }: { quizzes: QuizListItem[] }) {
   return (
     <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {visible.map((q) => (
-        <QuizContextWrapper key={q.id} quizId={q.id} quizTitle={q.title} onHide={hide} onUnhide={unhide}>
+        <QuizContextWrapper
+          key={q.id}
+          quizId={q.id}
+          quizTitle={q.title}
+          onHide={hide}
+          onUnhide={unhide}
+        >
           <QuizCard quiz={q} />
         </QuizContextWrapper>
       ))}
@@ -98,9 +104,9 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
           style={{ letterSpacing: "-0.012em" }}
         >
           <span className="tabular-nums">{quiz.questionCount}문제</span>
-          <span className="text-[var(--color-apple-hairline)]">·</span>
+          <span className="dot-sep">·</span>
           <span>{quiz.difficulty}</span>
-          <span className="text-[var(--color-apple-hairline)]">·</span>
+          <span className="dot-sep">·</span>
           {quiz.attemptCount === 0 ? (
             <span className="wght-620 text-[var(--color-apple-action)]">새 세트</span>
           ) : quiz.lastScore !== null ? (

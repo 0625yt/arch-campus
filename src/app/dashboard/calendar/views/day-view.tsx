@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { EventView } from "@/lib/data/events";
 import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
-import { eventColor } from "../calendar-board";
+import { eventColorThemed } from "../calendar-board";
+import { useIsDark } from "../../use-mobile";
 import {
   formatHourLabel,
   getNowKstMinutes,
@@ -36,6 +37,7 @@ interface DayViewProps {
 }
 
 export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayViewProps) {
+  const isDark = useIsDark();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [nowMin, setNowMin] = useState(-1);
@@ -119,7 +121,7 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
           </div>
           <div className="flex-1 px-2 py-2">
             {allDay.map((e) => {
-              const color = eventColor(e);
+              const color = eventColorThemed(e, isDark);
               return (
                 <button
                   key={e.id}
@@ -220,7 +222,7 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
             {positioned.map(({ event, topPx, heightPx, columnIdx, totalColumns }) => {
               const widthPct = 100 / totalColumns;
               const leftPct = columnIdx * widthPct;
-              const color = eventColor(event);
+              const color = eventColorThemed(event, isDark);
               const adjustedTop = topPx - startHour * HOUR_HEIGHT_PX;
               if (adjustedTop + heightPx < 0) return null;
               const isRecurring = event.kind === "class";

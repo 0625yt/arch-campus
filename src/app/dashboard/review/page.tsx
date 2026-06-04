@@ -102,7 +102,7 @@ export default async function ReviewPage() {
                 >
                   같은 단원에서 반복해 틀린 문제예요. 자료를 다시 한 번 훑어보세요.
                 </p>
-                <ul className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                <ul className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {weakTopics.slice(0, 6).map((t) => (
                     <WeakTopicCard key={t.topic} topic={t} />
                   ))}
@@ -255,7 +255,7 @@ function ReviewCard({ group }: { group: QuizGroup }) {
             // courseName이 있으면 슬러그로 사용 — 자료 상세 페이지 breadcrumb이 옳게 뜸.
             // courseName이 null이면 "자료"로 fallback (개인 자료·강의 미연결 케이스).
             href={`/dashboard/study/${encodeURIComponent(group.courseName ?? "자료")}/${group.materialId}`}
-            className="inline-flex h-[38px] items-center justify-center rounded-full px-3.5 text-[12.5px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+            className="inline-flex h-[38px] items-center justify-center rounded-full px-3.5 text-[12.5px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-surface-mist)] hover:text-[var(--color-apple-ink)]"
             style={{ letterSpacing: "-0.012em" }}
           >
             자료
@@ -357,7 +357,7 @@ function WeakTopicCard({ topic }: { topic: WeakTopic }) {
     <li>
       <Link
         href={`/dashboard/quiz/${topic.sampleQuizId}/wrong`}
-        className="group flex h-full items-start justify-between gap-3 rounded-[14px] bg-white p-4 transition-all hover:-translate-y-px hover:shadow-[0_4px_16px_-8px_rgba(0,0,0,0.12)]"
+        className="group elev-1 card-lift flex h-full items-start justify-between gap-3 rounded-[14px] bg-white p-4 transition-all hover:-translate-y-px"
       >
         <div className="min-w-0 flex-1">
           <p

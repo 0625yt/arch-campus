@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback } from "react";
+import { hexTintDark } from "@/lib/course-palette";
+import { useIsDark } from "../use-mobile";
 import { ToolsEntryCard } from "./tools-entry-card";
 
 const CATEGORY = {
@@ -233,8 +235,7 @@ function ToolsPageInner() {
             className="max-w-[820px] text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            막혔을 때 바로 쓰는{" "}
-            <span className="heading-dim">{LIVE_WIZARDS.length}개 도구</span>
+            막혔을 때 바로 쓰는 <span className="heading-dim">{LIVE_WIZARDS.length}개 도구</span>
           </h1>
           <p
             className="mt-2 max-w-[600px] text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
@@ -290,7 +291,9 @@ function UrgentBoard({ wizards, className }: { wizards: Wizard[]; className?: st
 }
 
 function UrgentCard({ wizard }: { wizard: Wizard }) {
-  const dotColor = CATEGORY[wizard.category];
+  const isDark = useIsDark();
+  // 라이트 카테고리 hex는 다크 배경에서 어두워 라벨이 묻힘 → hue 밝은 톤으로.
+  const dotColor = isDark ? hexTintDark(CATEGORY[wizard.category], false) : CATEGORY[wizard.category];
 
   return (
     <WizardLinkWrap
@@ -403,7 +406,8 @@ function ToolList({ className, wizards }: { className?: string; wizards: Wizard[
 }
 
 function ToolCard({ wizard }: { wizard: Wizard }) {
-  const dotColor = CATEGORY[wizard.category];
+  const isDark = useIsDark();
+  const dotColor = isDark ? hexTintDark(CATEGORY[wizard.category], false) : CATEGORY[wizard.category];
   const tint = categoryTint(wizard.category);
 
   return (

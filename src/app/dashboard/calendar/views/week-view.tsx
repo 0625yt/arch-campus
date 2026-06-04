@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { EventView } from "@/lib/data/events";
 import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
-import { eventColor } from "../calendar-board";
+import { eventColorThemed } from "../calendar-board";
+import { useIsDark } from "../../use-mobile";
 import {
   ALL_DAY_ROW_PX,
   formatHourLabel,
@@ -49,6 +50,7 @@ export function WeekView({
   onSelectEvent,
   onSelectEmpty,
 }: WeekViewProps) {
+  const isDark = useIsDark();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [nowMin, setNowMin] = useState(-1);
@@ -101,247 +103,247 @@ export function WeekView({
     //   - 내부 min-w-[560px]: 시간축 56 + day 72×7 ≈ 560px 보장 → 짜부시키지 않음.
     // sm+: min-w 해제(자동 flex-1) + overflow-hidden.
     <div className="mt-4 -mx-1 overflow-x-auto overflow-y-hidden sm:mx-0 sm:overflow-x-hidden">
-    <div className="min-w-[560px] overflow-hidden rounded-[10px] border border-[var(--color-apple-hairline)] bg-white sm:min-w-0">
-      {/* 헤더: 시간축 placeholder + 요일·날짜 (macOS 톤 "17일 (일)" 한 줄) */}
-      <div className="flex border-b border-[var(--color-apple-hairline)] bg-white">
-        <div style={{ width: TIME_AXIS_WIDTH_WEEK }} className="shrink-0" />
-        {dateKeys.map((key) => {
-          const d = new Date(`${key}T00:00:00+09:00`);
-          const dow = d.getDay();
-          const isToday = key === todayKey;
-          return (
-            <div key={key} className="flex flex-1 items-baseline justify-center gap-1.5 py-2.5">
-              <span
-                className={`tabular-nums text-[15px] wght-620 ${
-                  isToday
-                    ? "inline-flex h-7 min-w-[28px] items-center justify-center rounded-full bg-[var(--color-urgent)] px-1 text-white"
-                    : "text-[var(--color-apple-ink)]"
-                }`}
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                {d.getDate()}일
-              </span>
-              <span
-                className={`text-[12px] wght-450 ${
-                  isToday
-                    ? "text-[var(--color-urgent)] wght-560"
-                    : "text-[var(--color-apple-muted)]"
-                }`}
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                ({WEEKDAYS_FULL[dow]})
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 종일 띠 (이벤트 있을 때만) */}
-      {allDayBandHeight > 0 && (
-        <div
-          className="flex border-b border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)]/30"
-          style={{ height: allDayBandHeight }}
-        >
-          <div
-            style={{ width: TIME_AXIS_WIDTH_WEEK }}
-            className="flex shrink-0 items-center justify-end pr-2 text-[10px] wght-450 text-[var(--color-apple-muted)]"
-          >
-            종일
-          </div>
-          {dateKeys.map((key) => (
-            <div
-              key={key}
-              className="relative flex-1 border-l border-[var(--color-apple-hairline-soft)] px-1 pt-1"
-            >
-              {(byDate.get(key)?.allDay ?? []).map((e, i) => {
-                const color = eventColor(e);
-                return (
-                  <button
-                    key={e.id}
-                    type="button"
-                    onClick={(ev) => {
-                      const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
-                      onSelectEvent?.(e, rect);
-                    }}
-                    title={formatEventLabel(e)}
-                    className="mb-[2px] block w-full truncate rounded-[3px] px-1.5 py-[1px] text-left text-[11px] wght-560 leading-[1.45] transition-opacity hover:brightness-105"
-                    style={{
-                      backgroundColor: toAlpha(color, 0.18),
-                      color: "var(--color-apple-ink)",
-                      letterSpacing: "-0.012em",
-                      top: i * (ALL_DAY_ROW_PX + 2),
-                    }}
-                  >
-                    {formatEventCompact(e)}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 시간 그리드 — 24시간 스크롤 */}
-      <div ref={scrollRef} className="relative max-h-[640px] overflow-y-auto">
-        <div className="flex" style={{ height: gridHeight }}>
-          {/* 시간축 — startHour부터 표시. 현재 시각은 빨간 박스로 라벨 대체 */}
-          <div
-            style={{ width: TIME_AXIS_WIDTH_WEEK }}
-            className="relative shrink-0 border-r border-[var(--color-apple-hairline)]"
-          >
-            {Array.from({ length: visibleHours }, (_, i) => startHour + i).map((h) => {
-              // 현재 시각이 이 1시간 슬롯 안에 있으면 라벨 숨김 (빨간 박스가 자리 가져감)
-              const nowInSlot = nowMin >= h * 60 && nowMin < (h + 1) * 60;
-              if (nowInSlot) return null;
-              return (
-                <div
-                  key={h}
-                  className="absolute right-2 -translate-y-1/2 text-[10px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
-                  style={{ top: (h - startHour) * HOUR_HEIGHT_PX, letterSpacing: "-0.006em" }}
-                >
-                  {h === startHour && startHour === 0 ? "" : formatHourLabel(h)}
-                </div>
-              );
-            })}
-            {/* 현재 시각 빨간 박스 — macOS Calendar 톤 */}
-            {nowMin >= startHour * 60 && (
-              <div
-                aria-hidden
-                className="absolute right-1 -translate-y-1/2 rounded-[4px] bg-[var(--color-urgent)] px-1.5 py-[1px] text-[10px] wght-700 tabular-nums text-white"
-                style={{
-                  top: (nowMin / 60 - startHour) * HOUR_HEIGHT_PX,
-                  letterSpacing: "-0.006em",
-                }}
-              >
-                {formatNowTime(nowMin)}
-              </div>
-            )}
-          </div>
-
-          {/* 7일 컬럼 */}
+      <div className="min-w-[560px] overflow-hidden rounded-[10px] border border-[var(--color-apple-hairline)] bg-white sm:min-w-0">
+        {/* 헤더: 시간축 placeholder + 요일·날짜 (macOS 톤 "17일 (일)" 한 줄) */}
+        <div className="flex border-b border-[var(--color-apple-hairline)] bg-white">
+          <div style={{ width: TIME_AXIS_WIDTH_WEEK }} className="shrink-0" />
           {dateKeys.map((key) => {
-            const bucket = byDate.get(key);
-            const positioned = bucket ? layoutDayEvents(bucket.timed) : [];
+            const d = new Date(`${key}T00:00:00+09:00`);
+            const dow = d.getDay();
             const isToday = key === todayKey;
             return (
-              <div
-                key={key}
-                className="relative flex-1 border-l border-[var(--color-apple-hairline-soft)]"
-                style={{ backgroundColor: isToday ? "var(--color-surface-cream)" : undefined }}
-              >
-                {/* 시간 hairline */}
-                {Array.from({ length: visibleHours }, (_, i) => startHour + i).map((h) => (
-                  <div
-                    key={h}
-                    className="absolute inset-x-0 border-t border-[var(--color-apple-hairline)]/40"
-                    style={{ top: (h - startHour) * HOUR_HEIGHT_PX }}
-                  />
-                ))}
-                {/* 30분 hairline (옅게) */}
-                {Array.from({ length: visibleHours }, (_, i) => startHour + i).map((h) => (
-                  <div
-                    key={`half-${h}`}
-                    className="absolute inset-x-0 border-t border-[var(--color-apple-hairline-soft)]/40 border-dashed"
-                    style={{ top: (h - startHour) * HOUR_HEIGHT_PX + HOUR_HEIGHT_PX / 2 }}
-                  />
-                ))}
-
-                {/* 빈 시간 클릭 → 새 일정 (시간 분 단위 prefill) */}
-                {onSelectEmpty && (
-                  <button
-                    type="button"
-                    aria-label={`${key} 빈 시간에 일정 추가`}
-                    onClick={(e) => {
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      const offsetY = e.clientY - rect.top;
-                      const hour = startHour + Math.floor(offsetY / HOUR_HEIGHT_PX);
-                      onSelectEmpty(key, hour);
-                    }}
-                    className="absolute inset-0 cursor-pointer"
-                  />
-                )}
-
-                {/* 이벤트 카드들 — startHour 오프셋 보정 */}
-                {positioned.map(({ event, topPx, heightPx, columnIdx, totalColumns }) => {
-                  const widthPct = 100 / totalColumns;
-                  const leftPct = columnIdx * widthPct;
-                  const color = eventColor(event);
-                  const adjustedTop = topPx - startHour * HOUR_HEIGHT_PX;
-                  // 시작 시간이 startHour 이전이면 그리드에서 숨김 (시간표 모드 06시 이전 X)
-                  if (adjustedTop + heightPx < 0) return null;
-                  const isRecurring = event.kind === "class";
-                  return (
-                    <button
-                      key={event.id}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        onSelectEvent?.(event, rect);
-                      }}
-                      title={formatEventLabel(event)}
-                      className="absolute overflow-hidden rounded-[4px] px-1.5 py-[2px] text-left transition-all hover:z-10 hover:brightness-95 hover:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.18)]"
-                      style={{
-                        top: Math.max(0, adjustedTop),
-                        height: heightPx + Math.min(0, adjustedTop),
-                        left: `calc(${leftPct}% + 2px)`,
-                        width: `calc(${widthPct}% - 4px)`,
-                        backgroundColor: toAlpha(color, 0.18),
-                        borderLeft: `2.5px solid ${color}`,
-                        color: "var(--color-apple-ink)",
-                        letterSpacing: "-0.012em",
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-1">
-                        <span className="block truncate text-[11px] wght-620 leading-[1.3]">
-                          {formatEventCompact(event)}
-                        </span>
-                        {isRecurring && (
-                          <svg
-                            aria-hidden
-                            width="10"
-                            height="10"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            className="mt-[3px] shrink-0 opacity-70"
-                          >
-                            <path
-                              d="M17 2l4 4-4 4M3 11v-1a4 4 0 014-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 01-4 4H3"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                      {heightPx >= 36 && event.endsAt && (
-                        <span className="block truncate text-[10px] wght-450 tabular-nums opacity-70">
-                          {formatTimeRange(event.startsAt, event.endsAt)}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-
-                {/* 오늘 컬럼에 현재 시각 라인 — 시간 빨간 박스 + 가로선 */}
-                {isToday && nowMin >= 0 && nowMin >= startHour * 60 && (
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-x-0 z-20"
-                    style={{ top: (nowMin / 60 - startHour) * HOUR_HEIGHT_PX }}
-                  >
-                    <div className="relative">
-                      <div className="border-t-[1.5px] border-[var(--color-urgent)]" />
-                    </div>
-                  </div>
-                )}
+              <div key={key} className="flex flex-1 items-baseline justify-center gap-1.5 py-2.5">
+                <span
+                  className={`tabular-nums text-[15px] wght-620 ${
+                    isToday
+                      ? "inline-flex h-7 min-w-[28px] items-center justify-center rounded-full bg-[var(--color-urgent)] px-1 text-white"
+                      : "text-[var(--color-apple-ink)]"
+                  }`}
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  {d.getDate()}일
+                </span>
+                <span
+                  className={`text-[12px] wght-450 ${
+                    isToday
+                      ? "text-[var(--color-urgent)] wght-560"
+                      : "text-[var(--color-apple-muted)]"
+                  }`}
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  ({WEEKDAYS_FULL[dow]})
+                </span>
               </div>
             );
           })}
         </div>
+
+        {/* 종일 띠 (이벤트 있을 때만) */}
+        {allDayBandHeight > 0 && (
+          <div
+            className="flex border-b border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)]/30"
+            style={{ height: allDayBandHeight }}
+          >
+            <div
+              style={{ width: TIME_AXIS_WIDTH_WEEK }}
+              className="flex shrink-0 items-center justify-end pr-2 text-[10px] wght-450 text-[var(--color-apple-muted)]"
+            >
+              종일
+            </div>
+            {dateKeys.map((key) => (
+              <div
+                key={key}
+                className="relative flex-1 border-l border-[var(--color-apple-hairline-soft)] px-1 pt-1"
+              >
+                {(byDate.get(key)?.allDay ?? []).map((e, i) => {
+                  const color = eventColorThemed(e, isDark);
+                  return (
+                    <button
+                      key={e.id}
+                      type="button"
+                      onClick={(ev) => {
+                        const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+                        onSelectEvent?.(e, rect);
+                      }}
+                      title={formatEventLabel(e)}
+                      className="mb-[2px] block w-full truncate rounded-[3px] px-1.5 py-[1px] text-left text-[11px] wght-560 leading-[1.45] transition-opacity hover:brightness-105"
+                      style={{
+                        backgroundColor: toAlpha(color, 0.18),
+                        color: "var(--color-apple-ink)",
+                        letterSpacing: "-0.012em",
+                        top: i * (ALL_DAY_ROW_PX + 2),
+                      }}
+                    >
+                      {formatEventCompact(e)}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 시간 그리드 — 24시간 스크롤 */}
+        <div ref={scrollRef} className="relative max-h-[640px] overflow-y-auto">
+          <div className="flex" style={{ height: gridHeight }}>
+            {/* 시간축 — startHour부터 표시. 현재 시각은 빨간 박스로 라벨 대체 */}
+            <div
+              style={{ width: TIME_AXIS_WIDTH_WEEK }}
+              className="relative shrink-0 border-r border-[var(--color-apple-hairline)]"
+            >
+              {Array.from({ length: visibleHours }, (_, i) => startHour + i).map((h) => {
+                // 현재 시각이 이 1시간 슬롯 안에 있으면 라벨 숨김 (빨간 박스가 자리 가져감)
+                const nowInSlot = nowMin >= h * 60 && nowMin < (h + 1) * 60;
+                if (nowInSlot) return null;
+                return (
+                  <div
+                    key={h}
+                    className="absolute right-2 -translate-y-1/2 text-[10px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+                    style={{ top: (h - startHour) * HOUR_HEIGHT_PX, letterSpacing: "-0.006em" }}
+                  >
+                    {h === startHour && startHour === 0 ? "" : formatHourLabel(h)}
+                  </div>
+                );
+              })}
+              {/* 현재 시각 빨간 박스 — macOS Calendar 톤 */}
+              {nowMin >= startHour * 60 && (
+                <div
+                  aria-hidden
+                  className="absolute right-1 -translate-y-1/2 rounded-[4px] bg-[var(--color-urgent)] px-1.5 py-[1px] text-[10px] wght-700 tabular-nums text-white"
+                  style={{
+                    top: (nowMin / 60 - startHour) * HOUR_HEIGHT_PX,
+                    letterSpacing: "-0.006em",
+                  }}
+                >
+                  {formatNowTime(nowMin)}
+                </div>
+              )}
+            </div>
+
+            {/* 7일 컬럼 */}
+            {dateKeys.map((key) => {
+              const bucket = byDate.get(key);
+              const positioned = bucket ? layoutDayEvents(bucket.timed) : [];
+              const isToday = key === todayKey;
+              return (
+                <div
+                  key={key}
+                  className="relative flex-1 border-l border-[var(--color-apple-hairline-soft)]"
+                  style={{ backgroundColor: isToday ? "var(--color-surface-cream)" : undefined }}
+                >
+                  {/* 시간 hairline */}
+                  {Array.from({ length: visibleHours }, (_, i) => startHour + i).map((h) => (
+                    <div
+                      key={h}
+                      className="absolute inset-x-0 border-t border-[var(--color-apple-hairline)]/40"
+                      style={{ top: (h - startHour) * HOUR_HEIGHT_PX }}
+                    />
+                  ))}
+                  {/* 30분 hairline (옅게) */}
+                  {Array.from({ length: visibleHours }, (_, i) => startHour + i).map((h) => (
+                    <div
+                      key={`half-${h}`}
+                      className="absolute inset-x-0 border-t border-[var(--color-apple-hairline-soft)]/40 border-dashed"
+                      style={{ top: (h - startHour) * HOUR_HEIGHT_PX + HOUR_HEIGHT_PX / 2 }}
+                    />
+                  ))}
+
+                  {/* 빈 시간 클릭 → 새 일정 (시간 분 단위 prefill) */}
+                  {onSelectEmpty && (
+                    <button
+                      type="button"
+                      aria-label={`${key} 빈 시간에 일정 추가`}
+                      onClick={(e) => {
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const offsetY = e.clientY - rect.top;
+                        const hour = startHour + Math.floor(offsetY / HOUR_HEIGHT_PX);
+                        onSelectEmpty(key, hour);
+                      }}
+                      className="absolute inset-0 cursor-pointer"
+                    />
+                  )}
+
+                  {/* 이벤트 카드들 — startHour 오프셋 보정 */}
+                  {positioned.map(({ event, topPx, heightPx, columnIdx, totalColumns }) => {
+                    const widthPct = 100 / totalColumns;
+                    const leftPct = columnIdx * widthPct;
+                    const color = eventColorThemed(event, isDark);
+                    const adjustedTop = topPx - startHour * HOUR_HEIGHT_PX;
+                    // 시작 시간이 startHour 이전이면 그리드에서 숨김 (시간표 모드 06시 이전 X)
+                    if (adjustedTop + heightPx < 0) return null;
+                    const isRecurring = event.kind === "class";
+                    return (
+                      <button
+                        key={event.id}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          onSelectEvent?.(event, rect);
+                        }}
+                        title={formatEventLabel(event)}
+                        className="absolute overflow-hidden rounded-[4px] px-1.5 py-[2px] text-left transition-all hover:z-10 hover:brightness-95 hover:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.18)]"
+                        style={{
+                          top: Math.max(0, adjustedTop),
+                          height: heightPx + Math.min(0, adjustedTop),
+                          left: `calc(${leftPct}% + 2px)`,
+                          width: `calc(${widthPct}% - 4px)`,
+                          backgroundColor: toAlpha(color, 0.18),
+                          borderLeft: `2.5px solid ${color}`,
+                          color: "var(--color-apple-ink)",
+                          letterSpacing: "-0.012em",
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="block truncate text-[11px] wght-620 leading-[1.3]">
+                            {formatEventCompact(event)}
+                          </span>
+                          {isRecurring && (
+                            <svg
+                              aria-hidden
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              className="mt-[3px] shrink-0 opacity-70"
+                            >
+                              <path
+                                d="M17 2l4 4-4 4M3 11v-1a4 4 0 014-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 01-4 4H3"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                        {heightPx >= 36 && event.endsAt && (
+                          <span className="block truncate text-[10px] wght-450 tabular-nums opacity-70">
+                            {formatTimeRange(event.startsAt, event.endsAt)}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+
+                  {/* 오늘 컬럼에 현재 시각 라인 — 시간 빨간 박스 + 가로선 */}
+                  {isToday && nowMin >= 0 && nowMin >= startHour * 60 && (
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-x-0 z-20"
+                      style={{ top: (nowMin / 60 - startHour) * HOUR_HEIGHT_PX }}
+                    >
+                      <div className="relative">
+                        <div className="border-t-[1.5px] border-[var(--color-urgent)]" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
-    </div>
     </div>
   );
 }

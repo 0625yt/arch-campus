@@ -207,22 +207,29 @@
  */
 html[data-theme="dark"] {
   /*
-   * 대시보드 다크 — 랜딩 다크와 동일 surface 시스템.
-   * 3단계 surface 계층:
-   *   canvas #0c0c0e (배경) → surface-mist #131315 (secondary) → pearl #1d1d1f (카드, hover)
-   * ink는 #f5f5f7 (off-white), muted는 #a1a1a6 (랜딩과 동일).
-   * hairline은 화이트 10% — 카드 가장자리가 어둠 속에서 또렷이.
+   * 대시보드 다크 — Linear/Notion 톤의 "깊은 잉크" surface 시스템 (2026-06-04 재설계).
+   *
+   * 이전(#0c0c0e 배경 ↔ #1d1d1f 카드)은 명도차 19로 카드가 어둠에서 "붕 떠" 보이고
+   * 배경이 거의 순흑이라 "너무 어둡고 이질적"이라는 호소가 있었다.
+   *   → 배경을 #16161a(lum22)로 끌어올리고 카드를 #202024(lum32)로 좁혀 차이 10.
+   *     Linear/Notion 다크처럼 카드가 배경에 자연스럽게 얹힌다.
+   * 4단계 surface 계층:
+   *   canvas #16161a → mist #1c1c21 (2차) → pearl #202024 (카드) → cream #26262b (hover)
+   * hairline은 화이트 12%(카드 위 명도차 27로 또렷). soft는 8%.
+   * ink #f5f5f7, muted #a1a1a6(카드 위 6.3:1 AA), action은 다크 전용 밝은 코발트.
    */
   --color-apple-ink: #f5f5f7;
   --color-apple-muted: #a1a1a6;
-  --color-apple-pearl: #1d1d1f;
-  --color-apple-hairline: rgba(255, 255, 255, 0.10);
-  --color-apple-hairline-soft: rgba(255, 255, 255, 0.06);
-  --color-surface-mist: #131315;
-  --color-surface-cream: #1a1a1c;
-  --color-day-cell: #1d1d1f;
+  --color-apple-pearl: #202024;
+  --color-apple-hairline: rgba(255, 255, 255, 0.12);
+  --color-apple-hairline-soft: rgba(255, 255, 255, 0.08);
+  --color-surface-mist: #1c1c21;
+  --color-surface-cream: #26262b;
+  --color-day-cell: #202024;
   --color-apple-action-soft: rgba(0, 113, 227, 0.22);
   --color-apple-action-hover: #1a85ff;
+  /* 다크에서 action(코발트)은 작은 텍스트·아이콘 대비 위해 한 단 밝게 — 5.2:1 확보 */
+  --color-apple-action: #1a85ff;
 
   /* 다크에서 cobalt는 더 밝게 (시인성) */
   --color-apple-cobalt: #8eb8e0;
@@ -257,7 +264,7 @@ html[data-theme="dark"] {
   --color-landing-text-muted: #a1a1a6;
   --color-landing-card: rgba(28, 28, 32, 0.78);
   --color-landing-card-strong: #1a1a1c;
-  --color-landing-hairline: rgba(255, 255, 255, 0.10);
+  --color-landing-hairline: rgba(255, 255, 255, 0.1);
   --color-landing-pearl: #1d1d1f;
 
   /*
@@ -316,17 +323,17 @@ html[data-theme="dark"] .auth-light .bg-white\/40:not(.dark-keep-white) {
 }
 
 /*
- * 다크 모드 대시보드 — 정보 밀도 높은 화면이라 배경은 거의 순흑.
+ * 다크 모드 대시보드 — "깊은 잉크" 배경(#16161a). 순흑(#0a0a0c)이 "너무 어둡고
+ * 이질적"이라는 호소를 받아 Linear/Notion 톤으로 올림(lum10→22). 카드(#202024)와
+ * 명도차 10으로 좁혀 카드가 자연스럽게 얹힌다.
  *
- * 랜딩의 4-blob(코발트 0.18·라일락 0.12)을 그대로 쓰면 모서리에 "보라/남색 멍"이
- * 번져 콘텐츠를 방해한다(Apple은 다크 대시보드 배경을 깡 다크에 가깝게 둠).
- * → 상단 코발트 한 줄만 0.05로 극히 옅게, 라일락 제거. "있는 듯 없는" 깊이감만.
+ * blob은 상단 코발트 한 줄만 0.06으로 극히 옅게 — "보라 멍" 없이 미세한 깊이감만.
  */
 html[data-theme="dark"] .dashboard-canvas {
-  background-color: #0a0a0c;
+  background-color: #16161a;
   background-image: radial-gradient(
     ellipse 120% 50% at 50% -20%,
-    rgba(0, 113, 227, 0.05),
+    rgba(0, 113, 227, 0.06),
     transparent 55%
   );
 }
@@ -343,7 +350,43 @@ html[data-theme="dark"] .dashboard-canvas {
   color: var(--color-apple-muted);
 }
 html[data-theme="dark"] .heading-dim {
-  color: #c7c7cc;
+  /* 제목(흰색)의 68% — 위계는 분명하되 secondary로 또렷이 읽힘.
+     #c7c7cc 고정은 tools에선 너무 밝고 study에선 약한 상충이 있어 opacity 기반으로. */
+  color: rgba(245, 245, 247, 0.68);
+}
+
+/*
+ * 다크 전용 공통 보정 (2026-06-04 감사 반영) — 토큰/유틸로 일괄 해결.
+ */
+
+/* 비활성 요소(준비중 카드·disabled)는 순흑 배경에서 opacity-60이 너무 어두워 글자가 묻힘.
+   다크에서만 0.72로 올려 "비활성 신호는 유지 + 읽히게"(≈7:1). 라이트는 그대로. */
+html[data-theme="dark"] [aria-disabled="true"] {
+  opacity: 0.72;
+}
+
+/* DonutRing·진행바 등 hairline 스트로크가 다크에서 너무 옅어 안 보이는 것 보강.
+   .ring-track 클래스를 단 SVG circle/요소에 적용. */
+html[data-theme="dark"] .ring-track {
+  stroke: rgba(255, 255, 255, 0.2);
+}
+
+/* 활동 라벨 색 — 라이트 hex(--act-light)는 다크 배경에서 어두워 묻힘.
+   인라인으로 --act-light/--act-dark 둘 다 주입, CSS가 data-theme로 스왑(서버 컴포넌트 대응). */
+.activity-accent {
+  color: var(--act-light);
+}
+html[data-theme="dark"] .activity-accent {
+  color: var(--act-dark);
+}
+
+/* 메타 구분점(·) — 라이트는 hairline으로 옅게, 다크는 hairline(흰 12%)이 너무 옅어 muted로.
+   퀴즈·결과 카드 등 여러 곳의 `·` 구분자에 .dot-sep 적용. */
+.dot-sep {
+  color: var(--color-apple-hairline);
+}
+html[data-theme="dark"] .dot-sep {
+  color: var(--color-apple-muted);
 }
 
 /*
@@ -406,10 +449,25 @@ html[data-theme="dark"] .card-lift:hover {
  */
 html[data-theme="dark"] .elev-1 {
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 1px 3px rgba(0, 0, 0, 0.5),
     0 6px 18px -8px rgba(0, 0, 0, 0.6);
+}
+/* study 카드 hover lift — 다크에서 그림자가 더 깊게 들려 "떠오름"이 명확하게 */
+html[data-theme="dark"] .elev-hover-2 {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 2px 6px rgba(0, 0, 0, 0.55),
+    0 14px 36px -10px rgba(0, 0, 0, 0.7);
+}
+html[data-theme="dark"] .elev-hover-2:hover {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 6px 16px rgba(0, 0, 0, 0.7),
+    0 28px 64px -10px rgba(0, 0, 0, 0.8);
 }
 html[data-theme="dark"] .elev-2 {
   box-shadow:
@@ -437,7 +495,7 @@ html[data-theme="dark"] .elev-3 {
  */
 html[data-theme="dark"] .dark-surface-card {
   /* biome-ignore lint/complexity/noImportantStyles: inline style={{backgroundColor}}을 덮어야 함 */
-  background-color: #1d1d1f !important;
+  background-color: var(--color-apple-pearl) !important;
   position: relative;
 }
 /*
@@ -509,43 +567,43 @@ html[data-theme="dark"] .btn-ink {
 /*
  * 다크 모드 surface 자동 매핑 — bg-white·bg-white/N 인라인이 다크에서 깨지는 걸 일괄 해결.
  *
- * 톤: 랜딩 카드 톤과 정확히 매칭. #1d1d1f가 #0c0c0e canvas 위에서 한 단 떠 있는 느낌.
- *   - 너무 어두우면 (#1a1a1c) canvas와 구분이 안 됨
- *   - 너무 밝으면 (#222) AI 흔한 회색 카드 톤
- *   - #1d1d1f가 Apple Mail/Notes 다크의 sidebar 카드와 같은 톤
+ * 톤: 새 pearl #202024(rgb 32,32,36). 배경 #16161a 위에서 명도차 10으로 자연스럽게 얹힘
+ * (이전 #1d1d1f는 배경 #0c0c0e 위에서 차이 19로 "붕 떠" 보였음 — 2026-06-04 재설계).
+ *   - 너무 어두우면 (#1a1a1c) 배경과 구분이 안 됨
+ *   - 너무 밝으면 (#262) AI 흔한 회색 카드 톤
  *
  * 주의: 의도적으로 흰색이어야 하는 곳(다크에서도)은 클래스에 `dark-keep-white` 박아 예외.
  */
 html[data-theme="dark"] .bg-white:not(.dark-keep-white) {
-  background-color: #1d1d1f;
+  background-color: #202024;
 }
 html[data-theme="dark"] .bg-white\/95:not(.dark-keep-white) {
-  background-color: rgba(29, 29, 31, 0.95);
+  background-color: rgba(32, 32, 36, 0.95);
 }
 html[data-theme="dark"] .bg-white\/92:not(.dark-keep-white) {
-  background-color: rgba(29, 29, 31, 0.92);
+  background-color: rgba(32, 32, 36, 0.92);
 }
 html[data-theme="dark"] .bg-white\/90:not(.dark-keep-white) {
-  background-color: rgba(29, 29, 31, 0.9);
+  background-color: rgba(32, 32, 36, 0.9);
 }
 html[data-theme="dark"] .bg-white\/85:not(.dark-keep-white) {
-  background-color: rgba(29, 29, 31, 0.85);
+  background-color: rgba(32, 32, 36, 0.85);
 }
 html[data-theme="dark"] .bg-white\/72:not(.dark-keep-white) {
-  background-color: rgba(29, 29, 31, 0.72);
+  background-color: rgba(32, 32, 36, 0.72);
 }
 html[data-theme="dark"] .bg-white\/60:not(.dark-keep-white) {
-  background-color: rgba(29, 29, 31, 0.6);
+  background-color: rgba(32, 32, 36, 0.6);
 }
 html[data-theme="dark"] .bg-white\/40:not(.dark-keep-white) {
   background-color: rgba(255, 255, 255, 0.08);
 }
 
 /*
- * 다크 hover bg-white 변형 — 같은 패턴.
+ * 다크 hover bg-white 변형 — 같은 패턴. cream(#26262b)으로 한 단 들림.
  */
 html[data-theme="dark"] .hover\:bg-white:not(.dark-keep-white):hover {
-  background-color: #26262a;
+  background-color: #26262b;
 }
 
 /*
@@ -1047,9 +1105,15 @@ html {
 
 /* Spring scale — 클릭 시 0.92로 떨어졌다 1로 튀어오름. cubic-bezier가 진짜 spring 느낌. */
 @keyframes spring-press {
-  0% { transform: scale(1); }
-  40% { transform: scale(0.92); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 .spring-press:active {
   animation: spring-press 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -1057,7 +1121,8 @@ html {
 
 /* Now glow — "지금 진행 중" 강의 카드에 조용한 발광. AI 티 안 나도록 1.6s breathe. */
 @keyframes now-glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow:
       0 0 0 1px rgba(0, 113, 227, 0.18),
       inset 0 1px 0 rgba(255, 255, 255, 0.65),
@@ -1103,17 +1168,33 @@ html {
 .sheet-item-in {
   animation: sheet-item-in 320ms var(--ease-out) both;
 }
-.sheet-stagger > *:nth-child(1) { animation-delay: 60ms; }
-.sheet-stagger > *:nth-child(2) { animation-delay: 110ms; }
-.sheet-stagger > *:nth-child(3) { animation-delay: 160ms; }
-.sheet-stagger > *:nth-child(4) { animation-delay: 210ms; }
-.sheet-stagger > *:nth-child(5) { animation-delay: 260ms; }
-.sheet-stagger > *:nth-child(6) { animation-delay: 310ms; }
+.sheet-stagger > *:nth-child(1) {
+  animation-delay: 60ms;
+}
+.sheet-stagger > *:nth-child(2) {
+  animation-delay: 110ms;
+}
+.sheet-stagger > *:nth-child(3) {
+  animation-delay: 160ms;
+}
+.sheet-stagger > *:nth-child(4) {
+  animation-delay: 210ms;
+}
+.sheet-stagger > *:nth-child(5) {
+  animation-delay: 260ms;
+}
+.sheet-stagger > *:nth-child(6) {
+  animation-delay: 310ms;
+}
 
 /* Backdrop — Sheet 진입 시 뒤에 깔리는 어두운 layer. blur는 GPU 부담 작게 4px만. */
 @keyframes backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .backdrop-in {
   animation: backdrop-in 280ms var(--ease-out) both;
@@ -1121,8 +1202,13 @@ html {
 
 /* Time-bar progress — 현재 시각이 시간표 안에서 어디 지나가는지 알려주는 가로 라인 */
 @keyframes time-bar-pulse {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 .time-bar-pulse {
   animation: time-bar-pulse 2200ms ease-in-out infinite;

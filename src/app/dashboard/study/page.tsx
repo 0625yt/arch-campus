@@ -7,6 +7,7 @@ import {
   courseGradient,
   courseLinearGradient,
   courseLinearGradientDark,
+  hexTintDark,
 } from "@/lib/course-palette";
 import { type Activity, getRecentActivities } from "@/lib/data/activity";
 import { type CourseListItem, listCoursesGrouped } from "@/lib/data/materials";
@@ -284,9 +285,7 @@ function CourseCard({ course }: { course: CourseListItem }) {
           />
 
           <div className="relative pr-8">
-            <span
-              className="text-[11px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
-            >
+            <span className="text-[11px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
               {isPersonal ? "개인 공부" : (course.professor ?? "교수 미정")}
             </span>
             <h3
@@ -356,8 +355,14 @@ function RecentActivity({ activities, className }: { activities: Activity[]; cla
                 className="group relative grid grid-cols-[60px_1fr_auto] items-center gap-4 px-5 py-[18px] transition-colors hover:bg-[var(--color-apple-pearl)] sm:grid-cols-[72px_1fr_auto] sm:gap-5 sm:px-7"
               >
                 <span
-                  className="text-[11px] wght-620 uppercase tabular-nums"
-                  style={{ letterSpacing: "0.06em", color: accent }}
+                  className="activity-accent text-[11px] wght-620 uppercase tabular-nums"
+                  style={
+                    {
+                      letterSpacing: "0.06em",
+                      "--act-light": accent,
+                      "--act-dark": hexTintDark(accent, false),
+                    } as React.CSSProperties
+                  }
                 >
                   {a.kindLabel}
                 </span>
