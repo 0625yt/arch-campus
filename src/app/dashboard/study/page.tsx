@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { AppleShell } from "@/components/apple-shell";
 import { activityColor } from "@/lib/activity-color";
 import { tryGetOwnerId } from "@/lib/auth";
-import { courseGradient, courseLinearGradient } from "@/lib/course-palette";
+import {
+  courseGradient,
+  courseLinearGradient,
+  courseLinearGradientDark,
+} from "@/lib/course-palette";
 import { type Activity, getRecentActivities } from "@/lib/data/activity";
 import { type CourseListItem, listCoursesGrouped } from "@/lib/data/materials";
 import { AddPersonalButton } from "./add-personal-button";
@@ -79,7 +83,7 @@ function Hero({ courseCount, totalMaterials }: { courseCount: number; totalMater
         className="max-w-[820px] text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
         style={{ letterSpacing: "-0.022em" }}
       >
-        이번 학기, <span className="text-[var(--color-apple-muted)]">{courseCount}개 강의</span>
+        이번 학기, <span className="heading-dim">{courseCount}개 강의</span>
       </h1>
       <p
         className="mt-2 max-w-[600px] text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
@@ -242,6 +246,7 @@ function CourseCard({ course }: { course: CourseListItem }) {
   // 좌→우 그라데이션 — 좌측에서 강의 색이 풍부하고 우측으로 흰 종이로 풀림.
   // 단일 색 wash보다 호흡감 살아남. hover 시 우상단 radial wash가 추가로 등장.
   const linearWash = courseLinearGradient(course.name, course.color);
+  const linearWashDark = courseLinearGradientDark(course.name, course.color);
   const hoverGrad = courseGradient(course.name, course.color);
 
   return (
@@ -264,8 +269,13 @@ function CourseCard({ course }: { course: CourseListItem }) {
         </div>
         <Link
           href={`/dashboard/study/${encodeURIComponent(course.name)}`}
-          className="group card-glow-ribbon dark-surface-card elev-hover-2 spring-press relative flex min-h-[140px] flex-col justify-between overflow-hidden rounded-[14px] bg-white p-5 sm:p-5"
-          style={{ backgroundImage: linearWash }}
+          className="group card-glow-ribbon dark-surface-card course-wash elev-hover-2 spring-press relative flex min-h-[140px] flex-col justify-between overflow-hidden rounded-[14px] bg-white p-5 sm:p-5"
+          style={
+            {
+              "--card-wash": linearWash,
+              "--card-wash-dark": linearWashDark,
+            } as React.CSSProperties
+          }
         >
           <span
             aria-hidden

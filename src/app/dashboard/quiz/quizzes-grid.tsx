@@ -6,6 +6,7 @@ import {
   courseGradient,
   courseInkColor,
   courseLinearGradient,
+  courseLinearGradientDark,
 } from "@/lib/course-palette";
 import type { QuizListItem } from "@/lib/data/quizzes";
 import { QuizContextWrapper } from "./quiz-context-wrapper";
@@ -51,6 +52,7 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
   const href = `/dashboard/quiz/${quiz.id}`;
   const seedName = quiz.courseName ?? quiz.title;
   const linearWash = courseLinearGradient(seedName, quiz.courseColor, 0.22);
+  const linearWashDark = courseLinearGradientDark(seedName, quiz.courseColor);
   const hoverGrad = courseGradient(seedName, quiz.courseColor);
   const inkColor = courseInkColor(seedName, quiz.courseColor);
 
@@ -58,8 +60,13 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
     <li>
       <Link
         href={href}
-        className="card-glow-ribbon dark-surface-card elev-1 spring-press group relative block overflow-hidden rounded-[14px] bg-white px-4 py-3.5 transition-shadow hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
-        style={{ backgroundImage: linearWash }}
+        className="card-glow-ribbon dark-surface-card course-wash elev-1 spring-press group relative block overflow-hidden rounded-[14px] bg-white px-4 py-3.5 transition-shadow hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+        style={
+          {
+            "--card-wash": linearWash,
+            "--card-wash-dark": linearWashDark,
+          } as React.CSSProperties
+        }
       >
         <span
           aria-hidden

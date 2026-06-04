@@ -316,11 +316,34 @@ html[data-theme="dark"] .auth-light .bg-white\/40:not(.dark-keep-white) {
 }
 
 /*
- * 다크 모드 대시보드 — 랜딩 다크와 동일 surface 시스템.
- * 배경은 랜딩 #0c0c0e 그대로. blob은 위 토큰 블록에서 강도 올림.
+ * 다크 모드 대시보드 — 정보 밀도 높은 화면이라 배경은 거의 순흑.
+ *
+ * 랜딩의 4-blob(코발트 0.18·라일락 0.12)을 그대로 쓰면 모서리에 "보라/남색 멍"이
+ * 번져 콘텐츠를 방해한다(Apple은 다크 대시보드 배경을 깡 다크에 가깝게 둠).
+ * → 상단 코발트 한 줄만 0.05로 극히 옅게, 라일락 제거. "있는 듯 없는" 깊이감만.
  */
 html[data-theme="dark"] .dashboard-canvas {
-  background-color: #0c0c0e;
+  background-color: #0a0a0c;
+  background-image: radial-gradient(
+    ellipse 120% 50% at 50% -20%,
+    rgba(0, 113, 227, 0.05),
+    transparent 55%
+  );
+}
+
+/*
+ * 헤딩 둘째 단어 dim — "내 문제 [전부]" / "이번 학기, [11개 강의]"처럼
+ * 제목 안에서 부제격 단어를 한 톤 죽여 위계를 준다.
+ *
+ * 라이트: muted(#6e6e73)면 위계가 충분. 다크: 순백 제목(#f5f5f7) 옆에 muted(#a1a1a6)가
+ * 오면 대비 차가 커 "꺼진 것/비활성"처럼 보임 → 제목과 muted 사이 톤(#c7c7cc)으로
+ * 살짝 끌어올려 "차분하지만 분명히 읽히는" 부제로.
+ */
+.heading-dim {
+  color: var(--color-apple-muted);
+}
+html[data-theme="dark"] .heading-dim {
+  color: #c7c7cc;
 }
 
 /*
@@ -415,9 +438,21 @@ html[data-theme="dark"] .elev-3 {
 html[data-theme="dark"] .dark-surface-card {
   /* biome-ignore lint/complexity/noImportantStyles: inline style={{backgroundColor}}을 덮어야 함 */
   background-color: #1d1d1f !important;
-  /* biome-ignore lint/complexity/noImportantStyles: inline style={{backgroundImage}} 좌→우 wash도 덮어야 함 */
-  background-image: none !important;
   position: relative;
+}
+/*
+ * 강의 색 wash 카드 — 라이트/다크 각각 다른 그라데이션을 변수로 받아 자동 전환.
+ *
+ * 인라인 style로 `--card-wash`(라이트 파스텔)·`--card-wash-dark`(다크 vivid) 둘 다 주입.
+ * 서버 컴포넌트라 JS로 테마 분기를 못 하므로 CSS가 data-theme로 스왑 → 깜빡임 0.
+ * 다크 카드가 전부 같은 회색(#1d1d1f)으로 죽던 문제 해결 — 강의별 색 정체성 복원.
+ */
+.course-wash {
+  background-image: var(--card-wash);
+}
+html[data-theme="dark"] .course-wash {
+  /* biome-ignore lint/complexity/noImportantStyles: .dark-surface-card 인라인 배경을 덮어 강의 wash 표시 */
+  background-image: var(--card-wash-dark) !important;
 }
 /*
  * 다크 카드 위쪽 모서리 — 미세 화이트 highlight + 우상단 코발트 wash.

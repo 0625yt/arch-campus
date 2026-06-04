@@ -424,14 +424,18 @@ function TimetableGrid({
                         </span>
                       )}
                       <span
-                        className={`${compact ? "line-clamp-1" : "line-clamp-2"} text-[13.5px] leading-[1.18] wght-700 text-[var(--color-apple-ink)] sm:text-[14px]`}
+                        className={`${compact ? "line-clamp-1" : "line-clamp-2"} text-[13.5px] leading-[1.18] wght-700 sm:text-[14px] ${
+                          isDark ? "text-white" : "text-[var(--color-apple-ink)]"
+                        }`}
                         style={{ letterSpacing: "-0.018em" }}
                       >
                         {s.courseName}
                       </span>
                       {!compact && (
                         <span
-                          className="mt-0.5 line-clamp-1 text-[10.5px] wght-560 tabular-nums text-[var(--color-apple-ink)]/55"
+                          className={`mt-0.5 line-clamp-1 text-[10.5px] wght-560 tabular-nums ${
+                            isDark ? "text-white/75" : "text-[var(--color-apple-ink)]/55"
+                          }`}
                           style={{ letterSpacing: "-0.012em" }}
                         >
                           {s.slot.startLabel}–{s.slot.endLabel}

@@ -234,7 +234,7 @@ function ToolsPageInner() {
             style={{ letterSpacing: "-0.022em" }}
           >
             막혔을 때 바로 쓰는{" "}
-            <span className="text-[var(--color-apple-muted)]">{LIVE_WIZARDS.length}개 도구</span>
+            <span className="heading-dim">{LIVE_WIZARDS.length}개 도구</span>
           </h1>
           <p
             className="mt-2 max-w-[600px] text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"

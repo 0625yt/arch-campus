@@ -74,25 +74,81 @@ export function courseTint(name: string, color?: string | null, alpha = 0.18): s
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/* ── HSL 변환 (다크 셀 색 재구성용) ──────────────────────────────── */
+function rgbToHsl({ r, g, b }: RGB): { h: number; s: number; l: number } {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const mx = Math.max(rn, gn, bn);
+  const mn = Math.min(rn, gn, bn);
+  let h = 0;
+  let s = 0;
+  const l = (mx + mn) / 2;
+  if (mx !== mn) {
+    const d = mx - mn;
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    if (mx === rn) h = (gn - bn) / d + (gn < bn ? 6 : 0);
+    else if (mx === gn) h = (bn - rn) / d + 2;
+    else h = (rn - gn) / d + 4;
+    h /= 6;
+  }
+  return { h: h * 360, s: s * 100, l: l * 100 };
+}
+
+function hslToRgbVals(h: number, s: number, l: number): RGB {
+  const hn = h / 360;
+  const sn = s / 100;
+  const ln = l / 100;
+  const f = (p: number, q: number, t: number) => {
+    let tn = t;
+    if (tn < 0) tn += 1;
+    if (tn > 1) tn -= 1;
+    if (tn < 1 / 6) return p + (q - p) * 6 * tn;
+    if (tn < 1 / 2) return q;
+    if (tn < 2 / 3) return p + (q - p) * (2 / 3 - tn) * 6;
+    return p;
+  };
+  let r: number;
+  let g: number;
+  let b: number;
+  if (sn === 0) {
+    r = g = b = ln;
+  } else {
+    const q = ln < 0.5 ? ln * (1 + sn) : ln + sn - ln * sn;
+    const p = 2 * ln - q;
+    r = f(p, q, hn + 1 / 3);
+    g = f(p, q, hn);
+    b = f(p, q, hn - 1 / 3);
+  }
+  return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+}
+
+function hslToRgb(h: number, s: number, l: number): string {
+  const { r, g, b } = hslToRgbVals(h, s, l);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 /**
- * 다크 모드 시간표 셀 — 불투명 색. 강의색을 어두운 베이스에 섞되 채도를 끌어올려
- * Saturn·Notion처럼 선명하게 발광. alpha 합성 진흙기를 원천 차단.
- *   1) 강의색 채도 강화(회색기 제거) → 2) 어두운 베이스(#222)에 mix
+ * 다크 모드 시간표 셀 — 강의색 hue만 유지하고 채도·명도를 다크 전용으로 재구성.
+ *
+ * 라이트 파스텔(채도 13~22%·명도 95+)을 "곱하기/섞기"로 다크화하면 채도가 죽어
+ * 전부 휘도 ~140의 회갈색 한 덩어리로 수렴한다("진흙"). 대신 hue만 뽑아
+ * 채도 44%·명도 ~31%로 **다시 칠한다** → Apple Calendar 다크처럼 또렷하되 차분.
+ *
+ * 명도는 hue band별 지각 보정(녹/청록/노랑은 밝게 보여 낮추고, 청/보라는 어두워 올림)으로
+ * 9개 강의가 고르게 보이게. 흰 텍스트 대비 7:1+ 확보(WCAG AA, 큰 텍스트 AAA).
  */
 export function courseTintDark(name: string, color?: string | null): string {
-  const { r, g, b } = courseRgb(name, color);
-  // 채도 강화: 각 채널을 평균에서 멀어지게 밀어 회색기를 걷어낸다.
-  const avg = (r + g + b) / 3;
-  const sat = 1.45;
-  const vivid = (c: number) => Math.max(0, Math.min(255, Math.round(avg + (c - avg) * sat)));
-  const vr = vivid(r),
-    vg = vivid(g),
-    vb = vivid(b);
-  // 어두운 베이스(#26)에 강의색 55% mix → 불투명·선명·글자 대비 확보.
-  const base = 38; // ≈ #262628
-  const strength = 0.55;
-  const mix = (c: number) => Math.round(c * strength + base * (1 - strength));
-  return `rgb(${mix(vr)}, ${mix(vg)}, ${mix(vb)})`;
+  const { h } = rgbToHsl(courseRgb(name, color));
+  const lAdjust =
+    h >= 70 && h <= 200
+      ? -5 // green~cyan (눈에 밝음)
+      : h >= 40 && h < 70
+        ? -6 // yellow/butter
+        : h >= 210 && h <= 290
+          ? 4 // blue~violet (눈에 어두움)
+          : 0; // red/pink/orange 기준
+  return hslToRgb(h, 44, 31 + lAdjust);
 }
 
 /** hover 액센트 — 한 단 진하게 (그래도 연함). */
@@ -138,6 +194,20 @@ export function courseLinearGradient(
 ): string {
   const { r, g, b } = courseRgb(name, color);
   return `linear-gradient(90deg, rgba(${r}, ${g}, ${b}, ${alpha}) 0%, rgba(${r}, ${g}, ${b}, ${alpha * 0.45}) 35%, rgba(${r}, ${g}, ${b}, 0) 100%)`;
+}
+
+/**
+ * 다크 카드 좌→우 wash — 강의 hue 기반 진한 색을 좌측에서 풍부하게, 우측으로 풀어
+ * 거의 검정인 다크 카드에 강의 색 정체성을 입힌다.
+ *
+ * 라이트용 courseLinearGradient는 파스텔 alpha 0.28 → 검정 카드 위에선 안 보여
+ * 모든 카드가 같은 회색으로 죽음. 셀(courseTintDark)과 동일 철학으로 hue만 뽑아
+ * 채도 높은 색(S40·L26)을 alpha로 좌측 0.9 → 우측 0으로 흘려 "한 방울 떨군 잉크".
+ */
+export function courseLinearGradientDark(name: string, color?: string | null): string {
+  const { h } = rgbToHsl(courseRgb(name, color));
+  const { r, g, b } = hslToRgbVals(h, 40, 26);
+  return `linear-gradient(90deg, rgba(${r}, ${g}, ${b}, 0.85) 0%, rgba(${r}, ${g}, ${b}, 0.32) 38%, rgba(${r}, ${g}, ${b}, 0) 100%)`;
 }
 
 /**

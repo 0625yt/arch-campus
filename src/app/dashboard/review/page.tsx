@@ -72,7 +72,7 @@ export default async function ReviewPage() {
             className="text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
             style={{ letterSpacing: "-0.022em" }}
           >
-            오답 <span className="text-[var(--color-apple-muted)]">복습</span>
+            오답 <span className="heading-dim">복습</span>
           </h1>
           <p
             className="mt-3 text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
