@@ -27,12 +27,32 @@ const MIN_EVENT_HEIGHT_PX = 22;
 /**
  * ISO datetime → KST 기준 분(0~1439). 자정부터 몇 분 지났는지.
  * 그리드 top 계산용.
+ *
+ * 환경 비의존 — Intl part를 직접 읽는다.
+ *   (이전엔 `new Date(d.toLocaleString("en-US",{timeZone}))` 라운드트립을 썼는데,
+ *    그 문자열을 다시 new Date에 넣으면 실행 환경 타임존으로 재해석돼 getHours()가
+ *    UTC(또는 로컬)를 반환했다. 결과: 09:00 강의가 00:00에 그려지는 버그(KST 9h 누락).
+ *    한국 브라우저에선 우연히 맞아 안 잡혔음.)
  */
 export function isoToKstMinutes(iso: string): number {
-  const d = new Date(iso);
-  // toLocaleString으로 KST 보장. timezone-aware.
-  const kst = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-  return kst.getHours() * 60 + kst.getMinutes();
+  return kstMinutesOf(new Date(iso));
+}
+
+/** Date → KST 기준 분(0~1439). Intl part 직접 읽기 — 라운드트립 없음. */
+function kstMinutesOf(d: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  let h = 0;
+  let m = 0;
+  for (const p of parts) {
+    if (p.type === "hour") h = Number(p.value) % 24; // hour12:false에서도 "24"가 나올 수 있어 %24
+    else if (p.type === "minute") m = Number(p.value);
+  }
+  return h * 60 + m;
 }
 
 /** ISO datetime → "YYYY-MM-DD" (KST 기준 날짜). 같은 날 판정용. */
@@ -159,9 +179,7 @@ export function layoutDayEvents(events: EventView[]): PositionedEvent[] {
  */
 export function getNowKstMinutes(mounted: boolean): number {
   if (!mounted) return -1;
-  const now = new Date();
-  const kst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-  return kst.getHours() * 60 + kst.getMinutes();
+  return kstMinutesOf(new Date());
 }
 
 /**
