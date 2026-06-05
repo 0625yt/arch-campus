@@ -43,6 +43,12 @@ interface OkResponse {
     evidence: string;
     evidencePage: number | null;
     gradingNote?: string;
+    partial?: {
+      matchedParts: string[];
+      missingParts: string[];
+      requiredCount: number;
+    };
+    whyWrong?: string;
   };
 }
 
@@ -115,6 +121,8 @@ export async function POST(
       evidence: r.evidence,
       evidencePage: r.evidencePage,
       gradingNote: r.gradingNote,
+      partial: r.partial,
+      whyWrong: r.whyWrong,
     },
   });
 }

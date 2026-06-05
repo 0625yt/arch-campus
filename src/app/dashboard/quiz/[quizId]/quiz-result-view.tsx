@@ -16,6 +16,14 @@ export interface ResultQuestion {
   evidence: string;
   evidencePage: number | null;
   gradingNote?: string;
+  /** 복수 필수답 부분 채점. */
+  partial?: {
+    matchedParts: string[];
+    missingParts: string[];
+    requiredCount: number;
+  };
+  /** 단답형 오답일 때 내 답이 왜 틀렸는지. */
+  whyWrong?: string;
 }
 
 export interface ResultViewProps {
@@ -253,6 +261,45 @@ function ResultCard({ q, idx }: { q: ResultQuestion; idx: number }) {
             value={q.answer}
             tone="neutral"
           />
+        </div>
+      )}
+
+      {/* 복수 필수답 부분 채점 — 맞은 답·빠진 답 칩. */}
+      {q.partial && (q.partial.matchedParts.length > 0 || q.partial.missingParts.length > 0) && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-[11px] wght-560 tabular-nums text-[var(--color-apple-muted)]">
+            {q.partial.matchedParts.length}/{q.partial.requiredCount} 맞음
+          </span>
+          {q.partial.matchedParts.map((p) => (
+            <span
+              key={`m-${p}`}
+              className="inline-flex items-center gap-1 rounded-[9px] bg-[color:rgba(52,199,89,0.12)] px-2 py-1 text-[12.5px] wght-560 text-[var(--color-apple-success)]"
+            >
+              <span aria-hidden>✓</span>
+              {p}
+            </span>
+          ))}
+          {q.partial.missingParts.map((p) => (
+            <span
+              key={`x-${p}`}
+              className="inline-flex items-center gap-1 rounded-[9px] bg-[var(--color-urgent-soft)] px-2 py-1 text-[12.5px] wght-560 text-[var(--color-urgent)]"
+            >
+              <span aria-hidden>✕</span>
+              {p}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* 오답 이유 — 내 답이 왜 틀렸는지. */}
+      {!q.correct && q.whyWrong && (
+        <div className="mt-3 rounded-[14px] bg-[var(--color-urgent-soft)] px-3.5 py-3">
+          <p className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent)]">
+            왜 틀렸나요
+          </p>
+          <p className="mt-1.5 text-[13px] leading-[1.55] text-[var(--color-apple-ink)]">
+            {q.whyWrong}
+          </p>
         </div>
       )}
 

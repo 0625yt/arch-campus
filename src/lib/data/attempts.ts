@@ -28,6 +28,14 @@ const GradedResultZ = z.object({
   evidence: z.string().optional().default(""),
   evidencePage: z.number().int().nullable().optional(),
   gradingNote: z.string().optional(),
+  partial: z
+    .object({
+      matchedParts: z.array(z.string()),
+      missingParts: z.array(z.string()),
+      requiredCount: z.number().int(),
+    })
+    .optional(),
+  whyWrong: z.string().optional(),
 });
 
 const ResultsArrayZ = z.array(GradedResultZ);
@@ -63,6 +71,12 @@ export interface AttemptSummary {
     submitted: string | null;
     correct: boolean;
     gradingNote?: string;
+    partial?: {
+      matchedParts: string[];
+      missingParts: string[];
+      requiredCount: number;
+    };
+    whyWrong?: string;
   }>;
 }
 
@@ -120,6 +134,8 @@ export async function getAttemptSummary(opts: {
         submitted: r?.submitted ?? null,
         correct: r?.correct ?? false,
         gradingNote: r?.gradingNote,
+        partial: r?.partial,
+        whyWrong: r?.whyWrong,
       };
     }),
   };

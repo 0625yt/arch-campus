@@ -51,6 +51,8 @@ export default async function AttemptReviewPage({
     evidence: q.evidence,
     evidencePage: q.evidencePage,
     gradingNote: q.gradingNote,
+    partial: q.partial,
+    whyWrong: q.whyWrong,
   }));
 
   const ratio = summary.total > 0 ? Math.round((summary.score / summary.total) * 100) : 0;
