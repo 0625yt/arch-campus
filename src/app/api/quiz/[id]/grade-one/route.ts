@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { QuizQuestion } from "@/lib/schemas";
 import { gradeQuiz, type SubmittedAnswer } from "@/lib/services/grade-quiz";
+import { gradeWithLlmAssist } from "@/lib/services/grade-quiz-llm";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -49,6 +50,8 @@ interface OkResponse {
       requiredCount: number;
     };
     whyWrong?: string;
+    /** 정확 매칭 실패였는데 LLM이 의미 등가로 정답 인정 (단답형). 최종 제출과 동일 판정. */
+    llmPromoted?: boolean;
   };
 }
 
@@ -103,7 +106,13 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "잘못된 문제 번호예요" }, { status: 400 });
   }
 
-  const graded = gradeQuiz([target], [body.answer as SubmittedAnswer]);
+  const base = gradeQuiz([target], [body.answer as SubmittedAnswer]);
+  // ★ 최종 제출(/submit)과 동일한 판정을 위해 여기서도 LLM 보조 채점을 적용.
+  // 안 하면 step에서 "틀렸어요" 본 단답형이 최종 결과에선 "맞았어요"로 뒤바뀌어 신뢰가 깨진다.
+  // gradeWithLlmAssist는 단답형 오답(복수답 아님)만 후보라, 객관식·정답·복수답은 즉시 통과(무비용).
+  const graded = await gradeWithLlmAssist(base, [
+    { id: target.id, kind: target.kind, stem: target.stem },
+  ]);
   const r = graded.results[0];
   if (!r) {
     return NextResponse.json({ ok: false, error: "채점 실패" }, { status: 500 });
@@ -123,6 +132,7 @@ export async function POST(
       gradingNote: r.gradingNote,
       partial: r.partial,
       whyWrong: r.whyWrong,
+      llmPromoted: r.llmPromoted,
     },
   });
 }
