@@ -206,16 +206,36 @@ function TimetableGrid({
   // 현재 시각을 body 콘텐츠 높이 비율(0~1)로.
   const nowFrac = nowInRange ? (nowMin - minuteOffset) / totalMinutes : null;
 
-  // 마운트/스크롤 가능 시 "지금" 위치로 자동 스크롤 (상단에서 여유 한 칸).
+  // 오늘 보이는 강의들의 첫 시작 픽셀 — 자동 스크롤이 강의를 가리지 않게 하는 기준.
+  const firstSlotTopPx = useMemo(() => {
+    const todaySlots = data.slots.filter((s) => shownDays.includes(s.slot.weekday));
+    if (todaySlots.length === 0) return null;
+    const earliest = Math.min(...todaySlots.map((s) => s.slot.startMinute));
+    return BODY_PAD_PX + ((earliest - minuteOffset) / 60) * hourPx;
+  }, [data.slots, shownDays, minuteOffset, hourPx]);
+
+  // 자동 스크롤 — "지금" 위치로 가되, 강의가 화면 밖으로 밀려나지 않게 clamp.
+  //   문제였던 케이스: 현재 시각이 모든 강의보다 늦으면(오늘 일정 마무리) "지금"이 콘텐츠
+  //   하단이라, 스크롤이 빈 곳으로 내려가 강의가 통째로 안 보였다(시간표 "날아감").
+  //   해결: target을 "첫 강의가 보이는 위치" 이하로 clamp → 강의는 항상 화면에 든다.
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: nowFrac·bodyContentPx 변할 때만 재정렬
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 스크롤 입력값 변할 때만 재정렬
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || nowFrac === null) return;
-    const target = Math.max(0, nowFrac * bodyContentPx - hourPx);
+    if (!el) return;
+    const maxScroll = Math.max(0, bodyContentPx - el.clientHeight);
+    // 기본 목표: 지금 위치(상단 여유 한 칸). 지금이 없으면 첫 강의.
+    const desired =
+      nowFrac !== null
+        ? nowFrac * bodyContentPx - hourPx
+        : (firstSlotTopPx ?? 0) - BODY_PAD_PX;
+    // 첫 강의가 안 보이게 내려가는 건 막는다 — 첫 강의 위(여유 한 칸)까지만 허용.
+    const maxByFirstSlot =
+      firstSlotTopPx !== null ? Math.max(0, firstSlotTopPx - hourPx * 0.5) : maxScroll;
+    const target = Math.min(Math.max(0, desired), maxByFirstSlot, maxScroll);
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     el.scrollTo({ top: target, behavior: reduce ? "auto" : "smooth" });
-  }, [nowFrac, bodyContentPx, hourPx]);
+  }, [nowFrac, bodyContentPx, hourPx, firstSlotTopPx]);
 
   const hours = useMemo(() => {
     const list: number[] = [];

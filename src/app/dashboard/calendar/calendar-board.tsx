@@ -1061,33 +1061,30 @@ function DayCell({
       >
         {cell.date.getDate()}
       </span>
-      {/* 모바일: 텍스트 2개 + '외 N' — 셀 64px 안에 날짜+칩2+외N이 가독성 유지하며 들어가는 한계 */}
-      <ul className="flex flex-col gap-px sm:hidden">
-        {events.slice(0, 2).map((e) => {
-          const fullLabel = formatEventLabel(e);
-          const shortLabel = formatEventCompact(e);
-          const color = eventColor(e);
-          return (
-            <li key={e.id}>
-              <EventChip
-                event={e}
-                selected={false}
-                allDay={e.allDay}
-                color={color}
-                label={shortLabel}
-                title={fullLabel}
-                onClick={() => onSelectEvent?.(e, new DOMRect(0, 0, 0, 0))}
-                onContext={(pos) => onContextEvent?.(e, pos)}
-              />
-            </li>
-          );
-        })}
-        {events.length > 2 && (
-          <li className="px-1 text-[11px] wght-560 leading-[1.4] text-[var(--color-apple-muted)]">
-            외 {events.length - 2}
-          </li>
-        )}
-      </ul>
+      {/* 모바일: 색 도트만 (Apple/Google 캘린더 모바일 월 뷰 방식).
+          6열 셀이 ~50px라 텍스트는 "글로컬…/외 1"로 다 짤렸다. 짤린 글씨 대신
+          일정별 색 도트로 "무슨 일정이 몇 개 있는지" 한눈에. 날짜 탭 → 그 날 목록.
+          (사용자 요청: 디자인 요소 빼서 잘 보이게) */}
+      {events.length > 0 && (
+        <div className="mt-auto flex flex-wrap items-center gap-1 px-0.5 pb-0.5 sm:hidden">
+          {events.slice(0, 4).map((e) => (
+            <span
+              key={e.id}
+              aria-hidden
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: eventColor(e) }}
+            />
+          ))}
+          {events.length > 4 && (
+            <span
+              className="text-[9px] wght-620 tabular-nums leading-none text-[var(--color-apple-muted)]"
+              style={{ letterSpacing: "-0.02em" }}
+            >
+              +{events.length - 4}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* 데스크톱: macOS 캘린더 톤 — 시간 지정은 좌측 색 도트 + 텍스트(투명 배경),
           하루 종일은 셀 가로 가득 차는 흐릿한 색 막대. */}

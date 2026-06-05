@@ -151,10 +151,7 @@ export function WeekView({
               종일
             </div>
             {dateKeys.map((key) => (
-              <div
-                key={key}
-                className="relative flex-1 border-l border-[var(--color-apple-hairline-soft)] px-1 pt-1"
-              >
+              <div key={key} className="relative flex-1 px-1 pt-1">
                 {(byDate.get(key)?.allDay ?? []).map((e, i) => {
                   const color = eventColorThemed(e, isDark);
                   return (
@@ -228,7 +225,9 @@ export function WeekView({
               return (
                 <div
                   key={key}
-                  className="relative flex-1 border-l border-[var(--color-apple-hairline-soft)]"
+                  // 세로 요일 구분선 제거 — "엑셀 표"가 아니라 "타임라인". 요일 구분은 상단
+                  // 헤더("31일 (일)")가 담당. (사용자 요청: 일정 안 세로선 빼서 잘 보이게)
+                  className="relative flex-1"
                   style={{ backgroundColor: isToday ? "var(--color-surface-cream)" : undefined }}
                 >
                   {/* 시간 hairline */}
