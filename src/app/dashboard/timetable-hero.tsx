@@ -73,14 +73,15 @@ export function TimetableHeading({
 
 export function TimetableHero({
   courses,
+  now,
   onPickCourse,
 }: {
   courses: CourseListItem[];
+  now: Date;
   onPickCourse: (course: CourseListItem) => void;
 }) {
   const semester = useMemo(() => courses.filter((c) => c.category === "semester"), [courses]);
   const data = useTimetableData(courses);
-  const tick = useTick();
 
   if (data.slots.length === 0) {
     return <EmptyTimetableHero />;
@@ -89,7 +90,7 @@ export function TimetableHero({
   return (
     <TimetableGrid
       data={data}
-      now={new Date(tick)}
+      now={now}
       onPickCourse={(slot) => {
         const course = semester.find((c) => c.id === slot.courseId);
         if (course) onPickCourse(course);
@@ -114,15 +115,6 @@ function useTimetableData(courses: CourseListItem[]) {
       })),
     );
   }, [courses]);
-}
-
-function useTick(): number {
-  const [tick, setTick] = useState<number>(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setTick(Date.now()), 60_000);
-    return () => clearInterval(t);
-  }, []);
-  return tick;
 }
 
 /** 요소의 실제 높이를 ResizeObserver로 추적 — 시간당 픽셀 동적 계산용. */
@@ -226,9 +218,7 @@ function TimetableGrid({
     const maxScroll = Math.max(0, bodyContentPx - el.clientHeight);
     // 기본 목표: 지금 위치(상단 여유 한 칸). 지금이 없으면 첫 강의.
     const desired =
-      nowFrac !== null
-        ? nowFrac * bodyContentPx - hourPx
-        : (firstSlotTopPx ?? 0) - BODY_PAD_PX;
+      nowFrac !== null ? nowFrac * bodyContentPx - hourPx : (firstSlotTopPx ?? 0) - BODY_PAD_PX;
     // 첫 강의가 안 보이게 내려가는 건 막는다 — 첫 강의 위(여유 한 칸)까지만 허용.
     const maxByFirstSlot =
       firstSlotTopPx !== null ? Math.max(0, firstSlotTopPx - hourPx * 0.5) : maxScroll;
