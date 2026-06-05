@@ -36,7 +36,7 @@ export default async function QuizWrongOnlyPage({
     if (!exists) notFound();
     return (
       <div>
-        <div className="mx-auto w-full max-w-[760px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12">
+        <div className="mx-auto w-full max-w-[1080px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
           <EmptyWrong
             quizId={quizId}
             quizTitle={exists.title}
@@ -53,7 +53,7 @@ export default async function QuizWrongOnlyPage({
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[760px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12">
+      <div className="mx-auto w-full max-w-[1080px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
         <header className="mb-6 flex items-baseline justify-between gap-3 fade-up">
           <Link
             href="/dashboard/review"

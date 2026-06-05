@@ -475,12 +475,13 @@ function SolveSection({
           className="fade-up rounded-[24px] border border-[var(--color-apple-hairline)] bg-white/96 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.05)] backdrop-blur-xl sm:p-6"
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
+            {/* min-w-0: 긴 stem(공백 없는 긴 토큰 포함)이 와도 0폭으로 짜부라지지 않게. */}
+            <div className="min-w-0 flex-1">
               <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
                 {stepIndex + 1} / {quiz.total} · {currentQuestion.topic} ·{" "}
                 {currentQuestion.difficulty}
               </p>
-              <p className="mt-3 text-[16px] leading-[1.6] wght-560 text-[var(--color-apple-ink)] sm:text-[17px]">
+              <p className="mt-3 text-[16px] leading-[1.6] wght-560 text-[var(--color-apple-ink)] break-keep sm:text-[17px]">
                 {currentQuestion.stem}
               </p>
             </div>
@@ -494,7 +495,7 @@ function SolveSection({
               }
               disabled={isReviewing}
               className={[
-                "inline-flex h-[34px] items-center rounded-full px-3 text-[12.5px] wght-560 transition-colors disabled:opacity-50",
+                "inline-flex h-[34px] shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[12.5px] wght-560 transition-colors disabled:opacity-50",
                 flagged[currentQuestion.id]
                   ? "bg-[color:rgba(255,159,10,0.14)] text-[color:rgb(180,83,9)]"
                   : "bg-[var(--color-apple-pearl)] text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]",
@@ -632,8 +633,11 @@ function SolveSection({
           className="sticky z-10 rounded-[24px] border border-[var(--color-apple-hairline)] bg-white/92 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl"
           style={{ bottom: "calc(56px + env(safe-area-inset-bottom, 0px) + 8px)" }}
         >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex-1">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            {/* min-w-0: 좁은 트랙(오답 풀기·모바일·아이패드)에서 이 텍스트가 0폭으로
+                짜부라지며 한글이 세로 1글자로 쌓이던 버그 차단. 버튼 그룹이 본문을 밀어내도
+                정상 줄바꿈만 일어나게 한다. */}
+            <div className="min-w-0 flex-1">
               <p className="text-[14px] wght-560 text-[var(--color-apple-ink)]">
                 {isReviewing
                   ? currentGraded?.correct
@@ -650,13 +654,15 @@ function SolveSection({
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
+            {/* shrink-0 + flex-wrap: 버튼 그룹은 줄어들지 않고(텍스트 세로화 방지),
+                폭이 부족하면 통째로 다음 줄로 내려간다. */}
+            <div className="flex shrink-0 flex-wrap gap-2">
               {stepIndex > 0 && (
                 <button
                   type="button"
                   onClick={() => onJump(stepIndex - 1)}
                   disabled={confirming || loading}
-                  className="inline-flex h-[46px] items-center justify-center rounded-full bg-[var(--color-apple-pearl)] px-5 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
+                  className="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-5 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
                 >
                   이전
                 </button>
@@ -664,7 +670,7 @@ function SolveSection({
               {quiz.materialId && (
                 <Link
                   href={getMaterialPath(quiz)}
-                  className="inline-flex h-[46px] items-center justify-center rounded-full bg-white px-5 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)]"
+                  className="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-full bg-white px-5 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)]"
                 >
                   자료로
                 </Link>
@@ -675,7 +681,7 @@ function SolveSection({
                   type="button"
                   onClick={onRetry}
                   disabled={loading}
-                  className="inline-flex h-[46px] items-center justify-center rounded-full bg-[var(--color-apple-pearl)] px-5 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
+                  className="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-5 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
                 >
                   다시 답하기
                 </button>
@@ -685,7 +691,7 @@ function SolveSection({
                   type="button"
                   onClick={onNext}
                   disabled={loading}
-                  className="inline-flex h-[46px] items-center justify-center rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all duration-150 hover:bg-[var(--color-apple-action-hover)] disabled:opacity-50"
+                  className="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all duration-150 hover:bg-[var(--color-apple-action-hover)] disabled:opacity-50"
                 >
                   {loading ? "채점 중…" : isLastStep ? "결과 보기" : "다음 문제 →"}
                 </button>
@@ -694,7 +700,7 @@ function SolveSection({
                   type="button"
                   onClick={onConfirm}
                   disabled={!canConfirm}
-                  className="inline-flex h-[46px] items-center justify-center rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all duration-150 hover:bg-[var(--color-apple-action-hover)] disabled:opacity-50"
+                  className="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all duration-150 hover:bg-[var(--color-apple-action-hover)] disabled:opacity-50"
                 >
                   {confirming ? "채점 중…" : "확인"}
                 </button>
