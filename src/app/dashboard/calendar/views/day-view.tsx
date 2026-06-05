@@ -10,7 +10,6 @@ import {
   getNowKstMinutes,
   HOUR_HEIGHT_PX,
   isoToKstDateKey,
-  isoToKstMinutes,
   layoutDayEvents,
   TIME_AXIS_WIDTH_DAY,
 } from "./shared/time-grid";
@@ -65,8 +64,11 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
 
   // 일 뷰도 새벽(0~5시) 안 보여줌 — 일관성 + 학생 컨텍스트.
   // 단, 0~5시에 시작하는 이벤트가 있으면 자동으로 0시부터 표시.
-  // isoToKstMinutes는 환경 비의존(Intl part 직접) — toLocaleString 라운드트립 버그 회피.
-  const hasEarlyEvent = timed.some((e) => isoToKstMinutes(e.startsAt) < 6 * 60);
+  const hasEarlyEvent = timed.some((e) => {
+    const d = new Date(e.startsAt);
+    const kst = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+    return kst.getHours() < 6;
+  });
   const startHour = hasEarlyEvent ? 0 : 6;
   const visibleHours = 24 - startHour;
   const gridHeight = visibleHours * HOUR_HEIGHT_PX;
