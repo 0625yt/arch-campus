@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
+import { upsertAttemptResults } from "@/lib/data/attempts";
 import { QuizQuestion } from "@/lib/schemas";
 import { gradeQuiz, type SubmittedAnswer } from "@/lib/services/grade-quiz";
 import { gradeWithLlmAssist } from "@/lib/services/grade-quiz-llm";
@@ -30,6 +31,8 @@ const Body = z.object({
       response: z.string().max(4000),
     }),
   ]),
+  /** 이어쓸 attempt — 첫 채점이면 없음(서버가 새로 만들어 반환). */
+  attemptId: z.string().uuid().optional(),
 });
 
 interface OkResponse {
@@ -53,6 +56,8 @@ interface OkResponse {
     /** 정확 매칭 실패였는데 LLM이 의미 등가로 정답 인정 (단답형). 최종 제출과 동일 판정. */
     llmPromoted?: boolean;
   };
+  /** 이 풀이 세션의 attempt id — 클라이언트가 이후 채점에 이어쓰기 위해 들고 다님. */
+  attemptId: string;
 }
 
 interface ErrResponse {
@@ -118,8 +123,20 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "채점 실패" }, { status: 500 });
   }
 
+  // ★ 푼 즉시 attempt에 반영 — 1문제 풀고 나가도 오답 큐가 갱신된다.
+  // attemptId 없으면 새로 만들고, 있으면 그 attempt에 이 문제 결과를 병합한다.
+  // 저장 실패해도 채점 결과는 그대로 반환(사용자 풀이 흐름 안 끊김).
+  const saved = await upsertAttemptResults({
+    ownerId,
+    quizId,
+    newResults: [r],
+    attemptId: body.attemptId ?? null,
+  });
+  const attemptId = saved?.attemptId ?? body.attemptId ?? "";
+
   return NextResponse.json({
     ok: true,
+    attemptId,
     result: {
       questionId: r.questionId,
       kind: r.kind,

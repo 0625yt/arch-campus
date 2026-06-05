@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
+import { upsertAttemptResults } from "@/lib/data/attempts";
 import { QuizQuestion } from "@/lib/schemas";
 import { gradeQuiz } from "@/lib/services/grade-quiz";
 import { gradeWithLlmAssist } from "@/lib/services/grade-quiz-llm";
@@ -22,9 +23,11 @@ const SubmitBody = z.object({
         }),
       ]),
     )
-    .min(1)
-    // 퀴즈 cap이 30으로 풀린 뒤(0023 migration)도 여기서 막혀 채점 안 되는 케이스 차단.
+    // 부분 제출 허용 — 답한 문제만 옴(안 푼 문제 빈 답 강제 X). grade-one이 이미 누적
+    // 저장했으니 0개여도 마감만 하면 됨.
     .max(30),
+  /** grade-one이 만든 진행 attempt — 같은 attempt를 마감해 중복 INSERT 방지. */
+  attemptId: z.string().uuid().optional(),
   durationMs: z.number().int().nonnegative().optional(),
 });
 
@@ -111,45 +114,39 @@ export async function POST(
       { status: 500 },
     );
   }
-  const baseGraded = gradeQuiz(questions, body.answers);
+  // 답한 문제만 채점 (부분 제출). 안 푼 문제는 results에 안 들어가 오답으로 안 박힌다.
+  const answeredIds = new Set(body.answers.map((a) => a.questionId));
+  const answeredQuestions = questions.filter((q) => answeredIds.has(q.id));
+  const baseGraded = gradeQuiz(answeredQuestions, body.answers);
 
   // 단답형 LLM 보조 — 정확 매칭 실패한 short-answer만 Haiku에 의미 등가 확인.
   // 정답 없는 case는 빠르게 반환(no-op)이라 비용은 단답 오답이 있을 때만 발생.
   // 모델 실패 시 baseGraded 그대로 반환 (실패 안전).
-  const graded = await gradeWithLlmAssist(baseGraded, questions);
+  const graded = await gradeWithLlmAssist(baseGraded, answeredQuestions);
 
-  // GradedResult는 plain object 배열이라 직렬화 안전 — JSON 캐스트로 supabase 타입에 맞춤.
-  const resultsJson = JSON.parse(JSON.stringify(graded.results));
-  const answersJson = JSON.parse(JSON.stringify(body.answers));
+  // grade-one이 만든 attempt를 마감(UPSERT) — 새 INSERT 안 함(중복 attempt 방지).
+  // 이번 제출분을 기존 누적 results에 병합하고, 마감된 전체 results를 받아 결과 화면에 쓴다.
+  const saved = await upsertAttemptResults({
+    ownerId,
+    quizId,
+    newResults: graded.results,
+    attemptId: body.attemptId ?? null,
+    durationMs: body.durationMs ?? null,
+  });
 
-  const { data: attempt, error: attemptErr } = await admin
-    .from("quiz_attempts")
-    .insert({
-      owner_id: ownerId,
-      quiz_id: quizId,
-      answers: answersJson,
-      results: resultsJson,
-      score: graded.score,
-      total: graded.total,
-      duration_ms: body.durationMs ?? null,
-      status: "completed",
-    })
-    .select("id")
-    .single();
-
-  if (attemptErr || !attempt) {
+  if (!saved) {
     return NextResponse.json(
-      { ok: false, error: `시도 기록 실패: ${attemptErr?.message ?? "unknown"}` },
+      { ok: false, error: "시도 기록 실패 — 잠시 후 다시 시도해주세요." },
       { status: 500 },
     );
   }
 
   return NextResponse.json({
     ok: true,
-    attemptId: attempt.id,
-    score: graded.score,
-    total: graded.total,
-    results: graded.results.map((r) => ({
+    attemptId: saved.attemptId,
+    score: saved.score,
+    total: saved.total,
+    results: saved.results.map((r) => ({
       questionId: r.questionId,
       kind: r.kind,
       correct: r.correct,
@@ -159,7 +156,6 @@ export async function POST(
       evidence: r.evidence,
       evidencePage: r.evidencePage,
       gradingNote: r.gradingNote,
-      llmPromoted: r.llmPromoted,
       partial: r.partial,
       whyWrong: r.whyWrong,
     })),
