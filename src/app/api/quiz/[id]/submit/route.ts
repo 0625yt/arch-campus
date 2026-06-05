@@ -160,6 +160,8 @@ export async function POST(
       evidencePage: r.evidencePage,
       gradingNote: r.gradingNote,
       llmPromoted: r.llmPromoted,
+      partial: r.partial,
+      whyWrong: r.whyWrong,
     })),
     watermark: quiz.watermark,
   });

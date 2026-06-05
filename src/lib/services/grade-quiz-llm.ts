@@ -58,6 +58,9 @@ export async function gradeWithLlmAssist(
   for (const r of graded.results) {
     if (r.kind !== "short-answer") continue;
     if (r.correct) continue;
+    // 복수 필수답("두 개 쓰세요")은 부분 채점이 결정적 — LLM이 부분 정답을
+    // "의미 등가"로 잘못 promote하지 않게 제외한다.
+    if (r.partial) continue;
     if (r.submitted === null || r.submitted.trim().length === 0) continue;
     const q = questions.find((qq) => qq.id === r.questionId);
     if (!q) continue;
@@ -103,6 +106,8 @@ export async function gradeWithLlmAssist(
       ...r,
       correct: true,
       llmPromoted: true,
+      // 정답으로 인정됐으니 "왜 틀렸는지"는 떼어낸다 (모순 방지).
+      whyWrong: undefined,
       gradingNote: verdict.reason
         ? `표현은 다르지만 의미가 같아 정답으로 인정: ${verdict.reason}`
         : "표현은 다르지만 의미가 같아 정답으로 인정",

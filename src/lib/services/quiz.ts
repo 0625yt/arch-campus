@@ -12,7 +12,12 @@ import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
 import { buildPlaybookSection } from "@/lib/subject-playbook";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { breakdown } from "@/lib/tokens";
-import { fingerprint, validateEvidence } from "@/lib/validate-quiz";
+import {
+  fingerprint,
+  questionFingerprint,
+  stripChoicesFromStem,
+  validateEvidence,
+} from "@/lib/validate-quiz";
 
 /**
  * Quiz 서비스 — 신규 업로드와 기존 자료 재실행 라우트가 공유.
@@ -97,7 +102,11 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   // (1) evidence 검증이 본문 추적을 못 하고 (2) 중복 방지·재방문이 깨진다.
   // 본문 없이 metadata만으로 LLM이 일반 지식 환각 문제(자료에 없는 단어)를 만드는 통로 → 원천 차단.
   if (!primary.materialId || primary.materialId.trim().length === 0) {
-    return { ok: false, status: 422, error: "자료 연결이 끊겨 문제를 만들 수 없어요. 자료를 다시 선택해 주세요." };
+    return {
+      ok: false,
+      status: 422,
+      error: "자료 연결이 끊겨 문제를 만들 수 없어요. 자료를 다시 선택해 주세요.",
+    };
   }
 
   // 묶음 자료 본문 합치기. 자료별 헤더로 어디서 나왔는지 표시 (evidence 추적용).
@@ -287,19 +296,31 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   });
   dropped.push(...evDropped);
 
-  // 이전 stem + 청크 간 중복 dedup
+  // stem에 보기가 섞여 들어간 경우 정리 (화면에서 보기 두 번 나오는 버그 차단).
+  for (const q of kept) {
+    q.stem = stripChoicesFromStem(q.stem, q.choices);
+  }
+
+  // 중복 dedup — 두 축으로 막는다.
+  //  1) previousFingerprints: 이전 quiz의 stem fingerprint (텍스트만 있음).
+  //  2) seenQuestionFps: 이번에 만든 문제의 (stem+보기) fingerprint.
+  //     ★ 핵심 — aggregated는 여러 청크를 합친 것이라, 한 청크가 같은 문제를
+  //     두 번 뱉거나 다른 청크가 같은 문제를 내면 여기서 처음으로 걸러진다.
   const previousFingerprints = new Set(previousStems.map(fingerprint));
+  const seenQuestionFps = new Set<string>();
   const deduped = kept.filter((q) => {
-    const fp = fingerprint(q.stem);
-    if (previousFingerprints.has(fp)) {
+    const stemFp = fingerprint(q.stem);
+    const qFp = questionFingerprint(q);
+    if (previousFingerprints.has(stemFp) || seenQuestionFps.has(qFp)) {
       dropped.push({
         questionId: q.id,
-        reason: "이전 quiz와 중복 stem 또는 청크 간 중복",
+        reason: "이전 quiz와 중복 또는 이번 생성분 내 중복(청크 내부 포함)",
         evidence: q.stem.slice(0, 80),
       });
       return false;
     }
-    previousFingerprints.add(fp);
+    previousFingerprints.add(stemFp);
+    seenQuestionFps.add(qFp);
     return true;
   });
 
@@ -373,11 +394,16 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     const { kept: topupKept } = validateEvidence(topupParsed.questions, sanitizedText, {
       isMetadataOnly,
     });
+    for (const q of topupKept) {
+      q.stem = stripChoicesFromStem(q.stem, q.choices);
+    }
     const beforeLen = collected.length;
     for (const q of topupKept) {
-      const fp = fingerprint(q.stem);
-      if (previousFingerprints.has(fp)) continue;
-      previousFingerprints.add(fp);
+      const stemFp = fingerprint(q.stem);
+      const qFp = questionFingerprint(q);
+      if (previousFingerprints.has(stemFp) || seenQuestionFps.has(qFp)) continue;
+      previousFingerprints.add(stemFp);
+      seenQuestionFps.add(qFp);
       collected.push(q);
       if (collected.length >= input.requestedCount) break;
     }

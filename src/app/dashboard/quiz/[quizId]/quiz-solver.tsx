@@ -17,6 +17,12 @@ import { QuizResultView, type ResultQuestion } from "./quiz-result-view";
 
 type Choice = "A" | "B" | "C" | "D";
 
+interface PartialGrade {
+  matchedParts: string[];
+  missingParts: string[];
+  requiredCount: number;
+}
+
 interface SubmitResult {
   questionId: number;
   kind: "multiple-choice" | "short-answer" | "essay";
@@ -29,6 +35,10 @@ interface SubmitResult {
   gradingNote?: string;
   /** true면 정확 매칭 실패였는데 LLM이 의미 등가로 판단해 정답 promote (단답형만). */
   llmPromoted?: boolean;
+  /** 복수 필수답 부분 채점 (예: "둘 다 쓰세요"). */
+  partial?: PartialGrade;
+  /** 단답형 오답일 때 내 답이 왜 틀렸는지. */
+  whyWrong?: string;
 }
 
 /**
@@ -46,6 +56,8 @@ interface StepGradeResult {
   evidencePage: number | null;
   gradingNote?: string;
   llmPromoted?: boolean;
+  partial?: PartialGrade;
+  whyWrong?: string;
 }
 
 interface SubmitOk {
@@ -677,7 +689,57 @@ function GradeFeedback({ graded }: { graded: StepGradeResult }) {
             의미 인정
           </span>
         )}
+        {graded.partial && (
+          <span
+            className="ml-auto inline-flex items-center rounded-full bg-white/70 px-2 py-0.5 text-[11px] wght-620 tabular-nums text-[var(--color-apple-muted)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {graded.partial.matchedParts.length}/{graded.partial.requiredCount} 맞음
+          </span>
+        )}
       </div>
+
+      {/* 복수 필수답 부분 채점 — 맞은 답·빠진 답을 색으로 분리해서 보여줌. */}
+      {graded.partial &&
+        (graded.partial.matchedParts.length > 0 || graded.partial.missingParts.length > 0) && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {graded.partial.matchedParts.map((p) => (
+              <span
+                key={`m-${p}`}
+                className="inline-flex items-center gap-1 rounded-[9px] bg-[color:rgba(59,130,246,0.1)] px-2 py-1 text-[12.5px] wght-560 text-[var(--color-apple-action)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                <span aria-hidden>✓</span>
+                {p}
+              </span>
+            ))}
+            {graded.partial.missingParts.map((p) => (
+              <span
+                key={`x-${p}`}
+                className="inline-flex items-center gap-1 rounded-[9px] bg-[color:rgba(255,59,48,0.1)] px-2 py-1 text-[12.5px] wght-560 text-[var(--color-urgent-strong)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                <span aria-hidden>✕</span>
+                {p}
+              </span>
+            ))}
+          </div>
+        )}
+
+      {/* 오답 이유 — "왜 틀렸는지"를 모범 답안보다 먼저. */}
+      {!graded.correct && graded.whyWrong && (
+        <div className="mt-3">
+          <p className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-urgent-strong)]">
+            왜 틀렸나요
+          </p>
+          <p
+            className="mt-1.5 text-[13.5px] leading-[1.6] wght-450 text-[var(--color-apple-ink)]"
+            style={{ letterSpacing: "-0.012em" }}
+          >
+            {graded.whyWrong}
+          </p>
+        </div>
+      )}
 
       {graded.kind !== "multiple-choice" && (
         <div className="mt-3">
@@ -890,6 +952,8 @@ function ResultSection({
         evidence: graded.evidence ?? "",
         evidencePage: graded.evidencePage ?? null,
         gradingNote: graded.gradingNote,
+        partial: graded.partial,
+        whyWrong: graded.whyWrong,
       },
     ];
   });

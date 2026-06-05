@@ -39,6 +39,20 @@ export interface GradedResult {
   evidence: string;
   evidencePage: number | null;
   gradingNote?: string;
+  /**
+   * 복수 필수답(예: "둘 다 쓰세요") 부분 채점 결과.
+   * 단일답·동의어형 단답에선 undefined.
+   *   - matchedParts: 사용자가 맞힌 정답 조각들
+   *   - missingParts: 빠뜨린 정답 조각들
+   *   - requiredCount: 맞혀야 하는 총 개수
+   */
+  partial?: {
+    matchedParts: string[];
+    missingParts: string[];
+    requiredCount: number;
+  };
+  /** 단답형 오답일 때 "내 답이 왜 틀렸는지" 한 줄 설명. */
+  whyWrong?: string;
 }
 
 export interface GradedQuiz {
@@ -84,6 +98,8 @@ export function gradeQuiz(questions: Question[], answers: SubmittedAnswer[]): Gr
       evidence: q.evidence ?? "",
       evidencePage: q.evidencePage ?? null,
       gradingNote: graded.gradingNote,
+      partial: graded.partial,
+      whyWrong: graded.whyWrong,
     };
   });
 
@@ -93,7 +109,7 @@ export function gradeQuiz(questions: Question[], answers: SubmittedAnswer[]): Gr
 function gradeQuestion(
   question: Question,
   submitted: { choice?: Choice; response?: string } | undefined,
-): Pick<GradedResult, "correct" | "answer" | "submitted" | "gradingNote"> {
+): Pick<GradedResult, "correct" | "answer" | "submitted" | "gradingNote" | "partial" | "whyWrong"> {
   const kind = question.kind ?? "multiple-choice";
 
   if (kind === "multiple-choice") {
@@ -105,6 +121,7 @@ function gradeQuestion(
     };
   }
 
+  const rawSubmitted = submitted?.response?.trim() ?? "";
   const submittedText = normalizeText(submitted?.response ?? "");
   if (!submittedText) {
     return {
@@ -119,18 +136,7 @@ function gradeQuestion(
   }
 
   if (kind === "short-answer") {
-    const accepted = extractAcceptedAnswers(question.answer);
-    const correct = accepted.some((candidate) => isFreeTextMatch(candidate, submittedText));
-    return {
-      correct,
-      answer: question.answer,
-      submitted: submitted?.response?.trim() ?? null,
-      gradingNote: correct
-        ? "자료 기준 정답 표현과 잘 맞아요."
-        : accepted.length > 1
-          ? `허용 표현 예시: ${accepted.slice(0, 3).join(", ")}`
-          : "자료에 적힌 핵심 용어와 표기를 다시 확인해 보세요.",
-    };
+    return gradeShortAnswer(question.answer, rawSubmitted, submittedText);
   }
 
   const keywords = extractEssayKeywords(question.answer);
@@ -161,6 +167,122 @@ function gradeQuestion(
         ? `보완 포인트: ${missing.join(", ")}`
         : "핵심 포인트를 조금 더 구체적으로 적어보세요.",
   };
+}
+
+/**
+ * 단답형 채점 — 단일답·동의어형(OR)과 복수 필수답(AND)을 구분해 부분 채점까지.
+ *
+ * 정답 표기 규약 (quiz.md):
+ *   - 동의어 허용: `|` `/` `,` `또는` 로 구분 → 하나만 맞으면 정답.
+ *     예) "임계 구역 | critical section"
+ *   - 복수 필수답("둘 다 쓰세요"): `&` 로 구분 → 전부 맞아야 정답, 부분 채점 노출.
+ *     각 슬롯 안에서 다시 `|`로 동의어 허용 가능. 예) "あの|あ & この|こ"
+ */
+function gradeShortAnswer(
+  answerSpec: string,
+  rawSubmitted: string,
+  submittedText: string,
+): Pick<GradedResult, "correct" | "answer" | "submitted" | "gradingNote" | "partial" | "whyWrong"> {
+  const requiredSlots = parseRequiredSlots(answerSpec);
+
+  // 복수 필수답 — "둘 다 쓰세요" 류.
+  if (requiredSlots.length > 1) {
+    const submittedParts = splitUserMultiAnswer(rawSubmitted);
+    const matchedParts: string[] = [];
+    const missingParts: string[] = [];
+    for (const slot of requiredSlots) {
+      // 슬롯 안 동의어 중 하나라도 사용자 입력 어딘가와 매칭되면 그 슬롯은 맞음.
+      const hit = slot.accepted.some((cand) =>
+        submittedParts.some((part) => isFreeTextMatch(cand, part)),
+      );
+      if (hit) matchedParts.push(slot.label);
+      else missingParts.push(slot.label);
+    }
+    const correct = missingParts.length === 0;
+    return {
+      correct,
+      answer: answerSpec,
+      submitted: rawSubmitted || null,
+      partial: {
+        matchedParts,
+        missingParts,
+        requiredCount: requiredSlots.length,
+      },
+      gradingNote: correct
+        ? `${requiredSlots.length}개 모두 맞았어요.`
+        : matchedParts.length > 0
+          ? `맞은 답: ${matchedParts.join(", ")} · 빠진 답: ${missingParts.join(", ")}`
+          : `정답 ${requiredSlots.length}개를 모두 놓쳤어요: ${missingParts.join(", ")}`,
+      whyWrong: correct
+        ? undefined
+        : matchedParts.length > 0
+          ? `${matchedParts.join(", ")}는 맞았지만 ${missingParts.join(", ")}를 빠뜨렸어요.`
+          : `요구한 ${requiredSlots.length}개 중 맞은 게 없어요. 정답은 ${requiredSlots
+              .map((s) => s.label)
+              .join(", ")}예요.`,
+    };
+  }
+
+  // 단일답(동의어 허용) — 기존 동작.
+  const accepted = requiredSlots[0]?.accepted ?? extractAcceptedAnswers(answerSpec);
+  const correct = accepted.some((candidate) => isFreeTextMatch(candidate, submittedText));
+  const primary = requiredSlots[0]?.label ?? accepted[0] ?? answerSpec;
+  return {
+    correct,
+    answer: answerSpec,
+    submitted: rawSubmitted || null,
+    gradingNote: correct
+      ? "자료 기준 정답 표현과 잘 맞아요."
+      : accepted.length > 1
+        ? `허용 표현 예시: ${accepted.slice(0, 3).join(", ")}`
+        : "자료에 적힌 핵심 용어와 표기를 다시 확인해 보세요.",
+    whyWrong: correct
+      ? undefined
+      : `적은 답 "${rawSubmitted}"은 정답 "${primary}"와 달라요. 표기·철자를 자료와 맞춰 보세요.`,
+  };
+}
+
+/**
+ * 정답 스펙을 "필수 슬롯" 배열로 파싱.
+ *   - `&` 또는 한국어 "그리고" 로 슬롯 구분 (복수 필수답).
+ *   - 슬롯 1개면 그게 곧 단일답(내부 accepted는 동의어 OR 목록).
+ */
+function parseRequiredSlots(answerSpec: string): Array<{ label: string; accepted: string[] }> {
+  const stripped = answerSpec.replace(/^정답[:：]\s*/i, "").trim();
+  // `&` 또는 " 그리고 " 로 명시적 복수답 구분. 그 외 구분자(|,/)는 동의어로 본다.
+  const slotTexts = stripped
+    .split(/\s*&\s*|\s+그리고\s+/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return slotTexts.map((slotText) => {
+    const accepted = extractAcceptedAnswers(slotText);
+    return {
+      // 라벨은 동의어 목록의 첫 표현(원문 가독성용) — 정규화 전 형태를 우선.
+      label: firstReadableLabel(slotText),
+      accepted: accepted.length > 0 ? accepted : [normalizeText(slotText)].filter(Boolean),
+    };
+  });
+}
+
+/** 동의어 묶음에서 사람이 읽기 좋은 첫 표현 (정규화 전 원문 기준). */
+function firstReadableLabel(slotText: string): string {
+  const first = slotText.split(/\n|\/|,|;|\||또는/gi)[0] ?? slotText;
+  return first.replace(/^정답[:：]\s*/i, "").trim() || slotText.trim();
+}
+
+/** 사용자가 복수답을 입력할 때 쓰는 다양한 구분자로 split. */
+function splitUserMultiAnswer(raw: string): string[] {
+  const parts = raw
+    // 한·일·영 구분자: 중점(・·) 쉼표(、，,) 슬래시 세미콜론 공백 "그리고/and".
+    .split(/[、，,・·/;]|\s+그리고\s+|\s+and\s+|\s+/gi)
+    .map((p) => normalizeText(p))
+    .filter(Boolean);
+  // 구분자 없이 붙여 쓴 경우(예: "あのこの")도 통째로 한 덩어리로 매칭 시도.
+  if (parts.length === 0) {
+    const whole = normalizeText(raw);
+    return whole ? [whole] : [];
+  }
+  return [...new Set([...parts, normalizeText(raw)])].filter(Boolean);
 }
 
 function extractAcceptedAnswers(answer: string): string[] {
@@ -198,11 +320,28 @@ function isFreeTextMatch(candidate: string, submitted: string): boolean {
 }
 
 function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[“”"'"`]/g, "")
-    .replace(/[(){}[\]]/g, " ")
-    .replace(/[.,!?~]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    katakanaToHiragana(
+      value
+        // 전각→반각·가나 호환 통일 (NFKC). "Ａ" → "A", 반각 가나 → 전각 등.
+        // 일본어 IME가 만든 전각 영숫자·구두점 차이로 인한 오판정을 근본 차단.
+        .normalize("NFKC"),
+    )
+      .toLowerCase()
+      .replace(/[“”"'"`「」『』]/g, "")
+      .replace(/[(){}[\]（）【】]/g, " ")
+      // 영문 + 일본어·한국어 구두점(중점·일본쉼표·마침표 등)을 공백으로.
+      .replace(/[.,!?~。、・·…：:;；]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
+}
+
+/**
+ * 가타카나 → 히라가나. 같은 음(あ=ア)을 표기 종류만 다르게 쓴 답을 같게 본다.
+ * 일본어 단답형에서 학생이 아무 표기로 써도 음이 맞으면 인정하기 위함.
+ * 장음 부호(ー)는 NFKC가 유지하므로 그대로 둔다(음 구분에 의미 있음).
+ */
+function katakanaToHiragana(s: string): string {
+  return s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60));
 }

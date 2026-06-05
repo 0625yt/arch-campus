@@ -154,15 +154,15 @@ function TimetableGrid({
   now: Date;
   onPickCourse: (slot: CourseSlot) => void;
 }) {
+  // 첫 진입은 항상 "한 주" 뷰. 모바일이라고 today로 강제하지 않는다 —
+  // 예전엔 리사이즈/마운트마다 setView로 today로 튕겨, 주 뷰로 바꿔도 되돌아왔음.
+  // 모바일에서 오늘만 보고 싶으면 사용자가 "오늘만" pill로 직접 전환.
   const [view, setView] = useState<View>("week");
   const [isMobile, setIsMobile] = useState(false);
   const isDark = useIsDark();
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
-    const apply = () => {
-      setIsMobile(mq.matches);
-      setView(mq.matches ? "today" : "week");
-    };
+    const apply = () => setIsMobile(mq.matches);
     apply();
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);

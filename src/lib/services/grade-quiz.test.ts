@@ -109,4 +109,49 @@ describe("gradeQuiz", () => {
     expect(graded.score).toBe(1);
     expect(graded.results[0].gradingNote).toContain("핵심 포인트");
   });
+
+  it("일본어 단답형 — 중점·공백 차이가 있어도 정답 (사용자 버그 재현)", () => {
+    // 정답 "あの & この" (둘 다 써야 정답), 사용자가 "あの・この" (중점 구분) 입력.
+    const questions: Question[] = [
+      mkQ(1, "A", { kind: "short-answer", choices: null, answer: "あの & この" }),
+    ];
+    const cases = ["あの・この", "あの ・ この", "あの、この", "この あの", "アノ・コノ"];
+    for (const response of cases) {
+      const graded = gradeQuiz(questions, [{ questionId: 1, response }]);
+      expect(graded.results[0].correct, `"${response}" 가 정답이어야 함`).toBe(true);
+      expect(graded.results[0].partial?.matchedParts).toHaveLength(2);
+    }
+  });
+
+  it("복수 필수답 부분 채점 — 하나만 맞으면 오답이되 맞은/빠진 답을 분리", () => {
+    const questions: Question[] = [
+      mkQ(1, "A", { kind: "short-answer", choices: null, answer: "あの & この" }),
+    ];
+    const graded = gradeQuiz(questions, [{ questionId: 1, response: "あの" }]);
+    const r = graded.results[0];
+    expect(r.correct).toBe(false);
+    expect(r.partial?.matchedParts).toEqual(["あの"]);
+    expect(r.partial?.missingParts).toEqual(["この"]);
+    expect(r.whyWrong).toContain("この");
+  });
+
+  it("단답형 오답이면 내 답이 왜 틀렸는지 whyWrong 제공", () => {
+    const questions: Question[] = [
+      mkQ(1, "A", { kind: "short-answer", choices: null, answer: "정규화" }),
+    ];
+    const graded = gradeQuiz(questions, [{ questionId: 1, response: "트랜잭션" }]);
+    expect(graded.results[0].correct).toBe(false);
+    expect(graded.results[0].whyWrong).toContain("트랜잭션");
+    expect(graded.results[0].whyWrong).toContain("정규화");
+  });
+
+  it("동의어형(|)은 여전히 하나만 맞으면 정답 (회귀 방지)", () => {
+    const questions: Question[] = [
+      mkQ(1, "A", { kind: "short-answer", choices: null, answer: "임계 구역 | critical section" }),
+    ];
+    const graded = gradeQuiz(questions, [{ questionId: 1, response: "critical section" }]);
+    expect(graded.results[0].correct).toBe(true);
+    // 동의어형은 복수 필수답이 아니므로 partial 없음.
+    expect(graded.results[0].partial).toBeUndefined();
+  });
 });
