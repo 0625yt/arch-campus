@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { QuizQuestion } from "@/lib/schemas";
+import type { GradedResult } from "@/lib/services/grade-quiz";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 /**
@@ -39,6 +40,103 @@ const GradedResultZ = z.object({
 });
 
 const ResultsArrayZ = z.array(GradedResultZ);
+
+/**
+ * 풀이 결과를 attempt에 점진적으로 누적 — "푼 문제는 즉시 DB 반영".
+ *
+ * 왜:
+ *   step-by-step에서 1문제 풀고 나가면 예전엔 /submit을 안 거쳐 attempt가 안 만들어졌고,
+ *   그래서 오답 큐가 갱신되지 않았다(맞혀도 안 줄어듦). 이제 grade-one이 채점할 때마다
+ *   이 함수로 그 문제 결과를 attempt에 병합 → 어느 시점에 나가도 푼 만큼 반영된다.
+ *
+ * 동작:
+ *   - attemptId 없음 → 새 attempt INSERT (이 quiz의 새 풀이 세션 시작).
+ *   - attemptId 있음 → 그 attempt의 results에 newResults를 questionId 기준 병합(교체) 후 UPDATE.
+ *   - score = results 중 correct 개수. total = 실제 채점된 문제 수(부분 풀이도 정확).
+ *   - 안 푼 문제는 results에 없으므로 wrong_items_v(오답 큐)에 안 들어간다 → 부분 풀이 안전.
+ *
+ * owner 가드: admin(service-role)이라 RLS 우회 — 모든 쿼리에 owner_id 강제 + UPDATE 시
+ * attemptId가 본인 것인지 owner_id로 재확인(ARCHITECTURE §4-1).
+ */
+export async function upsertAttemptResults(opts: {
+  ownerId: string;
+  quizId: string;
+  /** 새로 채점된 결과들 (보통 1개, submit 마감 시 여러 개). */
+  newResults: GradedResult[];
+  /** 이어쓸 attempt. 없으면 새로 만든다. */
+  attemptId?: string | null;
+  durationMs?: number | null;
+}): Promise<{
+  attemptId: string;
+  score: number;
+  total: number;
+  results: GradedResult[];
+} | null> {
+  const admin = getAdminSupabase();
+
+  // 1) 기존 results 로드 (이어쓰기) — attemptId가 본인 것인지 owner_id로 가드.
+  let existing: GradedResult[] = [];
+  if (opts.attemptId) {
+    const { data } = await admin
+      .from("quiz_attempts")
+      .select("results")
+      .eq("id", opts.attemptId)
+      .eq("owner_id", opts.ownerId)
+      .maybeSingle();
+    if (data) {
+      const parsed = ResultsArrayZ.safeParse(data.results);
+      if (parsed.success) existing = parsed.data as GradedResult[];
+    }
+  }
+
+  // 2) questionId 기준 병합 — 같은 문제를 다시 풀면 최신 결과로 교체.
+  const byId = new Map<number, GradedResult>();
+  for (const r of existing) byId.set(r.questionId, r);
+  for (const r of opts.newResults) byId.set(r.questionId, r);
+  const merged = [...byId.values()];
+  const score = merged.filter((r) => r.correct).length;
+  // total은 "실제 채점된 문제 수" — 부분 풀이(2문제만)도 "2문제 중 1개"로 정확하게.
+  // sessionTotal(세션 전체)로 total을 잡으면 안 푼 문제가 오답처럼 보여 오해를 준다.
+  const total = Math.max(merged.length, 1);
+
+  const resultsJson = JSON.parse(JSON.stringify(merged));
+
+  // 3) UPSERT — attemptId 있으면 UPDATE, 없으면 INSERT.
+  if (opts.attemptId) {
+    const { data, error } = await admin
+      .from("quiz_attempts")
+      .update({
+        results: resultsJson,
+        score,
+        total,
+        duration_ms: opts.durationMs ?? null,
+        status: "completed",
+      })
+      .eq("id", opts.attemptId)
+      .eq("owner_id", opts.ownerId)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) return null;
+    return { attemptId: opts.attemptId, score, total, results: merged };
+  }
+
+  const { data, error } = await admin
+    .from("quiz_attempts")
+    .insert({
+      owner_id: opts.ownerId,
+      quiz_id: opts.quizId,
+      answers: [], // step별 누적이라 answers는 results로 대체 — 빈 배열로 둠.
+      results: resultsJson,
+      score,
+      total,
+      duration_ms: opts.durationMs ?? null,
+      status: "completed",
+    })
+    .select("id")
+    .single();
+  if (error || !data) return null;
+  return { attemptId: data.id, score, total, results: merged };
+}
 
 /**
  * 다시보기 페이지가 쓰는 단일 진실.

@@ -94,6 +94,9 @@ export function QuizSolver({ quiz }: { quiz: QuizSolveView }) {
   );
   // 현재 보고 있는 문제 index (0 ~ quiz.total-1). step-by-step의 핵심 state.
   const [stepIndex, setStepIndex] = useState(() => draft?.stepIndex ?? 0);
+  // 이 풀이 세션의 attempt id — grade-one이 처음 채점할 때 서버가 만들어 돌려줌.
+  // 이후 채점·제출이 같은 attempt에 누적되도록 들고 다닌다(중복 attempt 방지).
+  const [attemptId, setAttemptId] = useState<string | null>(() => draft?.attemptId ?? null);
   const questionRefs = useRef<Record<number, HTMLElement | null>>({});
 
   // 진행상황을 sessionStorage에 자동 저장 — 페이지를 떠났다 와도 복원.
@@ -103,8 +106,8 @@ export function QuizSolver({ quiz }: { quiz: QuizSolveView }) {
       clearDraft(draftKey);
       return;
     }
-    writeDraft(draftKey, { answers, flagged, stepResults, stepIndex, startedAt });
-  }, [phase, draftKey, answers, flagged, stepResults, stepIndex, startedAt]);
+    writeDraft(draftKey, { answers, flagged, stepResults, stepIndex, startedAt, attemptId });
+  }, [phase, draftKey, answers, flagged, stepResults, stepIndex, startedAt, attemptId]);
 
   useEffect(() => {
     if (phase !== "solve") return;
@@ -133,8 +136,14 @@ export function QuizSolver({ quiz }: { quiz: QuizSolveView }) {
     setLoading(true);
     setError(null);
     try {
+      // ★ 답한 문제만 제출 — 안 푼 문제를 빈 답으로 보내 오답 처리되던 버그 차단.
+      // (특히 "오답만 다시 풀기"에서 일부만 풀고 결과 보기 누르는 경우.)
+      const answered = quiz.questions.filter((q) => {
+        const v = answers[q.id];
+        return v !== undefined && v !== null && v !== "";
+      });
       const body = {
-        answers: quiz.questions.map((question) =>
+        answers: answered.map((question) =>
           question.kind === "multiple-choice"
             ? {
                 questionId: question.id,
@@ -145,6 +154,7 @@ export function QuizSolver({ quiz }: { quiz: QuizSolveView }) {
                 response: answers[question.id]?.trim() ?? "",
               },
         ),
+        attemptId: attemptId ?? undefined,
         durationMs: Date.now() - startedAt,
       };
 
@@ -195,6 +205,8 @@ export function QuizSolver({ quiz }: { quiz: QuizSolveView }) {
           setStepIndex={setStepIndex}
           stepResults={stepResults}
           setStepResults={setStepResults}
+          attemptId={attemptId}
+          setAttemptId={setAttemptId}
           loading={loading}
           onSubmit={onSubmit}
           questionRefs={questionRefs}
@@ -250,8 +262,9 @@ function Header({
  * 변경: 한 번에 한 문제만. 답 → "확인" → grade-one으로 즉시 채점 → 정답·해설 표시 →
  *       "다음 문제" / "결과 보기" 액션.
  *
- * attempt 기록은 단건 채점 시점에 INSERT하지 X — 마지막에 부모 onSubmit이
- * /api/quiz/[id]/submit 한 번 호출해 score·복습 큐가 한 attempt로 깔끔히 기록되게.
+ * attempt는 단건 채점(grade-one) 시점부터 점진적으로 누적된다 — 한 문제 풀 때마다
+ * 서버가 attempt에 그 결과를 병합한다. 그래서 도중에 나가도 푼 만큼 오답 큐에 반영된다.
+ * 마지막 onSubmit은 그 attempt를 마감(전체 정리)하는 역할.
  */
 function SolveSection({
   quiz,
@@ -265,6 +278,8 @@ function SolveSection({
   setStepIndex,
   stepResults,
   setStepResults,
+  attemptId,
+  setAttemptId,
   loading,
   onSubmit,
   questionRefs,
@@ -280,6 +295,8 @@ function SolveSection({
   setStepIndex: Dispatch<SetStateAction<number>>;
   stepResults: Record<number, StepGradeResult>;
   setStepResults: Dispatch<SetStateAction<Record<number, StepGradeResult>>>;
+  attemptId: string | null;
+  setAttemptId: Dispatch<SetStateAction<string | null>>;
   loading: boolean;
   onSubmit: () => void;
   questionRefs: MutableRefObject<Record<number, HTMLElement | null>>;
@@ -308,22 +325,26 @@ function SolveSection({
     setConfirming(true);
     setStepError(null);
     try {
-      const body =
+      const answer =
         currentQuestion.kind === "multiple-choice"
-          ? { answer: { questionId: currentQuestion.id, choice: value as Choice } }
-          : { answer: { questionId: currentQuestion.id, response: value?.trim() ?? "" } };
+          ? { questionId: currentQuestion.id, choice: value as Choice }
+          : { questionId: currentQuestion.id, response: value?.trim() ?? "" };
+      // attemptId·sessionTotal을 함께 보내 푼 즉시 attempt에 누적 저장(도중 이탈해도 반영).
+      const body = { answer, attemptId: attemptId ?? undefined, sessionTotal: quiz.total };
       const res = await fetch(`/api/quiz/${quiz.id}/grade-one`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
       const json = (await res.json()) as
-        | { ok: true; result: StepGradeResult }
+        | { ok: true; result: StepGradeResult; attemptId: string }
         | { ok: false; error: string };
       if (!json.ok) {
         setStepError(json.error);
         return;
       }
+      // 첫 채점이면 서버가 만든 attemptId를 기억 — 이후 채점·제출이 같은 attempt에 누적.
+      if (json.attemptId) setAttemptId(json.attemptId);
       setStepResults((prev) => ({ ...prev, [currentQuestion.id]: json.result }));
     } catch (e) {
       setStepError(e instanceof Error ? e.message : String(e));
@@ -1023,6 +1044,7 @@ interface QuizDraft {
   stepResults: Record<number, StepGradeResult>;
   stepIndex: number;
   startedAt: number;
+  attemptId?: string | null;
 }
 
 function readDraft(key: string): QuizDraft | null {
