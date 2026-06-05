@@ -10,8 +10,8 @@ import { Modal } from "@/components/modal";
 import { Popover } from "@/components/popover";
 import { hexTintDark } from "@/lib/course-palette";
 import type { EventView } from "@/lib/data/events";
-import { useIsDark } from "../use-mobile";
 import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
+import { useIsDark } from "../use-mobile";
 import { EventAIDraftPanel } from "./ai-draft-panel";
 import { AiEntryCard } from "./ai-entry-card";
 import { DayView } from "./views/day-view";
@@ -91,11 +91,14 @@ export function CalendarBoard({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialScale = ((): CalendarScale => {
-    const raw = searchParams.get("scale");
-    if (raw === "day" || raw === "week" || raw === "month" || raw === "year") return raw;
-    return "month";
-  })();
+  // URL에 scale이 명시됐는지 — 명시 안 됐을 때만 모바일 자동 week 전환을 적용한다.
+  const scaleInUrl = searchParams.get("scale");
+  const scaleExplicit =
+    scaleInUrl === "day" ||
+    scaleInUrl === "week" ||
+    scaleInUrl === "month" ||
+    scaleInUrl === "year";
+  const initialScale: CalendarScale = scaleExplicit ? (scaleInUrl as CalendarScale) : "month";
   // scale 토글 부활 (2026-05-23) — 일/주/월 3옵션 (년은 식갑 숨김).
   // URL ?scale= 동기화로 새로고침·외부 진입 모두 유지.
   const [scale, setScaleState] = useState<CalendarScale>(initialScale);
@@ -148,6 +151,21 @@ export function CalendarBoard({
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
+
+  // 모바일 기본 뷰 = 주(week). 데스크톱은 월(month) 유지.
+  // 이유: 모바일에서 월 뷰는 6열 셀이 ~50px라 일정 제목이 다 짤려 "외 1"로 무너진다.
+  //   주 뷰는 일정이 컬러 블록으로 시간·제목까지 보인다. (사용자 결정 2026-06-05)
+  // SSR은 month로 렌더하고 마운트 후 모바일이면 week로 전환 → hydration mismatch 없음.
+  // URL에 scale이 명시됐으면(사용자가 직접 고름) 존중하고 자동 전환 안 함.
+  const autoWeekAppliedRef = useRef(false);
+  useEffect(() => {
+    if (scaleExplicit || autoWeekAppliedRef.current) return;
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    if (isMobile) {
+      autoWeekAppliedRef.current = true;
+      setScaleState("week");
+    }
+  }, [scaleExplicit]);
   const [creating, setCreating] = useState(false);
   // 날짜 셀 클릭 시 그 날의 일정을 우측에 모아 봄. 일정 클릭이 우선이면 selected가 덮어씀.
   const [selectedDate, setSelectedDate] = useState<string | null>(null);

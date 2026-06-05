@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { EventView } from "@/lib/data/events";
 import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
-import { eventColorThemed } from "../calendar-board";
 import { useIsDark } from "../../use-mobile";
+import { eventColorThemed } from "../calendar-board";
 import {
   ALL_DAY_ROW_PX,
   formatHourLabel,
@@ -295,7 +295,13 @@ export function WeekView({
                         }}
                       >
                         <div className="flex items-start justify-between gap-1">
-                          <span className="block truncate text-[11px] wght-620 leading-[1.3]">
+                          {/* 블록이 넉넉하면(>=44px) 제목 2줄까지 — 모바일 좁은 컬럼에서
+                              "글로컬 영어 I"가 "글로…"로 짤리던 문제 완화. 짧은 블록은 1줄. */}
+                          <span
+                            className={`block min-w-0 wrap-break-word text-[11px] wght-620 leading-[1.3] ${
+                              heightPx >= 44 ? "line-clamp-2" : "truncate"
+                            }`}
+                          >
                             {formatEventCompact(event)}
                           </span>
                           {isRecurring && (

@@ -4,6 +4,29 @@ import type { Database } from "@/lib/supabase/types";
 
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
 
+/**
+ * 이 시간(ms)을 넘긴 pending/running job은 "버려진(stale)" 작업으로 본다.
+ *
+ * 왜 필요한가 (2026-06-05 — "몇 시간째 생성 중" 근본 수정):
+ *   모든 비동기 작업(quiz·summarize·wizard 13종)은 route에서 `after()` 콜백으로
+ *   markJobDone/markJobError를 부른다. 그런데 Vercel serverless 인스턴스가 응답 직후
+ *   freeze/kill되거나 함수 maxDuration(300s)을 넘기면 `after` 콜백이 끝까지 안 돌아
+ *   markJobError조차 못 부른다 → job이 pending/running에 영원히 남는다.
+ *   - 사용자 화면: "생성 중" 카드/스피너가 영구 표시 ("몇 시간째 생성 중")
+ *   - 더 나쁜 건: enqueueJob이 그 stale job을 reuse해서, 그 자료는 새 작업을
+ *     영원히 못 만든다 (항상 죽은 job을 돌려줌).
+ *
+ * 임계값 8분: maxDuration 300초(5분) + OCR·LLM 보충 루프 여유 + Realtime 지연.
+ * 정상 작업이 8분을 넘기는 경우는 거의 없으니, 그 이상이면 죽은 작업으로 판단해
+ * 새 시도를 허용하고 stale 카드를 화면에서 치운다.
+ */
+const STALE_JOB_MS = 8 * 60 * 1000;
+
+function isStale(row: Pick<JobRow, "created_at" | "started_at">): boolean {
+  const anchor = row.started_at ?? row.created_at;
+  return Date.now() - new Date(anchor).getTime() > STALE_JOB_MS;
+}
+
 export type JobStatus = JobRow["status"];
 export type JobTool = string;
 
@@ -74,7 +97,21 @@ export async function enqueueJob(opts: {
       .in("status", ["pending", "running"])
       .maybeSingle();
     if (existing) {
-      return { job: mapJob(existing), isNew: false };
+      // 살아있는 작업이면 그대로 재사용 (중복 호출 방지)
+      if (!isStale(existing)) {
+        return { job: mapJob(existing), isNew: false };
+      }
+      // stale(8분+ 멈춘 죽은 작업)이면 error로 닫고 새로 만든다.
+      // 이 닫기가 없으면 아래 INSERT가 UNIQUE partial index에 막혀 영원히 새 작업 불가.
+      await admin
+        .from("jobs")
+        .update({
+          status: "error",
+          error_message: "작업이 중단돼 자동 정리됐어요. 다시 시도해 주세요.",
+          finished_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id)
+        .eq("owner_id", opts.ownerId);
     }
   }
 
@@ -118,7 +155,7 @@ export async function getLatestJob(opts: {
   tool: JobTool;
 }): Promise<JobView | null> {
   const admin = getAdminSupabase();
-  const { data, error } = await admin
+  const { data: latest } = await admin
     .from("jobs")
     .select("*")
     .eq("owner_id", opts.ownerId)
@@ -127,8 +164,23 @@ export async function getLatestJob(opts: {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error || !data) return null;
-  return mapJob(data);
+  if (!latest) return null;
+  // stale pending/running이면 자료 페이지가 "요약/추출 중"에 영구 멈추지 않게
+  // error로 닫아서 그 상태로 돌려준다. (다른 도구 stale 정리와 동일 정책)
+  if ((latest.status === "pending" || latest.status === "running") && isStale(latest)) {
+    const errorMessage = "작업이 중단돼 자동 정리됐어요. 다시 시도해 주세요.";
+    await admin
+      .from("jobs")
+      .update({
+        status: "error",
+        error_message: errorMessage,
+        finished_at: new Date().toISOString(),
+      })
+      .eq("id", latest.id)
+      .eq("owner_id", opts.ownerId);
+    return mapJob({ ...latest, status: "error", error_message: errorMessage });
+  }
+  return mapJob(latest);
 }
 
 // 모든 markJob* 함수는 ownerId 가드를 받아 service-role 우회 시 다른 사용자 job을 건드리지 않게 함.
@@ -195,6 +247,9 @@ export async function markJobError(opts: {
 
 /**
  * 사용자의 active(pending/running) 작업 전체 — 사이드바·자료 페이지 진행 표시용.
+ *
+ * stale(8분+ 멈춘 죽은) 작업은 여기서 error로 마킹하고 결과에서 뺀다.
+ * 폴링이 주기적으로 도니, 죽은 job의 "생성 중" 카드가 다음 tick에 사라진다.
  */
 export async function listActiveJobs(opts: { ownerId: string }): Promise<JobView[]> {
   const admin = getAdminSupabase();
@@ -205,5 +260,25 @@ export async function listActiveJobs(opts: { ownerId: string }): Promise<JobView
     .in("status", ["pending", "running"])
     .order("created_at", { ascending: false });
   if (error || !data) return [];
-  return data.map(mapJob);
+
+  const live: JobRow[] = [];
+  const staleIds: string[] = [];
+  for (const row of data) {
+    if (isStale(row)) staleIds.push(row.id);
+    else live.push(row);
+  }
+  // 죽은 작업 일괄 정리 — 다음 폴링부터 화면에서 빠짐. ownerId 가드로 본인 것만.
+  if (staleIds.length > 0) {
+    await admin
+      .from("jobs")
+      .update({
+        status: "error",
+        error_message: "작업이 중단돼 자동 정리됐어요. 다시 시도해 주세요.",
+        finished_at: new Date().toISOString(),
+      })
+      .eq("owner_id", opts.ownerId)
+      .in("id", staleIds);
+  }
+
+  return live.map(mapJob);
 }
