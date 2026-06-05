@@ -38,6 +38,7 @@ export default async function QuizWrongOnlyPage({
       <div>
         <div className="mx-auto w-full max-w-[760px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12">
           <EmptyWrong
+            quizId={quizId}
             quizTitle={exists.title}
             materialId={exists.materialId}
             courseName={exists.courseName}
@@ -72,10 +73,12 @@ export default async function QuizWrongOnlyPage({
 }
 
 function EmptyWrong({
+  quizId,
   quizTitle,
   materialId,
   courseName,
 }: {
+  quizId: string;
   quizTitle: string;
   materialId: string | null;
   courseName: string | null;
@@ -95,6 +98,13 @@ function EmptyWrong({
         이 퀴즈를 한 번 더 풀거나 자료로 돌아가기.
       </p>
       <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+        {/* 카피에 "한 번 더 풀거나"라 써있는데 버튼이 없던 누락 — 다시 풀기 CTA를 1급으로. */}
+        <Link
+          href={`/dashboard/quiz/${quizId}`}
+          className="inline-flex h-[44px] items-center justify-center rounded-full bg-[var(--color-apple-ink)] px-6 text-[14px] wght-560 text-white hover:opacity-90"
+        >
+          이 퀴즈 다시 풀기
+        </Link>
         {materialId && (
           <Link
             href={
@@ -102,7 +112,7 @@ function EmptyWrong({
                 ? `/dashboard/study/${encodeURIComponent(courseName)}/${materialId}`
                 : "/dashboard/study"
             }
-            className="inline-flex h-[44px] items-center justify-center rounded-full bg-[var(--color-apple-ink)] px-6 text-[14px] wght-560 text-white hover:opacity-90"
+            className="inline-flex h-[44px] items-center justify-center rounded-full bg-[var(--color-apple-pearl)] px-6 text-[14px] wght-560 text-[var(--color-apple-ink)] hover:bg-[var(--color-apple-hairline)]"
           >
             자료로 돌아가기
           </Link>

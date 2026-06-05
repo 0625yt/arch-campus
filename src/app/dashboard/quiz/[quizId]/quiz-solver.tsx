@@ -73,21 +73,38 @@ type ApiErr = { ok: false; error: string };
 
 export function QuizSolver({ quiz }: { quiz: QuizSolveView }) {
   const router = useRouter();
+  // 진행상황 자동 저장 키 — quiz별로 분리해 다른 퀴즈와 안 섞이게.
+  const draftKey = `arch-quiz-draft:${quiz.id}`;
+  const draft = useMemo(() => readDraft(draftKey), [draftKey]);
+
   const [phase, setPhase] = useState<"solve" | "result">("solve");
-  const [answers, setAnswers] = useState<Record<number, string>>({});
+  // 풀던 중 자료를 보러 나갔다 와도 답·진행이 유지되게 sessionStorage 초안에서 복원.
+  const [answers, setAnswers] = useState<Record<number, string>>(() => draft?.answers ?? {});
   const [shownHints, setShownHints] = useState<Record<number, boolean>>({});
-  const [flagged, setFlagged] = useState<Record<number, boolean>>({});
+  const [flagged, setFlagged] = useState<Record<number, boolean>>(() => draft?.flagged ?? {});
   const [result, setResult] = useState<SubmitOk | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [startedAt] = useState<number>(() => Date.now());
+  const [startedAt] = useState<number>(() => draft?.startedAt ?? Date.now());
   const [elapsedLabel, setElapsedLabel] = useState("0분");
   // step-by-step에서 한 문제씩 즉시 채점한 결과를 모아둠. 마지막에 /submit으로 보낼 때
   // attempt가 INSERT돼 점수·복습 큐가 한 번만 기록된다.
-  const [stepResults, setStepResults] = useState<Record<number, StepGradeResult>>({});
+  const [stepResults, setStepResults] = useState<Record<number, StepGradeResult>>(
+    () => draft?.stepResults ?? {},
+  );
   // 현재 보고 있는 문제 index (0 ~ quiz.total-1). step-by-step의 핵심 state.
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(() => draft?.stepIndex ?? 0);
   const questionRefs = useRef<Record<number, HTMLElement | null>>({});
+
+  // 진행상황을 sessionStorage에 자동 저장 — 페이지를 떠났다 와도 복원.
+  // 채점이 끝나 result phase로 가면 초안을 지운다(같은 퀴즈 재시작 시 깨끗하게).
+  useEffect(() => {
+    if (phase === "result") {
+      clearDraft(draftKey);
+      return;
+    }
+    writeDraft(draftKey, { answers, flagged, stepResults, stepIndex, startedAt });
+  }, [phase, draftKey, answers, flagged, stepResults, stepIndex, startedAt]);
 
   useEffect(() => {
     if (phase !== "solve") return;
@@ -325,6 +342,18 @@ function SolveSection({
 
   function onJump(targetIndex: number) {
     setStepIndex(Math.min(Math.max(targetIndex, 0), quiz.total - 1));
+  }
+
+  // 채점 결과를 지워 이 문제를 다시 풀게 한다. 답이 틀린 것 같을 때 처음부터
+  // 다시 시작하지 않고 그 문제만 재시도. 최종 점수는 마지막 채점 기준.
+  function onRetry() {
+    if (!currentQuestion) return;
+    setStepResults((prev) => {
+      const next = { ...prev };
+      delete next[currentQuestion.id];
+      return next;
+    });
+    setStepError(null);
   }
 
   if (!currentQuestion) {
@@ -618,6 +647,17 @@ function SolveSection({
                 >
                   자료로
                 </Link>
+              )}
+              {/* 채점 후 오답이면 "다시 답하기" — 그 문제만 재시도 (처음부터 X). */}
+              {isReviewing && !currentGraded?.correct && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  disabled={loading}
+                  className="inline-flex h-[46px] items-center justify-center rounded-full bg-[var(--color-apple-pearl)] px-5 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
+                >
+                  다시 답하기
+                </button>
               )}
               {isReviewing ? (
                 <button
@@ -971,6 +1011,50 @@ function ResultSection({
       durationLabel={durationLabel}
     />
   );
+}
+
+/* ── 진행상황 초안 (sessionStorage) ──────────────────────────────
+ * 풀던 퀴즈를 떠났다 와도 답·진행을 복원. sessionStorage라 탭 닫으면 자연 소멸.
+ * 채점 완료(result) 시 clear → 같은 퀴즈를 다시 풀면 처음부터.
+ */
+interface QuizDraft {
+  answers: Record<number, string>;
+  flagged: Record<number, boolean>;
+  stepResults: Record<number, StepGradeResult>;
+  stepIndex: number;
+  startedAt: number;
+}
+
+function readDraft(key: string): QuizDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as QuizDraft;
+    // 최소 형태 검증 — 손상된 초안은 무시.
+    if (typeof parsed !== "object" || parsed === null) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(key: string, draft: QuizDraft): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(draft));
+  } catch {
+    // 용량 초과·프라이빗 모드 등 — 저장 실패해도 풀이는 계속.
+  }
+}
+
+function clearDraft(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // no-op
+  }
 }
 
 function formatDuration(ms: number): string {

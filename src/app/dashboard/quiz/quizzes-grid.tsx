@@ -55,12 +55,18 @@ export function QuizzesGrid({ quizzes }: { quizzes: QuizListItem[] }) {
 }
 
 function QuizCard({ quiz }: { quiz: QuizListItem }) {
-  const href = `/dashboard/quiz/${quiz.id}`;
   const seedName = quiz.courseName ?? quiz.title;
   const linearWash = courseLinearGradient(seedName, quiz.courseColor, 0.22);
   const linearWashDark = courseLinearGradientDark(seedName, quiz.courseColor);
   const hoverGrad = courseGradient(seedName, quiz.courseColor);
   const inkColor = courseInkColor(seedName, quiz.courseColor);
+
+  // 이미 풀었고 마지막 시도에서 못 맞힌 문제가 있으면 → 카드 클릭은 "오답만 다시 풀기".
+  // 그래야 틀린 것만 빠르게 복습. 전부 맞혔거나 안 풀었으면 처음부터.
+  const wrongCount =
+    quiz.lastScore !== null ? Math.max(0, quiz.questionCount - quiz.lastScore) : 0;
+  const hasWrong = quiz.attemptCount > 0 && wrongCount > 0;
+  const href = hasWrong ? `/dashboard/quiz/${quiz.id}/wrong` : `/dashboard/quiz/${quiz.id}`;
 
   return (
     <li>
@@ -117,6 +123,27 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
             <span className="tabular-nums">{quiz.attemptCount}회 풀이</span>
           )}
         </div>
+
+        {/* 오답 있으면: 메인 클릭은 오답복습(href), 카드 하단에 "오답 N · 전체 다시" 라인 */}
+        {hasWrong && (
+          <div className="relative mt-2.5 flex items-center justify-between gap-2 border-t border-[var(--color-apple-hairline)] pt-2.5">
+            <span className="text-[11.5px] wght-620 text-[var(--color-urgent)]">
+              오답 {wrongCount}문제 복습 →
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                // 카드 Link로의 전파를 막고 전체 다시 풀기로.
+                e.preventDefault();
+                e.stopPropagation();
+                window.location.href = `/dashboard/quiz/${quiz.id}`;
+              }}
+              className="shrink-0 rounded-full bg-[var(--color-apple-pearl)] px-2.5 py-1 text-[10.5px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)]"
+            >
+              전체 다시
+            </button>
+          </div>
+        )}
       </Link>
     </li>
   );

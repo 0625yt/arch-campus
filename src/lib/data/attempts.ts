@@ -237,6 +237,8 @@ export async function getWrongStats(opts: {
   });
 
   // 전체 unique 오답 — (quizId, questionId) 조합으로 dedupe.
+  // 0024 이후 wrong_items_v가 이미 "문제당 최신 시도 1행"이라 사실상 중복이 안 들어오지만,
+  // 0024 적용 전 데이터·안전망으로 dedupe는 유지 (다시 맞힌 문제는 뷰에서 자동으로 빠짐).
   const uniqueKeys = new Set<string>();
   for (const it of items) uniqueKeys.add(`${it.quizId}:${it.questionId}`);
 

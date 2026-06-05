@@ -497,51 +497,69 @@ function MaterialQuizzes({
         </Link>
       </header>
       <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {quizzes.map((q) => (
-          <li key={q.id}>
-            <Link
-              href={`/dashboard/quiz/${q.id}`}
-              className="group block rounded-[14px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3.5 transition-colors hover:border-[var(--color-apple-action)]/30"
-            >
-              <div className="flex items-baseline justify-between gap-3">
-                <span
-                  className="text-[11px] wght-560 uppercase tracking-[0.06em]"
-                  style={{ color: dotColor, letterSpacing: "0.06em" }}
-                >
-                  {q.difficulty} · {q.questionCount}문제
-                </span>
-                <span
-                  className="shrink-0 text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+        {quizzes.map((q) => {
+          // 이미 풀었고 마지막 시도에 못 맞힌 문제가 있으면 카드 클릭 = 오답 복습.
+          const wrongCount = q.lastScore !== null ? Math.max(0, q.questionCount - q.lastScore) : 0;
+          const hasWrong = q.attemptCount > 0 && wrongCount > 0;
+          const href = hasWrong
+            ? `/dashboard/quiz/${q.id}/wrong`
+            : `/dashboard/quiz/${q.id}`;
+          return (
+            <li key={q.id}>
+              <Link
+                href={href}
+                className="group block rounded-[14px] border border-[var(--color-apple-hairline)] bg-white px-4 py-3.5 transition-colors hover:border-[var(--color-apple-action)]/30"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span
+                    className="text-[11px] wght-560 uppercase tracking-[0.06em]"
+                    style={{ color: dotColor, letterSpacing: "0.06em" }}
+                  >
+                    {q.difficulty} · {q.questionCount}문제
+                  </span>
+                  <span
+                    className="shrink-0 text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
+                    style={{ letterSpacing: "-0.012em" }}
+                  >
+                    {formatRelative(q.createdAt)}
+                  </span>
+                </div>
+                <p
+                  className="mt-2 line-clamp-1 text-[14px] wght-560 text-[var(--color-apple-ink)] group-hover:text-[var(--color-apple-action)]"
                   style={{ letterSpacing: "-0.012em" }}
                 >
-                  {formatRelative(q.createdAt)}
-                </span>
-              </div>
-              <p
-                className="mt-2 line-clamp-1 text-[14px] wght-560 text-[var(--color-apple-ink)] group-hover:text-[var(--color-apple-action)]"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                {q.title}
-              </p>
-              <p
-                className="mt-1 text-[12px] wght-450 text-[var(--color-apple-muted)]"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                {q.attemptCount === 0 ? (
-                  <span className="wght-560 text-[var(--color-apple-action)]">
-                    아직 안 풀었어요
-                  </span>
-                ) : q.lastScore !== null ? (
-                  <span className="tabular-nums">
-                    최근 {q.lastScore}/{q.questionCount} · {q.attemptCount}회 풀이
-                  </span>
-                ) : (
-                  <span className="tabular-nums">{q.attemptCount}회 풀이</span>
+                  {q.title}
+                </p>
+                <p
+                  className="mt-1 text-[12px] wght-450 text-[var(--color-apple-muted)]"
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  {q.attemptCount === 0 ? (
+                    <span className="wght-560 text-[var(--color-apple-action)]">
+                      아직 안 풀었어요
+                    </span>
+                  ) : q.lastScore !== null ? (
+                    <span className="tabular-nums">
+                      최근 {q.lastScore}/{q.questionCount} · {q.attemptCount}회 풀이
+                    </span>
+                  ) : (
+                    <span className="tabular-nums">{q.attemptCount}회 풀이</span>
+                  )}
+                </p>
+                {hasWrong && (
+                  <div className="mt-2 flex items-center justify-between gap-2 border-t border-[var(--color-apple-hairline)] pt-2">
+                    <span className="text-[11.5px] wght-620 text-[var(--color-urgent)]">
+                      오답 {wrongCount}문제 복습 →
+                    </span>
+                    <span className="text-[10.5px] wght-450 text-[var(--color-apple-muted)]">
+                      탭하면 오답만
+                    </span>
+                  </div>
                 )}
-              </p>
-            </Link>
-          </li>
-        ))}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
