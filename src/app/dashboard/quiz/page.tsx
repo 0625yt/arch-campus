@@ -55,7 +55,7 @@ export default async function QuizIndexPage() {
             style={{ letterSpacing: "-0.012em" }}
           >
             {quizzes.length > 0
-              ? `만든 문제 ${quizzes.length}세트 · 우클릭으로 삭제`
+              ? `만든 문제 ${quizzes.length}세트 · 카드를 꾹 눌러 삭제`
               : "자료 올리면 바로 첫 문제 생성"}
           </p>
         </header>

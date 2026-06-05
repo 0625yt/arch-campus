@@ -293,7 +293,9 @@ function UrgentBoard({ wizards, className }: { wizards: Wizard[]; className?: st
 function UrgentCard({ wizard }: { wizard: Wizard }) {
   const isDark = useIsDark();
   // 라이트 카테고리 hex는 다크 배경에서 어두워 라벨이 묻힘 → hue 밝은 톤으로.
-  const dotColor = isDark ? hexTintDark(CATEGORY[wizard.category], false) : CATEGORY[wizard.category];
+  const dotColor = isDark
+    ? hexTintDark(CATEGORY[wizard.category], false)
+    : CATEGORY[wizard.category];
 
   return (
     <WizardLinkWrap
@@ -407,7 +409,9 @@ function ToolList({ className, wizards }: { className?: string; wizards: Wizard[
 
 function ToolCard({ wizard }: { wizard: Wizard }) {
   const isDark = useIsDark();
-  const dotColor = isDark ? hexTintDark(CATEGORY[wizard.category], false) : CATEGORY[wizard.category];
+  const dotColor = isDark
+    ? hexTintDark(CATEGORY[wizard.category], false)
+    : CATEGORY[wizard.category];
   const tint = categoryTint(wizard.category);
 
   return (

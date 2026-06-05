@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { CourseListItem } from "@/lib/data/materials";
 import {
   buildTimetable,
-  type CourseSlot,
   findNowAndNext,
+  formatUntil,
+  minutesUntilSlot,
   type Weekday,
 } from "@/lib/timetable-grid";
 import { useIsMobile } from "./use-mobile";
@@ -38,7 +39,7 @@ const JS_DAY: Record<Weekday, number> = {
   SAT: 6,
 };
 
-export function NowBanner({ courses }: { courses: CourseListItem[] }) {
+export function NowBanner({ courses, now }: { courses: CourseListItem[]; now: Date }) {
   const data = useMemo(() => {
     const semester = courses.filter((c) => c.category === "semester");
     return buildTimetable(
@@ -53,20 +54,15 @@ export function NowBanner({ courses }: { courses: CourseListItem[] }) {
     );
   }, [courses]);
 
-  const [tick, setTick] = useState<number>(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setTick(Date.now()), 60_000);
-    return () => clearInterval(t);
-  }, []);
-
-  const { current, next } = useMemo(() => findNowAndNext(data, new Date(tick)), [data, tick]);
+  // 타이머는 상위 dashboard-client의 단일 useTick에서 내려옴 (중복 setInterval 제거).
+  const { current, next } = useMemo(() => findNowAndNext(data, now), [data, now]);
 
   // 이번 주 월~금 날짜 (KST). 오늘이 속한 주의 월요일 기준.
-  const week = useMemo(() => buildWeek(new Date(tick)), [tick]);
+  const week = useMemo(() => buildWeek(now), [now]);
   const todayJsDay = useMemo(() => {
-    const kst = new Date(new Date(tick).getTime() + 9 * 60 * 60 * 1000);
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
     return kst.getUTCDay();
-  }, [tick]);
+  }, [now]);
 
   // 모바일은 시간표가 "오늘만" 뷰 → strip도 오늘 하루만 (5일 strip↔1일 그리드 불일치 제거).
   const isMobile = useIsMobile();
@@ -78,7 +74,7 @@ export function NowBanner({ courses }: { courses: CourseListItem[] }) {
 
   if (data.slots.length === 0) return null;
 
-  const minutesUntil = next ? minutesUntilSlot(next, new Date(tick)) : null;
+  const minutesUntil = next ? minutesUntilSlot(next, now) : null;
 
   return (
     <div className="flex flex-nowrap items-center justify-between gap-x-3 sm:gap-x-4">
@@ -177,8 +173,8 @@ export function NowBanner({ courses }: { courses: CourseListItem[] }) {
   );
 }
 
-/** 코발트 상태 점 + breathe. */
-function NowDot() {
+/** 코발트 상태 점 + breathe. 스파인 카드와 공유. */
+export function NowDot() {
   return (
     <span aria-hidden className="relative inline-flex h-2 w-2 shrink-0">
       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-apple-action)] opacity-60" />
@@ -200,18 +196,4 @@ function buildWeek(now: Date): Record<Weekday, number> {
     result[w] = d.getUTCDate();
   });
   return result;
-}
-
-/** next 슬롯 시작까지 남은 분 (KST 기준). */
-function minutesUntilSlot(next: CourseSlot, now: Date): number {
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  const nowMin = kst.getUTCHours() * 60 + kst.getUTCMinutes();
-  return next.slot.startMinute - nowMin;
-}
-
-function formatUntil(min: number): string {
-  if (min < 60) return `${min}분 후`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m === 0 ? `${h}시간 후` : `${h}시간 ${m}분 후`;
 }

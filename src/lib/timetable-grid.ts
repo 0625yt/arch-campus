@@ -179,3 +179,18 @@ export function isKstToday(w: Weekday, now: Date = new Date()): boolean {
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return WEEKDAY_TO_JS_DAY[w] === kst.getUTCDay();
 }
+
+/** next 슬롯 시작까지 남은 분 (KST 기준). 음수면 이미 시작함. */
+export function minutesUntilSlot(slot: CourseSlot, now: Date = new Date()): number {
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const nowMin = kst.getUTCHours() * 60 + kst.getUTCMinutes();
+  return slot.slot.startMinute - nowMin;
+}
+
+/** 남은 분 → "41분 후" / "1시간 20분 후". 한국어 명사형. */
+export function formatUntil(min: number): string {
+  if (min < 60) return `${min}분 후`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h}시간 후` : `${h}시간 ${m}분 후`;
+}

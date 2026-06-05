@@ -167,9 +167,27 @@ export function courseInkColor(name: string, color?: string | null): string {
   return `rgb(${dim(r)}, ${dim(g)}, ${dim(b)})`;
 }
 
-/** 진한 액센트 (도트·border) — 원본 RGB. */
+/**
+ * 진한 액센트 (도트·좌측 색 bar·border) — 파스텔 hue를 살리되 채도·명도를 끌어올린다.
+ *
+ * 팔레트 원본은 명도 95+·채도 30 안팎의 "안개 파스텔"이라, 그대로 도트·바에 쓰면
+ * 거의 흰색이라 강의 구분이 안 된다. 배경 wash(courseTint)는 연하게 두고, 정체성
+ * 요소만 같은 hue로 또렷하게 — Apple Calendar가 셀은 연하게·점은 진하게 쓰는 방식.
+ *
+ * 채도 78%·명도 56%로 재구성(hue band별 명도 보정 — 노랑·청록은 밝아 보여 낮추고
+ * 파랑·보라는 어두워 보여 올림). 라이트 카드 위에서 또렷하되 형광스럽지 않은 톤.
+ */
 export function courseAccentRgb(name: string, color?: string | null): RGB {
-  return courseRgb(name, color);
+  const { h, s } = rgbToHsl(courseRgb(name, color));
+  // 무채색(회색)에 가까운 색은 hue가 불안정 — 채도만 살짝 올려 회색 유지.
+  if (s < 6) return hslToRgbVals(h, 6, 48);
+  const lAdjust =
+    h >= 40 && h <= 200
+      ? -6 // yellow~cyan (눈에 밝음) → 낮춰 또렷
+      : h >= 210 && h <= 290
+        ? 6 // blue~violet (눈에 어두움) → 올려 균형
+        : 0; // red/pink/orange 기준
+  return hslToRgbVals(h, 78, 56 + lAdjust);
 }
 
 /** 카드 우상단 컬러 wash — radial gradient. hover 시 살아있음. 톤 다운. */
