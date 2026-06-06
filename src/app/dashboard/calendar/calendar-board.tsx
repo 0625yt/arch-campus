@@ -1023,6 +1023,10 @@ function DayCell({
 }) {
   void kindLabel;
 
+  // 셀에 직접 글씨로 보여줄 일정 최대 개수. 나머지는 "+N개 더"로 접고 날짜 탭 시 전체.
+  // 모바일도 데스크톱과 동일 4개 — "점 말고 글씨로 최대한 다" 요청.
+  const maxChips = 4;
+
   function handleDayClick(e: React.MouseEvent) {
     // 칩 클릭은 이벤트 자체에서 stopPropagation으로 막아둠. 빈 영역만 도달.
     if (e.target !== e.currentTarget && !(e.target as HTMLElement).closest("[data-day-bg]")) {
@@ -1089,35 +1093,11 @@ function DayCell({
       >
         {cell.date.getDate()}
       </span>
-      {/* 모바일: 색 도트만 (Apple/Google 캘린더 모바일 월 뷰 방식).
-          6열 셀이 ~50px라 텍스트는 "글로컬…/외 1"로 다 짤렸다. 짤린 글씨 대신
-          일정별 색 도트로 "무슨 일정이 몇 개 있는지" 한눈에. 날짜 탭 → 그 날 목록.
-          (사용자 요청: 디자인 요소 빼서 잘 보이게) */}
-      {events.length > 0 && (
-        <div className="mt-auto flex flex-wrap items-center gap-1 px-0.5 pb-0.5 sm:hidden">
-          {events.slice(0, 4).map((e) => (
-            <span
-              key={e.id}
-              aria-hidden
-              className="h-1.5 w-1.5 shrink-0 rounded-full"
-              style={{ backgroundColor: eventColor(e) }}
-            />
-          ))}
-          {events.length > 4 && (
-            <span
-              className="text-[9px] wght-620 tabular-nums leading-none text-[var(--color-apple-muted)]"
-              style={{ letterSpacing: "-0.02em" }}
-            >
-              +{events.length - 4}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* 데스크톱: macOS 캘린더 톤 — 시간 지정은 좌측 색 도트 + 텍스트(투명 배경),
-          하루 종일은 셀 가로 가득 차는 흐릿한 색 막대. */}
-      <ul className="hidden flex-col gap-px sm:flex">
-        {events.slice(0, 4).map((e) => {
+      {/* 일정 — 모바일·데스크톱 모두 글씨 칩으로. 좁은 셀에선 이름이 …로 잘리되
+          "무슨 일정인지" 글자로 보이게(사용자 요청: 점 말고 글씨로 최대한 다).
+          모바일은 셀이 낮아 최대 3개, 데스크톱은 4개까지 + 나머지는 "+N개 더". */}
+      <ul className="flex min-w-0 flex-col gap-px">
+        {events.slice(0, maxChips).map((e) => {
           const fullLabel = formatEventLabel(e);
           const shortLabel = formatEventCompact(e);
           const color = eventColor(e);
@@ -1154,12 +1134,12 @@ function DayCell({
             </li>
           );
         })}
-        {events.length > 4 && (
+        {events.length > maxChips && (
           <li
-            className="truncate pl-1 pt-0.5 text-[11px] wght-560 text-[var(--color-apple-muted)]"
+            className="truncate pl-1 text-[10px] wght-560 text-[var(--color-apple-muted)] sm:pt-0.5 sm:text-[11px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            + {events.length - 4}개 더
+            + {events.length - maxChips}개 더
           </li>
         )}
       </ul>

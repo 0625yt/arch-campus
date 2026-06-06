@@ -51,20 +51,21 @@ export function DashboardClient({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      {/* 헤더 + 스파인 카드 = 하나의 그룹 (타이트 붙임 mt-3) */}
+      {/* 헤더 + 스파인 카드 = 하나의 그룹. 모바일은 간격을 타이트하게 줄여
+          시간표(flex-1)가 화면 대부분을 차지하게 한다(사용자 요청: 시간표 꽉 차게). */}
       <div className="shrink-0">
         <TimetableHeading courses={courses} studentName={studentName} />
-        <div className="fade-up fade-up-1 mt-3">
+        <div className="fade-up fade-up-1 mt-2 sm:mt-3">
           <SpineCard courses={courses} now={now} />
         </div>
       </div>
 
-      {/* 시간표 — 가로 풀폭. 배너↔시간표·시간표↔카드는 섹션 간격으로 띄워 분리 */}
-      <div className="fade-up fade-up-2 mt-4 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden sm:mt-5">
+      {/* 시간표 — 가로 풀폭. 모바일은 위아래 간격 축소로 시간표 영역 최대 확보. */}
+      <div className="fade-up fade-up-2 mt-2.5 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden sm:mt-5">
         <TimetableHero courses={courses} now={now} onPickCourse={(c) => setOpenCourse(c)} />
       </div>
 
-      <div className="fade-up fade-up-3 mt-4 shrink-0 sm:mt-5">
+      <div className="fade-up fade-up-3 mt-2.5 shrink-0 sm:mt-5">
         <BottomCards signals={signals} events={events} courses={courses} />
       </div>
 

@@ -62,7 +62,7 @@ export function TimetableHeading({
         시간표
       </p>
       <h1
-        className="mt-1 text-[26px] leading-[1.05] wght-700 text-[var(--color-apple-ink)] sm:text-[32px] md:text-[38px]"
+        className="mt-0.5 text-[19px] leading-[1.05] wght-700 text-[var(--color-apple-ink)] sm:mt-1 sm:text-[32px] md:text-[38px]"
         style={{ letterSpacing: "-0.026em" }}
       >
         {greeting}
