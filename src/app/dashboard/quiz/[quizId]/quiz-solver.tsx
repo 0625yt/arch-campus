@@ -615,97 +615,67 @@ function SolveSection({
             <p className="mt-4 text-[12.5px] wght-450 text-[var(--color-urgent)]">{stepError}</p>
           )}
 
-          <div className="mt-4 flex justify-end print:hidden">
-            <FeedbackTriggerButton
-              targetType="quiz_item"
-              targetId={quiz.id}
-              quizQuestionIndex={stepIndex}
-              label="이 문제 이상해요"
-            />
+          {/* 액션 행 — 문제 카드 안, "이 문제 이상해요" 옆에 바로 둔다.
+              풀고 그 자리에서 즉시 확인 → 다음으로. 안내 문구는 제거(사용자 요청). */}
+          <div className="mt-4 flex flex-wrap items-center gap-2 print:hidden">
+            <div className="mr-auto">
+              <FeedbackTriggerButton
+                targetType="quiz_item"
+                targetId={quiz.id}
+                quizQuestionIndex={stepIndex}
+                label="이 문제 이상해요"
+              />
+            </div>
+            {stepIndex > 0 && (
+              <button
+                type="button"
+                onClick={() => onJump(stepIndex - 1)}
+                disabled={confirming || loading}
+                className="inline-flex h-[44px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-4 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
+              >
+                이전
+              </button>
+            )}
+            {quiz.materialId && (
+              <Link
+                href={getMaterialPath(quiz)}
+                className="inline-flex h-[44px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-4 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white"
+              >
+                자료로
+              </Link>
+            )}
+            {/* 채점 후 오답이면 "다시 답하기" — 그 문제만 재시도 (처음부터 X). */}
+            {isReviewing && !currentGraded?.correct && (
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={loading}
+                className="inline-flex h-[44px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-4 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
+              >
+                다시 답하기
+              </button>
+            )}
+            {isReviewing ? (
+              <button
+                type="button"
+                onClick={onNext}
+                disabled={loading}
+                className="inline-flex h-[44px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-action)] px-5 text-[14px] wght-560 text-white transition-all duration-150 hover:bg-[var(--color-apple-action-hover)] disabled:opacity-50"
+              >
+                {loading ? "채점 중…" : isLastStep ? "결과 보기" : "다음 문제 →"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onConfirm}
+                disabled={!canConfirm}
+                className="inline-flex h-[44px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-action)] px-5 text-[14px] wght-560 text-white transition-all duration-150 hover:bg-[var(--color-apple-action-hover)] disabled:opacity-50"
+              >
+                {confirming ? "채점 중…" : "확인"}
+              </button>
+            )}
           </div>
         </article>
-
-        {/* 액션 바 — 두 모드:
-             1) answering: "확인" + (이전/자료로/건너뛰기)
-             2) reviewing: "다음 문제" or 마지막이면 "결과 보기"
-           sticky(하단 고정) 였으나 문제·보기를 가려 불편하다는 피드백으로 일반 흐름 배치로
-           전환. 문제→보기→액션 순서로 한 흐름에 놓여 스크롤하면 자연스럽게 닿는다. */}
-        <div className="rounded-[24px] border border-[var(--color-apple-hairline)] bg-white/92 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            {/* min-w-0: 좁은 트랙(오답 풀기·모바일·아이패드)에서 이 텍스트가 0폭으로
-                짜부라지며 한글이 세로 1글자로 쌓이던 버그 차단. 버튼 그룹이 본문을 밀어내도
-                정상 줄바꿈만 일어나게 한다. */}
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] wght-560 text-[var(--color-apple-ink)]">
-                {isReviewing
-                  ? currentGraded?.correct
-                    ? "맞았어요. 다음 문제로 가요."
-                    : "이번엔 아쉽지만 근거는 위에 정리해뒀어요."
-                  : `${stepIndex + 1}번째 문제 · ${remaining}문제 남음`}
-              </p>
-              <p className="mt-1 text-[12.5px] text-[var(--color-apple-muted)]">
-                {isReviewing
-                  ? isLastStep
-                    ? "마지막 문제. 결과 보기로 넘어가면 점수와 오답 큐가 정리됩니다."
-                    : "다음 문제도 같은 자료에서 나옵니다."
-                  : "답을 고르거나 적은 뒤 확인을 누르면 정답·근거가 바로 표시됩니다."}
-              </p>
-            </div>
-
-            {/* shrink-0 + flex-wrap: 버튼 그룹은 줄어들지 않고(텍스트 세로화 방지),
-                폭이 부족하면 통째로 다음 줄로 내려간다. */}
-            <div className="flex shrink-0 flex-wrap gap-2">
-              {stepIndex > 0 && (
-                <button
-                  type="button"
-                  onClick={() => onJump(stepIndex - 1)}
-                  disabled={confirming || loading}
-                  className="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-5 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
-                >
-                  이전
-                </button>
-              )}
-              {quiz.materialId && (
-                <Link
-                  href={getMaterialPath(quiz)}
-                  className="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-full bg-white px-5 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)]"
-                >
-                  자료로
-                </Link>
-              )}
-              {/* 채점 후 오답이면 "다시 답하기" — 그 문제만 재시도 (처음부터 X). */}
-              {isReviewing && !currentGraded?.correct && (
-                <button
-                  type="button"
-                  onClick={onRetry}
-                  disabled={loading}
-                  className="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-5 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
-                >
-                  다시 답하기
-                </button>
-              )}
-              {isReviewing ? (
-                <button
-                  type="button"
-                  onClick={onNext}
-                  disabled={loading}
-                  className="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all duration-150 hover:bg-[var(--color-apple-action-hover)] disabled:opacity-50"
-                >
-                  {loading ? "채점 중…" : isLastStep ? "결과 보기" : "다음 문제 →"}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onConfirm}
-                  disabled={!canConfirm}
-                  className="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all duration-150 hover:bg-[var(--color-apple-action-hover)] disabled:opacity-50"
-                >
-                  {confirming ? "채점 중…" : "확인"}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );
