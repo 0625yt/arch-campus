@@ -1227,7 +1227,7 @@ function EventChip({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
         title={title}
-        className="block w-full break-keep rounded-[3px] px-[3px] py-0.5 text-left text-[11px] wght-560 leading-[1.35] transition-all duration-150 hover:brightness-105 active:scale-[0.98] sm:rounded-[4px] sm:px-1 sm:text-[12px] sm:leading-[1.4]"
+        className="block w-full truncate rounded-[3px] px-[3px] py-0 text-left text-[11px] wght-560 leading-[1.4] transition-all duration-150 hover:brightness-105 active:scale-[0.98] sm:rounded-[4px] sm:px-1 sm:text-[12px] sm:leading-[1.55]"
         style={{
           // 다크: 라이트 파스텔을 alpha로 깔면 진흙 → hue 기반 진한 색으로 재구성(셀과 동일).
           backgroundColor: selected
@@ -1256,7 +1256,7 @@ function EventChip({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       title={title}
-      className={`group relative flex w-full items-start break-keep rounded-[3px] px-1 py-0.5 text-left text-[11px] leading-[1.35] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] sm:rounded-[4px] sm:text-[12px] sm:leading-[1.4] ${
+      className={`group relative flex w-full items-center rounded-[3px] px-1 py-0 text-left text-[11px] leading-[1.4] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] sm:rounded-[4px] sm:text-[12px] sm:leading-[1.55] ${
         selected ? "wght-700" : "wght-450"
       }`}
       style={{
@@ -1269,7 +1269,8 @@ function EventChip({
         letterSpacing: "-0.03em",
       }}
     >
-      <span className="min-w-0 flex-1 break-keep">{label}</span>
+      {/* 한 줄 유지(일반 캘린더처럼) — 길면 끝에서 자연스럽게 잘림. 줄바꿈 X. */}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
     </button>
   );
 }

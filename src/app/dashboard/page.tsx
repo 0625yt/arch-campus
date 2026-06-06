@@ -39,10 +39,12 @@ export default async function DashboardHomePage() {
   const allCourses = [...grouped.semester, ...grouped.personal];
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="mx-auto flex w-full min-h-0 max-w-[1440px] flex-1 flex-col gap-3 overflow-hidden px-5 pt-4 pb-4 sm:gap-4 sm:px-8 sm:pt-6 sm:pb-5 md:px-10 xl:px-14">
+    // 모바일: 한 화면 고정(overflow-hidden) 풀고 자연 스크롤 → 시간표·하단카드가
+    // 잘리지 않는다. 데스크톱(sm+): 기존 한 화면 hero(고정) 유지.
+    <div className="flex min-h-0 flex-col sm:h-full sm:overflow-hidden">
+      <div className="mx-auto flex w-full min-h-0 max-w-[1440px] flex-1 flex-col gap-3 px-5 pt-4 pb-4 sm:gap-4 sm:overflow-hidden sm:px-8 sm:pt-6 sm:pb-5 md:px-10 xl:px-14">
         <TopChrome semesterLabel={semester.label} />
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col sm:overflow-hidden">
           <DashboardClient
             courses={allCourses}
             studentName={profile?.displayName ?? null}
