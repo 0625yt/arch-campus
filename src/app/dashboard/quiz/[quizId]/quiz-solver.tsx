@@ -615,46 +615,43 @@ function SolveSection({
             <p className="mt-4 text-[12.5px] wght-450 text-[var(--color-urgent)]">{stepError}</p>
           )}
 
-          {/* 액션 행 — 문제 카드 안, "이 문제 이상해요" 옆에 바로 둔다.
-              풀고 그 자리에서 즉시 확인 → 다음으로. 안내 문구는 제거(사용자 요청). */}
-          <div className="mt-4 flex flex-wrap items-center gap-2 print:hidden">
-            <div className="mr-auto">
-              <FeedbackTriggerButton
-                targetType="quiz_item"
-                targetId={quiz.id}
-                quizQuestionIndex={stepIndex}
-                label="이 문제 이상해요"
-              />
+          {/* 액션 행 — 좌측 보조(이전·자료로) / 우측 주액션(확인·다음).
+              풀고 그 자리에서 즉시 확인 → 다음. 안내 문구는 제거(사용자 요청). */}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 print:hidden">
+            {/* 좌측 — 보조 버튼 */}
+            <div className="flex flex-wrap items-center gap-2">
+              {stepIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onJump(stepIndex - 1)}
+                  disabled={confirming || loading}
+                  className="inline-flex h-[44px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-4 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
+                >
+                  이전
+                </button>
+              )}
+              {quiz.materialId && (
+                <Link
+                  href={getMaterialPath(quiz)}
+                  className="inline-flex h-[44px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-4 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white"
+                >
+                  자료로
+                </Link>
+              )}
+              {/* 채점 후 오답이면 "다시 답하기" — 그 문제만 재시도 (처음부터 X). */}
+              {isReviewing && !currentGraded?.correct && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  disabled={loading}
+                  className="inline-flex h-[44px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-4 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
+                >
+                  다시 답하기
+                </button>
+              )}
             </div>
-            {stepIndex > 0 && (
-              <button
-                type="button"
-                onClick={() => onJump(stepIndex - 1)}
-                disabled={confirming || loading}
-                className="inline-flex h-[44px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-4 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
-              >
-                이전
-              </button>
-            )}
-            {quiz.materialId && (
-              <Link
-                href={getMaterialPath(quiz)}
-                className="inline-flex h-[44px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-4 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white"
-              >
-                자료로
-              </Link>
-            )}
-            {/* 채점 후 오답이면 "다시 답하기" — 그 문제만 재시도 (처음부터 X). */}
-            {isReviewing && !currentGraded?.correct && (
-              <button
-                type="button"
-                onClick={onRetry}
-                disabled={loading}
-                className="inline-flex h-[44px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-pearl)] px-4 text-[13.5px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white disabled:opacity-50"
-              >
-                다시 답하기
-              </button>
-            )}
+
+            {/* 우측 — 주액션(확인/다음) */}
             {isReviewing ? (
               <button
                 type="button"
@@ -674,6 +671,16 @@ function SolveSection({
                 {confirming ? "채점 중…" : "확인"}
               </button>
             )}
+          </div>
+
+          {/* "이 문제 이상해요" — 주액션과 분리해 작게 맨 아래. */}
+          <div className="mt-3 flex justify-end print:hidden">
+            <FeedbackTriggerButton
+              targetType="quiz_item"
+              targetId={quiz.id}
+              quizQuestionIndex={stepIndex}
+              label="이 문제 이상해요"
+            />
           </div>
         </article>
       </div>
