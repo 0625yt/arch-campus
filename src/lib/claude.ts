@@ -285,6 +285,20 @@ const GOOGLE_FLASH_NO_THINKING: ProviderOptions = {
 };
 
 /**
+ * Gemini Pro 생성 도구는 약간의 thinking을 켠다 — "똑똑한 퀴즈" 요구(2026-06-06).
+ * 자료에서 진짜 다른 문제·기출 정확 추출엔 약간의 reasoning이 도움. budget은 보수적으로
+ * (출력 풀 잠식해 본문 빈 응답 나는 함정 방지 — 주석 GOOGLE_FLASH_NO_THINKING 참고).
+ */
+const GOOGLE_THINKING_TOOLS: ReadonlySet<ToolKind> = new Set([
+  "quiz",
+  "presentation",
+  "report-structure",
+]);
+const GOOGLE_PRO_THINKING: ProviderOptions = {
+  google: { thinkingConfig: { thinkingBudget: 2048 } },
+};
+
+/**
  * Prompt-injection 가드 — 모든 도구 시스템 프롬프트 맨 앞에 박힘.
  *
  * 위협 (OWASP LLM01):
@@ -428,9 +442,12 @@ function systemProviderOptions(vendor: ModelVendor): ProviderOptions | undefined
   return undefined; // Google은 system providerOptions 캐시 없음
 }
 
-/** vendor에 따라 호출 전체에 적용할 providerOptions(thinking·캐시 정책 등). */
-function callProviderOptions(vendor: ModelVendor): ProviderOptions | undefined {
-  if (vendor === "google") return GOOGLE_FLASH_NO_THINKING;
+/** vendor·tool에 따라 호출 전체에 적용할 providerOptions(thinking·캐시 정책 등). */
+function callProviderOptions(vendor: ModelVendor, tool: ToolKind): ProviderOptions | undefined {
+  if (vendor === "google") {
+    // Pro 생성 도구는 약간 thinking을 켜 품질↑, 나머지 Gemini는 0(속도·비용).
+    return GOOGLE_THINKING_TOOLS.has(tool) ? GOOGLE_PRO_THINKING : GOOGLE_FLASH_NO_THINKING;
+  }
   return undefined;
 }
 
@@ -458,7 +475,7 @@ async function callWithRetry(opts: {
     maxOutputTokens: opts.maxTokens,
     temperature: opts.temperature,
     messages: opts.messages,
-    providerOptions: callProviderOptions(opts.vendor),
+    providerOptions: callProviderOptions(opts.vendor, opts.tool),
     // AI SDK 내장 retry — 429/503/network에 자동 적용. 기본 3 → 5.
     // 한 호출 최대 대기: 100·200·400·800·1600ms = ~3s extra. rate limit 풀리는 시간 충분.
     maxRetries: 5,
@@ -629,7 +646,7 @@ export async function generateWithFile({
     maxOutputTokens: maxTokens,
     temperature,
     messages,
-    providerOptions: callProviderOptions(vendor),
+    providerOptions: callProviderOptions(vendor, tool),
   });
 
   if (result.finishReason === "length") {
@@ -733,7 +750,7 @@ export function streamChatReply(input: StreamChatInput): StreamChatResult {
     maxOutputTokens: input.maxTokens ?? 1500,
     temperature: input.temperature ?? 0.3,
     messages,
-    providerOptions: callProviderOptions(vendor),
+    providerOptions: callProviderOptions(vendor, tool),
     async onFinish(event) {
       // AI SDK v6 onFinish: { text, usage } — usage는 inputTokenDetails로 캐시 분리
       const inputTokens = event.usage?.inputTokens ?? 0;
