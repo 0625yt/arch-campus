@@ -625,14 +625,12 @@ function SolveSection({
           </div>
         </article>
 
-        {/* sticky 액션 — 두 모드:
+        {/* 액션 바 — 두 모드:
              1) answering: "확인" + (이전/자료로/건너뛰기)
-             2) reviewing: "다음 문제" or 마지막이면 "결과 보기" */}
-        {/* sticky: mobile-nav(h-14)와 안 겹치게 bottom을 safe-area 위로. */}
-        <div
-          className="sticky z-10 rounded-[24px] border border-[var(--color-apple-hairline)] bg-white/92 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl"
-          style={{ bottom: "calc(56px + env(safe-area-inset-bottom, 0px) + 8px)" }}
-        >
+             2) reviewing: "다음 문제" or 마지막이면 "결과 보기"
+           sticky(하단 고정) 였으나 문제·보기를 가려 불편하다는 피드백으로 일반 흐름 배치로
+           전환. 문제→보기→액션 순서로 한 흐름에 놓여 스크롤하면 자연스럽게 닿는다. */}
+        <div className="rounded-[24px] border border-[var(--color-apple-hairline)] bg-white/92 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             {/* min-w-0: 좁은 트랙(오답 풀기·모바일·아이패드)에서 이 텍스트가 0폭으로
                 짜부라지며 한글이 세로 1글자로 쌓이던 버그 차단. 버튼 그룹이 본문을 밀어내도

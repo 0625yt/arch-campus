@@ -429,7 +429,11 @@ export function CalendarBoard({
           >
             {monthLabel}
           </h2>
-          <div className="flex items-center gap-1">
+          {/* 컨트롤 묶음 — 좁은 폭(아이패드 세로·모바일 가로 등)에서 한 줄을 넘치면
+              우측이 잘려 토글·버튼이 사라지던 버그를 막는다. 넘치면 가로 스크롤로 전환해
+              모든 컨트롤에 접근 가능. 내부 항목은 shrink-0이라 찌그러지지 않는다.
+              스크롤바는 숨기되(scrollbar-width:none) 터치/트랙패드로 밀 수 있다. */}
+          <div className="-mx-1 flex max-w-full items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0">
             {/* 모바일 전용 — 자연어 일정 추가. 아이콘만으로 폭 절약. 데스크톱은 본문 상단 카드가 1급. */}
             <button
               type="button"
@@ -566,6 +570,15 @@ export function CalendarBoard({
                     selectedEventId={selected?.id ?? null}
                     isInDragRange={inDrag}
                     onSelectDay={(anchorRect) => {
+                      // 상세(이벤트)나 날짜 패널이 열려 있으면 — 다른 곳을 누른 건 "닫고 싶다"는
+                      // 뜻이지 "추가"가 아니다. 먼저 닫기만 하고 끝낸다. 아무것도 안 열린
+                      // 상태에서 빈 셀을 눌렀을 때만 일정 추가를 띄운다.
+                      if (selected || selectedDate) {
+                        setSelected(null);
+                        setSelectedDate(null);
+                        setSelectedAnchor(null);
+                        return;
+                      }
                       if (dayEvents.length === 0) {
                         setCreatePrefillDate(cell.iso);
                         setCreatePrefillEndDate(null);
@@ -623,6 +636,13 @@ export function CalendarBoard({
               setSelectedDate(null);
             }}
             onSelectEmpty={(dateKey, hour) => {
+              // 상세가 열려 있으면 빈 시간 클릭은 "닫기"로 해석 — 추가 모달 안 띄움.
+              if (selected || selectedDate) {
+                setSelected(null);
+                setSelectedDate(null);
+                setSelectedAnchor(null);
+                return;
+              }
               setCreatePrefillDate(dateKey);
               setCreatePrefillEndDate(null);
               setCreatePrefillHour(hour);
@@ -635,12 +655,20 @@ export function CalendarBoard({
           <DayView
             dateKey={focusDate}
             events={monthState}
+            viewMode={viewMode}
             onSelectEvent={(e, rect) => {
               setSelected(e);
               setSelectedAnchor(rect);
               setSelectedDate(null);
             }}
             onSelectEmpty={(dateKey, hour) => {
+              // 상세가 열려 있으면 빈 시간 클릭은 "닫기"로 해석 — 추가 모달 안 띄움.
+              if (selected || selectedDate) {
+                setSelected(null);
+                setSelectedDate(null);
+                setSelectedAnchor(null);
+                return;
+              }
               setCreatePrefillDate(dateKey);
               setCreatePrefillEndDate(null);
               setCreatePrefillHour(hour);

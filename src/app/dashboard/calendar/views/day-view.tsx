@@ -32,11 +32,19 @@ interface DayViewProps {
   dateKey: string;
   /** 이 날의 이벤트들 — 호출자가 prefilter 안 해도 됨 (컴포넌트에서 분류) */
   events: EventView[];
+  /** "timetable"이면 수업(class)만, "all"이면 전체. week-view와 동일 정책. */
+  viewMode?: "all" | "timetable";
   onSelectEvent?: (event: EventView, anchorRect: DOMRect) => void;
   onSelectEmpty?: (dateKey: string, hour: number) => void;
 }
 
-export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayViewProps) {
+export function DayView({
+  dateKey,
+  events,
+  viewMode = "all",
+  onSelectEvent,
+  onSelectEmpty,
+}: DayViewProps) {
   const isDark = useIsDark();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -56,8 +64,12 @@ export function DayView({ dateKey, events, onSelectEvent, onSelectEmpty }: DayVi
   const dow = d.getDay();
   const monthDay = `${d.getMonth() + 1}월 ${d.getDate()}일`;
 
-  // 이 날짜 이벤트만 필터
-  const dayEvents = events.filter((e) => isoToKstDateKey(e.startsAt) === dateKey);
+  // 이 날짜 이벤트만 필터 + 뷰 모드(시간표만이면 수업만)
+  const dayEvents = events.filter(
+    (e) =>
+      isoToKstDateKey(e.startsAt) === dateKey &&
+      (viewMode === "all" || e.kind === "class"),
+  );
   const allDay = dayEvents.filter((e) => e.allDay);
   const timed = dayEvents.filter((e) => !e.allDay);
   const positioned = layoutDayEvents(timed);
