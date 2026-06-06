@@ -44,17 +44,24 @@ export function QuizzesGrid({ quizzes }: { quizzes: QuizListItem[] }) {
           key={q.id}
           quizId={q.id}
           quizTitle={q.title}
+          materialId={q.materialId}
           onHide={hide}
           onUnhide={unhide}
         >
-          <QuizCard quiz={q} />
+          {({ openMenu }) => <QuizCard quiz={q} onOpenMenu={openMenu} />}
         </QuizContextWrapper>
       ))}
     </ul>
   );
 }
 
-function QuizCard({ quiz }: { quiz: QuizListItem }) {
+function QuizCard({
+  quiz,
+  onOpenMenu,
+}: {
+  quiz: QuizListItem;
+  onOpenMenu: (pos: { x: number; y: number }) => void;
+}) {
   const seedName = quiz.courseName ?? quiz.title;
   const linearWash = courseLinearGradient(seedName, quiz.courseColor, 0.22);
   const linearWashDark = courseLinearGradientDark(seedName, quiz.courseColor);
@@ -85,9 +92,9 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
           className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
           style={{ background: hoverGrad }}
         />
-        <div className="relative flex items-baseline justify-between gap-3">
+        <div className="relative flex items-baseline justify-between gap-2">
           <p
-            className="text-[10.5px] wght-700 uppercase tracking-[0.06em]"
+            className="min-w-0 flex-1 truncate text-[10.5px] wght-700 uppercase tracking-[0.06em]"
             style={{ color: inkColor }}
           >
             {quiz.courseName ?? "자료"}
@@ -98,6 +105,26 @@ function QuizCard({ quiz }: { quiz: QuizListItem }) {
           >
             {formatRelative(quiz.createdAt)}
           </span>
+          {/* ⋯ 메뉴 — 추가 요청·삭제. 우클릭/long-press와 같은 메뉴를 좌클릭으로도 연다. */}
+          <button
+            type="button"
+            aria-label="문제 메뉴"
+            // 부모 div의 long-press 타이머가 같이 걸려 메뉴가 두 번 뜨는 것 차단.
+            onTouchStart={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              onOpenMenu({ x: r.right, y: r.bottom });
+            }}
+            className="-my-1 -mr-1.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+              <circle cx="3" cy="8" r="1.4" />
+              <circle cx="8" cy="8" r="1.4" />
+              <circle cx="13" cy="8" r="1.4" />
+            </svg>
+          </button>
         </div>
         <p
           className="mt-2 line-clamp-2 text-[14px] leading-[1.3] wght-620 text-[var(--color-apple-ink)]"

@@ -47,6 +47,8 @@ export interface ContextMenuState {
 export interface UseContextMenuReturn {
   state: ContextMenuState;
   close: () => void;
+  /** 프로그래매틱하게 메뉴 열기 — ⋯ 버튼 좌클릭 등 우클릭 외 트리거용. */
+  openAt: (pos: Position) => void;
   bind: {
     onContextMenu: (e: React.MouseEvent) => void;
     onTouchStart: (e: React.TouchEvent) => void;
@@ -76,6 +78,7 @@ export function useContextMenu(): UseContextMenuReturn {
   return {
     state,
     close,
+    openAt: open,
     bind: {
       onContextMenu: (e) => {
         e.preventDefault();
