@@ -1227,7 +1227,7 @@ function EventChip({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
         title={title}
-        className="block w-full truncate rounded-[3px] px-[3px] py-0 text-left text-[11px] wght-560 leading-[1.4] transition-all duration-150 hover:brightness-105 active:scale-[0.98] sm:rounded-[4px] sm:px-1 sm:text-[12px] sm:leading-[1.55]"
+        className="block w-full break-keep rounded-[3px] px-[3px] py-0.5 text-left text-[11px] wght-560 leading-[1.35] transition-all duration-150 hover:brightness-105 active:scale-[0.98] sm:rounded-[4px] sm:px-1 sm:text-[12px] sm:leading-[1.4]"
         style={{
           // 다크: 라이트 파스텔을 alpha로 깔면 진흙 → hue 기반 진한 색으로 재구성(셀과 동일).
           backgroundColor: selected
@@ -1245,7 +1245,7 @@ function EventChip({
       </button>
     );
   }
-  // 시간 지정 — 좌측 얇은 색 bar + 텍스트. (동그라미 점은 DESIGN §10 금지.)
+  // 시간 지정 — 글자만(좌측 색 세로 bar 제거. 사용자 요청: 세로선 빼고 글자 최대한).
   return (
     <button
       ref={btnRef}
@@ -1256,7 +1256,7 @@ function EventChip({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       title={title}
-      className={`group relative flex w-full items-center truncate rounded-[3px] py-0 pl-[5px] pr-0.5 text-left text-[11px] leading-[1.4] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] sm:rounded-[4px] sm:pl-[8px] sm:text-[12px] sm:leading-[1.55] ${
+      className={`group relative flex w-full items-start break-keep rounded-[3px] px-1 py-0.5 text-left text-[11px] leading-[1.35] transition-all duration-150 hover:bg-[var(--color-apple-pearl)] active:scale-[0.98] sm:rounded-[4px] sm:text-[12px] sm:leading-[1.4] ${
         selected ? "wght-700" : "wght-450"
       }`}
       style={{
@@ -1269,13 +1269,7 @@ function EventChip({
         letterSpacing: "-0.03em",
       }}
     >
-      <span
-        aria-hidden
-        className="absolute left-[1px] top-1/2 h-[8px] w-[2px] -translate-y-1/2 rounded-full sm:left-[2px] sm:h-[10px]"
-        // 다크에선 raw 파스텔 좌측 bar가 둥둥 떠 보임 → hue 밝은 톤으로 또렷한 액센트.
-        style={{ backgroundColor: isDark ? hexTintDark(color, false) : color }}
-      />
-      <span className="truncate">{label}</span>
+      <span className="min-w-0 flex-1 break-keep">{label}</span>
     </button>
   );
 }
