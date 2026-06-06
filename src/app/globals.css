@@ -974,6 +974,16 @@ select:focus-visible {
   }
 }
 
+/* "생성 중" placeholder 카드 — 좌→우로 흐르는 sheen. background-size 200%를 깔고 위치만 민다. */
+@keyframes quiz-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
 @keyframes scale-in {
   from {
     transform: scale(0.94);
