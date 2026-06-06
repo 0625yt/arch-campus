@@ -12,8 +12,10 @@ import { getModelIdFor, MODELS } from "./claude";
  */
 describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
   const ENV_KEYS = [
+    "LLM_VENDOR",
     "QUIZ_MODEL_VENDOR",
     "SUMMARY_MODEL_VENDOR",
+    "CHAT_MODEL_VENDOR",
     "QUIZ_MODEL",
     "EXTRACT_MODEL",
     "SYLLABUS_MODEL",
@@ -34,6 +36,41 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
 
   it("env 안 켜면 quiz는 Sonnet (기존 동작)", () => {
     expect(getModelIdFor("quiz")).toBe(MODELS.sonnet);
+  });
+
+  describe("LLM_VENDOR=google 전역 스위치 (2026-06-06 전면 Gemini 전환)", () => {
+    it("생성·Vision 도구는 Gemini Pro로 (prod 포함)", () => {
+      process.env.LLM_VENDOR = "google";
+      process.env.VERCEL_ENV = "production";
+      expect(getModelIdFor("quiz")).toBe(MODELS.geminiPro);
+      expect(getModelIdFor("presentation")).toBe(MODELS.geminiPro);
+      expect(getModelIdFor("timetable-extract")).toBe(MODELS.geminiPro);
+      expect(getModelIdFor("exam-extract")).toBe(MODELS.geminiPro);
+    });
+
+    it("고빈도·저비용 도구는 Gemini Flash로", () => {
+      process.env.LLM_VENDOR = "google";
+      expect(getModelIdFor("chat")).toBe(MODELS.geminiFlash);
+      expect(getModelIdFor("event-parse")).toBe(MODELS.geminiFlash);
+      expect(getModelIdFor("summarize")).toBe(MODELS.geminiFlash);
+    });
+
+    it("gemini 별칭도 동작", () => {
+      process.env.LLM_VENDOR = "gemini";
+      expect(getModelIdFor("quiz")).toBe(MODELS.geminiPro);
+    });
+
+    it("도구별 *_MODEL_VENDOR=anthropic으로 그 도구만 Anthropic 유지", () => {
+      process.env.LLM_VENDOR = "google";
+      process.env.QUIZ_MODEL_VENDOR = "anthropic";
+      // quiz만 다시 Anthropic(비-prod 기본 Sonnet), 나머지는 Gemini 유지
+      expect(getModelIdFor("quiz")).toBe(MODELS.sonnet);
+      expect(getModelIdFor("presentation")).toBe(MODELS.geminiPro);
+    });
+
+    it("LLM_VENDOR 미설정이면 기존 라우팅 그대로 (quiz=Sonnet)", () => {
+      expect(getModelIdFor("quiz")).toBe(MODELS.sonnet);
+    });
   });
 
   it("env 안 켜면 summarize는 Gemini Flash (2026-05-31 결정: prod 포함 기본)", () => {

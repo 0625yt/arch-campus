@@ -31,12 +31,62 @@ import { generateText, type LanguageModel, type ModelMessage, streamText } from 
 const SONNET_ID = "claude-sonnet-4-6";
 const HAIKU_ID = "claude-haiku-4-5";
 const GEMINI_FLASH_ID = "gemini-2.5-flash";
+const GEMINI_PRO_ID = "gemini-2.5-pro";
 
 export const MODELS = {
   sonnet: SONNET_ID,
   haiku: HAIKU_ID,
   geminiFlash: GEMINI_FLASH_ID,
+  geminiPro: GEMINI_PRO_ID,
 } as const;
+
+/**
+ * LLM_VENDOR=google 전역 스위치가 켜졌을 때 도구별로 어떤 Gemini를 쓸지.
+ *   - 생성·Vision 정확도 중요 도구 → 2.5 Pro (입력 $1.25 / 출력 $10)
+ *   - 고빈도·저비용 도구 → 2.5 Flash (입력 $0.30 / 출력 $2.50)
+ * (Sonnet $3/$15·Haiku $1/$5 대비 누적 ~46% 절감. 2026-06-06 실측.)
+ */
+const GEMINI_BY_TOOL: Record<ToolKind, string> = {
+  // 생성·Vision — Pro
+  quiz: GEMINI_PRO_ID,
+  presentation: GEMINI_PRO_ID,
+  "report-structure": GEMINI_PRO_ID,
+  "wizard-assignment": GEMINI_PRO_ID,
+  "wizard-exam": GEMINI_PRO_ID,
+  "wizard-cram": GEMINI_PRO_ID,
+  "syllabus-extract": GEMINI_PRO_ID,
+  "timetable-extract": GEMINI_PRO_ID,
+  "exam-extract": GEMINI_PRO_ID,
+  // 고빈도·저비용 — Flash
+  summarize: GEMINI_FLASH_ID,
+  chat: GEMINI_FLASH_ID,
+  "chat-free": GEMINI_FLASH_ID,
+  "event-parse": GEMINI_FLASH_ID,
+  "post-mortem": GEMINI_FLASH_ID,
+  "pdf-ocr": GEMINI_FLASH_ID,
+};
+
+/**
+ * 도구 → env 접두사. `${접두사}_MODEL_VENDOR=anthropic` 으로 그 도구만 Anthropic 유지.
+ * 예: quiz → QUIZ_MODEL_VENDOR, chat-free → CHAT_FREE_MODEL_VENDOR.
+ */
+const TOOL_ENV_KEY: Record<ToolKind, string> = {
+  summarize: "SUMMARY",
+  quiz: "QUIZ",
+  presentation: "PRESENTATION",
+  "wizard-assignment": "WIZARD_ASSIGNMENT",
+  "wizard-exam": "WIZARD_EXAM",
+  "wizard-cram": "WIZARD_CRAM",
+  "report-structure": "REPORT_STRUCTURE",
+  "syllabus-extract": "SYLLABUS",
+  "timetable-extract": "TIMETABLE",
+  "post-mortem": "POST_MORTEM",
+  "event-parse": "EVENT_PARSE",
+  "exam-extract": "EXAM_EXTRACT",
+  chat: "CHAT",
+  "chat-free": "CHAT_FREE",
+  "pdf-ocr": "PDF_OCR",
+};
 
 /**
  * id → LanguageModel 인스턴스. 호출 시점에만 SDK가 활성화돼 키 없으면 lazy fail.
@@ -144,6 +194,18 @@ function envSaysGoogle(raw: string | undefined): boolean {
  * 미지정·미인식 값이면 TOOL_MODEL 기본값 그대로.
  */
 function resolveModel(tool: ToolKind): string {
+  // ★ 전역 vendor 스위치 — LLM_VENDOR=google 이면 모든 도구를 Gemini로 (prod 포함).
+  //   2026-06-06 결정: Anthropic 크레딧 소진이 잦아 전면 Gemini 전환. 도구별 모델은
+  //   GEMINI_BY_TOOL(생성·Vision=Pro / 고빈도=Flash). 개별 도구를 다시 Anthropic으로
+  //   되돌리려면 그 도구의 *_MODEL_VENDOR=anthropic 으로 예외 지정(아래 분기에서 처리).
+  //   원복: 프로덕션 env에서 LLM_VENDOR 제거 → 기존 Anthropic 라우팅으로 복귀.
+  if (envSaysGoogle(process.env.LLM_VENDOR)) {
+    const perToolVendor = process.env[`${TOOL_ENV_KEY[tool]}_MODEL_VENDOR`]?.trim().toLowerCase();
+    const forcedAnthropic = perToolVendor === "anthropic" || perToolVendor === "claude";
+    if (!forcedAnthropic) return GEMINI_BY_TOOL[tool];
+    // forcedAnthropic이면 아래 기존 라우팅으로 떨어진다(그 도구만 Anthropic 유지).
+  }
+
   // 0) Prod 안전장치 — quiz는 여전히 prod에서 막아둠 (evidence 매칭 검증 부족).
   //    summarize는 2026-05-31 결정: Haiku가 31p+ 합본 자료에서 maxTokens(8192) 초과로
   //    JSON 잘려 죽음. Gemini Flash는 출력 64K 지원 + 가격 1/2 → prod 포함 기본 ON.
@@ -280,9 +342,11 @@ function estimateTokensFromChars(text: string): number {
 }
 
 /** Anthropic 안의 tier. Google은 별도. */
-function modelTier(modelId: string): "haiku" | "sonnet" | "opus" | "flash" {
+function modelTier(modelId: string): "haiku" | "sonnet" | "opus" | "flash" | "geminiPro" {
   if (modelId.includes("haiku")) return "haiku";
   if (modelId.includes("opus")) return "opus";
+  // Gemini Pro는 Flash보다 단가가 4배 이상 비싸 별도 tier로 분리 (비용 집계 정확도).
+  if (modelId.includes("gemini") && modelId.includes("pro")) return "geminiPro";
   if (modelId.includes("gemini")) return "flash";
   return "sonnet";
 }
@@ -298,7 +362,7 @@ function warnIfBelowCacheMin(tool: ToolKind, modelId: string, rulePrompt: string
   if (process.env.NODE_ENV === "production") return;
   if (warnedCacheMissTools.has(tool)) return;
   const tier = modelTier(modelId);
-  if (tier === "flash") return; // Gemini는 별도 캐시 정책
+  if (tier === "flash" || tier === "geminiPro") return; // Gemini(Flash·Pro)는 별도 캐시 정책
   const min = CACHE_MIN_TOKENS[tier];
   const est = estimateTokensFromChars(rulePrompt);
   if (est < min) {
@@ -715,11 +779,20 @@ const PRICING = {
   sonnet: { input: 3, cacheWrite1h: 6, cacheRead: 0.3, output: 15 },
   haiku: { input: 1, cacheWrite1h: 2, cacheRead: 0.1, output: 5 },
   flash: { input: 0.3, cacheWrite1h: 0, cacheRead: 0, output: 2.5 },
+  // Gemini 2.5 Pro ($1.25 입력 / $10 출력, ≤200k 프롬프트 기준). 명시 캐시 안 쓰면 0.
+  geminiPro: { input: 1.25, cacheWrite1h: 0, cacheRead: 0, output: 10 },
 } as const;
 
 export function estimateCost(usage: GenerateUsage, modelId: string): number {
   const tier = modelTier(modelId);
-  const rate = tier === "haiku" ? PRICING.haiku : tier === "flash" ? PRICING.flash : PRICING.sonnet; // opus는 단가가 sonnet과 같거나 더 비싸지만 우리 라우팅에 없음
+  const rate =
+    tier === "haiku"
+      ? PRICING.haiku
+      : tier === "flash"
+        ? PRICING.flash
+        : tier === "geminiPro"
+          ? PRICING.geminiPro
+          : PRICING.sonnet; // opus는 단가가 sonnet과 같거나 더 비싸지만 우리 라우팅에 없음
   const M = 1_000_000;
   return (
     (usage.inputTokens * rate.input) / M +
