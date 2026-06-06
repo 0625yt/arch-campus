@@ -1227,7 +1227,7 @@ function EventChip({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
         title={title}
-        className="block w-full truncate rounded-[3px] px-[3px] py-0 text-left text-[11px] wght-560 leading-[1.4] transition-all duration-150 hover:brightness-105 active:scale-[0.98] sm:rounded-[4px] sm:px-1 sm:text-[12px] sm:leading-[1.55]"
+        className="block w-full overflow-hidden whitespace-nowrap text-clip rounded-[3px] px-[3px] py-0 text-left text-[11px] wght-560 leading-[1.4] transition-all duration-150 hover:brightness-105 active:scale-[0.98] sm:rounded-[4px] sm:px-1 sm:text-[12px] sm:leading-[1.55]"
         style={{
           // 다크: 라이트 파스텔을 alpha로 깔면 진흙 → hue 기반 진한 색으로 재구성(셀과 동일).
           backgroundColor: selected
@@ -1269,8 +1269,9 @@ function EventChip({
         letterSpacing: "-0.03em",
       }}
     >
-      {/* 한 줄 유지(일반 캘린더처럼) — 길면 끝에서 자연스럽게 잘림. 줄바꿈 X. */}
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {/* 한 줄 유지 + "…" 없이 글자 최대한 — 넘치면 끝에서 그냥 잘림(ellipsis 안 붙임).
+          whitespace-nowrap + overflow-hidden만, text-ellipsis는 빼서 점 세 개 제거. */}
+      <span className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-clip">{label}</span>
     </button>
   );
 }
