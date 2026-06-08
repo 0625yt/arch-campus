@@ -475,6 +475,7 @@ function MaterialQuizzes({
     createdAt: string;
     attemptCount: number;
     lastScore: number | null;
+    wrongCount: number;
   }>;
   dotColor: string;
   className?: string;
@@ -499,11 +500,10 @@ function MaterialQuizzes({
       <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {quizzes.map((q) => {
           // 이미 풀었고 마지막 시도에 못 맞힌 문제가 있으면 카드 클릭 = 오답 복습.
-          const wrongCount = q.lastScore !== null ? Math.max(0, q.questionCount - q.lastScore) : 0;
+          // wrongCount는 wrong_items_v 뷰 기준 실제 남은 오답 수 — 빼셈을 쓰지 않는다.
+          const wrongCount = q.wrongCount;
           const hasWrong = q.attemptCount > 0 && wrongCount > 0;
-          const href = hasWrong
-            ? `/dashboard/quiz/${q.id}/wrong`
-            : `/dashboard/quiz/${q.id}`;
+          const href = hasWrong ? `/dashboard/quiz/${q.id}/wrong` : `/dashboard/quiz/${q.id}`;
           return (
             <li key={q.id}>
               <Link

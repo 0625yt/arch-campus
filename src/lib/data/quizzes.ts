@@ -139,6 +139,42 @@ export interface QuizListItem {
   attemptCount: number;
   /** 가장 최근 시도 점수 (없으면 null) */
   lastScore: number | null;
+  /**
+   * 지금 "틀린 채로 남은" 문제 수 — wrong_items_v 뷰에서 quizId별 집계.
+   * questionCount - lastScore 빼셈을 쓰면 부분 풀이(안 푼 문제)까지 오답으로 세므로
+   * 반드시 뷰 기준 실제 오답 수를 쓴다. 다시 맞히면 0이 된다.
+   */
+  wrongCount: number;
+}
+
+/**
+ * quizId별 "지금 틀린 채로 남은" 문제 수 — wrong_items_v 뷰에서 집계.
+ *
+ * 뷰는 0024 이후 "(owner,quiz,question)별 가장 최근 시도가 오답인 것"만 한 row씩
+ * 가지므로, quiz_id로 묶어 row 수를 세면 그게 곧 실제 오답 문제 수다.
+ * (questionCount - lastScore 빼셈은 부분 풀이 시 안 푼 문제까지 세므로 쓰지 않는다.)
+ *
+ * 시간 필터(sinceDays)는 의도적으로 안 건다 — 카드는 "이 퀴즈에 남은 오답"을
+ * 보여줘야 하므로 오래된 오답도 다시 안 맞혔으면 그대로 카운트.
+ */
+async function countWrongByQuiz(
+  admin: ReturnType<typeof getAdminSupabase>,
+  ownerId: string,
+  quizIds: string[],
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (quizIds.length === 0) return counts;
+
+  const { data } = await admin
+    .from("wrong_items_v")
+    .select("quiz_id")
+    .eq("owner_id", ownerId)
+    .in("quiz_id", quizIds);
+
+  for (const row of data ?? []) {
+    counts.set(row.quiz_id, (counts.get(row.quiz_id) ?? 0) + 1);
+  }
+  return counts;
 }
 
 export async function listGeneratedQuizzes(opts: {
@@ -179,12 +215,15 @@ export async function listGeneratedQuizzes(opts: {
   // attempts 집계 — quiz_id별 count + 가장 최근 score.
   // 작은 N(<=30)이라 별도 RPC 안 만들고 클라이언트 측에서 group by.
   const quizIds = quizzes.map((q) => q.id);
-  const { data: attempts } = await admin
-    .from("quiz_attempts")
-    .select("quiz_id, score, created_at")
-    .eq("owner_id", opts.ownerId)
-    .in("quiz_id", quizIds)
-    .order("created_at", { ascending: false });
+  const [{ data: attempts }, wrongByQuiz] = await Promise.all([
+    admin
+      .from("quiz_attempts")
+      .select("quiz_id, score, created_at")
+      .eq("owner_id", opts.ownerId)
+      .in("quiz_id", quizIds)
+      .order("created_at", { ascending: false }),
+    countWrongByQuiz(admin, opts.ownerId, quizIds),
+  ]);
 
   const attemptAgg = new Map<string, { count: number; lastScore: number | null }>();
   for (const a of attempts ?? []) {
@@ -208,6 +247,7 @@ export async function listGeneratedQuizzes(opts: {
       createdAt: q.created_at,
       attemptCount: agg.count,
       lastScore: agg.lastScore,
+      wrongCount: wrongByQuiz.get(q.id) ?? 0,
     };
   });
 }
@@ -233,6 +273,8 @@ export async function listQuizzesForMaterial(opts: {
     createdAt: string;
     attemptCount: number;
     lastScore: number | null;
+    /** wrong_items_v 기준 실제 남은 오답 수 — 빼셈 금지. QuizListItem.wrongCount와 동일 의미. */
+    wrongCount: number;
   }>
 > {
   const admin = getAdminSupabase();
@@ -250,12 +292,15 @@ export async function listQuizzesForMaterial(opts: {
   if (error || !quizzes || quizzes.length === 0) return [];
 
   const quizIds = quizzes.map((q) => q.id);
-  const { data: attempts } = await admin
-    .from("quiz_attempts")
-    .select("quiz_id, score, created_at")
-    .eq("owner_id", opts.ownerId)
-    .in("quiz_id", quizIds)
-    .order("created_at", { ascending: false });
+  const [{ data: attempts }, wrongByQuiz] = await Promise.all([
+    admin
+      .from("quiz_attempts")
+      .select("quiz_id, score, created_at")
+      .eq("owner_id", opts.ownerId)
+      .in("quiz_id", quizIds)
+      .order("created_at", { ascending: false }),
+    countWrongByQuiz(admin, opts.ownerId, quizIds),
+  ]);
 
   const attemptAgg = new Map<string, { count: number; lastScore: number | null }>();
   for (const a of attempts ?? []) {
@@ -275,6 +320,7 @@ export async function listQuizzesForMaterial(opts: {
       createdAt: q.created_at,
       attemptCount: agg.count,
       lastScore: agg.lastScore,
+      wrongCount: wrongByQuiz.get(q.id) ?? 0,
     };
   });
 }

@@ -186,7 +186,8 @@ function QuizCard({
 
   // 이미 풀었고 마지막 시도에서 못 맞힌 문제가 있으면 → 카드 클릭은 "오답만 다시 풀기".
   // 그래야 틀린 것만 빠르게 복습. 전부 맞혔거나 안 풀었으면 처음부터.
-  const wrongCount = quiz.lastScore !== null ? Math.max(0, quiz.questionCount - quiz.lastScore) : 0;
+  // wrongCount는 wrong_items_v 뷰 기준 실제 남은 오답 수 — 빼셈(안 푼 문제까지 셈)을 쓰지 않는다.
+  const wrongCount = quiz.wrongCount;
   const hasWrong = quiz.attemptCount > 0 && wrongCount > 0;
   const href = hasWrong ? `/dashboard/quiz/${quiz.id}/wrong` : `/dashboard/quiz/${quiz.id}`;
 
