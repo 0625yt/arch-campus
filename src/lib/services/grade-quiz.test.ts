@@ -154,4 +154,68 @@ describe("gradeQuiz", () => {
     // 동의어형은 복수 필수답이 아니므로 partial 없음.
     expect(graded.results[0].partial).toBeUndefined();
   });
+
+  // ── 일본어 표기 변형 (피드백: "정답인데 틀렸다고 함") ──
+  // 순수 함수는 가타카나↔히라가나만 자동 변환한다. 한자↔가나는 못 하므로,
+  // 프롬프트가 정답에 한자 표기를 |로 병기해야 잡힌다(아래 회귀 테스트로 고정).
+
+  it("가타카나로 쓴 답을 히라가나 정답에 매칭 (자동 변환)", () => {
+    const questions: Question[] = [
+      mkQ(1, "A", { kind: "short-answer", choices: null, answer: "がっこう" }),
+    ];
+    // 학생이 가타카나로 ガッコウ를 써도 음이 같으므로 정답.
+    const graded = gradeQuiz(questions, [{ questionId: 1, response: "ガッコウ" }]);
+    expect(graded.results[0].correct).toBe(true);
+  });
+
+  it("정답에 한자를 |로 병기하면 한자로 쓴 답도 정답 (Q1·Q12 수정)", () => {
+    const questions: Question[] = [
+      // 프롬프트 보강의 결과물: 가나 + 한자 동의어 병기.
+      mkQ(1, "A", { kind: "short-answer", choices: null, answer: "がっこう | 学校" }),
+    ];
+    expect(gradeQuiz(questions, [{ questionId: 1, response: "学校" }]).results[0].correct).toBe(
+      true,
+    );
+    expect(gradeQuiz(questions, [{ questionId: 1, response: "がっこう" }]).results[0].correct).toBe(
+      true,
+    );
+  });
+
+  it("혼합표기(けしゴム) 정답에 가나·한자 변형을 병기하면 다 정답 (Q11 수정)", () => {
+    const questions: Question[] = [
+      mkQ(1, "A", {
+        kind: "short-answer",
+        choices: null,
+        answer: "けしゴム | けしごむ | 消しゴム",
+      }),
+    ];
+    // けしゴム(원형) · けしごむ(전부 히라가나) · ケシゴム(전부 가타카나·자동변환) · 消しゴム(한자)
+    for (const response of ["けしゴム", "けしごむ", "ケシゴム", "消しゴム"]) {
+      expect(gradeQuiz(questions, [{ questionId: 1, response }]).results[0].correct).toBe(true);
+    }
+  });
+
+  it('"두 개 쓰세요"는 &로 만들어야 채점이 stem 의도와 맞는다 (Q2 수정)', () => {
+    // OR(|)의 문제: "둘 다 쓰세요"인데 하나만 써도 정답 → stem 의도와 어긋난다.
+    // (게다가 부분 매칭이 관대해 둘 다 써도 정답으로 통과해 구분이 안 된다.)
+    const orQ: Question[] = [
+      mkQ(1, "A", { kind: "short-answer", choices: null, answer: "どちら | どっち" }),
+    ];
+    expect(gradeQuiz(orQ, [{ questionId: 1, response: "どちら" }]).results[0].correct).toBe(true);
+    expect(gradeQuiz(orQ, [{ questionId: 1, response: "どちら" }]).results[0].partial).toBeUndefined();
+
+    // AND(&) 수정 형태: 둘 다 써야 정답, 하나만 쓰면 오답 + 부분 채점으로 "뭘 빠뜨렸는지" 노출.
+    const andQ: Question[] = [
+      mkQ(1, "A", { kind: "short-answer", choices: null, answer: "どちら & どっち" }),
+    ];
+    // 둘 다 → 정답
+    expect(
+      gradeQuiz(andQ, [{ questionId: 1, response: "どちら、どっち" }]).results[0].correct,
+    ).toBe(true);
+    // 하나만 → 오답이되 부분 채점이 동작 (OR과 결정적 차이)
+    const partial = gradeQuiz(andQ, [{ questionId: 1, response: "どちら" }]).results[0];
+    expect(partial.correct).toBe(false);
+    expect(partial.partial?.matchedParts).toContain("どちら");
+    expect(partial.partial?.missingParts).toContain("どっち");
+  });
 });

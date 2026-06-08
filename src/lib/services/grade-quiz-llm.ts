@@ -1,6 +1,6 @@
 import "server-only";
 import { generateText } from "ai";
-import { MODELS, modelInstance } from "@/lib/claude";
+import { getModelIdFor, modelInstance } from "@/lib/claude";
 import type { GradedQuiz, GradedResult } from "@/lib/services/grade-quiz";
 
 /**
@@ -144,6 +144,12 @@ async function judgeWithHaiku(items: JudgeItem[]): Promise<JudgeVerdict[]> {
 5. **방향만 비슷한 추측** → 오답: 정답이 "정규화"인데 학생이 "데이터를 정리하는 것"처럼 모호한 경우 (개념 특정 X)
 6. **부분만 맞고 핵심 빠짐** → 오답: 정답이 "1차 정규형"인데 학생이 "정규형"만 적은 경우
 
+★ 어학(특히 일본어) — 표기만 다르고 **읽는 음/뜻이 같으면 정답**:
+7. **한자 ↔ 가나** → 정답: "学校" vs "がっこう" vs "ガッコウ" (같은 단어, 표기만 다름). "会社" vs "かいしゃ". "消しゴム" vs "けしゴム" vs "けしごむ".
+8. **히라가나 ↔ 가타카나** → 정답: "ごむ" vs "ゴム" (음 같음). 단 문제가 "가타카나로만 쓰세요"처럼 **표기 종류 자체를 평가**하면 → 그 표기 아니면 오답.
+9. **送り仮名·장음 사소한 차이** → 핵심 단어가 맞으면 정답. 단 완전히 다른 단어면 오답.
+   주의: 문제 stem이 "히라가나로 쓰세요"라고 했어도, 학생이 한자나 가타카나로 정확히 같은 단어를 썼으면 **음·뜻이 맞으므로 정답**(표기 강제가 채점 포인트가 아닌 한).
+
 응답 형식 (JSON 배열만, 다른 텍스트 X):
 [
   { "questionId": 1, "equivalent": true, "reason": "표기 차이 — normalization은 정규화의 영문" },
@@ -152,8 +158,11 @@ async function judgeWithHaiku(items: JudgeItem[]): Promise<JudgeVerdict[]> {
 
 reason은 80자 이내. equivalent가 true일 때만 의미 있음.`;
 
+  // ★ 채점 보조 모델은 라우팅을 거친다 — LLM_VENDOR=google면 Gemini Flash, 평소엔 Haiku.
+  // 예전엔 MODELS.haiku를 직접 박아 전역 Gemini 전환을 우회했다 → Anthropic 크레딧
+  // 소진 시 채점 보조가 silent fail로 죽어 일본어 표기 차이 등을 구제 못 했다.
   const result = await generateText({
-    model: modelInstance(MODELS.haiku),
+    model: modelInstance(getModelIdFor("chat-free")),
     system,
     prompt: `다음 ${items.length}개 단답형 문제를 채점해주세요.\n\n${itemsBlock}\n\nJSON 배열만 응답하세요.`,
     temperature: 0.1,
