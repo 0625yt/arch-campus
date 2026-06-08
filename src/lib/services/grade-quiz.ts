@@ -227,6 +227,17 @@ function gradeShortAnswer(
   const accepted = requiredSlots[0]?.accepted ?? extractAcceptedAnswers(answerSpec);
   const correct = accepted.some((candidate) => isFreeTextMatch(candidate, submittedText));
   const primary = requiredSlots[0]?.label ?? accepted[0] ?? answerSpec;
+
+  // 오답이면 — 정답과 거의 같은(가나 한 글자 차이) 경우 무엇이 다른지 콕 집어준다.
+  // 실제 피드백("츠가 뭐가 달라?")처럼 촉음·요음·장음 실수를 학습으로 잇기 위함.
+  let whyWrong: string | undefined;
+  if (!correct) {
+    const slip = diagnoseJapaneseKanaSlip(primary, rawSubmitted);
+    whyWrong = slip
+      ? slip
+      : `적은 답 "${rawSubmitted}"은 정답 "${primary}"와 달라요. 표기·철자를 자료와 맞춰 보세요.`;
+  }
+
   return {
     correct,
     answer: answerSpec,
@@ -236,9 +247,7 @@ function gradeShortAnswer(
       : accepted.length > 1
         ? `허용 표현 예시: ${accepted.slice(0, 3).join(", ")}`
         : "자료에 적힌 핵심 용어와 표기를 다시 확인해 보세요.",
-    whyWrong: correct
-      ? undefined
-      : `적은 답 "${rawSubmitted}"은 정답 "${primary}"와 달라요. 표기·철자를 자료와 맞춰 보세요.`,
+    whyWrong,
   };
 }
 
@@ -344,4 +353,63 @@ function normalizeText(value: string): string {
  */
 function katakanaToHiragana(s: string): string {
   return s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+}
+
+/**
+ * 단답형 오답이 정답과 "거의 같을" 때, 무엇이 다른지 구체적으로 짚어준다.
+ *
+ * 왜 필요한가: "がっこう"가 정답인데 학생이 "がつこう"(큰 つ)를 적으면 채점은
+ * 정확히 오답이다. 하지만 "표기·철자를 맞춰 보세요"라고만 하면 학생은 뭐가 틀린지
+ * 모른다(실제 피드백: "츠가 뭐가 달라?"). 촉음·요음·장음 같은 흔한 가나 실수를
+ * 콕 집어 학습이 되게 한다.
+ *
+ * 반환: 구체 설명 문자열. 짚을 게 없으면(차이가 크거나 일본어가 아니면) null.
+ */
+function diagnoseJapaneseKanaSlip(correct: string, submitted: string): string | null {
+  // 둘 다 가나가 섞여 있을 때만 — 한국어·영어 답엔 적용 안 함.
+  const hasKana = (s: string) => /[ぁ-ゟァ-ヿ]/.test(s);
+  if (!hasKana(correct) || !hasKana(submitted)) return null;
+
+  // 가타카나·길이 차이를 무시하고 비교하기 위해 히라가나로 통일(단 촉음·요음 구분은 유지).
+  const c = katakanaToHiragana(correct.normalize("NFKC"));
+  const s = katakanaToHiragana(submitted.normalize("NFKC"));
+  if (c === s) return null; // 음 같으면 애초에 정답이라 여기 안 옴
+
+  // 길이가 같을 때: 딱 한 글자만 다른지 본다 (가장 흔한 단일 글자 실수).
+  if (c.length === s.length) {
+    const diffIdx: number[] = [];
+    for (let i = 0; i < c.length; i++) if (c[i] !== s[i]) diffIdx.push(i);
+    if (diffIdx.length === 1) {
+      const i = diffIdx[0];
+      const cc = c[i];
+      const sc = s[i];
+      // 촉음: 작은 っ(U+3063) ↔ 큰 つ(U+3064)
+      if ((cc === "っ" && sc === "つ") || (cc === "つ" && sc === "っ")) {
+        return cc === "っ"
+          ? `정답 「${correct}」은 촉음(작은 「っ」)인데 큰 「つ」로 적으셨어요. 작은 っ는 받침처럼 다음 소리를 막아요(예: がっこう = gak-kō "각꼬-").`
+          : `정답 「${correct}」은 큰 「つ」인데 촉음(작은 「っ」)으로 적으셨어요.`;
+      }
+      // 요음: 작은 ゃゅょ ↔ 큰 やゆよ
+      const small = "ゃゅょ";
+      const large = "やゆよ";
+      const si = small.indexOf(cc) >= 0 || small.indexOf(sc) >= 0;
+      const li = large.indexOf(cc) >= 0 || large.indexOf(sc) >= 0;
+      if (si && li) {
+        return `정답은 요음(작은 「${small.includes(cc) ? cc : sc}」)이에요. 작은 글자로 적어야 해요 (큰 글자로 적으면 다른 발음이 돼요).`;
+      }
+      // 탁점/반탁점 등 그 외 한 글자 차이 — 어느 위치인지만 짚어준다.
+      return `정답 「${correct}」과 「${(submitted)}」은 ${i + 1}번째 글자(「${cc}」↔「${sc}」)가 달라요.`;
+    }
+  }
+
+  // 길이가 1 차이 — 장음(ー)이나 한 글자 빠짐/더함.
+  if (Math.abs(c.length - s.length) === 1) {
+    const longer = c.length > s.length ? c : s;
+    if (longer.includes("ー") || correct.includes("ー")) {
+      return `장음(「ー」, 길게 빼는 소리)이 정답과 달라요. 「${correct}」의 장음 위치를 확인해 보세요.`;
+    }
+    return `정답 「${correct}」과 글자 수가 한 개 달라요. 빠뜨리거나 더한 가나가 없는지 보세요.`;
+  }
+
+  return null;
 }

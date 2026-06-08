@@ -195,6 +195,18 @@ describe("gradeQuiz", () => {
     }
   });
 
+  it("촉음 실수(がっこう vs がつこう)는 오답이고, whyWrong이 촉음을 콕 집는다 (피드백: 츠가 뭐가 달라?)", () => {
+    const questions: Question[] = [
+      mkQ(1, "A", { kind: "short-answer", choices: null, answer: "がっこう" }),
+    ];
+    const r = gradeQuiz(questions, [{ questionId: 1, response: "がつこう" }]).results[0];
+    // 작은 っ ≠ 큰 つ — 오답이 맞다.
+    expect(r.correct).toBe(false);
+    // "표기를 맞춰보세요" 같은 막연한 안내가 아니라 촉음을 짚어야 한다.
+    expect(r.whyWrong).toContain("촉음");
+    expect(r.whyWrong).not.toContain("표기·철자를 자료와 맞춰");
+  });
+
   it('"두 개 쓰세요"는 &로 만들어야 채점이 stem 의도와 맞는다 (Q2 수정)', () => {
     // OR(|)의 문제: "둘 다 쓰세요"인데 하나만 써도 정답 → stem 의도와 어긋난다.
     // (게다가 부분 매칭이 관대해 둘 다 써도 정답으로 통과해 구분이 안 된다.)
