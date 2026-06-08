@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { QuizQuestionT } from "@/lib/schemas";
-import { validateEvidence } from "./validate-quiz";
+import { questionFingerprint, validateEvidence } from "./validate-quiz";
 
 /**
  * evidence 검증 회귀 테스트 — 환각 차단의 사활.
@@ -164,5 +164,62 @@ describe("validateEvidence — 환각 차단 + OCR 노이즈 관대성", () => {
   it("isMetadataOnly면 evidence 없어도 keep (본문 검증 불가)", () => {
     const { kept } = validateEvidence([q(1, "")], "", { isMetadataOnly: true });
     expect(kept).toHaveLength(1);
+  });
+});
+
+describe("questionFingerprint — 같은 예문 중복 잡기 (피드백: 중복 너무 많음)", () => {
+  const choices = [
+    { key: "A", text: "から" },
+    { key: "B", text: "ほん" },
+    { key: "C", text: "は" },
+    { key: "D", text: "に" },
+  ];
+
+  it("같은 일본어 예문을 도입부만 바꿔 반복하면 같은 fingerprint", () => {
+    // 실제 중복 사례: 「かさを2___ください」를 도입부·인용부호·공백·번역만 바꿔 4번 반복.
+    const a = questionFingerprint({
+      stem: "다음 문장의 빈칸에 들어갈 가장 알맞은 조수사를 고르세요.\n「かさを2___ください。」",
+      choices,
+    });
+    const b = questionFingerprint({
+      stem: "다음 문장의 빈칸에 들어갈 가장 적절한 조수사를 고르세요:\n\nかさを2___ください。",
+      choices,
+    });
+    const c = questionFingerprint({
+      stem: "다음 문장의 빈칸에 들어갈 가장 적절한 조수사를 고르세요:\nかさを2 ___ ください。(우산을 2개 주세요.)",
+      choices,
+    });
+    expect(a).toBe(b);
+    expect(a).toBe(c);
+  });
+
+  it("후리가나(한자 뒤 괄호 읽기) 유무가 달라도 같은 예문이면 같다", () => {
+    const withFuri = questionFingerprint({
+      stem: "빈칸을 고르세요: 「教室(きょうしつ)に学生(がくせい)が ___ います。」",
+      choices,
+    });
+    const without = questionFingerprint({
+      stem: "다음을 고르세요:\n教室に学生が___います。",
+      choices,
+    });
+    expect(withFuri).toBe(without);
+  });
+
+  it("예문이 다르면 다른 fingerprint (false positive 방지)", () => {
+    const x = questionFingerprint({ stem: "「トイレは ___ ですか。」", choices });
+    const y = questionFingerprint({ stem: "「あの黒い服は ___ ですか。」", choices });
+    expect(x).not.toBe(y);
+  });
+
+  it("일본어 없는(한국어·CS) 문제는 stem 전체로 폴백 — 오버머지 안 함", () => {
+    const x = questionFingerprint({
+      stem: "임계 구역의 조건이 아닌 것은?",
+      choices: [{ key: "A", text: "상호 배제" }],
+    });
+    const y = questionFingerprint({
+      stem: "교착 상태의 조건이 아닌 것은?",
+      choices: [{ key: "A", text: "상호 배제" }],
+    });
+    expect(x).not.toBe(y);
   });
 });

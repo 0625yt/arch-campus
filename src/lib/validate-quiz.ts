@@ -156,10 +156,41 @@ export function fingerprint(stem: string): string {
 }
 
 /**
- * 문제 단위 fingerprint — stem + 보기 집합(없으면 정답 텍스트).
+ * stem의 "핵심 예문"만 뽑는다 — 중복 판정의 진짜 기준.
  *
- * stem만으로는 "같은 답을 다른 문장으로 묻는" 중복을 못 잡는다. 보기 4개를 정렬해
- * 합치면 "보기 구성이 똑같은" 문제(= 사실상 같은 문제)를 더 확실히 잡는다.
+ * 어학(특히 일본어) 문제는 같은 빈칸 예문을 도입부만 바꿔 반복하는 중복이 많다.
+ * 같은 예문이 인용부호 유무·공백·후리가나·한국어 번역 꼬리만 다르게 반복된다:
+ *   "다음 문장의 빈칸에…「かさを2___ください。」"
+ *   "…：かさを2___ください。"
+ *   "자료 8과의 설명을 바탕으로, 「かさを2 ___ ください。」(우산을 2개…)와 같이…"
+ * → 도입부·번역·공백·후리가나를 다 걷어내면 예문 핵심(かさを2○ください)은 같다.
+ *
+ * 전략: stem에서 일본어 가나·한자 + 빈칸(○)만 남겨 fingerprint한다.
+ *   - 빈칸(_ ＿ …)을 ○로 통일, 후리가나(한자 뒤 괄호 읽기)·한국어·영문·숫자·공백 제거.
+ *   - 일본어가 거의 없으면(비어학) stem 전체 정규화로 폴백 — 오버머지 방지.
+ */
+function coreExampleOf(stem: string): string {
+  const blanked = stem.replace(/[_＿…]+|\.{2,}/g, "○"); // 빈칸·말줄임 통일
+  // 후리가나 제거: 한자 바로 뒤 (かな) 읽기 괄호.
+  const noFurigana = blanked.replace(/([一-鿿])[(（][ぁ-ゟ゠-ヿ]+[)）]/g, "$1");
+  // 일본어(가나·한자) + 빈칸(○) + 장음(ー)만 — 한국어·영문·숫자·공백·구두점 제거.
+  const jp = noFurigana.replace(/[^぀-ヿ一-鿿○ー]/g, "");
+  // 일본어 예문이 충분하면(빈칸 뺀 가나·한자 3자+) 그걸로, 아니면 stem 전체 정규화로 폴백.
+  if (jp.replace(/○/g, "").length >= 3) return jp.slice(0, 80);
+  return stem
+    .toLowerCase()
+    .replace(/[_＿…]+|\.{2,}/g, "○") // 빈칸·말줄임을 한 기호로 통일
+    .replace(/[\s ]+/g, "")
+    .replace(/[?？！!.,，。、:：;；()（）[\]【】"'"'`]/g, "")
+    .slice(0, 80);
+}
+
+/**
+ * 문제 단위 fingerprint — 핵심 예문 + 보기 집합(없으면 정답 텍스트).
+ *
+ * stem 전체가 아니라 coreExampleOf(stem)을 쓰는 게 핵심: "같은 예문을 다른 도입부로
+ * 감싼" 중복(어학에서 가장 흔함)을 잡으려면 도입부를 무시하고 예문만 봐야 한다.
+ * 보기 4개를 정렬해 합치면 "보기 구성이 똑같은" 문제까지 확실히 묶인다.
  * 한 quiz 안의 중복 제거(청크 내부 포함)에 사용.
  */
 export function questionFingerprint(q: {
@@ -168,7 +199,7 @@ export function questionFingerprint(q: {
   choices?: { key: string; text: string }[] | null;
 }): string {
   const norm = (s: string) => s.toLowerCase().replace(/[\s\u00a0]+/g, "");
-  const stemFp = fingerprint(q.stem);
+  const coreFp = coreExampleOf(q.stem);
   const choiceFp = q.choices?.length
     ? q.choices
         .map((c) => norm(c.text))
@@ -176,7 +207,7 @@ export function questionFingerprint(q: {
         .join("|")
         .slice(0, 120)
     : norm(q.answer ?? "");
-  return stemFp + "\u2237" + choiceFp;
+  return coreFp + "\u2237" + choiceFp;
 }
 
 /**
