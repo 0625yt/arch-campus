@@ -194,6 +194,7 @@ function TimetableGrid({
   // 현재 시각 — KST.
   const kst = useMemo(() => new Date(now.getTime() + 9 * 60 * 60 * 1000), [now]);
   const nowMin = kst.getUTCHours() * 60 + kst.getUTCMinutes();
+  const nowLabel = `${String(kst.getUTCHours()).padStart(2, "0")}:${String(kst.getUTCMinutes()).padStart(2, "0")}`;
   const nowInRange = nowMin >= minuteOffset && nowMin <= minuteOffset + totalMinutes;
   // 현재 시각을 body 콘텐츠 높이 비율(0~1)로.
   const nowFrac = nowInRange ? (nowMin - minuteOffset) / totalMinutes : null;
@@ -338,24 +339,13 @@ function TimetableGrid({
 
             {/* Cells */}
             <div className="relative min-w-0 flex-1 border-l border-[var(--color-apple-hairline-soft)]/60">
-              {/* 오늘 컬럼 통째 wash — 사용자가 한눈에 볼 수 있는 수준(8%) */}
-              {shownDays.map((w, dayIdx) => {
-                if (!isKstToday(w, now)) return null;
-                const colWidth = 100 / shownDays.length;
-                return (
-                  <div
-                    key={`today-wash-${w}`}
-                    aria-hidden
-                    className="pointer-events-none absolute inset-y-0 bg-[var(--color-apple-action)]/[0.08]"
-                    style={{
-                      left: `${dayIdx * colWidth}%`,
-                      width: `${colWidth}%`,
-                    }}
-                  />
-                );
-              })}
+              {/* 오늘 컬럼 통째 파란 wash는 제거 — "큰 면적에 액센트 색"(DESIGN §10) 위반이고
+                  너무 튄다는 피드백(2026-06-09). 오늘 식별은 헤더(파란 글자+점)와
+                  아래 실시간 now-line이 대신한다. */}
 
-              {/* 과거 시간대 dim — 라이트 8% · 다크 30% (확실히 보이게) */}
+              {/* 지난 시간대 dim — 오늘 컬럼에서 이미 흐른 시간을 아주 옅게 가라앉힌다.
+                  배경 wash를 뺐으니 이건 "오늘 어디까지 왔나"의 유일한 면 신호 → 절제해서 옅게
+                  (라이트 4% · 다크 22%). 과거 강의 셀 자체는 opacity로 따로 톤다운된다. */}
               {nowFrac !== null &&
                 shownDays.map((w, dayIdx) => {
                   if (!isKstToday(w, now)) return null;
@@ -364,7 +354,7 @@ function TimetableGrid({
                     <div
                       key={`past-wash-${w}`}
                       aria-hidden
-                      className="pointer-events-none absolute top-0 bg-black/[0.08] dark:bg-black/[0.30]"
+                      className="pointer-events-none absolute top-0 bg-black/[0.04] dark:bg-black/[0.22]"
                       style={{
                         left: `${dayIdx * colWidth}%`,
                         width: `${colWidth}%`,
@@ -400,21 +390,31 @@ function TimetableGrid({
                     isKstToday(w, now) && nowMin >= s.slot.startMinute && nowMin < s.slot.endMinute;
                   // 과거 강의 (오늘 컬럼 안, 이미 끝난 슬롯) — 톤 다운
                   const isPast = isKstToday(w, now) && nowMin >= s.slot.endMinute;
-                  // 짧은 셀(1시간 미만급)은 강의명 1줄 + 시각 숨김으로 잘림 방지.
-                  const compact = height < 56;
+                  // 셀 실제 높이(px). 패딩·정렬·표시 항목을 높이로 단계화해 짧은 셀 잘림 방지.
+                  const cellH = height - 4;
+                  // tiny: 시각 줄이 못 들어감 + 패딩 줄이고 세로 중앙 정렬로 강의명 1줄 확실히.
+                  const tiny = cellH < 40;
+                  // compact: 강의명만(시각 숨김). 그 이상이면 강의명 2줄 + 시각.
+                  const compact = cellH < 58;
+                  // 짧을수록 상하 패딩을 줄여 텍스트 공간 확보. (좌우는 유지.)
+                  const padY = tiny ? 3 : compact ? 5 : 6;
                   return (
                     <button
                       key={`${s.courseId}-${w}-${s.slot.startMinute}`}
                       type="button"
                       onClick={() => onPickCourse(s)}
-                      className={`tt-cell spring-press group absolute flex flex-col items-start justify-start overflow-hidden rounded-[12px] px-2.5 py-1.5 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_10px_26px_-8px_rgba(0,0,0,0.22)] ${
+                      className={`tt-cell spring-press group absolute flex flex-col items-start overflow-hidden rounded-[12px] px-2.5 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_10px_26px_-8px_rgba(0,0,0,0.22)] ${
+                        tiny ? "justify-center" : "justify-start"
+                      } ${
                         isNow
                           ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)] shadow-[0_10px_28px_-4px_rgba(0,113,227,0.5)]"
                           : ""
                       } ${isPast ? (isDark ? "opacity-60" : "opacity-45") : ""}`}
                       style={{
                         top: `${top + 2}px`,
-                        height: `${height - 4}px`,
+                        height: `${cellH}px`,
+                        paddingTop: `${padY}px`,
+                        paddingBottom: `${padY}px`,
                         left: `calc(${left}% + 3px)`,
                         width: `calc(${colWidth}% - 6px)`,
                         backgroundColor: isDark
@@ -423,8 +423,8 @@ function TimetableGrid({
                       }}
                       aria-label={`${s.courseName} ${s.slot.startLabel} - ${s.slot.endLabel}${isNow ? " (진행 중)" : ""}`}
                     >
-                      {/* 진행 중 라벨 — 셀 우상단 micro pulse dot */}
-                      {isNow && (
+                      {/* 진행 중 라벨 — 셀 우상단 micro pulse dot. tiny 셀은 공간 없어 숨김. */}
+                      {isNow && !tiny && (
                         <span
                           aria-hidden
                           className="absolute right-2 top-2 inline-flex h-1.5 w-1.5"
@@ -434,7 +434,7 @@ function TimetableGrid({
                         </span>
                       )}
                       <span
-                        className={`${compact ? "line-clamp-1" : "line-clamp-2"} text-[13.5px] leading-[1.18] wght-700 sm:text-[14px] ${
+                        className={`${compact ? "line-clamp-1" : "line-clamp-2"} ${tiny ? "text-[12px]" : "text-[13.5px] sm:text-[14px]"} leading-[1.15] wght-700 ${
                           isDark ? "text-white" : "text-[var(--color-apple-ink)]"
                         }`}
                         style={{ letterSpacing: "-0.018em" }}
@@ -456,7 +456,8 @@ function TimetableGrid({
                 });
               })}
 
-              {/* 현재 시각 라인 — Fantastical 톤. 도트 + 가는 라인 + 현재 시각 라벨 */}
+              {/* 현재 시각 라인 — 파란 컬럼 wash를 뺀 자리의 주인공.
+                  도트 + 현재 시각 칩(HH:MM) + 가는 라인. "내 시간"이 한눈에. */}
               {nowFrac !== null && shownDays.some((w) => isKstToday(w, now)) && (
                 <div
                   aria-hidden
@@ -467,7 +468,13 @@ function TimetableGrid({
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-apple-action)] opacity-60" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--color-apple-action)] shadow-[0_0_8px_rgba(0,113,227,0.5)]" />
                   </span>
-                  <span className="ml-0 h-px flex-1 bg-gradient-to-r from-[var(--color-apple-action)]/85 via-[var(--color-apple-action)]/60 to-[var(--color-apple-action)]/20" />
+                  <span
+                    className="ml-1 shrink-0 rounded-full bg-[var(--color-apple-action)] px-1.5 py-px text-[9.5px] wght-700 tabular-nums leading-none text-white shadow-[0_1px_4px_-1px_rgba(0,113,227,0.5)]"
+                    style={{ letterSpacing: "-0.01em" }}
+                  >
+                    {nowLabel}
+                  </span>
+                  <span className="ml-1.5 h-px flex-1 bg-gradient-to-r from-[var(--color-apple-action)]/85 via-[var(--color-apple-action)]/55 to-[var(--color-apple-action)]/15" />
                 </div>
               )}
             </div>
