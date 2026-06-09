@@ -12,8 +12,14 @@ import { NextResponse } from "next/server";
  *   - 자료 일괄 다운 스크래핑
  *
  * 동작:
- *   - UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN env가 있으면 활성
- *   - 없으면 always-allow no-op (dev·미설정 환경 동작 유지)
+ *   - UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN env가 있으면 Upstash(분산) 활성
+ *   - 없으면 인메모리 폴백 — 단일 인스턴스 내 sliding window로 "무제한 호출"만은 막는다.
+ *     (Vercel Fluid Compute는 인스턴스를 재사용하므로 hot 상태에선 실효. 다만 인스턴스가
+ *      여러 개로 스케일아웃되면 인스턴스 수만큼 한도가 곱해진다 — 완벽한 분산 제한은
+ *      Upstash가 있어야 함. 폴백은 최후 방어선이지 정식 대체가 아니다.)
+ *
+ * ★ fail-open 원칙: rate limit은 "있으면 좋은 방어선"이지 서비스 중단 사유가 아니다.
+ *   Upstash 장애·폴백 로직 throw 시엔 요청을 통과시킨다 (서비스 가용성 > 완벽한 제한).
  *
  * 키:
  *   - 우선 user_id (인증된 케이스), 없으면 IP — 한국 통신사 NAT IP 충돌 줄이려고 user_id 우선
@@ -54,20 +60,77 @@ function getRedis(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) {
-    // prod에서 env 누락은 rate limit이 무음 비활성 — 한 번만 큰 로그로 알린다.
-    // Vercel logs 검색 시 즉시 잡히게 메시지 고정.
+    // prod에서 env 누락 시 인메모리 폴백으로 동작 — 한 번만 큰 로그로 알린다.
+    // Vercel logs 검색 시 즉시 잡히게 메시지 고정. (분산 제한이 필요하면 Upstash 연결.)
     if (process.env.NODE_ENV === "production" && !warnedNoEnvInProd) {
       warnedNoEnvInProd = true;
       console.error(
         "[ratelimit.CRITICAL] UPSTASH_REDIS_REST_URL/TOKEN not set in production. " +
-          "Rate limit is DISABLED — AI/upload abuse not protected. " +
-          "Set both env vars in Vercel project settings.",
+          "Falling back to IN-MEMORY rate limit (single-instance only — abuse protection is " +
+          "weaker across scaled instances). Set both env vars in Vercel for distributed limits.",
       );
     }
     return null;
   }
   redis = new Redis({ url, token });
   return redis;
+}
+
+/* ── 인메모리 폴백 — Upstash 없을 때 단일 인스턴스 sliding window ───────────────
+ * key = `${kind}:${identifier}`. 값은 윈도우 안의 hit timestamp(ms) 배열.
+ * 호출마다 윈도우 밖 항목을 잘라내고, 남은 수가 정책 토큰 이상이면 차단.
+ * 메모리 무한 증식 방지: 비어버린 key는 즉시 삭제, 전체 key 수가 상한 넘으면 정리. */
+const memHits = new Map<string, number[]>();
+const MEM_KEY_CAP = 50_000;
+
+function windowMs(window: LimiterConfig["window"]): number {
+  const [n, unit] = window.split(" ") as [string, "s" | "m" | "h" | "d"];
+  const mult = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 }[unit];
+  return Number(n) * mult;
+}
+
+function memLimit(kind: string, identifier: string): RateLimitResult {
+  const policy = POLICIES[kind] ?? POLICIES.default;
+  const span = windowMs(policy.window);
+  const now = Date.now();
+  const key = `${kind}:${identifier}`;
+  const prior = memHits.get(key) ?? [];
+  // 윈도우 밖(만료) 타임스탬프 제거
+  const fresh = prior.filter((t) => now - t < span);
+
+  if (fresh.length >= policy.tokens) {
+    // 차단 — 가장 오래된 hit가 윈도우를 벗어나는 시점까지 기다려야 함
+    memHits.set(key, fresh);
+    const oldest = fresh[0];
+    const resetMs = oldest + span;
+    const retryAfterSec = Math.max(1, Math.ceil((resetMs - now) / 1000));
+    return {
+      success: false,
+      headers: {
+        "X-RateLimit-Limit": String(policy.tokens),
+        "X-RateLimit-Remaining": "0",
+        "X-RateLimit-Reset": String(resetMs),
+        "Retry-After": String(retryAfterSec),
+      },
+    };
+  }
+
+  fresh.push(now);
+  memHits.set(key, fresh);
+  // 메모리 청소: key가 너무 많아지면 만료된 것부터 솎아낸다(저비용 best-effort).
+  if (memHits.size > MEM_KEY_CAP) {
+    for (const [k, ts] of memHits) {
+      if (ts.every((t) => now - t >= span)) memHits.delete(k);
+    }
+  }
+  return {
+    success: true,
+    headers: {
+      "X-RateLimit-Limit": String(policy.tokens),
+      "X-RateLimit-Remaining": String(policy.tokens - fresh.length),
+      "X-RateLimit-Reset": String(now + span),
+    },
+  };
 }
 
 function getLimiter(kind: string): Ratelimit | null {
@@ -96,25 +159,38 @@ export interface RateLimitResult {
  *   - identifier: user_id 또는 IP (앱이 결정. 인증된 라우트는 ownerId)
  *   - kind: POLICIES 키
  *
- * Upstash env 미설정 시 무조건 success=true 반환 (no-op).
+ * Upstash env 미설정 시 인메모리 폴백(단일 인스턴스 sliding window)으로 동작.
+ * 폴백 로직이 예외를 던지면 fail-open(success=true) — 서비스 가용성 우선.
  */
 export async function checkRateLimit(
   kind: keyof typeof POLICIES | string,
   identifier: string,
 ): Promise<RateLimitResult> {
   const lim = getLimiter(kind);
-  if (!lim) return { success: true, headers: {} };
-  const { success, limit, remaining, reset } = await lim.limit(identifier);
-  const headers: Record<string, string> = {
-    "X-RateLimit-Limit": String(limit),
-    "X-RateLimit-Remaining": String(remaining),
-    "X-RateLimit-Reset": String(reset),
-  };
-  if (!success) {
-    const retryAfterSec = Math.max(1, Math.ceil((reset - Date.now()) / 1000));
-    headers["Retry-After"] = String(retryAfterSec);
+  if (!lim) {
+    // Upstash 미설정 — 인메모리 폴백. throw 시엔 통과(fail-open).
+    try {
+      return memLimit(kind, identifier);
+    } catch {
+      return { success: true, headers: {} };
+    }
   }
-  return { success, headers };
+  try {
+    const { success, limit, remaining, reset } = await lim.limit(identifier);
+    const headers: Record<string, string> = {
+      "X-RateLimit-Limit": String(limit),
+      "X-RateLimit-Remaining": String(remaining),
+      "X-RateLimit-Reset": String(reset),
+    };
+    if (!success) {
+      const retryAfterSec = Math.max(1, Math.ceil((reset - Date.now()) / 1000));
+      headers["Retry-After"] = String(retryAfterSec);
+    }
+    return { success, headers };
+  } catch {
+    // Upstash 일시 장애(네트워크·타임아웃) — 서비스를 막지 않는다(fail-open).
+    return { success: true, headers: {} };
+  }
 }
 
 /**
