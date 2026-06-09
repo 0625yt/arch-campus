@@ -144,6 +144,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   //   ≤5    : 1청크 (병렬 의미 없음)
   //   6~15  : 2청크
   //   16~30 : 3청크
+  //   31~50 : 4청크 (청크당 ~13개 → maxTokens 8192 안에 안전)
   // 각 청크는 자기 몫에 +2 여유분(drop 흡수). 합쳐서 약간 over-generation.
   const chunkSizes = splitIntoChunks(input.requestedCount);
 
@@ -340,7 +341,8 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   const collected = deduped;
   let topupCount = 0;
   // 부족하면 끝까지 보충. 5회는 사용자가 요청한 정확도 보장 + 무한루프 차단.
-  // 한 호출당 ~$0.07 (Sonnet 30개 기준)이라 최악의 경우 1회 quiz ≈ $0.35.
+  // 한 호출당 ~$0.07 (Sonnet 기준)이라 최악의 경우 1회 quiz ≈ $0.35.
+  // 50개 요청은 4청크 over-generation으로 대부분 채워지고, 미달이면 있는 만큼 반환.
   const MAX_TOPUP = 5;
   let stuckCount = 0; // 보충해도 새 문제가 안 늘어나는 횟수
   while (collected.length < input.requestedCount && topupCount < MAX_TOPUP) {
@@ -748,14 +750,15 @@ function buildDynamicContext(meta: {
 }
 
 /**
- * requestedCount를 청크 크기 배열로. 청크 수는 1~3.
+ * requestedCount를 청크 크기 배열로. 청크 수는 1~4.
  *   ≤5    → [n]
  *   6~15  → 두 개로 균등 분할
  *   16~30 → 세 개로 균등 분할
+ *   31~50 → 네 개로 균등 분할 (청크당 ~13개로 낮춰 maxTokens 8192 안에)
  */
 function splitIntoChunks(total: number): number[] {
   if (total <= 5) return [total];
-  const chunks = total <= 15 ? 2 : 3;
+  const chunks = total <= 15 ? 2 : total <= 30 ? 3 : 4;
   const base = Math.floor(total / chunks);
   const rem = total - base * chunks;
   const sizes: number[] = [];

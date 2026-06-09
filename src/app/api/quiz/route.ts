@@ -84,10 +84,10 @@ export async function POST(
   const titleField = (form.get("title") ?? "") as string;
   const typeField = (form.get("type") ?? "lecture") as string;
   const difficulty = (form.get("difficulty") ?? "보통") as Difficulty;
-  // 1~30 범위로 clamp — UI chip(1·3·5·10·20·30) + 자유 입력 모두 커버
+  // 1~50 범위로 clamp — UI chip(1·3·5·10·20·30·50) + 자유 입력 모두 커버
   const requestedCount = Math.min(
     Math.max(parseInt(String(form.get("count") ?? "5"), 10) || 5, 1),
-    30,
+    50,
   );
   // kinds는 콤마 구분, scope는 자유 텍스트. 화이트리스트 검증 필수 — prompt injection 방지
   const KIND_ALLOWED = ["multiple-choice", "short-answer", "essay"] as const;

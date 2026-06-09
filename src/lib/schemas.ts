@@ -160,9 +160,9 @@ export type ExamExtractedQuestionT = z.infer<typeof ExamExtractedQuestion>;
 
 export const ExamExtractOutput = z.union([
   z.object({
-    questions: z.array(ExamExtractedQuestion).min(1).max(50),
+    questions: z.array(ExamExtractedQuestion).min(1).max(100),
     rejected: z.literal(false).optional(),
-    /** 추출 메타 — 자료에서 발견된 총 문제 수가 50개 초과면 truncated 표시 */
+    /** 추출 메타 — 자료에서 발견된 총 문제 수가 100개 초과면 truncated 표시 */
     truncated: z.boolean().default(false),
     watermark: z.string().min(10),
   }),

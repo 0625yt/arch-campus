@@ -27,7 +27,7 @@ type Json = Database["public"]["Tables"]["quizzes"]["Row"]["questions"];
  *   - 인증, 입력 파싱, 응답 매핑
  *
  * 비용 가드:
- *   - maxTokens 6144 (50문제까지)
+ *   - maxTokens 32000 (최대 100문제까지 잘리지 않게)
  *   - PDF 50쪽 초과 자료는 라우트에서 사전 거부 (Vision 토큰 폭주 방지)
  *
  * 치팅 라인 (CLAUDE.md §4):
@@ -97,8 +97,12 @@ export async function runExamExtract(input: ExamExtractInput): Promise<ExamExtra
       tool: "exam-extract",
       rulePrompt,
       dynamicContext,
-      userInput: input.sanitizedText.slice(0, 80_000),
-      maxTokens: 6144,
+      // 본문 cap — 2~3쪽에 100문제 박힌 기출도 본문 전체를 봐야 끝번호까지 안 빠진다.
+      // 80K → 160K로 (Sonnet/Gemini Pro 컨텍스트 여유 안). 입력이 잘려 뒷문제를 못 보던 문제 차단.
+      userInput: input.sanitizedText.slice(0, 160_000),
+      // 100문제 × (stem+보기+정답+해설+sourceQuote) ≈ 300~350토큰 → 최대 ~35K 출력.
+      // 6144는 50문제도 못 담아 뒤가 잘렸음 → 32000으로. (Haiku 4.5·Gemini Pro 모두 수용)
+      maxTokens: 32_000,
       temperature: 0.1, // 추출은 결정적이어야. 창의성 최소
     });
   } catch (e) {

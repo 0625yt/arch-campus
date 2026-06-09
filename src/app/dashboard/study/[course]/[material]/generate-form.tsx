@@ -10,10 +10,10 @@ import { cn } from "@/lib/utils";
 type Difficulty = "쉬움" | "보통" | "어려움";
 type Kind = "multiple-choice" | "short-answer" | "essay";
 
-// 1·3·5·10·20·30 — 30개는 Sonnet 1회당 ~$0.07, 생성 1~2분 소요.
-// 20·30은 시험 직전 대량 점검 유스케이스. 자유 입력칸으로 1~30 사이 임의 값도 허용.
-const COUNT_OPTIONS = [1, 3, 5, 10, 20, 30];
-const COUNT_MAX = 30;
+// 1·3·5·10·20·30·50 — 50개는 시험 직전 대량 점검 유스케이스.
+// 자유 입력칸으로 1~50 사이 임의 값도 허용. (50개는 청크 분할·보충 호출로 생성 2~4분 소요)
+const COUNT_OPTIONS = [1, 3, 5, 10, 20, 30, 50];
+const COUNT_MAX = 50;
 
 const KIND_OPTIONS: Array<{ value: Kind; label: string; subtitle: string }> = [
   { value: "multiple-choice", label: "객관식", subtitle: "4지선다" },

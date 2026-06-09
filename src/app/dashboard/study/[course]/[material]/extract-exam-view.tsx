@@ -6,7 +6,7 @@ import { ExamQuestionRow } from "./exam-question-row";
  * type=exam 자료의 추출 결과 표시.
  *
  * 각 문제는 ExamQuestionRow (게이트 컴포넌트) — 정답 노출은 사용자가 답 입력 후.
- * 자료 분량이 50문제 넘으면 truncated 표시.
+ * 자료 분량이 100문제 넘으면 truncated 표시.
  */
 export function ExtractExamView({
   extracted,

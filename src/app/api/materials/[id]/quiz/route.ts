@@ -11,8 +11,8 @@ export const maxDuration = 300;
 
 const RequestBody = z.object({
   difficulty: z.enum(["쉬움", "보통", "어려움"]).default("보통"),
-  // 최대 30 — UI는 1·3·5·10·20·30 chip + 자유 입력 1~30. 30개는 Sonnet 1회당 ~$0.07.
-  count: z.number().int().min(1).max(30).default(5),
+  // 최대 50 — UI는 1·3·5·10·20·30·50 chip + 자유 입력 1~50. 50개는 청크 분할·보충 호출로 생성.
+  count: z.number().int().min(1).max(50).default(5),
   // kinds·scope는 옵션 — 빈 배열·빈 문자열이면 종전 동작(객관식만, 자료 전체)
   kinds: z
     .array(z.enum(["multiple-choice", "short-answer", "essay"]))

@@ -47,8 +47,8 @@ const Body = z.object({
   title: z.string().max(200).optional(),
   type: z.enum(ALLOWED_TYPES).optional(),
   difficulty: z.enum(["쉬움", "보통", "어려움"]).optional(),
-  // direct-upload도 동일 — 1~30, 미지정 시 10
-  count: z.coerce.number().int().min(1).max(30).optional(),
+  // direct-upload도 동일 — 1~50, 미지정 시 10
+  count: z.coerce.number().int().min(1).max(50).optional(),
   /** 업로드 모달에서 사용자가 입력한 한 줄 요약 요청. 120자 cap. */
   intentNote: z.string().max(120).optional(),
 });
