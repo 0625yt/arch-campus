@@ -54,7 +54,11 @@ ai-modal-*.png
 cal-*.png
 calendar-mobile-*.png
 verify-*.png
+.design-audit/
 supabase/.temp/
+
+# 세션 lock (런타임 생성, 커밋 X)
+.claude/scheduled_tasks.lock
 
 # 임시·디버그·브레인스토밍 산출물 (커밋 X)
 .tmp/
