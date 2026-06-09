@@ -155,6 +155,13 @@ export const ExamExtractedQuestion = z.object({
    * 학생에게 "AI가 자신 없음, 본인이 확인" 시그널.
    */
   needsManualCheck: z.boolean().default(false),
+  /**
+   * 정답의 출처.
+   *   - "material": PDF 본문에 정답이 명시돼 있어 그대로 추출 (신뢰도 높음).
+   *   - "ai": 본문에 정답이 없어 exam-solve가 풀어낸 추정 정답 (UI에 "AI 추정" 경고 + §4 가드).
+   * 추출기는 이 필드를 안 줄 수 있어 default "material" (기존 데이터·종전 동작 호환).
+   */
+  answerSource: z.enum(["material", "ai"]).default("material"),
 });
 export type ExamExtractedQuestionT = z.infer<typeof ExamExtractedQuestion>;
 
@@ -174,6 +181,35 @@ export const ExamExtractOutput = z.union([
   }),
 ]);
 export type ExamExtractOutputT = z.infer<typeof ExamExtractOutput>;
+
+/**
+ * 기출 풀이 (exam-solve) — 추출 단계에서 본문에 정답이 없던 문제(answer=null)를
+ * 추론 강한 모델로 직접 풀어 "AI 추정" 정답을 만든다.
+ *
+ * 핵심 가드 (CLAUDE.md §4):
+ *   - 이 출력의 answer는 본문 근거가 아니라 모델 추론 결과 → 반드시 answerSource="ai"로 박힌다.
+ *   - explanation에 "왜 이 답인지" 근거를 적되, 본문에 없는 사실 주장 금지 (모델 일반 지식 + 문제 자체).
+ *   - confidence로 모델 자신감을 0~1로 표기 — UI에서 낮으면 더 강한 경고.
+ *
+ * 입력은 stem·choices를 이미 가진 문제이므로 모델은 풀이 결과만 id로 매핑해 돌려준다.
+ */
+export const ExamSolvedAnswer = z.object({
+  /** 어느 문제인지 — ExamExtractedQuestion.id와 매칭. */
+  id: z.number().int().positive(),
+  /** 추정 정답. multiple-choice면 "A"~"D", 그 외엔 정답 텍스트. 도저히 못 풀면 null. */
+  answer: z.string().min(1).max(2000).nullable(),
+  /** 왜 이 답인지 근거 (한국어). 본문에 없는 사실 날조 금지. 못 풀면 null. */
+  explanation: z.string().min(5).max(2000).nullable(),
+  /** 모델 자신감 0~1. 낮을수록 UI에서 강한 "확인 필요" 경고. */
+  confidence: z.number().min(0).max(1).default(0.5),
+});
+export type ExamSolvedAnswerT = z.infer<typeof ExamSolvedAnswer>;
+
+export const ExamSolveOutput = z.object({
+  answers: z.array(ExamSolvedAnswer).min(0).max(100),
+  watermark: z.string().min(10),
+});
+export type ExamSolveOutputT = z.infer<typeof ExamSolveOutput>;
 
 export const SyllabusEvent = z.object({
   kind: z.enum(["exam", "assignment", "presentation", "class", "etc"]),

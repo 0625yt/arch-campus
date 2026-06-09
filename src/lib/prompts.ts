@@ -25,6 +25,7 @@ export type PromptName =
   | "report-structure"
   | "event-parse"
   | "exam-extract"
+  | "exam-solve"
   | "chat"
   | "chat-free"
   | "book-review"

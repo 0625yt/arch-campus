@@ -62,6 +62,9 @@ const GEMINI_BY_TOOL: Record<ToolKind, string> = {
   // Pro($1.25/$10 + thinking 강제)는 과함. Flash($0.30/$2.50, thinking 0)로 출력 1/4 비용.
   // sourceQuote 본문 substring 검증이 환각을 한 번 더 거른다(exam-extract.ts verifyEvidence).
   "exam-extract": GEMINI_FLASH_ID,
+  // 기출 풀이는 정답 정확도가 사활 — 추론 강한 Pro. 추출(Flash)과 분리한 별도 도구.
+  // 추출 1회당 answer=null 문제만 모아 1번 호출이라 빈도 낮음(부담 적음).
+  "exam-solve": GEMINI_PRO_ID,
   chat: GEMINI_FLASH_ID,
   "chat-free": GEMINI_FLASH_ID,
   "event-parse": GEMINI_FLASH_ID,
@@ -86,6 +89,7 @@ const TOOL_ENV_KEY: Record<ToolKind, string> = {
   "post-mortem": "POST_MORTEM",
   "event-parse": "EVENT_PARSE",
   "exam-extract": "EXAM_EXTRACT",
+  "exam-solve": "EXAM_SOLVE",
   chat: "CHAT",
   "chat-free": "CHAT_FREE",
   "pdf-ocr": "PDF_OCR",
@@ -118,6 +122,7 @@ export type ToolKind =
   | "post-mortem"
   | "event-parse"
   | "exam-extract"
+  | "exam-solve"
   | "chat"
   | "chat-free"
   | "pdf-ocr";
@@ -145,6 +150,10 @@ export const TOOL_MODEL: Record<ToolKind, string> = {
   // Vision 입력이라 토큰 비싸지만 추출은 생성보다 쉬워 Haiku로 시작.
   // EXTRACT_MODEL=sonnet env로 승격 가능 (정확도 70% 미만 시).
   "exam-extract": MODELS.haiku,
+  // 기출 풀이 — 본문에 정답이 없는 문제를 모델이 직접 풀어 "AI 추정" 정답을 만든다.
+  // 정확도가 사활이라 추론 강한 Sonnet 기본 (추출 Flash와 분리). answer=null 문제만 모아
+  // 추출 1회당 최대 1번 호출이라 빈도 낮음. EXAM_SOLVE_MODEL=haiku로 격하 가능.
+  "exam-solve": MODELS.sonnet,
   // 자료 기반 RAG 챗 — turn 빈도가 높아 Sonnet은 적자 위험. Haiku + 1h cache로 자료
   // 본문 90% 할인. 답변 품질은 자료 인용 위주라 Haiku로 충분.
   // CHAT_MODEL=sonnet env로 격상 가능.
@@ -241,6 +250,11 @@ function resolveModel(tool: ToolKind): string {
   }
   if (tool === "exam-extract") {
     const override = process.env.EXTRACT_MODEL?.toLowerCase();
+    if (override === "haiku") return MODELS.haiku;
+    if (override === "sonnet") return MODELS.sonnet;
+  }
+  if (tool === "exam-solve") {
+    const override = process.env.EXAM_SOLVE_MODEL?.toLowerCase();
     if (override === "haiku") return MODELS.haiku;
     if (override === "sonnet") return MODELS.sonnet;
   }

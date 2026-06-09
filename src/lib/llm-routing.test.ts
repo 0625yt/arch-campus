@@ -18,6 +18,7 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     "CHAT_MODEL_VENDOR",
     "QUIZ_MODEL",
     "EXTRACT_MODEL",
+    "EXAM_SOLVE_MODEL",
     "SYLLABUS_MODEL",
     "CHAT_MODEL",
     "CHAT_FREE_MODEL",
@@ -38,6 +39,15 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     expect(getModelIdFor("quiz")).toBe(MODELS.sonnet);
   });
 
+  it("env 안 켜면 exam-solve는 Sonnet (추론 강한 모델 기본)", () => {
+    expect(getModelIdFor("exam-solve")).toBe(MODELS.sonnet);
+  });
+
+  it("EXAM_SOLVE_MODEL=haiku로 격하 가능", () => {
+    process.env.EXAM_SOLVE_MODEL = "haiku";
+    expect(getModelIdFor("exam-solve")).toBe(MODELS.haiku);
+  });
+
   describe("LLM_VENDOR=google 전역 스위치 (2026-06-06 전면 Gemini 전환)", () => {
     it("생성·Vision 도구는 Gemini Pro로 (prod 포함)", () => {
       process.env.LLM_VENDOR = "google";
@@ -54,6 +64,12 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
       expect(getModelIdFor("summarize")).toBe(MODELS.geminiFlash);
       // exam-extract는 "본문 그대로 전사"라 추론 불필요 → Flash로 비용 1/4 (2026-06-09).
       expect(getModelIdFor("exam-extract")).toBe(MODELS.geminiFlash);
+    });
+
+    it("exam-solve는 정답 정확도가 사활 → Gemini Pro (Flash 아님)", () => {
+      process.env.LLM_VENDOR = "google";
+      process.env.VERCEL_ENV = "production";
+      expect(getModelIdFor("exam-solve")).toBe(MODELS.geminiPro);
     });
 
     it("gemini 별칭도 동작", () => {

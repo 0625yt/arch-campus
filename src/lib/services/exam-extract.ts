@@ -8,6 +8,7 @@ import {
   hasWatermark,
   parseModelJson,
 } from "@/lib/schemas";
+import { runExamSolve } from "@/lib/services/exam-solve";
 import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
 import { buildPlaybookSection } from "@/lib/subject-playbook";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -190,6 +191,19 @@ export async function runExamExtract(input: ExamExtractInput): Promise<ExamExtra
   // sourceQuote가 자료 full_text에 substring 매칭되는지 검증 (옵션·경고만 로그)
   const verifiedQuestions = verifyEvidence(extracted.questions, input.fullText);
 
+  // 풀이 후처리 (CLAUDE.md §4) — 본문에 정답이 없던 문제(answer=null)를 추론 강한 모델로
+  // 직접 풀어 "AI 추정" 정답을 채운다. 풀린 문제는 answerSource="ai"로 박혀 UI가 경고를 단다.
+  // 실패해도 추출 결과는 그대로 살린다(runExamSolve가 원본 반환). 풀 게 없으면 LLM 호출 안 함(비용 0).
+  const {
+    questions: solvedQuestions,
+    solvedCount,
+    costUsd: solveCostUsd,
+  } = await runExamSolve({
+    ownerId: input.ownerId,
+    materialId: input.materialId,
+    questions: verifiedQuestions,
+  });
+
   const admin = getAdminSupabase();
   const quizInsert = await admin
     .from("quizzes")
@@ -200,8 +214,8 @@ export async function runExamExtract(input: ExamExtractInput): Promise<ExamExtra
       // mode 컬럼은 마이그레이션 0013에서 추가됨. 'extracted'로 박아 생성된 문제와 구분.
       // 마이그레이션 안 돌리면 column 없어 23502 발생 → 사용자에게 안내 필요.
       mode: "extracted",
-      question_count: verifiedQuestions.length,
-      questions: verifiedQuestions as unknown as Json,
+      question_count: solvedQuestions.length,
+      questions: solvedQuestions as unknown as Json,
       watermark: extracted.watermark,
       model_id: result.modelId,
     })
@@ -226,20 +240,28 @@ export async function runExamExtract(input: ExamExtractInput): Promise<ExamExtra
     };
   }
 
-  const costUsd = estimateCost(result.usage, result.modelId);
+  // 추출 비용 + 풀이 비용 합산. 풀이를 안 했으면(solveCostUsd=0) 추출 비용 그대로.
+  const costUsd = estimateCost(result.usage, result.modelId) + solveCostUsd;
   await logGeneration({
     ownerId: input.ownerId,
     materialId: input.materialId,
     modelId: result.modelId,
     usage: result.usage,
-    cost: costUsd,
+    cost: estimateCost(result.usage, result.modelId),
     status: "ok",
-    payload: { questionCount: verifiedQuestions.length, quizId: quizInsert.data.id },
+    payload: {
+      questionCount: solvedQuestions.length,
+      aiSolvedCount: solvedCount,
+      quizId: quizInsert.data.id,
+    },
   });
+
+  // 반환 result에도 풀이로 채워진 questions를 반영 — DB와 일관.
+  const resultWithSolved: ExamExtractOutputT = { ...extracted, questions: solvedQuestions };
 
   return {
     ok: true,
-    result: extracted,
+    result: resultWithSolved,
     modelId: result.modelId,
     usage: result.usage,
     costUsd,

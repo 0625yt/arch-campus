@@ -17,6 +17,11 @@ import type { ExamExtractedQuestionT } from "@/lib/schemas";
  *   - "그냥 정답 보기" (탈출구) 클릭 → revealed=true (단, 자기 답 입력 안 한 행은 시각적 구분)
  *
  * needsManualCheck=true면 시각적으로 ⚠ 표시: "AI가 자신 없음, 본인이 확인 필요".
+ *
+ * answerSource (CLAUDE.md §4):
+ *   - "material": 본문에 정답이 적혀있던 문제 — 신뢰도 높음.
+ *   - "ai": 본문에 정답이 없어 exam-solve가 추론한 추정 정답 — "AI 추정, 틀릴 수 있음" 경고 필수.
+ *     채점은 동일하게 동작하되 "AI 추정 기준"임을 명시한다.
  */
 export function ExamQuestionRow({ q }: { q: ExamExtractedQuestionT }) {
   const [myAnswer, setMyAnswer] = useState<string>("");
@@ -28,6 +33,8 @@ export function ExamQuestionRow({ q }: { q: ExamExtractedQuestionT }) {
     setRevealedWithoutAnswer(!withAnswer);
   }
 
+  // 본문 근거 없이 AI가 추론한 정답. UI 전반에 "추정" 경고를 단다.
+  const isAiGuess = q.answerSource === "ai";
   const isMC = q.kind === "multiple-choice";
   const isCorrect =
     revealed && isMC && q.answer != null && myAnswer.trim().toUpperCase() === q.answer;
@@ -62,6 +69,14 @@ export function ExamQuestionRow({ q }: { q: ExamExtractedQuestionT }) {
             style={{ letterSpacing: "-0.012em" }}
           >
             ⚠ 확인 필요
+          </span>
+        )}
+        {isAiGuess && (
+          <span
+            className="rounded-full bg-[var(--color-apple-action-soft)] px-2 py-0.5 text-[10.5px] wght-620 text-[var(--color-apple-action)]"
+            style={{ letterSpacing: "-0.008em" }}
+          >
+            AI 추정
           </span>
         )}
       </div>
@@ -161,6 +176,19 @@ export function ExamQuestionRow({ q }: { q: ExamExtractedQuestionT }) {
             </p>
           )}
 
+          {/* AI 추정 정답 경고 (CLAUDE.md §4) — 본문에 답이 없어 모델이 추론한 답. */}
+          {isAiGuess && q.answer != null && (
+            <div className="mb-3 rounded-[8px] border border-[var(--color-apple-action)]/30 bg-[var(--color-apple-action-soft)] px-3 py-2">
+              <p
+                className="text-[12px] leading-[1.5] wght-560 text-[var(--color-apple-action)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                자료 본문에 답이 없어 AI가 추정한 정답이에요.{" "}
+                <strong className="wght-700">틀릴 수 있으니</strong> 반드시 본인이 검토·확인하세요.
+              </p>
+            </div>
+          )}
+
           {/* 객관식이면 정답 키, 그 외엔 정답 텍스트 */}
           {q.answer != null ? (
             <>
@@ -168,7 +196,7 @@ export function ExamQuestionRow({ q }: { q: ExamExtractedQuestionT }) {
                 className="text-[11px] wght-620 uppercase tracking-[0.06em]"
                 style={{ letterSpacing: "0.06em", color: "var(--color-apple-action)" }}
               >
-                정답
+                {isAiGuess ? "AI 추정 정답" : "정답"}
               </p>
               <p
                 className="mt-1 text-[14px] leading-[1.6] wght-560 text-[var(--color-apple-ink)]"
@@ -181,7 +209,11 @@ export function ExamQuestionRow({ q }: { q: ExamExtractedQuestionT }) {
                       isCorrect ? "text-[var(--color-apple-success)]" : "text-[var(--color-urgent)]"
                     }`}
                   >
-                    {isCorrect ? "✓ 맞췄어요" : `✗ 본인 답: ${myAnswer}`}
+                    {isCorrect
+                      ? isAiGuess
+                        ? "✓ AI 추정과 일치"
+                        : "✓ 맞췄어요"
+                      : `✗ 본인 답: ${myAnswer}`}
                   </span>
                 )}
               </p>

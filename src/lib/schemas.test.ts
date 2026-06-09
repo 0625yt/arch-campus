@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   ChecklistOutput,
   evidenceMatches,
+  ExamExtractedQuestion,
+  ExamSolveOutput,
   findBannedWords,
   hasWatermark,
   parseModelJson,
@@ -112,6 +114,66 @@ describe("QuizOutput rejected branch", () => {
       watermark: "이 자료는 학습 보조용이며",
     };
     expect(QuizOutput.parse(rejected)).toBeTruthy();
+  });
+});
+
+describe("ExamExtractedQuestion answerSource", () => {
+  const base = {
+    id: 1,
+    kind: "short-answer" as const,
+    stem: "go의 과거형은?",
+    answer: "went",
+    explanation: null,
+    sourcePageNum: null,
+    sourceQuote: "go의 과거형은?",
+  };
+
+  it("answerSource 미지정이면 기존 데이터 호환을 위해 material로 채움", () => {
+    const parsed = ExamExtractedQuestion.parse(base);
+    expect(parsed.answerSource).toBe("material");
+  });
+
+  it("answerSource=ai를 받아들임 (exam-solve가 채운 추정 정답)", () => {
+    const parsed = ExamExtractedQuestion.parse({ ...base, answerSource: "ai" });
+    expect(parsed.answerSource).toBe("ai");
+  });
+
+  it("material·ai 외 값은 거부", () => {
+    expect(() => ExamExtractedQuestion.parse({ ...base, answerSource: "guess" })).toThrow();
+  });
+});
+
+describe("ExamSolveOutput schema", () => {
+  it("정상 풀이 결과를 파싱하고 confidence default 0.5", () => {
+    const parsed = ExamSolveOutput.parse({
+      answers: [{ id: 7, answer: "B", explanation: "과거시제라 approved.", confidence: 0.9 }],
+      watermark: "이 자료는 학습 보조용이며, AI가 추정한 답이라 반드시 본인이 검토·확인하세요.",
+    });
+    expect(parsed.answers[0].id).toBe(7);
+    expect(parsed.answers).toHaveLength(1);
+
+    const noConf = ExamSolveOutput.parse({
+      answers: [{ id: 1, answer: null, explanation: null }],
+      watermark: "이 자료는 학습 보조용이며 ...",
+    });
+    expect(noConf.answers[0].confidence).toBe(0.5);
+  });
+
+  it("answers 빈 배열도 허용 (다 못 푼 경우)", () => {
+    const parsed = ExamSolveOutput.parse({
+      answers: [],
+      watermark: "이 자료는 학습 보조용이며 ...",
+    });
+    expect(parsed.answers).toHaveLength(0);
+  });
+
+  it("confidence 범위(0~1) 밖이면 거부", () => {
+    expect(() =>
+      ExamSolveOutput.parse({
+        answers: [{ id: 1, answer: "A", explanation: "근거 설명", confidence: 1.5 }],
+        watermark: "이 자료는 학습 보조용이며 ...",
+      }),
+    ).toThrow();
   });
 });
 
