@@ -56,9 +56,12 @@ const GEMINI_BY_TOOL: Record<ToolKind, string> = {
   "wizard-cram": GEMINI_PRO_ID,
   "syllabus-extract": GEMINI_PRO_ID,
   "timetable-extract": GEMINI_PRO_ID,
-  "exam-extract": GEMINI_PRO_ID,
   // 고빈도·저비용 — Flash
   summarize: GEMINI_FLASH_ID,
+  // 기출 추출은 "본문 문제를 그대로 전사"하는 작업 — 추론·창의성 불필요(프롬프트가 노이즈로 규정).
+  // Pro($1.25/$10 + thinking 강제)는 과함. Flash($0.30/$2.50, thinking 0)로 출력 1/4 비용.
+  // sourceQuote 본문 substring 검증이 환각을 한 번 더 거른다(exam-extract.ts verifyEvidence).
+  "exam-extract": GEMINI_FLASH_ID,
   chat: GEMINI_FLASH_ID,
   "chat-free": GEMINI_FLASH_ID,
   "event-parse": GEMINI_FLASH_ID,
@@ -398,6 +401,19 @@ export interface GenerateInput {
   userInput: string;
   maxTokens?: number;
   temperature?: number;
+  /**
+   * userInput(자료 본문)을 캐시되는 system 블록으로 올린다 (Anthropic만 의미).
+   *
+   * 켜는 경우: 같은 자료로 generate()를 여러 번 호출하는 도구.
+   *   - quiz: 청크 분할(최대 4) + 보충(최대 5) = 한 자료당 최대 9회. 자료 본문이 매번
+   *     정가 재청구되던 걸 1회 cache write + 8회 cache read(90% 할인)로. (50문제 ~$2.5→~$0.8)
+   *   - exam-extract: 단일 호출이지만 재시도·재실행 시 1h 안이면 hit.
+   * 끄는 게 맞는 경우(기본): 자료가 매번 다른 단발 호출 도구(event-parse·summarize 등).
+   *   cache write는 정가 1.25배라 1회만 쓰는 자료엔 손해.
+   *
+   * Google(Gemini)은 이 옵션 무시 — system providerOptions 캐시가 의미 없음.
+   */
+  cacheUserInput?: boolean;
 }
 
 /**
@@ -492,28 +508,55 @@ export async function generate({
   userInput,
   maxTokens = 4096,
   temperature = 0.4,
+  cacheUserInput = false,
 }: GenerateInput): Promise<GenerateResult> {
   const modelId = resolveModel(tool);
   const vendor = getModelVendor(modelId);
   warnIfBelowCacheMin(tool, modelId, rulePrompt);
   const wrappedUserInput = `<user_input>\n${userInput}\n</user_input>`;
 
-  const messages: ModelMessage[] = [
-    {
-      role: "system",
-      // INJECTION_GUARD를 rulePrompt 앞에 prepend — 캐시 boundary 안에 포함돼 hit률 보존
-      content: INJECTION_GUARD + rulePrompt,
-      providerOptions: systemProviderOptions(vendor),
-    },
-    {
-      role: "system",
-      content: dynamicContext,
-    },
-    {
-      role: "user",
-      content: wrappedUserInput,
-    },
-  ];
+  // cacheUserInput=true (quiz·exam-extract): 자료 본문을 캐시되는 system 블록으로 올린다.
+  //   순서가 사활 — 캐시는 prefix 매칭이라 [rule(cache) → 자료(cache) → 가변 dynamicContext → 짧은 user지시].
+  //   가변적인 dynamicContext(previousStems·chunkHint)가 자료 앞에 오면 자료 캐시가 깨진다.
+  //   같은 자료로 4청크+보충 호출 시 2번째부터 자료 본문 cache read(90% 할인).
+  // 기본(false): 종전 동작 — 자료가 매번 다른 단발 도구는 cache write 손해라 user 블록에 그대로.
+  const messages: ModelMessage[] = cacheUserInput
+    ? [
+        {
+          role: "system",
+          content: INJECTION_GUARD + rulePrompt,
+          providerOptions: systemProviderOptions(vendor),
+        },
+        {
+          role: "system",
+          content: wrappedUserInput,
+          providerOptions: systemProviderOptions(vendor),
+        },
+        {
+          role: "system",
+          content: dynamicContext,
+        },
+        {
+          role: "user",
+          content: "위 <user_input> 자료를 시스템 룰대로 처리해 JSON으로 답하세요.",
+        },
+      ]
+    : [
+        {
+          role: "system",
+          // INJECTION_GUARD를 rulePrompt 앞에 prepend — 캐시 boundary 안에 포함돼 hit률 보존
+          content: INJECTION_GUARD + rulePrompt,
+          providerOptions: systemProviderOptions(vendor),
+        },
+        {
+          role: "system",
+          content: dynamicContext,
+        },
+        {
+          role: "user",
+          content: wrappedUserInput,
+        },
+      ];
 
   // 429 / concurrent limit 대비 retry 강화 (AI SDK 기본은 3회).
   // 사용자가 여러 자료를 한 번에 올리면 같은 분 내 Haiku 호출이 폭주해 token-per-min 초과.

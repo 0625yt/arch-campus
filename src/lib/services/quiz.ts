@@ -209,6 +209,8 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
           userInput: quizInput,
           maxTokens: 8192,
           temperature: 0.4,
+          // 자료 본문을 캐시 — 청크 4개 + 보충 5회가 같은 자료를 공유. 2번째 호출부터 90% 할인.
+          cacheUserInput: true,
         });
         return { ok: true as const, result: r };
       } catch (e) {
@@ -376,6 +378,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
         userInput: quizInput,
         maxTokens: 8192,
         temperature: 0.5, // 보충은 다른 각도 — temp 살짝 올림
+        cacheUserInput: true, // 청크와 같은 자료 본문 — cache read로 재청구 회피
       });
     } catch {
       break; // 보충 실패해도 1차 결과로 진행

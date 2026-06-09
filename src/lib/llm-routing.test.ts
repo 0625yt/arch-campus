@@ -45,7 +45,6 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
       expect(getModelIdFor("quiz")).toBe(MODELS.geminiPro);
       expect(getModelIdFor("presentation")).toBe(MODELS.geminiPro);
       expect(getModelIdFor("timetable-extract")).toBe(MODELS.geminiPro);
-      expect(getModelIdFor("exam-extract")).toBe(MODELS.geminiPro);
     });
 
     it("고빈도·저비용 도구는 Gemini Flash로", () => {
@@ -53,6 +52,8 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
       expect(getModelIdFor("chat")).toBe(MODELS.geminiFlash);
       expect(getModelIdFor("event-parse")).toBe(MODELS.geminiFlash);
       expect(getModelIdFor("summarize")).toBe(MODELS.geminiFlash);
+      // exam-extract는 "본문 그대로 전사"라 추론 불필요 → Flash로 비용 1/4 (2026-06-09).
+      expect(getModelIdFor("exam-extract")).toBe(MODELS.geminiFlash);
     });
 
     it("gemini 별칭도 동작", () => {

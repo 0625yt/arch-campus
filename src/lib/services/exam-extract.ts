@@ -98,12 +98,14 @@ export async function runExamExtract(input: ExamExtractInput): Promise<ExamExtra
       rulePrompt,
       dynamicContext,
       // 본문 cap — 2~3쪽에 100문제 박힌 기출도 본문 전체를 봐야 끝번호까지 안 빠진다.
-      // 80K → 160K로 (Sonnet/Gemini Pro 컨텍스트 여유 안). 입력이 잘려 뒷문제를 못 보던 문제 차단.
+      // 80K → 160K로 (Haiku·Gemini Flash 컨텍스트 여유 안). 입력이 잘려 뒷문제를 못 보던 문제 차단.
       userInput: input.sanitizedText.slice(0, 160_000),
       // 100문제 × (stem+보기+정답+해설+sourceQuote) ≈ 300~350토큰 → 최대 ~35K 출력.
-      // 6144는 50문제도 못 담아 뒤가 잘렸음 → 32000으로. (Haiku 4.5·Gemini Pro 모두 수용)
+      // 6144는 50문제도 못 담아 뒤가 잘렸음 → 32000으로. (Haiku 4.5·Gemini Flash 모두 수용)
       maxTokens: 32_000,
       temperature: 0.1, // 추출은 결정적이어야. 창의성 최소
+      // 자료 본문 캐시 — 재시도·1h 내 재실행 시 cache read. Anthropic(Haiku) 경로에서 큰 입력 절감.
+      cacheUserInput: true,
     });
   } catch (e) {
     await logGeneration({
