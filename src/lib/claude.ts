@@ -285,15 +285,17 @@ const GOOGLE_FLASH_NO_THINKING: ProviderOptions = {
 };
 
 /**
- * Gemini Pro 생성 도구는 약간의 thinking을 켠다 — "똑똑한 퀴즈" 요구(2026-06-06).
- * 자료에서 진짜 다른 문제·기출 정확 추출엔 약간의 reasoning이 도움. budget은 보수적으로
- * (출력 풀 잠식해 본문 빈 응답 나는 함정 방지 — 주석 GOOGLE_FLASH_NO_THINKING 참고).
+ * Gemini 2.5 Pro thinking 옵션.
+ *
+ * ★ Pro는 thinking을 끌 수 없다 — thinkingBudget:0을 보내면 API가
+ *   "Budget 0 is invalid. This model only works in thinking mode."로 거부한다.
+ *   (2026-06-09 prod 사고: GEMINI_BY_TOOL로 Vision·생성 도구를 Pro로 올렸는데
+ *    thinking 화이트리스트를 같이 안 늘려, timetable/syllabus 등이 budget 0을
+ *    받아 전부 죽었다.) 그래서 thinking 적용은 도구 화이트리스트가 아니라
+ *    **모델이 Pro냐 Flash냐**로 정한다 — 도구를 Pro로 늘려도 자동으로 안전.
+ *
+ * budget은 보수적으로 (출력 풀 잠식해 본문 빈 응답 나는 함정 방지 — GOOGLE_FLASH_NO_THINKING 주석 참고).
  */
-const GOOGLE_THINKING_TOOLS: ReadonlySet<ToolKind> = new Set([
-  "quiz",
-  "presentation",
-  "report-structure",
-]);
 const GOOGLE_PRO_THINKING: ProviderOptions = {
   google: { thinkingConfig: { thinkingBudget: 2048 } },
 };
@@ -442,11 +444,12 @@ function systemProviderOptions(vendor: ModelVendor): ProviderOptions | undefined
   return undefined; // Google은 system providerOptions 캐시 없음
 }
 
-/** vendor·tool에 따라 호출 전체에 적용할 providerOptions(thinking·캐시 정책 등). */
-function callProviderOptions(vendor: ModelVendor, tool: ToolKind): ProviderOptions | undefined {
+/** vendor·model에 따라 호출 전체에 적용할 providerOptions(thinking·캐시 정책 등). */
+function callProviderOptions(vendor: ModelVendor, modelId: string): ProviderOptions | undefined {
   if (vendor === "google") {
-    // Pro 생성 도구는 약간 thinking을 켜 품질↑, 나머지 Gemini는 0(속도·비용).
-    return GOOGLE_THINKING_TOOLS.has(tool) ? GOOGLE_PRO_THINKING : GOOGLE_FLASH_NO_THINKING;
+    // ★ Pro는 thinking 필수(budget 0 거부) → Pro면 thinking on, Flash면 0(속도·비용).
+    //   도구 화이트리스트가 아니라 모델 tier로 판단해야 도구를 Pro로 늘려도 안 깨진다.
+    return modelTier(modelId) === "geminiPro" ? GOOGLE_PRO_THINKING : GOOGLE_FLASH_NO_THINKING;
   }
   return undefined;
 }
@@ -475,7 +478,7 @@ async function callWithRetry(opts: {
     maxOutputTokens: opts.maxTokens,
     temperature: opts.temperature,
     messages: opts.messages,
-    providerOptions: callProviderOptions(opts.vendor, opts.tool),
+    providerOptions: callProviderOptions(opts.vendor, opts.modelId),
     // AI SDK 내장 retry — 429/503/network에 자동 적용. 기본 3 → 5.
     // 한 호출 최대 대기: 100·200·400·800·1600ms = ~3s extra. rate limit 풀리는 시간 충분.
     maxRetries: 5,
@@ -646,7 +649,7 @@ export async function generateWithFile({
     maxOutputTokens: maxTokens,
     temperature,
     messages,
-    providerOptions: callProviderOptions(vendor, tool),
+    providerOptions: callProviderOptions(vendor, modelId),
   });
 
   if (result.finishReason === "length") {
@@ -750,7 +753,7 @@ export function streamChatReply(input: StreamChatInput): StreamChatResult {
     maxOutputTokens: input.maxTokens ?? 1500,
     temperature: input.temperature ?? 0.3,
     messages,
-    providerOptions: callProviderOptions(vendor, tool),
+    providerOptions: callProviderOptions(vendor, modelId),
     async onFinish(event) {
       // AI SDK v6 onFinish: { text, usage } — usage는 inputTokenDetails로 캐시 분리
       const inputTokens = event.usage?.inputTokens ?? 0;
