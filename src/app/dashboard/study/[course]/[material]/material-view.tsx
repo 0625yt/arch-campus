@@ -1,10 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SummarizeOutputT } from "@/lib/schemas";
 import { ChatPanel } from "./chat-panel";
 import { SplitControl, useSplitView } from "./split-control";
 import { SummaryColumn } from "./summary-column";
+
+// react-pdf는 클라이언트 전용 (SSR 평가 시 DOMMatrix 터짐) — ssr:false로만 로드.
+const PdfCanvasViewer = dynamic(
+  () => import("./pdf-canvas-viewer").then((m) => m.PdfCanvasViewer),
+  { ssr: false },
+);
 
 /**
  * 자료 상세의 split-view 본체.
@@ -15,7 +22,6 @@ import { SummaryColumn } from "./summary-column";
  *  - 핸들 드래그: setPointerCapture()로 핸들이 포인터 잡고, mousemove에서
  *    React state 거치지 않고 ref로 직접 inline style 갱신 → 60fps 부드러움.
  *    pointerup 1회만 React state + localStorage 커밋.
- *  - 드래그 중 iframe은 pointer-events:none — mousemove 가로채기 방지.
  *
  * 모바일(<md): 단일 컬럼 요약만. 페이지 칩은 새 탭 PDF.
  */
@@ -76,8 +82,6 @@ export function MaterialView({
       draggingRef.current = true;
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
-      // iframe이 mousemove 가로채지 않게 — global CSS hook
-      document.body.setAttribute("data-arch-dragging", "1");
       // 드래그 시작하면 split로 전환 — 컬럼 둘 다 보여야 함
       if (view !== "split") setView("split");
       // 드래그 중 transition off
@@ -126,7 +130,6 @@ export function MaterialView({
       }
       document.body.style.removeProperty("cursor");
       document.body.style.removeProperty("user-select");
-      document.body.removeAttribute("data-arch-dragging");
       const left = leftRef.current;
       const right = rightRef.current;
       if (left) left.style.removeProperty("transition");
@@ -143,7 +146,6 @@ export function MaterialView({
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
       document.body.style.removeProperty("cursor");
       document.body.style.removeProperty("user-select");
-      document.body.removeAttribute("data-arch-dragging");
     };
   }, []);
 
@@ -171,7 +173,7 @@ export function MaterialView({
         {/* 좌: PDF — flex item. 드래그 중엔 transition off (style 직접 변경) */}
         <div
           ref={leftRef}
-          className="sticky top-4 h-[calc(100vh-2rem)] min-w-0 shrink-0 overflow-hidden rounded-[18px] bg-white transition-[flex-basis,opacity] duration-300 ease-out"
+          className="sticky top-4 h-[calc(100dvh-2rem)] min-w-0 shrink-0 overflow-hidden rounded-[18px] bg-white transition-[flex-basis,opacity] duration-300 ease-out"
           style={{
             flexBasis: leftBasis,
             opacity: view === "summary-only" ? 0 : 1,
@@ -179,7 +181,7 @@ export function MaterialView({
           }}
         >
           <div className="h-full w-full" id="arch-pdf-wrap">
-            <PdfViewer src={pdfUrl} page={page} />
+            <PdfCanvasViewer src={pdfUrl} page={page} />
           </div>
         </div>
 
@@ -195,7 +197,7 @@ export function MaterialView({
           onPointerCancel={endDrag}
           onDoubleClick={() => commitRatio(0.5)}
           title="드래그해서 너비 조절 · 더블클릭하면 5:5"
-          className={`group sticky top-4 z-20 h-[calc(100vh-2rem)] w-4 shrink-0 cursor-col-resize touch-none select-none before:absolute before:inset-y-0 before:-left-2 before:-right-2 before:content-[''] ${
+          className={`group sticky top-4 z-20 h-[calc(100dvh-2rem)] w-4 shrink-0 cursor-col-resize touch-none select-none before:absolute before:inset-y-0 before:-left-2 before:-right-2 before:content-[''] ${
             view === "split" ? "" : "pointer-events-none opacity-0"
           }`}
         >
@@ -260,30 +262,7 @@ export function MaterialView({
         materialTitle={materialTitle}
         onJumpPage={jumpFromChat}
       />
-
-      {/* 드래그 중 PDF iframe이 mousemove 가로채지 못하게 — body attr → CSS.
-          핸들이 setPointerCapture를 잡아도 iframe 안에서 발화한 이벤트는
-          별도 frame이라 capture가 안 되므로, iframe pointer-events 자체를 막는 게 안전. */}
-      <style jsx global>{`
-        body[data-arch-dragging="1"] iframe {
-          pointer-events: none !important;
-        }
-      `}</style>
     </section>
-  );
-}
-
-function PdfViewer({ src, page }: { src: string; page: number }) {
-  // #view=FitH — 페이지 가로 너비에 자동 맞춤. 컬럼 너비 바뀌어도 비례.
-  // 일부 브라우저(Chrome 내장 뷰어)는 toolbar 표시 영역 때문에 약간 작게 잡히므로
-  // FitH가 안 먹는 경우 사용자가 뷰어 줌으로 직접 조정.
-  return (
-    <iframe
-      key={page}
-      src={`${src}#page=${page}&view=FitH`}
-      title="자료 원본 PDF"
-      className="h-full w-full"
-    />
   );
 }
 
