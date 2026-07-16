@@ -107,17 +107,19 @@ shadows:
   lift: "0 1px 2px rgba(20, 20, 20, 0.04), 0 8px 24px -8px rgba(20, 20, 20, 0.08)"
 
 components:
-  page-shell:
-    maxWidthNarrow: 680px
-    maxWidthDefault: 760px
-    maxWidthWide: 920px
-    padding: "{spacing.page-x-mobile} / {spacing.page-x-tablet} / {spacing.page-x-desktop}"
-  sidebar:
+  # 페이지 컨테이너 = AppleShell (2026-07-16 통일). PageShell은 dead.
+  app-shell:
+    maxWidthNarrow: 820px
+    maxWidthDefault: 1080px
+    maxWidthWide: 1200px
+    maxWidthHero: 1440px
+    padding: "px-6 pt-8 sm:px-10 sm:pt-12 md:px-12"
+    paddingBottom: "pb-24 sm:pb-28 (default) / pb-32 sm:pb-40 (tall)"
+  # 좌측 사이드바는 2026-05-31 제거 → 상단바(GlobalTopbar)로 대체.
+  topbar:
     backgroundColor: "{colors.surface}"
     borderColor: "{colors.line}"
-    activeColor: "{colors.ink-strong}"
-    activeBackground: "{colors.canvas}"
-    width: 248px
+    breakpoint: "md:block (md 미만은 MobileTopbar + MobileTabBar 4탭)"
   panel:
     backgroundColor: "{colors.canvas}"
     borderColor: "{colors.line}"
@@ -236,13 +238,14 @@ Avoid:
 
 ### Page Widths
 
-Use the existing `PageShell` widths:
+Use `AppleShell` widths (PageShell is dead — do not use):
 
-- `narrow`: focused reading and today work.
-- `md`: study, history, and calendar default pages.
-- `wide`: dashboard, tools, and multi-panel workflows.
+- `narrow` (820): wizards, focused reading.
+- `default` (1080): study, quiz, history, review, tools hub.
+- `wide` (1200): course detail, multi-panel.
+- `hero` (1440): dashboard hero.
 
-Do not create full-bleed marketing sections inside the app shell. Full width is reserved for structural navigation, not page content.
+Special layouts (calendar full-bleed, dashboard home flex, material 920→1400) stay hand-rolled — see DESIGN.md §13-3. Do not create full-bleed marketing sections inside the app shell.
 
 ### Composition Recipes
 
@@ -350,7 +353,7 @@ Mobile rules:
 
 Use these existing primitives first:
 
-- `PageShell`, `PageTitle`, `SectionLabel`, `MetaLine`, `EmptyState`
+- `AppleShell` (컨테이너), `PageTitle`, `SectionLabel`, `MetaLine`, `EmptyState`
 - `Numeral`, `Dot`, `ProgressLine`, `Divider`, `HighlightText`
 - `cn` for stateful class composition
 
