@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback } from "react";
+import { AppleShell } from "@/components/apple-shell";
 import { hexTintDark } from "@/lib/course-palette";
 import { useIsDark } from "../use-mobile";
 import { ToolsEntryCard } from "./tools-entry-card";
@@ -210,7 +211,7 @@ function ToolsPageInner() {
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[1080px] px-5 pb-20 pt-6 sm:px-8 sm:pb-24 sm:pt-8 md:px-10">
+      <AppleShell>
         <header className="fade-up flex items-baseline justify-between gap-3">
           <p
             className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
@@ -268,7 +269,7 @@ function ToolsPageInner() {
 
           <ToolList wizards={filtered} className="mt-4" />
         </section>
-      </div>
+      </AppleShell>
     </div>
   );
 }
