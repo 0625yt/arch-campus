@@ -105,7 +105,7 @@ export function ConfirmDialog({
             disabled={busy}
             className={
               destructive
-                ? "inline-flex min-h-[44px] items-center justify-center rounded-full bg-[var(--color-apple-coral)] px-5 text-[13.5px] wght-620 text-white shadow-[0_1px_2px_rgba(224,68,94,0.18),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_-2px_rgba(224,68,94,0.35)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:transform-none sm:min-h-[36px]"
+                ? "inline-flex min-h-[44px] items-center justify-center rounded-full bg-[var(--color-apple-coral)] px-5 text-[13.5px] wght-620 text-white shadow-[0_1px_2px_color-mix(in_srgb,var(--color-apple-coral)_18%,transparent),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_-2px_color-mix(in_srgb,var(--color-apple-coral)_35%,transparent)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:transform-none sm:min-h-[36px]"
                 : "inline-flex min-h-[44px] items-center justify-center rounded-full bg-[var(--color-apple-ink)] px-5 text-[13.5px] wght-620 text-white shadow-[0_1px_2px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.28)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:transform-none sm:min-h-[36px]"
             }
           >

@@ -1,7 +1,12 @@
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css");
 @import "tailwindcss";
 
-@theme {
+/*
+ * static — 미사용 토큰도 항상 방출한다. 기본값은 "쓰인 것만" 방출이라
+ * var(--color-apple-*)처럼 유틸 클래스가 아닌 임의값 참조로만 쓰는 토큰이
+ * 빌드에서 누락될 수 있다. 이걸 :root 백업본으로 막던 것을 static으로 대체.
+ */
+@theme static {
   /* SF Pro 우선 (Mac/iOS Safari에서 자동 매핑) → Pretendard 폴백 */
   --font-sans:
     -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
@@ -51,12 +56,11 @@
 
   /*
    * 의미 액센트 — Apple HIG iOS 26 system color 정렬.
-   *   success = systemGreen / streak = systemOrange / warn = systemYellow (alias)
+   *   success = systemGreen / warn = systemOrange
    *   coral은 우리 코랄 톤 유지 (트렌디·형광 빨강 회피, DESIGN.md 명시).
-   *   warn은 streak alias (학기 카운트다운·임박 일정 양쪽 같은 색 의미).
+   *     → urgent(#e0445e)와 같은 값. iOS systemRed(#ff3b30)로 바꾸지 말 것.
    */
   --color-apple-success: #34c759;
-  --color-apple-streak: #ff9500;
   --color-apple-warn: #ff9500;
   --color-apple-warn-soft: #fff4e0;
   /* warn-ink — 카드 라벨·점에 쓰는 진한 살구브라운. 다크에선 밝게 오버라이드. */
@@ -140,57 +144,13 @@
   --duration-slow: 380ms;
 }
 
-/* Apple 토큰 백업 — @theme 빌드 누락 방지용 :root 선언 */
+/*
+ * 유틸 클래스와 무관한 순수 CSS 변수만 여기 둔다.
+ * Apple·tint·elev 토큰은 @theme(위)가 단일 출처 — `@theme static`이 미사용 토큰까지
+ * 항상 방출하므로 :root 백업본은 불필요하다. 백업본을 두면 캐스케이드상 @theme을
+ * 가려서 값이 조용히 갈라진다 (coral #e0445e → #ff453a로 드리프트했던 원인).
+ */
 :root {
-  --color-apple-action: #0071e3;
-  --color-apple-action-hover: #0077e6;
-  --color-apple-ink: #1d1d1f;
-  --color-apple-pearl: #f5f5f7;
-  --color-apple-muted: #6e6e73;
-  --color-apple-hairline: #d2d2d7;
-  --color-apple-hairline-soft: rgba(0, 0, 0, 0.08);
-  --color-apple-success: #34c759;
-  --color-apple-streak: #ff9f0a;
-  --color-apple-warn: #ff9f0a;
-  --color-apple-warn-soft: rgba(255, 149, 0, 0.16);
-  --color-apple-warn-ink: #cc7a30;
-  --color-apple-coral: #ff453a;
-  --color-apple-coral-soft: rgba(255, 69, 58, 0.12);
-  --color-apple-cobalt: #7aa6d6;
-  --color-apple-action-soft: #f0f7ff;
-
-  --color-tint-exam: #fde7eb;
-  --color-tint-exam-strong: #f9c5cd;
-  --color-tint-exam-ink: #b6263b;
-  --color-tint-assign: #ffeed4;
-  --color-tint-assign-strong: #ffd9a3;
-  --color-tint-assign-ink: #a85f17;
-  --color-tint-prez: #e1ecff;
-  --color-tint-prez-strong: #c2d6ff;
-  --color-tint-prez-ink: #2e58c9;
-  --color-tint-class: #e6f4ec;
-  --color-tint-class-strong: #cbe5d4;
-  --color-tint-class-ink: #2f7a4f;
-  --color-tint-etc: #ece6f5;
-  --color-tint-etc-strong: #d6cbe7;
-  --color-tint-etc-ink: #604a8a;
-  --color-tint-streak: #fff3df;
-  --color-tint-streak-ink: #b66a14;
-  --color-surface-cream: #fbfaf7;
-  --color-surface-mist: #f4f6fb;
-  --color-day-cell: #ffffff;
-
-  --elev-1: 0 1px 2px rgba(20, 20, 20, 0.04);
-  --elev-2: 0 1px 2px rgba(20, 20, 20, 0.04), 0 8px 24px -12px rgba(20, 20, 20, 0.1);
-  --elev-3: 0 4px 12px rgba(20, 20, 20, 0.06), 0 24px 56px -12px rgba(20, 20, 20, 0.18);
-
-  --surface-canvas-blob: linear-gradient(
-    180deg,
-    rgba(180, 207, 226, 0.3) 0%,
-    rgba(180, 207, 226, 0.08) 45%,
-    transparent 85%
-  );
-
   --color-landing-bg: #ffffff;
   --color-landing-text-strong: #1d1d1f;
   --color-landing-text-muted: #6e6e73;
@@ -299,14 +259,14 @@ html[data-theme="dark"] .auth-light {
   --color-apple-action-soft: #f0f7ff;
   color-scheme: light;
 }
-html[data-theme="dark"] .auth-light .bg-white:not(.dark-keep-white),
-html[data-theme="dark"] .auth-light .bg-white\/95:not(.dark-keep-white),
-html[data-theme="dark"] .auth-light .bg-white\/92:not(.dark-keep-white),
-html[data-theme="dark"] .auth-light .bg-white\/90:not(.dark-keep-white),
-html[data-theme="dark"] .auth-light .bg-white\/85:not(.dark-keep-white),
-html[data-theme="dark"] .auth-light .bg-white\/72:not(.dark-keep-white),
-html[data-theme="dark"] .auth-light .bg-white\/60:not(.dark-keep-white),
-html[data-theme="dark"] .auth-light .bg-white\/40:not(.dark-keep-white) {
+/*
+ * auth-light 안에선 다크여도 흰 면 유지 — 위 다크 매핑을 되돌린다.
+ * 변형별 알파가 필요 없고(전부 흰색 한 값) 클래스 이름 매칭이라, 개별 나열 대신
+ * 속성 선택자로 bg-white/N 전부를 한 번에 잡는다. 새 변형이 생겨도 자동 커버.
+ *   ~= 는 공백 구분 토큰 단위 매칭 — "bg-white/35"는 잡고 "hover:bg-white"는 안 잡음.
+ */
+html[data-theme="dark"] .auth-light [class~="bg-white"]:not(.dark-keep-white),
+html[data-theme="dark"] .auth-light [class*="bg-white/"]:not(.dark-keep-white) {
   background-color: #ffffff;
 }
 
@@ -567,43 +527,62 @@ html[data-theme="dark"] .btn-ink {
 /*
  * 다크 모드 surface 자동 매핑 — bg-white·bg-white/N 인라인이 다크에서 깨지는 걸 일괄 해결.
  *
- * 톤: 새 pearl #202024(rgb 32,32,36). 배경 #16161a 위에서 명도차 10으로 자연스럽게 얹힘
+ * 톤: pearl #202024(rgb 32,32,36). 배경 #16161a 위에서 명도차 10으로 자연스럽게 얹힘
  * (이전 #1d1d1f는 배경 #0c0c0e 위에서 차이 19로 "붕 떠" 보였음 — 2026-06-04 재설계).
  *   - 너무 어두우면 (#1a1a1c) 배경과 구분이 안 됨
  *   - 너무 밝으면 (#262) AI 흔한 회색 카드 톤
  *
  * 주의: 의도적으로 흰색이어야 하는 곳(다크에서도)은 클래스에 `dark-keep-white` 박아 예외.
+ *
+ * ⚠️ 이 블록은 임시 shim이다 — Tailwind 유틸 클래스 이름을 가로채는 구조라
+ *    여기 없는 변형(bg-white/77 등)을 새로 쓰면 다크에서 조용히 흰 카드가 된다.
+ *    아래 목록은 "실제로 코드에 존재하는 변형"과 1:1이어야 하며, 변형을 추가·삭제하면
+ *    여기도 같이 고쳐야 한다. 근본 해결은 bg-white(312곳) → 시맨틱 토큰 치환. 별도 PR.
+ *    점검: grep -rIohE "bg-white/[0-9]+" src --include="*.tsx" | sort -u
  */
 html[data-theme="dark"] .bg-white:not(.dark-keep-white) {
-  background-color: #202024;
+  background-color: var(--color-apple-pearl);
+}
+html[data-theme="dark"] .bg-white\/96:not(.dark-keep-white) {
+  background-color: color-mix(in srgb, var(--color-apple-pearl) 96%, transparent);
 }
 html[data-theme="dark"] .bg-white\/95:not(.dark-keep-white) {
-  background-color: rgba(32, 32, 36, 0.95);
+  background-color: color-mix(in srgb, var(--color-apple-pearl) 95%, transparent);
 }
 html[data-theme="dark"] .bg-white\/92:not(.dark-keep-white) {
-  background-color: rgba(32, 32, 36, 0.92);
+  background-color: color-mix(in srgb, var(--color-apple-pearl) 92%, transparent);
 }
-html[data-theme="dark"] .bg-white\/90:not(.dark-keep-white) {
-  background-color: rgba(32, 32, 36, 0.9);
+html[data-theme="dark"] .bg-white\/88:not(.dark-keep-white) {
+  background-color: color-mix(in srgb, var(--color-apple-pearl) 88%, transparent);
 }
-html[data-theme="dark"] .bg-white\/85:not(.dark-keep-white) {
-  background-color: rgba(32, 32, 36, 0.85);
+html[data-theme="dark"] .bg-white\/80:not(.dark-keep-white) {
+  background-color: color-mix(in srgb, var(--color-apple-pearl) 80%, transparent);
 }
-html[data-theme="dark"] .bg-white\/72:not(.dark-keep-white) {
-  background-color: rgba(32, 32, 36, 0.72);
+html[data-theme="dark"] .bg-white\/70:not(.dark-keep-white) {
+  background-color: color-mix(in srgb, var(--color-apple-pearl) 70%, transparent);
 }
 html[data-theme="dark"] .bg-white\/60:not(.dark-keep-white) {
-  background-color: rgba(32, 32, 36, 0.6);
+  background-color: color-mix(in srgb, var(--color-apple-pearl) 60%, transparent);
 }
+/*
+ * 옅은 변형(≤40%)은 pearl을 깔면 배경에 묻힌다 — 다크에선 흰색 저알파 오버레이로
+ * "살짝 들린 면"을 만든다. 라이트의 반투명 흰 카드와 같은 의도.
+ */
 html[data-theme="dark"] .bg-white\/40:not(.dark-keep-white) {
   background-color: rgba(255, 255, 255, 0.08);
+}
+html[data-theme="dark"] .bg-white\/35:not(.dark-keep-white) {
+  background-color: rgba(255, 255, 255, 0.07);
+}
+html[data-theme="dark"] .bg-white\/20:not(.dark-keep-white) {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 /*
  * 다크 hover bg-white 변형 — 같은 패턴. cream(#26262b)으로 한 단 들림.
  */
 html[data-theme="dark"] .hover\:bg-white:not(.dark-keep-white):hover {
-  background-color: #26262b;
+  background-color: var(--color-surface-cream);
 }
 
 /*

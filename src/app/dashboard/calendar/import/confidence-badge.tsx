@@ -20,14 +20,14 @@ export function ConfidenceBadge({ value }: { value: number }) {
     tone === "high"
       ? "bg-[var(--color-apple-success)]"
       : tone === "mid"
-        ? "bg-[var(--color-apple-warning,#d97706)]"
+        ? "bg-[var(--color-apple-warn-ink)]"
         : "bg-[var(--color-urgent)]";
 
   const textCls =
     tone === "high"
       ? "text-[var(--color-apple-success)]"
       : tone === "mid"
-        ? "text-[var(--color-apple-warning,#d97706)]"
+        ? "text-[var(--color-apple-warn-ink)]"
         : "text-[var(--color-urgent)]";
 
   const label = tone === "high" ? "확실" : tone === "mid" ? "확인 필요" : "추정";
