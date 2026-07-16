@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AppleShell } from "@/components/apple-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listWrongItems } from "@/lib/data/attempts";
 import { getQuizForSolving } from "@/lib/data/quizzes";
@@ -36,14 +37,14 @@ export default async function QuizWrongOnlyPage({
     if (!exists) notFound();
     return (
       <div>
-        <div className="mx-auto w-full max-w-[1080px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
+        <AppleShell pb="tall">
           <EmptyWrong
             quizId={quizId}
             quizTitle={exists.title}
             materialId={exists.materialId}
             courseName={exists.courseName}
           />
-        </div>
+        </AppleShell>
       </div>
     );
   }
@@ -53,7 +54,7 @@ export default async function QuizWrongOnlyPage({
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[1080px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
+      <AppleShell pb="tall">
         <header className="mb-6 flex items-baseline justify-between gap-3 fade-up">
           <Link
             href="/dashboard/review"
@@ -67,7 +68,7 @@ export default async function QuizWrongOnlyPage({
           </span>
         </header>
         <QuizSolver quiz={quiz} />
-      </div>
+      </AppleShell>
     </div>
   );
 }
