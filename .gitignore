@@ -64,5 +64,5 @@ supabase/.temp/
 .tmp/
 .lazyweb/
 .superpowers/
-design/
+/design/
 .playwright-mcp/

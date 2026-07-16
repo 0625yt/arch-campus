@@ -482,19 +482,19 @@ function ReviewSection({
           >
             <div className="flex items-center gap-3">
               {dist.high > 0 && (
-                <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 text-[var(--color-apple-success)]">
                   <span
                     aria-hidden
-                    className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-apple-success)]"
+                    className="inline-block h-3 w-[2px] rounded-full bg-[var(--color-apple-success)]"
                   />
                   확실 {dist.high}
                 </span>
               )}
               {dist.mid > 0 && (
-                <span className="inline-flex items-center gap-1.5 text-[var(--color-apple-warning,#d97706)]">
+                <span className="inline-flex items-center gap-1.5 text-[var(--color-apple-warn-ink)]">
                   <span
                     aria-hidden
-                    className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-apple-warning,#d97706)]"
+                    className="inline-block h-3 w-[2px] rounded-full bg-[var(--color-apple-warn-ink)]"
                   />
                   확인 필요 {dist.mid}
                 </span>
@@ -503,7 +503,7 @@ function ReviewSection({
                 <span className="inline-flex items-center gap-1.5 text-[var(--color-urgent)]">
                   <span
                     aria-hidden
-                    className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-urgent)]"
+                    className="inline-block h-3 w-[2px] rounded-full bg-[var(--color-urgent)]"
                   />
                   추정 {dist.low}
                 </span>
