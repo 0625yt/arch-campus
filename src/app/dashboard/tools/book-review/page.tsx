@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppleHero, AppleHeroTopBar } from "@/components/apple-hero";
+import { AppleShell } from "@/components/apple-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import { BookReviewWizard } from "./wizard";
 
@@ -10,7 +11,7 @@ export default async function BookReviewWizardPage() {
   if (!ownerId) redirect("/login");
 
   return (
-    <div className="mx-auto w-full max-w-[820px] px-5 pb-24 pt-6 sm:px-8 sm:pb-28 sm:pt-8 md:px-10">
+    <AppleShell width="narrow">
       <AppleHeroTopBar back={{ href: "/dashboard/tools", label: "도구" }} chip="독후감 · 3단계" />
       <AppleHero
         eyebrow="독후감 초안"
@@ -23,6 +24,6 @@ export default async function BookReviewWizardPage() {
       <div className="mt-6 fade-up fade-up-3 sm:mt-8">
         <BookReviewWizard />
       </div>
-    </div>
+    </AppleShell>
   );
 }
