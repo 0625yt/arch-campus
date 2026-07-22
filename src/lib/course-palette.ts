@@ -211,17 +211,23 @@ export function courseLinearGradient(name: string, color?: string | null, alpha 
 }
 
 /**
- * 다크 카드 좌→우 wash — 강의 hue 기반 진한 색을 좌측에서 풍부하게, 우측으로 풀어
+ * 다크 카드 좌→우 wash — 강의 hue 기반 색을 좌측에서 풍부하게, 우측으로 풀어
  * 거의 검정인 다크 카드에 강의 색 정체성을 입힌다.
  *
- * 라이트용 courseLinearGradient는 파스텔 alpha 0.28 → 검정 카드 위에선 안 보여
- * 모든 카드가 같은 회색으로 죽음. 셀(courseTintDark)과 동일 철학으로 hue만 뽑아
- * 채도 높은 색(S40·L26)을 alpha로 좌측 0.9 → 우측 0으로 흘려 "한 방울 떨군 잉크".
+ * ⚠️ 이전 버전(S40·L26, hue보정 없음, alpha 0.85)은 "진흙" 문제가 있었다:
+ *   어두운 저채도 색을 alpha로 검정 배경(#202024)에 블렌딩하면 채도가 죽어
+ *   회갈색으로 수렴한다(글로컬영어=갈색, 노작교육=진흙보라). courseTintDark 주석이
+ *   경고한 바로 그 현상인데, 셀은 불투명으로 피했지만 카드는 여전히 alpha였다.
+ *
+ * 해결: 셀(courseTintDark)과 **동일한 또렷한 색**(S44·L31 + hue band별 지각 보정)을
+ *   기반으로, 좌측을 거의 불투명(0.92)하게 깔아 검정과의 블렌딩을 최소화한다.
+ *   우측으로만 풀어 "한 방울 떨군 잉크" 호흡은 유지. hue 보정으로 보라·청록도 균일.
  */
 export function courseLinearGradientDark(name: string, color?: string | null): string {
   const { h } = rgbToHsl(courseRgb(name, color));
-  const { r, g, b } = hslToRgbVals(h, 40, 26);
-  return `linear-gradient(90deg, rgba(${r}, ${g}, ${b}, 0.85) 0%, rgba(${r}, ${g}, ${b}, 0.32) 38%, rgba(${r}, ${g}, ${b}, 0) 100%)`;
+  const lAdjust = h >= 70 && h <= 200 ? -5 : h >= 40 && h < 70 ? -6 : h >= 210 && h <= 290 ? 4 : 0;
+  const { r, g, b } = hslToRgbVals(h, 44, 31 + lAdjust);
+  return `linear-gradient(90deg, rgba(${r}, ${g}, ${b}, 0.92) 0%, rgba(${r}, ${g}, ${b}, 0.42) 40%, rgba(${r}, ${g}, ${b}, 0) 100%)`;
 }
 
 /**

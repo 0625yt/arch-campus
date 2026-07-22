@@ -343,26 +343,10 @@ function TimetableGrid({
                   너무 튄다는 피드백(2026-06-09). 오늘 식별은 헤더(파란 글자+점)와
                   아래 실시간 now-line이 대신한다. */}
 
-              {/* 지난 시간대 dim — 오늘 컬럼에서 이미 흐른 시간을 아주 옅게 가라앉힌다.
-                  배경 wash를 뺐으니 이건 "오늘 어디까지 왔나"의 유일한 면 신호 → 절제해서 옅게
-                  (라이트 4% · 다크 22%). 과거 강의 셀 자체는 opacity로 따로 톤다운된다. */}
-              {nowFrac !== null &&
-                shownDays.map((w, dayIdx) => {
-                  if (!isKstToday(w, now)) return null;
-                  const colWidth = 100 / shownDays.length;
-                  return (
-                    <div
-                      key={`past-wash-${w}`}
-                      aria-hidden
-                      className="pointer-events-none absolute top-0 bg-black/[0.04] dark:bg-black/[0.22]"
-                      style={{
-                        left: `${dayIdx * colWidth}%`,
-                        width: `${colWidth}%`,
-                        height: `${BODY_PAD_PX + nowFrac * hourPx * hourSpan}px`,
-                      }}
-                    />
-                  );
-                })}
+              {/* 오늘 컬럼 "지난 시간 dim" wash는 제거(2026-07-22). 오후·저녁 접속 시
+                  nowFrac이 1에 근접해 컬럼을 거의 통째로 덮어(특히 다크 22%) "오늘=강조"가
+                  "오늘=비활성"으로 뒤집혔다. "오늘 어디까지 왔나"는 아래 실시간 now-line이
+                  이미 정확히 표현한다. 지난 강의 셀은 아래 opacity로만 미세하게 톤다운. */}
 
               {/* Hour hairline — Apple Calendar처럼 아주 옅게(타임라인 가이드).
                   세로 요일 구분선은 제거 → "엑셀 표"가 아니라 "타임라인". */}
@@ -409,7 +393,7 @@ function TimetableGrid({
                         isNow
                           ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)] shadow-[0_10px_28px_-4px_rgba(0,113,227,0.5)]"
                           : ""
-                      } ${isPast ? (isDark ? "opacity-60" : "opacity-45") : ""}`}
+                      } ${isPast ? "opacity-75" : ""}`}
                       style={{
                         top: `${top + 2}px`,
                         height: `${cellH}px`,
