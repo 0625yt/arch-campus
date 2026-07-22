@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AppleShell } from "@/components/apple-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getCourseByName, listCoursesWithMaterialCount } from "@/lib/data/materials";
 import { getCourseSafetyDetail, type RiskLevel } from "@/lib/data/semester-safety";
@@ -35,7 +36,7 @@ export default async function CourseDetailPage({
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[1200px] px-5 pb-20 pt-6 sm:px-8 sm:pb-24 sm:pt-8 md:px-10">
+      <AppleShell width="wide">
         <Breadcrumb courseName={course.name} dotColor={dotColor} />
 
         {/* 데스크톱: hero + safety panel 2-컬럼 한 화면. 모바일: 세로 적층 그대로. */}
@@ -66,7 +67,7 @@ export default async function CourseDetailPage({
             <UploadZone courseId={course.id} courseName={course.name} />
           </div>
         </section>
-      </div>
+      </AppleShell>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AppleShell } from "@/components/apple-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import {
   ChecklistOutput,
@@ -55,7 +56,7 @@ export default async function HistoryDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div>
-      <div className="mx-auto w-full max-w-[820px] px-6 pb-32 pt-8 sm:px-10 sm:pb-40 sm:pt-12 md:px-12">
+      <AppleShell width="narrow" pb="tall">
         <header className="fade-up flex items-baseline justify-between gap-3">
           <Link
             href="/dashboard/history"
@@ -73,7 +74,7 @@ export default async function HistoryDetailPage({ params }: { params: Promise<{ 
         <div className="mt-10 fade-up fade-up-1 sm:mt-14">
           <ResultBody tool={tool} payload={payload} />
         </div>
-      </div>
+      </AppleShell>
     </div>
   );
 }

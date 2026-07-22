@@ -15,15 +15,29 @@
  *  - wide(1200): 2-컬럼 hero — Course detail
  *  - hero(1440): 대시보드 hero — 시간표 + 사이드레일 + 하단카드
  *
- * 외부에서 className으로 추가 패딩·flex 등 자유. min-h-0/h-full 같이 fit 필요한 경우는 외부에서 처리.
+ * 하단 패딩 계열:
+ *  - default: pb-24 sm:pb-28 — 인덱스·위저드 (표준)
+ *  - tall: pb-32 sm:pb-40 — 스크롤 긴 상세(퀴즈 solver·import·history 상세). 하단 액션이 탭바에 안 가리게 여유.
+ *
+ * ⚠️ className으로 px/max-w/pb를 override하지 말 것 — className은 뒤에 append되지만
+ *    동일 property는 Tailwind 클래스 순서에 의존해 override가 깨질 수 있다.
+ *    폭·하단패딩이 다르면 width/pb prop으로, 그래도 안 맞으면 이 셸에 편입하지 말 것.
+ *
+ * 편입 제외(특수 레이아웃 — 인라인 유지가 옳음):
+ *  - calendar/page (모바일 full-bleed px-0), dashboard/page 메인 (flex/overflow),
+ *    study/[course]/[material] (md 920→1400 점프), quiz result (760), dev/* (내부 툴).
+ *
+ * className은 flex·gap 등 컨테이너 property가 아닌 것만 추가.
  */
 export function AppleShell({
   children,
   width = "default",
+  pb = "default",
   className = "",
 }: {
   children: React.ReactNode;
   width?: "narrow" | "default" | "wide" | "hero";
+  pb?: "default" | "tall";
   className?: string;
 }) {
   const maxW = {
@@ -33,9 +47,14 @@ export function AppleShell({
     hero: "max-w-[1440px]",
   }[width];
 
+  const pbCls = {
+    default: "pb-24 sm:pb-28",
+    tall: "pb-32 sm:pb-40",
+  }[pb];
+
   return (
     <div
-      className={`mx-auto w-full ${maxW} px-6 pb-24 pt-8 sm:px-10 sm:pb-28 sm:pt-12 md:px-12 ${className}`}
+      className={`mx-auto w-full ${maxW} px-6 pt-8 sm:px-10 sm:pt-12 md:px-12 ${pbCls} ${className}`}
     >
       {children}
     </div>

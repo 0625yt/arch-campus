@@ -442,23 +442,30 @@ globals.css에 `fade-up-1`~`fade-up-5` 지원. 위에서 아래로 30~60ms 간�
 - 하단 탭바는 iOS Safe Area 반영 (`pb-[env(safe-area-inset-bottom)]`)
 - 데스크톱 네비 6항목 vs 모바일 탭 4항목 — 모바일에선 "내 문제·복습"이 탭에서 빠짐 (홈/공부 하위로 접근)
 
-### 13-3. 컨테이너 너비 (실측)
+### 13-3. 컨테이너 너비 — `AppleShell` 단일 소스 (2026-07-16 통일)
 
-대시보드는 한 컬럼 유지 (정보 밀도상 데스크톱에서도 한 컬럼이 맞음 — ChatGPT·Claude 패턴). 단, **셸이 통일돼 있지 않다** — 공용 셸과 페이지별 hand-rolled가 섞여 있다.
+대시보드는 한 컬럼 유지 (정보 밀도상 데스크톱에서도 한 컬럼이 맞음 — ChatGPT·Claude 패턴). **페이지 컨테이너는 `AppleShell`을 쓴다 — 새 페이지에서 `mx-auto max-w-[...] px-... pb-... pt-...`를 손으로 짜지 말 것.**
 
-**공용 `AppleShell`** ([apple-shell.tsx](../../src/components/apple-shell.tsx)) — study·quiz·history·review 4개 페이지에서만 사용:
-- `narrow` 820 / `default` 1080 / `wide` 1200 / `hero` 1440
-- 패딩: `px-6 sm:px-10 md:px-12`
+**`AppleShell`** ([apple-shell.tsx](../../src/components/apple-shell.tsx)):
 
-**`PageShell`은 정의만 있고 `<PageShell>` 렌더 사용처 0** — dead. (`PageTitle` 등 헬퍼만 일부 사용)
+| prop | 값 | 용도 |
+|---|---|---|
+| `width` | `narrow` 820 | 위저드·본문 위주 (독후감·발표·리포트·시험 벼락치기·설정) |
+| | `default` 1080 | 표준 인덱스 (study·quiz·review·history·도구 허브·퀴즈 solver) |
+| | `wide` 1200 | 2-컬럼 (강의 상세) |
+| | `hero` 1440 | 대시보드 hero (현재 메인은 특수 레이아웃이라 미편입) |
+| `pb` | `default` (pb-24 sm:pb-28) | 표준 |
+| | `tall` (pb-32 sm:pb-40) | 스크롤 긴 상세 — 하단 액션이 탭바에 안 가리게 (퀴즈·오답·history 상세) |
 
-**hand-rolled (셸 우회) — 주요 페이지 다수가 여기 해당**:
-- 대시보드 홈: `max-w-[1440px]` ([page.tsx:45](../../src/app/dashboard/page.tsx#L45))
-- 강의자료 상세: `max-w-[920px] md:max-w-[1400px]` — **md:에서 920→1400 점프** ([[material]/page.tsx:103](../../src/app/dashboard/study/[course]/[material]/page.tsx#L103))
-- 캘린더: `max-w-[1280px]` ([calendar/page.tsx:47](../../src/app/dashboard/calendar/page.tsx#L47))
-- 도구 허브: `max-w-[1080px]` ([tools/page.tsx:213](../../src/app/dashboard/tools/page.tsx#L213))
+고정 패딩: `px-6 pt-8 sm:px-10 sm:pt-12 md:px-12`. **폭·패딩이 안 맞으면 className으로 override 말 것** (Tailwind 순서 의존으로 깨짐) — width/pb prop으로, 그래도 안 맞으면 편입하지 말 것.
 
-실제 max-width는 **920~1440px** 범위, 패딩은 `px-5/6 → sm:px-8/10 → md:px-10/12`. (이전 문서의 672/768px·`px-4`는 존재한 적 없음.)
+**편입 제외 (특수 레이아웃 — 인라인 유지가 옳음, CONVENTIONS "3줄 > 성급한 추상화"):**
+- 대시보드 홈 ([page.tsx](../../src/app/dashboard/page.tsx)) — flex/min-h-0/overflow-hidden 스크롤 구조
+- 강의자료 상세 ([[material]/page.tsx](../../src/app/dashboard/study/[course]/[material]/page.tsx)) — `md:`에서 920→1400 점프 (셸에 없는 반응형 폭 전환)
+- 캘린더 ([calendar/page.tsx](../../src/app/dashboard/calendar/page.tsx)) — 모바일 full-bleed `px-0`
+- 퀴즈 결과 (760, 셸에 없는 좁은 폭), 설정 보안 (`pt-14` 상단 여백 의도), dev/* (내부 툴)
+
+**`PageShell`은 dead** — `<PageShell>` 렌더 사용처 0. `PageTitle` 등 헬퍼만 일부 사용.
 
 ### 13-4. 카드·리스트 모바일 변환
 
@@ -511,5 +518,6 @@ Playwright MCP 설치됨 — 한 줄로:
 
 ---
 
-**문서버전**: 2026-07-16 (§13 코드 실측 기준 전면 재작성)
-**알려진 부채**: (1) `sm:` 과부하로 5단계 붕괴 (2) 셸 미통일 — AppleShell vs hand-rolled (3) `bg-white` 312곳 시맨틱 토큰화 (4) 폰트 수치 페이지별 편차
+**문서버전**: 2026-07-16 (§13 코드 실측 기준 전면 재작성 + 셸 통일 반영)
+**알려진 부채**: (1) `sm:` 과부하로 5단계 붕괴 (2) `bg-white` 312곳 시맨틱 토큰화 (3) 폰트 수치 페이지별 편차
+**해소됨**: 셸 통일 — 편입 가능 8곳 `AppleShell` 편입 완료 (특수 9곳은 §13-3대로 인라인 유지), 토큰 드리프트

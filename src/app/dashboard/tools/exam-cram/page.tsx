@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppleHero, AppleHeroTopBar } from "@/components/apple-hero";
+import { AppleShell } from "@/components/apple-shell";
 import { WizardHistorySidebar } from "@/components/wizard-history-sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listAllWizardHistory } from "@/lib/data/wizard-history";
@@ -45,7 +46,7 @@ export default async function ExamCramPage() {
   return (
     <div className="lg:pr-[280px]">
       <WizardHistorySidebar items={history} pageTitle="시험 벼락치기" />
-      <div className="mx-auto w-full max-w-[820px] px-5 pb-24 pt-6 sm:px-8 sm:pb-28 sm:pt-8 md:px-10">
+      <AppleShell width="narrow">
         <AppleHeroTopBar back={{ href: "/dashboard/tools", label: "도구" }} chip="시험 · 3단계" />
         <AppleHero
           eyebrow="시험 벼락치기"
@@ -58,7 +59,7 @@ export default async function ExamCramPage() {
         <div className="mt-6 fade-up fade-up-3 sm:mt-8">
           <ExamCramWizard courses={courses} materials={materials} />
         </div>
-      </div>
+      </AppleShell>
     </div>
   );
 }

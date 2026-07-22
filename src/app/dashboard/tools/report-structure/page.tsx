@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppleHero, AppleHeroTopBar } from "@/components/apple-hero";
+import { AppleShell } from "@/components/apple-shell";
 import { WizardHistorySidebar } from "@/components/wizard-history-sidebar";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listAllWizardHistory } from "@/lib/data/wizard-history";
@@ -45,7 +46,7 @@ export default async function ReportStructurePage() {
   return (
     <div className="lg:pr-[280px]">
       <WizardHistorySidebar items={history} pageTitle="리포트 구조 설계" />
-      <div className="mx-auto w-full max-w-[820px] px-5 pb-24 pt-6 sm:px-8 sm:pb-28 sm:pt-8 md:px-10">
+      <AppleShell width="narrow">
         <AppleHeroTopBar back={{ href: "/dashboard/tools", label: "도구" }} chip="과제 · 4단계" />
         <AppleHero
           eyebrow="리포트 구조 설계"
@@ -58,7 +59,7 @@ export default async function ReportStructurePage() {
         <div className="mt-6 fade-up fade-up-3 sm:mt-8">
           <Wizard courses={courses} materials={materials} />
         </div>
-      </div>
+      </AppleShell>
     </div>
   );
 }
