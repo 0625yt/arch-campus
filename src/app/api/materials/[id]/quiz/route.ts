@@ -72,7 +72,7 @@ export async function POST(
   const allIds = [materialId, ...body.extraMaterialIds.filter((id) => id !== materialId)];
   const { data: materialsData, error: fetchErr } = await admin
     .from("materials")
-    .select("id, course_id, title, type, full_text, page_count")
+    .select("id, course_id, title, type, full_text, page_count, mime_type")
     .in("id", allIds)
     .eq("owner_id", ownerId);
 
@@ -123,6 +123,7 @@ export async function POST(
           type: m.type,
           fullText: m.full_text ?? "",
           pageCount: m.page_count ?? null,
+          mimeType: m.mime_type ?? null,
         })),
         parserWarnings: [],
         difficulty: body.difficulty,
@@ -140,7 +141,7 @@ export async function POST(
       await markJobDone({
         jobId: job.id,
         ownerId,
-        result: { quizId: result.quizId },
+        result: { quizId: result.quizId, quality: result.quality },
         modelId: result.modelId,
         usage: result.usage,
         costUsd: result.costUsd,

@@ -70,25 +70,56 @@ export type SummarizeOutputT = z.infer<typeof SummarizeOutput>;
  *   - short-answer:    choices null + answer (정답 텍스트)
  *   - essay:           choices null + answer (모범답안 핵심 키워드/방향)
  *
- * 풀이 UI는 이번 sprint에선 객관식만 동작. short-answer/essay는 placeholder.
+ * 풀이 UI와 채점은 객관식·단답형·서술형을 모두 지원한다.
  */
+const QuizKind = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") return value;
+    const normalized = value.trim().toLowerCase().replaceAll("_", "-");
+    if (["mcq", "multiplechoice", "multiple-choice", "객관식"].includes(normalized)) {
+      return "multiple-choice";
+    }
+    if (["short", "shortanswer", "short-answer", "단답형"].includes(normalized)) {
+      return "short-answer";
+    }
+    if (["essay", "서술형", "논술형"].includes(normalized)) return "essay";
+    return value;
+  },
+  z.enum(["multiple-choice", "short-answer", "essay"]).default("multiple-choice"),
+);
+
+const QuizDifficulty = z.preprocess(
+  // 최종 난이도는 서비스가 사용자의 선택값으로 덮어쓴다. 모델이 medium·中級처럼
+  // 다른 라벨을 써도 전체 JSON을 버리지 않도록 임시 기본값으로만 정규화한다.
+  (value) => (value === "쉬움" || value === "보통" || value === "어려움" ? value : "보통"),
+  z.enum(["쉬움", "보통", "어려움"]),
+);
+
 export const QuizQuestion = z.object({
   id: z.number().int().positive(),
-  kind: z.enum(["multiple-choice", "short-answer", "essay"]).default("multiple-choice"),
-  difficulty: z.enum(["쉬움", "보통", "어려움"]),
-  topic: z.string().min(1).max(60),
+  kind: QuizKind,
+  difficulty: QuizDifficulty,
+  topic: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() ? value : "핵심 개념"),
+    z.string().min(1).max(60),
+  ),
   stem: z.string().min(15).max(400),
   // 객관식이 아니면 null. zod default가 풀어주므로 호출자는 null 또는 undefined 둘 다 OK.
-  choices: z
-    .array(
-      z.object({
-        key: z.enum(["A", "B", "C", "D"]),
-        text: z.string().min(1).max(300),
-      }),
-    )
-    .length(4)
-    .nullable()
-    .optional(),
+  choices: z.preprocess(
+    // Gemini가 비객관식에서 `null` 대신 `[]`를 자주 반환한다. 의미는 같으므로
+    // null로 정규화하되, 1~3개처럼 정말 깨진 객관식 배열은 계속 거부한다.
+    (value) => (Array.isArray(value) && value.length === 0 ? null : value),
+    z
+      .array(
+        z.object({
+          key: z.enum(["A", "B", "C", "D"]),
+          text: z.string().min(1).max(300),
+        }),
+      )
+      .length(4)
+      .nullable()
+      .optional(),
+  ),
   // 객관식이면 "A"~"D" 한 글자. 단답/서술이면 자유 텍스트.
   answer: z.string().min(1).max(2000),
   explanation: z.string().min(20).max(500),
@@ -101,7 +132,7 @@ export type QuizQuestionT = z.infer<typeof QuizQuestion>;
 
 export const QuizOutput = z.union([
   z.object({
-    questions: z.array(QuizQuestion).min(1).max(40),
+    questions: z.array(QuizQuestion).min(1).max(50),
     rejected: z.literal(false).optional(),
     watermark: z.string().min(10),
   }),
@@ -113,6 +144,67 @@ export const QuizOutput = z.union([
   }),
 ]);
 export type QuizOutputT = z.infer<typeof QuizOutput>;
+
+const QuizModelEnvelope = z.object({
+  questions: z.array(z.unknown()).max(50),
+  rejected: z.boolean().optional(),
+  reason: z.string().optional(),
+  watermark: z.string().min(10),
+});
+
+export interface ParsedQuizModelJson {
+  output: QuizOutputT;
+  invalidQuestions: Array<{ index: number; reason: string }>;
+}
+
+/** 한 문제의 형식 오류가 같은 응답의 정상 문제까지 전부 버리지 않도록 문제 단위로 파싱한다. */
+export function parseQuizModelJson(raw: string): ParsedQuizModelJson {
+  const envelope = parseModelJson(QuizModelEnvelope, raw);
+  if (envelope.rejected) {
+    return {
+      output: QuizOutput.parse({
+        questions: envelope.questions,
+        rejected: true,
+        reason: envelope.reason,
+        watermark: envelope.watermark,
+      }),
+      invalidQuestions: [],
+    };
+  }
+
+  const questions: QuizQuestionT[] = [];
+  const invalidQuestions: ParsedQuizModelJson["invalidQuestions"] = [];
+  for (const [index, value] of envelope.questions.entries()) {
+    const parsed = QuizQuestion.safeParse(value);
+    if (parsed.success) questions.push(parsed.data);
+    else {
+      invalidQuestions.push({
+        index,
+        reason: parsed.error.issues
+          .slice(0, 3)
+          .map((issue) => `${issue.path.join(".") || "question"}: ${issue.message}`)
+          .join(" | "),
+      });
+    }
+  }
+
+  if (questions.length === 0) {
+    throw new Error(
+      invalidQuestions.length > 0
+        ? `모든 문제가 형식 검증에 실패했어요: ${invalidQuestions[0].reason}`
+        : "모델이 문제를 하나도 만들지 않았어요.",
+    );
+  }
+
+  return {
+    output: QuizOutput.parse({
+      questions,
+      rejected: false,
+      watermark: envelope.watermark,
+    }),
+    invalidQuestions,
+  };
+}
 
 /**
  * 기출문제 추출 — PDF 본문에 이미 존재하는 문제·정답·해설을 그대로 가져온다.
@@ -247,8 +339,12 @@ export const TimetableSlot = z.object({
   // "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"
   weekday: z.enum(["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]),
   // 24시간 "HH:MM"
-  startTime: z.string().regex(/^\d{2}:\d{2}$/),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  // 모델이 "9:00"처럼 앞 0을 빼도 후처리에서 안전하게 "09:00"으로 정규화한다.
+  // 모델은 시간이 없는 비동기 강의를 null로 돌려주기도 한다. 한 슬롯의 null 때문에
+  // 정상 강의까지 포함한 응답 전체를 버리지 않고, 빈 문자열로 받아 후처리에서 해당
+  // 슬롯만 제외한다. 사용자 확정 API는 별도 엄격 스키마(HH:MM)를 계속 사용한다.
+  startTime: z.preprocess((value) => (value == null ? "" : value), z.string().max(5)),
+  endTime: z.preprocess((value) => (value == null ? "" : value), z.string().max(5)),
 });
 export type TimetableSlotT = z.infer<typeof TimetableSlot>;
 
@@ -256,7 +352,7 @@ export const TimetableCourse = z.object({
   name: z.string().min(1).max(80),
   professor: z.string().max(40).nullable().optional(),
   location: z.string().max(120).nullable().optional(),
-  slots: z.array(TimetableSlot).min(0).max(10),
+  slots: z.array(TimetableSlot).min(0).max(14),
   credits: z.number().min(0).max(10).nullable().optional(),
   // 시간표 추출 신뢰도 — 0~1. 격자 인식·시간 정규화·과목명 매칭이 얼마나
   // 확실했는지의 종합 점수. 모델이 안 채우면 0.7 (보통). UI HITL 단계에서
@@ -265,10 +361,21 @@ export const TimetableCourse = z.object({
 });
 export type TimetableCourseT = z.infer<typeof TimetableCourse>;
 
+export const TimetableReviewWarning = z.object({
+  code: z.enum(["invalid-time", "deduplicated", "merged-slots", "missing-time", "conflict"]),
+  message: z.string().min(1).max(240),
+  courseNames: z.array(z.string().min(1).max(80)).max(6).default([]),
+});
+export type TimetableReviewWarningT = z.infer<typeof TimetableReviewWarning>;
+
 export const TimetableOutput = z.object({
   termYear: z.number().int().min(2020).max(2099).nullable().optional(),
   termLabel: z.string().max(40).nullable().optional(), // "2026 1학기" 등
-  courses: z.array(TimetableCourse).min(0).max(20),
+  courses: z.array(TimetableCourse).min(0).max(40),
+  rejected: z.boolean().default(false),
+  rejectionReason: z.string().max(240).nullable().default(null),
+  // 모델 값은 서비스 후처리에서 덮어쓴다. 기본값은 이전 출력과의 호환용.
+  warnings: z.array(TimetableReviewWarning).max(30).default([]),
   watermark: z.string().min(10),
 });
 export type TimetableOutputT = z.infer<typeof TimetableOutput>;

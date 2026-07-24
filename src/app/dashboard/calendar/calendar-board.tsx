@@ -2,20 +2,31 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContextMenu, type ContextMenuItem, useContextMenu } from "@/components/context-menu";
 import { Modal } from "@/components/modal";
 import { Popover } from "@/components/popover";
+import { validateEventRange } from "@/lib/calendar-event-time";
 import { hexTintDark } from "@/lib/course-palette";
 import type { EventView } from "@/lib/data/events";
 import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
+import {
+  addDaysToDateKey,
+  dateKeyToDayNumber,
+  kstDateKey,
+  kstDateKeyToIso,
+  kstParts,
+  kstTimeLabel,
+  startOfWeekDateKey,
+  weekdayOfDateKey,
+} from "@/lib/kst";
 import { useIsDark } from "../use-mobile";
 import { EventAIDraftPanel } from "./ai-draft-panel";
 import { AiEntryCard } from "./ai-entry-card";
 import { DayView } from "./views/day-view";
-import { startOfWeekKst } from "./views/shared/time-grid";
+import { eventDisplayDateKeys, startOfWeekKst } from "./views/shared/time-grid";
 import { WeekView } from "./views/week-view";
 import { YearView } from "./views/year-view";
 
@@ -75,7 +86,7 @@ interface MonthCell {
   isToday: boolean;
 }
 
-/** 일/주/월/년 단위로 캘린더 보기 스케일. URL `?scale=`로 영속. 토글 UI는 미노출. */
+/** 일/주/월/년 단위 캘린더 보기. URL `?scale=`로 선택을 유지한다. */
 export type CalendarScale = "day" | "week" | "month" | "year";
 
 export function CalendarBoard({
@@ -102,7 +113,24 @@ export function CalendarBoard({
   // scale 토글 부활 (2026-05-23) — 일/주/월 3옵션 (년은 식갑 숨김).
   // URL ?scale= 동기화로 새로고침·외부 진입 모두 유지.
   const [scale, setScaleState] = useState<CalendarScale>(initialScale);
-  function setScale(next: CalendarScale) {
+  function setScale(next: CalendarScale, explicitFocusDate?: string) {
+    if ((next === "day" || next === "week") && (scale === "month" || scale === "year")) {
+      const today = kstDateKey(new Date());
+      const todayParts = kstParts(new Date());
+      const fallback =
+        scale === "month"
+          ? todayParts.year === view.year && todayParts.month - 1 === view.month
+            ? today
+            : monthStartDateKey(view.year, view.month)
+          : todayParts.year === view.year
+            ? today
+            : `${view.year}-01-01`;
+      setFocusDate(explicitFocusDate ?? fallback);
+    }
+    if ((next === "month" || next === "year") && (scale === "day" || scale === "week")) {
+      const [year, month] = focusDate.split("-").map(Number);
+      setView({ year, month: month - 1 });
+    }
     setScaleState(next);
     const params = new URLSearchParams(searchParams.toString());
     if (next === "month") params.delete("scale");
@@ -118,9 +146,7 @@ export function CalendarBoard({
   const [viewMode, setViewModeState] = useState<"all" | "timetable">(initialViewMode);
   // 일/주 뷰의 anchor 날짜 (ISO date key "YYYY-MM-DD"). 월 뷰는 view.year/month 사용.
   const [focusDate, setFocusDate] = useState<string>(() => {
-    const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    return kstDateKey(new Date());
   });
   function setViewMode(next: "all" | "timetable") {
     setViewModeState(next);
@@ -129,6 +155,19 @@ export function CalendarBoard({
     else params.set("view", "timetable");
     // 시간표보기 ON이면 자동 주 뷰. 이미 주/일이면 그대로.
     if (next === "timetable" && scale !== "week") {
+      if (scale === "month" || scale === "year") {
+        const today = kstDateKey(new Date());
+        const now = kstParts(new Date());
+        const anchor =
+          scale === "month"
+            ? now.year === view.year && now.month - 1 === view.month
+              ? today
+              : monthStartDateKey(view.year, view.month)
+            : now.year === view.year
+              ? today
+              : `${view.year}-01-01`;
+        setFocusDate(anchor);
+      }
       setScaleState("week");
       params.set("scale", "week");
     }
@@ -136,8 +175,8 @@ export function CalendarBoard({
     window.history.replaceState(null, "", qs ? `?${qs}` : "?");
   }
   const [view, setView] = useState(() => {
-    const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() };
+    const now = kstParts(new Date());
+    return { year: now.year, month: now.month - 1 };
   });
   const [selected, setSelected] = useState<EventView | null>(null);
   /** 일정 칩 클릭 시 popover가 자리 잡을 anchor rect. 데스크톱 popover 전용. */
@@ -180,7 +219,9 @@ export function CalendarBoard({
   // 서버에서 새 props 도착 시(router.refresh 등) sync.
   const [monthState, setMonthState] = useState(monthEvents);
   const [upcomingState, setUpcomingState] = useState(upcoming);
-  useEffect(() => setMonthState(monthEvents), [monthEvents]);
+  useEffect(() => {
+    setMonthState((previous) => mergeEventsById(previous, monthEvents));
+  }, [monthEvents]);
   useEffect(() => setUpcomingState(upcoming), [upcoming]);
 
   // 우클릭/long-press 컨텍스트 메뉴 — 칩이든 inspector든 어디서든 열 수 있게
@@ -204,9 +245,7 @@ export function CalendarBoard({
     // 단순 문자열 비교 가능 (YYYY-MM-DD ISO)
     while (cur <= hi) {
       out.add(cur);
-      const d = new Date(cur);
-      d.setDate(d.getDate() + 1);
-      cur = isoDate(d);
+      cur = addDaysToDateKey(cur, 1);
     }
     return out;
   }, [dragStartIso, dragEndIso]);
@@ -219,7 +258,7 @@ export function CalendarBoard({
     if (!dragStartIso) return; // mousedown 없이 mouseenter만 들어오는 경우 무시
     setDragEndIso(iso);
   }
-  function endDrag() {
+  const endDrag = useCallback(() => {
     if (!dragStartIso || !dragEndIso) {
       setDragStartIso(null);
       setDragEndIso(null);
@@ -236,7 +275,7 @@ export function CalendarBoard({
     setCreatePrefillEndDate(hi);
     setCreatePrefillHour(null);
     setCreating(true);
-  }
+  }, [dragEndIso, dragStartIso]);
 
   // window mouseup으로 드래그 cancel 보장 — 사용자가 셀 밖에서 떼도 정리
   useEffect(() => {
@@ -247,8 +286,7 @@ export function CalendarBoard({
     }
     window.addEventListener("mouseup", onUp);
     return () => window.removeEventListener("mouseup", onUp);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dragStartIso, dragEndIso]);
+  }, [dragStartIso, endDrag]);
 
   function openMenuFor(e: EventView) {
     setCtxEvent(e);
@@ -343,32 +381,92 @@ export function CalendarBoard({
       : [];
 
   const cells = useMemo(() => buildMonthCells(view.year, view.month), [view]);
+  const visibleRange = useMemo(() => {
+    if (scale === "year") {
+      return {
+        from: `${view.year}-01-01`,
+        to: `${view.year + 1}-01-01`,
+      };
+    }
+    if (scale === "month") {
+      return {
+        from: cells[0]?.iso ?? monthStartDateKey(view.year, view.month),
+        to: cells[41]
+          ? addDaysToDateKey(cells[41].iso, 1)
+          : monthStartDateKey(view.year, view.month + 1),
+      };
+    }
+    if (scale === "week") {
+      const from = startOfWeekDateKey(focusDate);
+      return { from, to: addDaysToDateKey(from, 7) };
+    }
+    return { from: focusDate, to: addDaysToDateKey(focusDate, 1) };
+  }, [cells, focusDate, scale, view.month, view.year]);
+  const [rangeLoading, setRangeLoading] = useState(false);
+  const [rangeError, setRangeError] = useState<string | null>(null);
+
+  const loadVisibleRange = useCallback(
+    async (signal?: AbortSignal) => {
+      setRangeLoading(true);
+      setRangeError(null);
+      try {
+        const params = new URLSearchParams({
+          from: kstDateKeyToIso(visibleRange.from),
+          to: kstDateKeyToIso(visibleRange.to),
+        });
+        const response = await fetch(`/api/events?${params.toString()}`, { signal });
+        const json = (await response.json().catch(() => null)) as
+          | { ok: true; events: EventView[] }
+          | { ok: false; error: string }
+          | null;
+        if (!response.ok || !json?.ok) {
+          setRangeError(json && !json.ok ? json.error : "일정을 불러오지 못했어요.");
+          return;
+        }
+        setMonthState((previous) =>
+          replaceEventsInRange(previous, json.events, visibleRange.from, visibleRange.to),
+        );
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setRangeError("일정을 불러오지 못했어요. 잠시 후 다시 시도해주세요.");
+      } finally {
+        if (!signal?.aborted) setRangeLoading(false);
+      }
+    },
+    [visibleRange.from, visibleRange.to],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadVisibleRange(controller.signal);
+    return () => controller.abort();
+  }, [loadVisibleRange]);
   const monthLabel = useMemo(() => {
     if (scale === "year") return `${view.year}년`;
     if (scale === "month") return `${view.year}년 ${view.month + 1}월`;
-    const d = new Date(`${focusDate}T00:00:00+09:00`);
-    if (scale === "day") return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+    const [year, month, day] = focusDate.split("-").map(Number);
+    if (scale === "day") return `${year}년 ${month}월 ${day}일`;
     // 주 뷰: 주 시작일 ~ 끝일
-    const dow = d.getDay();
-    const start = new Date(d);
-    start.setDate(d.getDate() - dow);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    const sameMonth = start.getMonth() === end.getMonth();
+    const startKey = startOfWeekDateKey(focusDate);
+    const endKey = addDaysToDateKey(startKey, 6);
+    const [startYear, startMonth, startDay] = startKey.split("-").map(Number);
+    const [, endMonth, endDay] = endKey.split("-").map(Number);
+    const sameMonth = startMonth === endMonth;
     if (sameMonth) {
-      return `${start.getFullYear()}년 ${start.getMonth() + 1}월 ${start.getDate()}–${end.getDate()}일`;
+      return `${startYear}년 ${startMonth}월 ${startDay}–${endDay}일`;
     }
-    return `${start.getMonth() + 1}월 ${start.getDate()}일 – ${end.getMonth() + 1}월 ${end.getDate()}일`;
+    return `${startMonth}월 ${startDay}일 – ${endMonth}월 ${endDay}일`;
   }, [scale, view, focusDate]);
 
   // 날짜 → 이벤트 그룹
   const byDate = useMemo(() => {
     const map = new Map<string, EventView[]>();
     for (const e of monthState) {
-      const key = e.startsAt.slice(0, 10);
-      const list = map.get(key) ?? [];
-      list.push(e);
-      map.set(key, list);
+      for (const key of eventDisplayDateKeys(e)) {
+        const list = map.get(key) ?? [];
+        list.push(e);
+        map.set(key, list);
+      }
     }
     return map;
   }, [monthState]);
@@ -389,23 +487,15 @@ export function CalendarBoard({
     }
     // 일 뷰: 1일씩. 주 뷰: 7일씩.
     const step = scale === "day" ? delta : delta * 7;
-    const d = new Date(`${focusDate}T00:00:00+09:00`);
-    d.setDate(d.getDate() + step);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    setFocusDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+    setFocusDate(addDaysToDateKey(focusDate, step));
   }
 
   function goToday() {
-    const now = new Date();
+    const now = kstParts(new Date());
     if (scale === "month" || scale === "year") {
-      setView({ year: now.getFullYear(), month: now.getMonth() });
+      setView({ year: now.year, month: now.month - 1 });
     }
-    const pad = (n: number) => String(n).padStart(2, "0");
-    setFocusDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
-  }
-
-  if (monthEvents.length === 0 && upcoming.length === 0) {
-    return <EmptyState />;
+    setFocusDate(kstDateKey(new Date()));
   }
 
   return (
@@ -421,7 +511,7 @@ export function CalendarBoard({
           }}
         />
       </div>
-      <section className="bg-white p-3 sm:elev-1 sm:rounded-[18px] sm:p-7">
+      <section aria-busy={rangeLoading} className="bg-white p-3 sm:elev-1 sm:rounded-[18px] sm:p-7">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2
             className="text-[20px] wght-620 text-[var(--color-apple-ink)] sm:text-[22px]"
@@ -445,9 +535,10 @@ export function CalendarBoard({
               }}
               aria-label="빠른 일정 추가"
               title="빠른 일정 추가"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-apple-action)] text-white shadow-[0_2px_8px_-2px_rgba(0,113,227,0.35)] transition-transform active:scale-95 sm:hidden"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-apple-action)] text-white shadow-[0_2px_8px_-2px_rgba(0,113,227,0.35)] transition-transform active:scale-95 sm:hidden"
             >
               <svg width="14" height="14" viewBox="0 0 12 12" fill="none" aria-hidden>
+                <title>빠른 일정 추가</title>
                 <path
                   d="M6 1.5l1 2.3 2.5.5-1.8 1.7.4 2.5L6 7.3l-2.2 1.2.4-2.5L2.5 4.3l2.5-.5L6 1.5z"
                   stroke="currentColor"
@@ -457,47 +548,48 @@ export function CalendarBoard({
                 />
               </svg>
             </button>
-            <NavButton onClick={() => navigate(-1)} aria-label="이전 달">
+            <NavButton onClick={() => navigate(-1)} aria-label={`이전 ${scaleLabel(scale)}`}>
               ‹
             </NavButton>
             <button
               type="button"
               onClick={goToday}
-              className="rounded-full px-3 py-1.5 text-[13px] wght-560 text-[var(--color-apple-action)] hover:bg-[var(--color-apple-pearl)] sm:py-1 sm:text-[12px]"
+              className="inline-flex h-11 items-center rounded-full px-3 text-[13px] wght-560 text-[var(--color-apple-action)] hover:bg-[var(--color-apple-pearl)] sm:h-9 sm:text-[12px]"
             >
               오늘
             </button>
-            <NavButton onClick={() => navigate(1)} aria-label="다음 달">
+            <NavButton onClick={() => navigate(1)} aria-label={`다음 ${scaleLabel(scale)}`}>
               ›
             </NavButton>
             {/* 스케일 토글 — 일/주/월. 모바일은 폭이 좁아 숨기고 월뷰 고정 (사용자 요구가 모이면 햄버거 메뉴로 이전). */}
-            <ScaleToggle scale={scale} onChange={setScale} className="ml-2 hidden sm:inline-flex" />
+            <div className="ml-2 hidden sm:block">
+              <ScaleToggle scale={scale} onChange={setScale} />
+            </div>
             {/* 뷰 모드 토글 — 시간표만 vs 내 일정. 시간표만 클릭 시 자동 주 뷰.
                 모바일에선 공간 부족으로 숨김 — Phase 2 mobile 전용 UI에서 재배치 예정. */}
-            <ViewModeToggle
-              mode={viewMode}
-              onChange={setViewMode}
-              className="ml-1 hidden sm:inline-flex"
-            />
+            <div className="ml-1 hidden sm:block">
+              <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+            </div>
             {/* 시간표 다시 올리기 — 데스크톱은 텍스트 링크, 모바일은 아이콘 버튼 */}
             <span
               aria-hidden
-              className="mx-1 hidden h-4 w-px bg-[var(--color-apple-hairline)] sm:inline-block"
+              className="mx-1 hidden h-4 w-px bg-[var(--color-apple-hairline)] lg:inline-block"
             />
             <Link
               href="/dashboard/calendar/import?kind=syllabus"
-              className="hidden rounded-full bg-[var(--color-apple-ink)] px-3.5 py-1.5 text-[13px] wght-620 text-white shadow-[0_8px_20px_-14px_rgba(20,30,50,0.45)] transition-all hover:-translate-y-px hover:shadow-[0_10px_26px_-14px_rgba(20,30,50,0.5)] sm:inline-block"
+              className="hidden h-9 items-center rounded-full bg-[var(--color-apple-ink)] px-3.5 text-[13px] wght-620 text-white shadow-[0_8px_20px_-14px_rgba(20,30,50,0.45)] transition-all hover:-translate-y-px hover:shadow-[0_10px_26px_-14px_rgba(20,30,50,0.5)] lg:inline-flex"
               style={{ letterSpacing: "-0.012em" }}
             >
-              자료에서 일정 만들기
+              강의계획서 일정 가져오기
             </Link>
             <Link
               href="/dashboard/calendar/import?kind=syllabus"
-              aria-label="자료에서 일정 만들기"
-              title="자료에서 일정 만들기"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-apple-ink)] text-white shadow-[0_2px_8px_-2px_rgba(20,30,50,0.35)] transition-transform active:scale-95 sm:hidden"
+              aria-label="강의계획서 일정 가져오기"
+              title="강의계획서 일정 가져오기"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-apple-ink)] text-white shadow-[0_2px_8px_-2px_rgba(20,30,50,0.35)] transition-transform active:scale-95 sm:h-9 sm:w-9 lg:hidden"
             >
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <title>강의계획서 일정 가져오기</title>
                 <path
                   d="M4.25 2.5h5.4L12 4.85v8.65H4.25A1.25 1.25 0 0 1 3 12.25v-8.5A1.25 1.25 0 0 1 4.25 2.5z"
                   stroke="currentColor"
@@ -517,9 +609,10 @@ export function CalendarBoard({
               href="/dashboard/calendar/import?kind=timetable"
               aria-label="시간표 다시 올리기"
               title="시간표 다시 올리기"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] sm:hidden"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] sm:h-9 sm:w-9 lg:hidden"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <title>시간표 다시 올리기</title>
                 <path
                   d="M8 11V3.5M8 3.5l-2.5 2.5M8 3.5l2.5 2.5"
                   stroke="currentColor"
@@ -537,13 +630,28 @@ export function CalendarBoard({
             </Link>
             <Link
               href="/dashboard/calendar/import?kind=timetable"
-              className="hidden rounded-full px-3.5 py-1.5 text-[15px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] sm:inline-block"
+              className="hidden h-9 items-center rounded-full px-3.5 text-[15px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] lg:inline-flex"
               style={{ letterSpacing: "-0.012em" }}
             >
               시간표 다시 올리기
             </Link>
           </div>
         </div>
+
+        <div className="mt-3 flex items-center justify-between gap-2 sm:hidden">
+          <ScaleToggle scale={scale} onChange={setScale} />
+          <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+        </div>
+
+        {rangeError && (
+          <button
+            type="button"
+            onClick={() => void loadVisibleRange()}
+            className="mt-3 text-left text-[12px] wght-560 text-[var(--color-urgent)]"
+          >
+            {rangeError} 다시 불러오기
+          </button>
+        )}
 
         {scale === "month" && (
           <>
@@ -567,6 +675,7 @@ export function CalendarBoard({
                     events={dayEvents}
                     kindLabel={kindLabel}
                     isSelected={isSelectedDay}
+                    interactiveEvents={isDesktop}
                     selectedEventId={selected?.id ?? null}
                     isInDragRange={inDrag}
                     onSelectDay={(anchorRect) => {
@@ -686,8 +795,7 @@ export function CalendarBoard({
               setScale("month");
             }}
             onSelectDay={(dateKey) => {
-              setFocusDate(dateKey);
-              setScale("day");
+              setScale("day", dateKey);
             }}
           />
         )}
@@ -708,6 +816,7 @@ export function CalendarBoard({
         style={{ bottom: "calc(72px + env(safe-area-inset-bottom))" }}
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+          <title>일정 추가</title>
           <path
             d="M10 4v12M4 10h12"
             stroke="currentColor"
@@ -833,6 +942,7 @@ export function CalendarBoard({
           setCreatePrefillDate(null);
           setCreatePrefillEndDate(null);
           setCreatePrefillHour(null);
+          void loadVisibleRange();
           router.refresh();
         }}
       />
@@ -874,11 +984,9 @@ export function CalendarBoard({
 function ScaleToggle({
   scale,
   onChange,
-  className,
 }: {
   scale: CalendarScale;
   onChange: (s: CalendarScale) => void;
-  className?: string;
 }) {
   const opts: Array<{ value: CalendarScale; label: string }> = [
     { value: "day", label: "일" },
@@ -890,7 +998,7 @@ function ScaleToggle({
     <div
       role="tablist"
       aria-label="보기 스케일"
-      className={`inline-flex items-center gap-0.5 rounded-[8px] bg-[var(--color-apple-pearl)] p-0.5 ${className ?? ""}`}
+      className="inline-flex items-center gap-0.5 rounded-[8px] bg-[var(--color-apple-pearl)] p-0.5"
     >
       {opts.map((o) => {
         const active = scale === o.value;
@@ -901,7 +1009,7 @@ function ScaleToggle({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(o.value)}
-            className={`inline-flex h-6 min-w-[26px] items-center justify-center rounded-[6px] px-2 text-[12px] transition-all ${
+            className={`inline-flex h-11 min-w-11 items-center justify-center rounded-[6px] px-2 text-[12px] transition-all sm:h-9 sm:min-w-9 ${
               active
                 ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
                 : "wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
@@ -922,11 +1030,9 @@ function ScaleToggle({
 function ViewModeToggle({
   mode,
   onChange,
-  className,
 }: {
   mode: "all" | "timetable";
   onChange: (m: "all" | "timetable") => void;
-  className?: string;
 }) {
   const opts: Array<{ value: "all" | "timetable"; label: string }> = [
     { value: "all", label: "내 일정" },
@@ -936,7 +1042,7 @@ function ViewModeToggle({
     <div
       role="tablist"
       aria-label="보기 모드"
-      className={`inline-flex items-center gap-0.5 rounded-[8px] bg-[var(--color-apple-pearl)] p-0.5 ${className ?? ""}`}
+      className="inline-flex items-center gap-0.5 rounded-[8px] bg-[var(--color-apple-pearl)] p-0.5"
     >
       {opts.map((o) => {
         const active = mode === o.value;
@@ -947,7 +1053,7 @@ function ViewModeToggle({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(o.value)}
-            className={`inline-flex h-6 items-center justify-center rounded-[6px] px-2.5 text-[12px] transition-all ${
+            className={`inline-flex h-11 items-center justify-center rounded-[6px] px-2.5 text-[12px] transition-all sm:h-9 ${
               active
                 ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
                 : "wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
@@ -976,7 +1082,7 @@ function NavButton({
       type="button"
       onClick={onClick}
       {...rest}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[16px] text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] sm:h-8 sm:w-8 sm:text-[15px]"
+      className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[16px] text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] sm:h-9 sm:w-9 sm:text-[15px]"
     >
       {children}
     </button>
@@ -988,6 +1094,7 @@ function DayCell({
   events,
   kindLabel,
   isSelected,
+  interactiveEvents,
   selectedEventId,
   isInDragRange,
   onSelectDay,
@@ -1002,6 +1109,8 @@ function DayCell({
   events: EventView[];
   kindLabel: Record<EventView["kind"], string>;
   isSelected?: boolean;
+  /** 모바일은 날짜 전체를 눌러 큰 목록에서 선택하고, 데스크톱만 작은 칩을 직접 누른다. */
+  interactiveEvents: boolean;
   /** 클릭된 이벤트 id — 칩이 진해지는 selected 표시 */
   selectedEventId?: string | null;
   /** 드래그로 선택된 범위 안에 들어가있나 — 셀 배경 강조 */
@@ -1024,17 +1133,14 @@ function DayCell({
   void kindLabel;
 
   // 셀에 직접 글씨로 보여줄 일정 최대 개수. 나머지는 "+N개 더"로 접고 날짜 탭 시 전체.
-  // 모바일도 데스크톱과 동일 4개 — "점 말고 글씨로 최대한 다" 요청.
-  const maxChips = 4;
+  const maxChips = interactiveEvents ? 4 : 3;
 
-  function handleDayClick(e: React.MouseEvent) {
-    // 칩 클릭은 이벤트 자체에서 stopPropagation으로 막아둠. 빈 영역만 도달.
-    if (e.target !== e.currentTarget && !(e.target as HTMLElement).closest("[data-day-bg]")) {
-      return;
-    }
+  function handleDayClick(e: React.MouseEvent<HTMLButtonElement>) {
     // 데스크톱 popover가 이 셀 옆에 자리 잡도록 셀 자체의 DOMRect를 전달.
     // (anchorRect 없이 호출하면 popover가 화면 밖으로 밀려 빈 셀 클릭 시 안 뜸.)
-    const rect = e.currentTarget.getBoundingClientRect();
+    const rect =
+      e.currentTarget.parentElement?.getBoundingClientRect() ??
+      e.currentTarget.getBoundingClientRect();
     onSelectDay?.(rect);
   }
 
@@ -1045,12 +1151,8 @@ function DayCell({
     onContextDay?.({ x: e.clientX, y: e.clientY });
   }
 
-  function handleMouseDown(e: React.MouseEvent) {
-    // 오직 빈 영역에서만 드래그 시작 (칩 위에선 X)
+  function handleMouseDown(e: React.MouseEvent<HTMLButtonElement>) {
     if (e.button !== 0) return;
-    if (e.target !== e.currentTarget && !(e.target as HTMLElement).closest("[data-day-bg]")) {
-      return;
-    }
     onDragStart?.();
   }
   function handleMouseEnter() {
@@ -1062,41 +1164,45 @@ function DayCell({
 
   return (
     <div
-      data-day-bg
-      onClick={handleDayClick}
-      onContextMenu={handleDayContext}
-      onMouseDown={handleMouseDown}
-      onMouseEnter={handleMouseEnter}
-      onMouseUp={handleMouseUp}
       // 모바일은 64px — iPhone 14 (844 - topbar 48 - tabbar 56 - 헤더 60 ≈ 680) ÷ 6주 = 약 113px 여유, 64×6 = 384px라 한 달이 풀스크린에 들어옴.
       // 데스크톱은 118px 그대로.
-      className={`flex min-h-[64px] cursor-pointer flex-col gap-[1px] px-0.5 pt-0.5 pb-0 transition-all duration-200 sm:min-h-[118px] sm:px-0.5 sm:pt-1 sm:pb-0.5 ${
+      className={`relative flex min-h-[64px] flex-col gap-[1px] px-0.5 pt-0.5 pb-0 transition-all duration-200 sm:min-h-[118px] sm:px-0.5 sm:pt-1 sm:pb-0.5 ${
         cell.inMonth ? "" : "opacity-40"
       } ${isSelected ? "ring-1 ring-inset ring-[var(--color-apple-action)]" : ""} ${
         isInDragRange ? "ring-2 ring-inset ring-[var(--color-apple-action)]" : ""
       }`}
-      style={{
-        // 오늘 셀은 종이 위에 살짝 따뜻한 톤. 다른 날은 day-cell 토큰(다크 자동 swap). 드래그 중은 강조 톤.
-        backgroundColor: isInDragRange
-          ? "var(--color-apple-action-soft, #e6f0ff)"
-          : cell.isToday
-            ? "var(--color-surface-cream)"
-            : "var(--color-day-cell)",
-      }}
     >
+      <button
+        type="button"
+        data-day-bg
+        aria-label={`${cell.date.getUTCMonth() + 1}월 ${cell.date.getUTCDate()}일, 일정 ${events.length}개${events.length > 0 ? `: ${events.slice(0, 3).map(formatEventCompact).join(", ")}` : ""}`}
+        onClick={handleDayClick}
+        onContextMenu={handleDayContext}
+        onMouseDown={handleMouseDown}
+        onMouseEnter={handleMouseEnter}
+        onMouseUp={handleMouseUp}
+        className="absolute inset-0 z-0 cursor-pointer outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-apple-action)]"
+        style={{
+          backgroundColor: isInDragRange
+            ? "var(--color-apple-action-soft, #e6f0ff)"
+            : cell.isToday
+              ? "var(--color-surface-cream)"
+              : "var(--color-day-cell)",
+        }}
+      />
       <span
-        className={`self-end text-[12px] wght-450 tabular-nums ${
+        className={`pointer-events-none relative z-[1] self-end text-[12px] wght-450 tabular-nums ${
           cell.isToday
             ? "rounded-full bg-[var(--color-apple-action)] px-1.5 py-0.5 text-white"
             : "text-[var(--color-apple-muted)]"
         }`}
       >
-        {cell.date.getDate()}
+        {cell.date.getUTCDate()}
       </span>
       {/* 일정 — 모바일·데스크톱 모두 글씨 칩으로. 좁은 셀에선 이름이 …로 잘리되
           "무슨 일정인지" 글자로 보이게(사용자 요청: 점 말고 글씨로 최대한 다).
           모바일은 셀이 낮아 최대 3개, 데스크톱은 4개까지 + 나머지는 "+N개 더". */}
-      <ul className="flex min-w-0 flex-col gap-px">
+      <ul className="pointer-events-none relative z-[1] flex min-w-0 flex-col gap-px">
         {events.slice(0, maxChips).map((e) => {
           const fullLabel = formatEventLabel(e);
           const shortLabel = formatEventCompact(e);
@@ -1105,7 +1211,7 @@ function DayCell({
           if (e.allDay) {
             // 하루 종일 — 배경 흐릿 + 흰 텍스트 톤
             return (
-              <li key={e.id}>
+              <li key={e.id} className={interactiveEvents ? "pointer-events-auto" : undefined}>
                 <EventChip
                   event={e}
                   selected={isSelectedEvent}
@@ -1113,6 +1219,7 @@ function DayCell({
                   color={color}
                   label={shortLabel}
                   title={fullLabel}
+                  interactive={interactiveEvents}
                   onClick={(rect) => onSelectEvent?.(e, rect)}
                   onContext={(pos) => onContextEvent?.(e, pos)}
                 />
@@ -1120,7 +1227,7 @@ function DayCell({
             );
           }
           return (
-            <li key={e.id}>
+            <li key={e.id} className={interactiveEvents ? "pointer-events-auto" : undefined}>
               <EventChip
                 event={e}
                 selected={isSelectedEvent}
@@ -1128,6 +1235,7 @@ function DayCell({
                 color={color}
                 label={shortLabel}
                 title={fullLabel}
+                interactive={interactiveEvents}
                 onClick={(rect) => onSelectEvent?.(e, rect)}
                 onContext={(pos) => onContextEvent?.(e, pos)}
               />
@@ -1164,6 +1272,7 @@ function EventChip({
   color,
   label,
   title,
+  interactive,
   onClick,
   onContext,
 }: {
@@ -1173,6 +1282,7 @@ function EventChip({
   color: string;
   label: string;
   title?: string;
+  interactive: boolean;
   /** anchorRect: 칩 자체의 DOMRect — popover가 옆에 자리 잡을 좌표 */
   onClick: (anchorRect: DOMRect) => void;
   onContext?: (pos: { x: number; y: number }) => void;
@@ -1214,6 +1324,49 @@ function EventChip({
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
+  }
+
+  if (!interactive) {
+    if (allDay) {
+      return (
+        <span
+          aria-hidden
+          title={title}
+          className="block w-full overflow-hidden whitespace-nowrap text-clip rounded-[3px] px-[3px] py-0 text-left text-[11px] wght-560 leading-[1.4]"
+          style={{
+            backgroundColor: selected
+              ? isDark
+                ? hexTintDark(color, true)
+                : toAlpha(color, 0.9)
+              : isDark
+                ? toAlpha(hexTintDark(color, false), 0.28)
+                : toAlpha(color, 0.18),
+            color: selected ? "white" : isDark ? "white" : "var(--color-apple-ink)",
+            letterSpacing: "-0.03em",
+          }}
+        >
+          {label}
+        </span>
+      );
+    }
+    return (
+      <span
+        aria-hidden
+        title={title}
+        className={`relative flex w-full items-center rounded-[3px] px-1 py-0 text-left text-[11px] leading-[1.4] ${selected ? "wght-700" : "wght-450"}`}
+        style={{
+          backgroundColor: selected
+            ? isDark
+              ? toAlpha(hexTintDark(color, false), 0.2)
+              : toAlpha(color, 0.12)
+            : "transparent",
+          color: "var(--color-apple-ink)",
+          letterSpacing: "-0.03em",
+        }}
+      >
+        <span className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-clip">{label}</span>
+      </span>
+    );
   }
 
   if (allDay) {
@@ -1326,7 +1479,7 @@ function CalendarInspector({
     function onOutsideTouchMove(e: TouchEvent) {
       if (!isMobile) return;
       const target = e.target as Node | null;
-      if (target && sheetRef.current && sheetRef.current.contains(target)) return;
+      if (target && sheetRef.current?.contains(target)) return;
       onClose();
     }
     window.addEventListener("touchmove", onOutsideTouchMove, { passive: true });
@@ -1521,27 +1674,19 @@ function EventDetailPanel({
     );
   }
 
-  const date = new Date(event.startsAt);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  const days = Math.round((startOfDay.getTime() - today.getTime()) / 86400000);
+  const date = kstParts(event.startsAt);
+  const days =
+    dateKeyToDayNumber(kstDateKey(event.startsAt)) - dateKeyToDayNumber(kstDateKey(new Date()));
   const dDayLabel = !mounted ? "" : days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
   const accent = eventColor(event);
 
-  const weekday = ["일", "월", "화", "수", "목", "금", "토"][date.getDay()];
+  const weekday = ["일", "월", "화", "수", "목", "금", "토"][date.weekday];
 
   // 시간 — Apple Inspector는 시간을 큰 타이포로 강조. 종일·구간 일정도 같은 자리.
-  const timeStart = event.allDay
-    ? "종일"
-    : `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-  const endDate = event.endsAt ? new Date(event.endsAt) : null;
-  const timeEnd =
-    endDate && !event.allDay
-      ? `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`
-      : null;
-  const dateLine = `${date.getMonth() + 1}월 ${date.getDate()}일 ${weekday}요일`;
+  const timeStart = event.allDay ? "종일" : kstTimeLabel(event.startsAt);
+  const endDate = event.endsAt ? event.endsAt : null;
+  const timeEnd = endDate && !event.allDay ? kstTimeLabel(endDate) : null;
+  const dateLine = `${date.month}월 ${date.day}일 ${weekday}요일`;
 
   // 헤드라인 1줄 — 사용자 요청 예시 "D-3 · 글로컬 영어 I". 학생에게 1급 정보.
   // course 없으면 D-day만, course 있으면 D-day · course.
@@ -1563,6 +1708,7 @@ function EventDetailPanel({
         <div className="absolute right-3 top-3 z-10 flex items-center gap-0.5">
           <InspectorIconButton ariaLabel="수정" onClick={() => setEditing(true)}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <title>수정</title>
               <path
                 d="M9.5 2.5l2 2-7 7H2.5v-2l7-7z"
                 stroke="currentColor"
@@ -1581,6 +1727,7 @@ function EventDetailPanel({
             }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <title>삭제</title>
               <path
                 d="M3 4h8M5.5 4V2.5h3V4M4 4l.5 8h5L10 4M6 6.5v3.5M8 6.5v3.5"
                 stroke="currentColor"
@@ -1659,36 +1806,16 @@ function EventDetailPanel({
             </div>
           )}
 
-          {/* 메타 정보 — 위치·반복·알림. 라벨 없이 한 줄씩, 작은 회색 텍스트. macOS Inspector 톤. */}
-          {(event.location || event.recurrenceRule || event.reminderMinutes != null) && (
+          {/* 위치 — 실제 저장·조회가 끝까지 연결된 정보만 노출한다. */}
+          {event.location && (
             <ul className="mt-4 flex flex-col gap-1.5">
-              {event.location && (
-                <li
-                  className="text-[12.5px] wght-450 text-[var(--color-apple-ink)]"
-                  style={{ letterSpacing: "-0.012em" }}
-                >
-                  <span className="text-[var(--color-apple-muted)]">위치 </span>
-                  {event.location}
-                </li>
-              )}
-              {event.recurrenceRule && (
-                <li
-                  className="text-[12.5px] wght-450 text-[var(--color-apple-ink)]"
-                  style={{ letterSpacing: "-0.012em" }}
-                >
-                  <span className="text-[var(--color-apple-muted)]">반복 </span>
-                  {formatRecurrence(event.recurrenceRule)}
-                </li>
-              )}
-              {event.reminderMinutes != null && (
-                <li
-                  className="text-[12.5px] wght-450 text-[var(--color-apple-ink)]"
-                  style={{ letterSpacing: "-0.012em" }}
-                >
-                  <span className="text-[var(--color-apple-muted)]">알림 </span>
-                  {formatReminder(event.reminderMinutes)}
-                </li>
-              )}
+              <li
+                className="text-[12.5px] wght-450 text-[var(--color-apple-ink)]"
+                style={{ letterSpacing: "-0.012em" }}
+              >
+                <span className="text-[var(--color-apple-muted)]">위치 </span>
+                {event.location}
+              </li>
             </ul>
           )}
 
@@ -1835,8 +1962,8 @@ function InspectorIconButton({
       title={ariaLabel}
       className={
         destructive
-          ? "inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-urgent-soft)] hover:text-[var(--color-urgent)]"
-          : "inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+          ? "inline-flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-urgent-soft)] hover:text-[var(--color-urgent)]"
+          : "inline-flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
       }
     >
       {children}
@@ -1880,11 +2007,8 @@ function DayDetailPanel({
 
   const mounted = useMounted();
   const [y, m, d] = dateIso.split("-").map(Number);
-  const localDate = new Date(y, m - 1, d);
-  const weekday = ["일", "월", "화", "수", "목", "금", "토"][localDate.getDay()];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const days = Math.round((localDate.getTime() - today.getTime()) / 86400000);
+  const weekday = ["일", "월", "화", "수", "목", "금", "토"][weekdayOfDateKey(dateIso)];
+  const days = dateKeyToDayNumber(dateIso) - dateKeyToDayNumber(kstDateKey(new Date()));
   const dDayLabel = !mounted ? "" : days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
 
   // 시간순 정렬
@@ -1920,17 +2044,14 @@ function DayDetailPanel({
       {sorted.length > 0 && (
         <ul className="mt-5 flex flex-col gap-0.5">
           {sorted.map((e) => {
-            const t = new Date(e.startsAt);
-            const tlabel = e.allDay
-              ? "종일"
-              : `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+            const tlabel = e.allDay ? "종일" : kstTimeLabel(e.startsAt);
             const accent = eventColor(e);
             return (
               <li key={e.id}>
                 <button
                   type="button"
                   onClick={() => onSelectEvent(e)}
-                  className="-mx-2 flex w-[calc(100%+1rem)] items-baseline gap-3 rounded-[7px] px-2 py-1.5 text-left transition-colors hover:bg-[var(--color-apple-pearl)]"
+                  className="-mx-2 flex min-h-11 w-[calc(100%+1rem)] items-center gap-3 rounded-[7px] px-2 py-2 text-left transition-colors hover:bg-[var(--color-apple-pearl)]"
                 >
                   {/* 시간 — kind 컬러로 본문 텍스트. 닷·라벨 자리를 색이 대신함. */}
                   <span
@@ -1956,7 +2077,7 @@ function DayDetailPanel({
       <button
         type="button"
         onClick={onAddOnDay}
-        className="mt-6 inline-flex items-center gap-1 text-[13px] wght-560 text-[var(--color-apple-action)] transition-opacity hover:opacity-70"
+        className="mt-4 inline-flex min-h-11 items-center gap-1 pr-3 text-[13px] wght-560 text-[var(--color-apple-action)] transition-opacity hover:opacity-70"
         style={{ letterSpacing: "-0.012em" }}
       >
         <span aria-hidden className="text-[15px] leading-none">
@@ -2022,19 +2143,6 @@ function EventEditForm({
   const [notes, setNotes] = useState(event.notes ?? "");
   const [allDay, setAllDay] = useState(event.allDay);
   const [location, setLocation] = useState(event.location ?? "");
-  const [recurrence, setRecurrence] = useState<"" | "weekly" | "daily" | "monthly">(() => {
-    const r = (event.recurrenceRule ?? "").toUpperCase();
-    if (r.includes("FREQ=DAILY")) return "daily";
-    if (r.includes("FREQ=WEEKLY")) return "weekly";
-    if (r.includes("FREQ=MONTHLY")) return "monthly";
-    return "";
-  });
-  const [reminder, setReminder] = useState<"" | "0" | "10" | "60" | "1440">(() => {
-    if (event.reminderMinutes == null) return "";
-    const v = String(event.reminderMinutes);
-    if (v === "0" || v === "10" || v === "60" || v === "1440") return v;
-    return "";
-  });
   const [color, setColor] = useState<string>(event.color ?? "");
   const [scope, setScope] = useState<"this" | "all">("this");
   const [busy, setBusy] = useState(false);
@@ -2055,21 +2163,6 @@ function EventEditForm({
       if (allDay !== event.allDay) body.all_day = allDay;
       if (location.trim() !== (event.location ?? "")) {
         body.location = location.trim() || null;
-      }
-      // recurrence: 폼은 단순화 — FREQ만 비교.
-      const currentFreq = (() => {
-        const r = (event.recurrenceRule ?? "").toUpperCase();
-        if (r.includes("FREQ=DAILY")) return "daily";
-        if (r.includes("FREQ=WEEKLY")) return "weekly";
-        if (r.includes("FREQ=MONTHLY")) return "monthly";
-        return "";
-      })();
-      if (recurrence !== currentFreq) {
-        body.recurrence_rule = recurrence ? `FREQ=${recurrence.toUpperCase()}` : null;
-      }
-      const currentReminder = event.reminderMinutes == null ? "" : String(event.reminderMinutes);
-      if (reminder !== currentReminder) {
-        body.reminder_minutes = reminder === "" ? null : Number(reminder);
       }
       if ((color || null) !== (event.color || null)) {
         body.color = color || null;
@@ -2101,6 +2194,15 @@ function EventEditForm({
         body.ends_at = null;
       }
 
+      const rangeError = validateEventRange(
+        (body.starts_at as string | undefined) ?? event.startsAt,
+        body.ends_at !== undefined ? (body.ends_at as string | null) : event.endsAt,
+      );
+      if (rangeError) {
+        setError(rangeError);
+        return;
+      }
+
       // 변경된 게 scope밖에 없으면 의미 없음
       if (Object.keys(body).length <= 1) {
         onCancel();
@@ -2125,10 +2227,6 @@ function EventEditForm({
       if (body.ends_at !== undefined) patch.endsAt = body.ends_at as string | null;
       if (body.all_day !== undefined) patch.allDay = body.all_day as boolean;
       if (body.location !== undefined) patch.location = body.location as string | null;
-      if (body.recurrence_rule !== undefined)
-        patch.recurrenceRule = body.recurrence_rule as string | null;
-      if (body.reminder_minutes !== undefined)
-        patch.reminderMinutes = body.reminder_minutes as number | null;
       if (body.color !== undefined) patch.color = body.color as string | null;
       onSaved(patch);
     } catch (e) {
@@ -2150,9 +2248,10 @@ function EventEditForm({
           disabled={busy}
           aria-label="저장"
           title="저장"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-apple-action)] transition-colors hover:bg-[var(--color-apple-action-soft)] disabled:opacity-40"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-apple-action)] transition-colors hover:bg-[var(--color-apple-action-soft)] disabled:opacity-40"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <title>저장</title>
             <path
               d="M2.5 7.5l3 3 6-7"
               stroke="currentColor"
@@ -2168,9 +2267,10 @@ function EventEditForm({
           disabled={busy}
           aria-label="취소"
           title="취소"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-40"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-40"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <title>취소</title>
             <path
               d="M3.5 3.5l7 7M10.5 3.5l-7 7"
               stroke="currentColor"
@@ -2197,7 +2297,6 @@ function EventEditForm({
           onChange={(e) => setTitle(e.target.value)}
           required
           maxLength={120}
-          autoFocus
           placeholder="제목"
           className="mt-2 w-full border-0 bg-transparent p-0 pr-16 text-[22px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
           style={{ letterSpacing: "-0.018em" }}
@@ -2274,49 +2373,6 @@ function EventEditForm({
               className="w-full border-0 bg-transparent py-3 text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
               style={{ letterSpacing: "-0.012em" }}
             />
-          </div>
-          {/* 반복 */}
-          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
-            <span
-              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              반복
-            </span>
-            <select
-              value={recurrence}
-              onChange={(e) => setRecurrence(e.target.value as "" | "weekly" | "daily" | "monthly")}
-              aria-label="반복"
-              className="appearance-none border-0 bg-transparent text-right text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              <option value="">안 함</option>
-              <option value="daily">매일</option>
-              <option value="weekly">매주</option>
-              <option value="monthly">매월</option>
-            </select>
-          </div>
-          {/* 알림 */}
-          <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
-            <span
-              className="text-[14px] wght-450 text-[var(--color-apple-ink)]"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              알림
-            </span>
-            <select
-              value={reminder}
-              onChange={(e) => setReminder(e.target.value as "" | "0" | "10" | "60" | "1440")}
-              aria-label="알림"
-              className="appearance-none border-0 bg-transparent text-right text-[14px] wght-450 text-[var(--color-apple-ink)] outline-none"
-              style={{ letterSpacing: "-0.012em" }}
-            >
-              <option value="">없음</option>
-              <option value="0">정시에</option>
-              <option value="10">10분 전</option>
-              <option value="60">1시간 전</option>
-              <option value="1440">하루 전</option>
-            </select>
           </div>
           {/* 색상 */}
           <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-3">
@@ -2412,54 +2468,64 @@ function EventEditForm({
  * EventCreateForm·EventEditForm 모두 borderless underline-only flowing form으로 전환.
  */
 
-function EmptyState() {
-  return (
-    <div className="elev-1 mt-12 rounded-[18px] bg-white px-7 py-16 text-center fade-up fade-up-1 sm:py-20">
-      <p
-        className="text-[20px] wght-620 text-[var(--color-apple-ink)]"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        아직 일정이 없어요
-      </p>
-      <p className="mx-auto mt-3 max-w-[420px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
-        시간표·강의계획서를 올리면 강의·시험·과제·발표 일정 후보를 확인하고 캘린더에 넣을 수 있어요.
-      </p>
-      <a
-        href="/dashboard/calendar/import"
-        className="mt-7 inline-flex h-[44px] items-center rounded-full bg-[var(--color-apple-action)] px-6 text-[14px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)]"
-      >
-        학교 자료 등록 →
-      </a>
-    </div>
-  );
-}
-
 function buildMonthCells(year: number, month: number): MonthCell[] {
-  const firstDay = new Date(year, month, 1);
-  const startWeekday = firstDay.getDay();
-  const start = new Date(year, month, 1 - startWeekday);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const firstDay = new Date(Date.UTC(year, month, 1));
+  const startWeekday = firstDay.getUTCDay();
+  const start = new Date(Date.UTC(year, month, 1 - startWeekday));
+  const todayKey = kstDateKey(new Date());
 
   const cells: MonthCell[] = [];
   for (let i = 0; i < 42; i += 1) {
     const d = new Date(start);
-    d.setDate(start.getDate() + i);
+    d.setUTCDate(start.getUTCDate() + i);
     const iso = isoDate(d);
     cells.push({
       date: d,
       iso,
-      inMonth: d.getMonth() === month,
-      isToday: d.getTime() === today.getTime(),
+      inMonth: d.getUTCMonth() === month,
+      isToday: iso === todayKey,
     });
   }
   return cells;
 }
 
+function monthStartDateKey(year: number, zeroBasedMonth: number): string {
+  const date = new Date(Date.UTC(year, zeroBasedMonth, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function mergeEventsById(previous: EventView[], incoming: EventView[]): EventView[] {
+  const byId = new Map(previous.map((event) => [event.id, event]));
+  for (const event of incoming) byId.set(event.id, event);
+  return [...byId.values()].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+}
+
+function replaceEventsInRange(
+  previous: EventView[],
+  incoming: EventView[],
+  fromDateKey: string,
+  toDateKey: string,
+): EventView[] {
+  const outsideRange = previous.filter((event) => {
+    const start = kstDateKey(event.startsAt);
+    const end = event.endsAt ? kstDateKey(event.endsAt) : start;
+    return !(start < toDateKey && end >= fromDateKey);
+  });
+  return mergeEventsById(outsideRange, incoming);
+}
+
+/** 종일 다일 일정은 시작일 한 칸에만 숨지 않고 걸쳐 있는 모든 날짜에 표시한다. */
+function scaleLabel(scale: CalendarScale): string {
+  if (scale === "day") return "날짜";
+  if (scale === "week") return "주";
+  if (scale === "year") return "연도";
+  return "달";
+}
+
 function isoDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
 
@@ -2487,28 +2553,6 @@ export const COLOR_SWATCHES = [
   "#a08bc4", // mauve
   "#5a6470", // graphite
 ] as const;
-
-/** RRULE FREQ만 보고 한국어 라벨 — 폼이 단순화돼 있어 FREQ=DAILY|WEEKLY|MONTHLY 케이스만 본다. */
-function formatRecurrence(rule: string): string {
-  const up = rule.toUpperCase();
-  if (up.includes("FREQ=DAILY")) return "매일";
-  if (up.includes("FREQ=WEEKLY")) return "매주";
-  if (up.includes("FREQ=MONTHLY")) return "매월";
-  if (up.includes("FREQ=YEARLY")) return "매년";
-  return rule;
-}
-
-/** reminder_minutes → 사람 읽기 좋은 라벨. */
-function formatReminder(min: number): string {
-  if (min === 0) return "정시에";
-  if (min < 60) return `${min}분 전`;
-  if (min < 1440) {
-    const h = Math.round(min / 60);
-    return `${h}시간 전`;
-  }
-  const d = Math.round(min / 1440);
-  return `${d}일 전`;
-}
 
 export function kindColor(kind: EventView["kind"], courseColor: string | null): string {
   if (courseColor) return courseColor;
@@ -2601,10 +2645,6 @@ function EventCreateForm({
   const [endsAt, setEndsAt] = useState(defaultEnd);
   const [allDay, setAllDay] = useState(false);
   const [location, setLocation] = useState("");
-  /** "" | "weekly" | "daily" | "monthly" — 폼은 단순화. 상세 RRULE은 향후 확장. */
-  const [recurrence, setRecurrence] = useState<"" | "weekly" | "daily" | "monthly">("");
-  /** "" (없음) | "0" | "10" | "60" | "1440" — 분 단위 string으로 select value 운용. */
-  const [reminder, setReminder] = useState<"" | "0" | "10" | "60" | "1440">("");
   /** "" (자동 — courseColor 또는 kind fallback) | "#RRGGBB". */
   const [color, setColor] = useState<string>("");
   const [notes, setNotes] = useState("");
@@ -2627,8 +2667,6 @@ function EventCreateForm({
     setEndsAt("");
     setAllDay(false);
     setLocation("");
-    setRecurrence("");
-    setReminder("");
     setColor("");
     setNotes("");
     setError(null);
@@ -2662,14 +2700,11 @@ function EventCreateForm({
         const dateOnly = endsAt.slice(0, 10);
         return localInputToKstIso(`${dateOnly}T23:59`);
       })();
-
-      // 반복 → RRULE 단순 매핑 (학기 끝까지 UNTIL은 향후 강의 학기와 연동)
-      const recurrenceRule = (() => {
-        if (!recurrence) return null;
-        if (recurrence === "daily") return "FREQ=DAILY";
-        if (recurrence === "weekly") return "FREQ=WEEKLY";
-        return "FREQ=MONTHLY";
-      })();
+      const rangeError = validateEventRange(startsIso, endsIso);
+      if (rangeError) {
+        setError(rangeError);
+        return;
+      }
 
       const body: Record<string, unknown> = {
         kind,
@@ -2681,8 +2716,6 @@ function EventCreateForm({
       if (courseId) body.course_id = courseId;
       if (endsIso) body.ends_at = endsIso;
       if (location.trim()) body.location = location.trim();
-      if (recurrenceRule) body.recurrence_rule = recurrenceRule;
-      if (reminder !== "") body.reminder_minutes = Number(reminder);
       if (color) body.color = color;
 
       const res = await fetch("/api/events", {
@@ -2755,7 +2788,6 @@ function EventCreateForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
-            autoFocus
             maxLength={120}
             placeholder="새 일정"
             className="w-full border-0 bg-transparent p-0 text-[18px] leading-[1.2] wght-700 text-[var(--color-apple-ink)] outline-none placeholder:wght-450 placeholder:text-[var(--color-apple-muted)]/55"
@@ -2867,51 +2899,6 @@ function EventCreateForm({
                 className="w-full border-0 bg-transparent py-2.5 text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
                 style={{ letterSpacing: "-0.012em" }}
               />
-            </div>
-            {/* 반복 */}
-            <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
-              <span
-                className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                반복
-              </span>
-              <select
-                value={recurrence}
-                onChange={(e) =>
-                  setRecurrence(e.target.value as "" | "weekly" | "daily" | "monthly")
-                }
-                aria-label="반복"
-                className="appearance-none border-0 bg-transparent text-right text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                <option value="">안 함</option>
-                <option value="daily">매일</option>
-                <option value="weekly">매주</option>
-                <option value="monthly">매월</option>
-              </select>
-            </div>
-            {/* 알림 */}
-            <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">
-              <span
-                className="text-[13.5px] wght-450 text-[var(--color-apple-ink)]"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                알림
-              </span>
-              <select
-                value={reminder}
-                onChange={(e) => setReminder(e.target.value as "" | "0" | "10" | "60" | "1440")}
-                aria-label="알림"
-                className="appearance-none border-0 bg-transparent text-right text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                <option value="">없음</option>
-                <option value="0">정시에</option>
-                <option value="10">10분 전</option>
-                <option value="60">1시간 전</option>
-                <option value="1440">하루 전</option>
-              </select>
             </div>
             {/* 색상 — 자동(코스/카테고리 색) + 6개 팔레트. 좌측 점 X — 우측 정렬 swatch row. */}
             <div className="flex items-center justify-between border-t border-[var(--color-apple-hairline-soft)] py-2.5">

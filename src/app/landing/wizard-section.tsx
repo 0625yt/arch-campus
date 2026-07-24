@@ -55,7 +55,7 @@ export function WizardSection() {
                 발표자료 구조화 · 5단계
               </span>
               <span
-                className="text-[10px] wght-560 uppercase tracking-[0.08em] opacity-60"
+                className="text-[10px] wght-560 uppercase tracking-[0.08em]"
                 style={{ color: "var(--color-landing-text-muted)" }}
               >
                 예시

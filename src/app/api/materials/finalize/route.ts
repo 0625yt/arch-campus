@@ -275,6 +275,7 @@ export async function POST(
       fullText: parsed.text,
       sanitizedText: parsed.sanitizedText,
       pageCount: parsed.pageCount ?? null,
+      mimeType: parsed.mimeType,
       parserWarnings: parsed.warnings,
       difficulty: (body.difficulty ?? "보통") as Difficulty,
       requestedCount: body.count ?? 10,

@@ -88,6 +88,7 @@ export async function runQuizJob(opts: {
   fullText: string;
   sanitizedText: string;
   pageCount: number | null;
+  mimeType?: string | null;
   parserWarnings: string[];
   difficulty: Difficulty;
   requestedCount: number;
@@ -104,6 +105,7 @@ export async function runQuizJob(opts: {
           type: opts.type,
           fullText: opts.sanitizedText,
           pageCount: opts.pageCount,
+          mimeType: opts.mimeType ?? null,
         },
       ],
       parserWarnings: opts.parserWarnings,
@@ -117,7 +119,7 @@ export async function runQuizJob(opts: {
     await markJobDone({
       jobId: opts.jobId,
       ownerId: opts.ownerId,
-      result: { quizId: result.quizId },
+      result: { quizId: result.quizId, quality: result.quality },
       modelId: result.modelId,
       usage: result.usage,
       costUsd: result.costUsd,

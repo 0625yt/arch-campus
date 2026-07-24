@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  * Today 카드·사이드바·시험 직전 모두 이 페이지로 들어와 다시 풀게 만든다.
  *
  * 정책:
- *   - 14일 vs 60일 두 탭은 다음 회차. 우선 60일(학기 기준)로 시작.
+ *   - 아직 다시 맞히지 않은 문제는 기간과 관계없이 유지. 학기 후반에도 초반 오답을 숨기지 않는다.
  *   - 같은 퀴즈에서 같은 문제를 여러 번 틀렸어도 그룹 카드에선 오답 수만 표시.
  *   - 각 카드 CTA는 "이 퀴즈 오답 N개 다시 풀기" → /dashboard/quiz/{id}/wrong
  */
@@ -23,7 +23,7 @@ export default async function ReviewPage() {
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
 
-  const items = await listWrongItems({ ownerId, sinceDays: 60, limit: 200 });
+  const items = await listWrongItems({ ownerId, sinceDays: null, limit: 5000 });
   const groupsRaw = groupByQuiz(items);
   // 자료 상세 라우팅에 강의명 슬러그가 필요 — courseId 모아 한 번에 fetch (N+1 회피).
   // 종전: groupByQuiz가 courseName을 못 받아 ReviewCard에서 "자료" 하드코딩 → breadcrumb 깨짐.
@@ -78,7 +78,7 @@ export default async function ReviewPage() {
             className="mt-3 text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            최근 60일 틀린 {uniqueQuestions}문제 · 자주 틀린 자료부터
+            아직 남은 오답 {uniqueQuestions}문제 · 자주 틀린 자료부터
           </p>
         </header>
 

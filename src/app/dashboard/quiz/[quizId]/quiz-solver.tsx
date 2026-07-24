@@ -35,6 +35,8 @@ interface SubmitResult {
   gradingNote?: string;
   /** true면 정확 매칭 실패였는데 LLM이 의미 등가로 판단해 정답 promote (단답형만). */
   llmPromoted?: boolean;
+  /** 서술형을 모범답안 기준으로 의미 채점한 경우. */
+  llmGraded?: boolean;
   /** 복수 필수답 부분 채점 (예: "둘 다 쓰세요"). */
   partial?: PartialGrade;
   /** 단답형 오답일 때 내 답이 왜 틀렸는지. */
@@ -42,8 +44,7 @@ interface SubmitResult {
 }
 
 /**
- * /api/quiz/[id]/grade-one 응답 — submit과 거의 같지만 attemptId 없음.
- * 모든 문제 step 끝나면 부모가 모아 /submit으로 한 번 보냄.
+ * /api/quiz/[id]/grade-one 응답 — 첫 채점에서 attemptId를 받고 이후 같은 시도에 누적.
  */
 interface StepGradeResult {
   questionId: number;
@@ -56,6 +57,7 @@ interface StepGradeResult {
   evidencePage: number | null;
   gradingNote?: string;
   llmPromoted?: boolean;
+  llmGraded?: boolean;
   partial?: PartialGrade;
   whyWrong?: string;
 }
@@ -87,8 +89,8 @@ export function QuizSolver({ quiz }: { quiz: QuizSolveView }) {
   const [loading, setLoading] = useState(false);
   const [startedAt] = useState<number>(() => draft?.startedAt ?? Date.now());
   const [elapsedLabel, setElapsedLabel] = useState("0분");
-  // step-by-step에서 한 문제씩 즉시 채점한 결과를 모아둠. 마지막에 /submit으로 보낼 때
-  // attempt가 INSERT돼 점수·복습 큐가 한 번만 기록된다.
+  // step-by-step에서 한 문제씩 즉시 채점한 결과를 모아둠. 서버의 같은 attempt에도
+  // 동시에 누적돼 중간에 나가더라도 푼 문제의 결과가 사라지지 않는다.
   const [stepResults, setStepResults] = useState<Record<number, StepGradeResult>>(
     () => draft?.stepResults ?? {},
   );
@@ -186,6 +188,10 @@ export function QuizSolver({ quiz }: { quiz: QuizSolveView }) {
         elapsedLabel={elapsedLabel}
       />
 
+      {quiz.generationQuality && quiz.generationQuality.reason !== "complete" && (
+        <GenerationQualityNotice quality={quiz.generationQuality} />
+      )}
+
       {error && (
         <div className="mb-4 rounded-[16px] border border-[color:rgba(255,59,48,0.14)] bg-[var(--color-urgent-soft)] px-4 py-3 text-[13px] wght-560 text-[var(--color-urgent)]">
           {error}
@@ -217,6 +223,27 @@ export function QuizSolver({ quiz }: { quiz: QuizSolveView }) {
         <ResultSection quiz={quiz} result={result} durationLabel={elapsedLabel} />
       )}
     </>
+  );
+}
+
+function GenerationQualityNotice({
+  quality,
+}: {
+  quality: NonNullable<QuizSolveView["generationQuality"]>;
+}) {
+  const sourceLimited = quality.reason === "source-limited";
+  return (
+    <div
+      role={sourceLimited ? "status" : "alert"}
+      className="mb-5 border-y border-[var(--color-apple-hairline)] py-3 text-[13px] leading-relaxed text-[var(--color-apple-muted)]"
+    >
+      <span className="wght-620 text-[var(--color-apple-ink)]">
+        {quality.requested}개 중 {quality.generated}개를 준비했어요.
+      </span>{" "}
+      {sourceLimited
+        ? "자료에서 근거가 분명한 서로 다른 문제만 남겼습니다. 개수를 맞추려고 반복하거나 지어내지 않았어요."
+        : "일부 생성 단계가 완전히 끝나지 않아 준비된 문제만 남겼습니다. 필요한 경우 다시 만들기를 권장해요."}
+    </div>
   );
 }
 
@@ -313,10 +340,23 @@ function SolveSection({
   const [stepError, setStepError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
-  // 현재 step이 바뀌면 hint·error는 step별로 리셋. (hint는 question별 state라 자동 보존)
+  const hasRenderedStep = useRef(false);
+
+  // 현재 step이 바뀌면 오류를 지우고 새 문제의 시작점으로 이동한다.
+  // 정답 근거를 읽고 아래쪽에서 "다음"을 누른 뒤 같은 스크롤 위치에 남는 문제를 막는다.
   useEffect(() => {
     setStepError(null);
-  }, []);
+    if (!hasRenderedStep.current) {
+      hasRenderedStep.current = true;
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const target = currentQuestion ? questionRefs.current[currentQuestion.id] : null;
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target?.scrollIntoView({ block: "start", behavior: reducedMotion ? "auto" : "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [currentQuestion, questionRefs]);
 
   async function onConfirm() {
     if (!currentQuestion) return;
@@ -329,8 +369,8 @@ function SolveSection({
         currentQuestion.kind === "multiple-choice"
           ? { questionId: currentQuestion.id, choice: value as Choice }
           : { questionId: currentQuestion.id, response: value?.trim() ?? "" };
-      // attemptId·sessionTotal을 함께 보내 푼 즉시 attempt에 누적 저장(도중 이탈해도 반영).
-      const body = { answer, attemptId: attemptId ?? undefined, sessionTotal: quiz.total };
+      // attemptId를 함께 보내 푼 즉시 같은 attempt에 누적 저장(도중 이탈해도 반영).
+      const body = { answer, attemptId: attemptId ?? undefined };
       const res = await fetch(`/api/quiz/${quiz.id}/grade-one`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -355,6 +395,11 @@ function SolveSection({
 
   function onNext() {
     if (isLastStep) {
+      const firstUnfinished = quiz.questions.findIndex((question) => !stepResults[question.id]);
+      if (firstUnfinished >= 0) {
+        setStepIndex(firstUnfinished);
+        return;
+      }
       onSubmit();
       return;
     }
@@ -389,9 +434,9 @@ function SolveSection({
   const canConfirm = isAnswered(currentQuestion, value) && !isReviewing && !confirming;
 
   return (
-    <section className="grid gap-5 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-8">
+    <section className="grid gap-5 md:grid-cols-[190px_minmax(0,1fr)] md:gap-5 xl:grid-cols-[240px_minmax(0,1fr)] xl:gap-8">
       {/* 좌측 미니맵 — step-by-step에 맞춰 "현재/완료/미완료" 3색 + 현재 step highlight */}
-      <aside className="fade-up sticky top-2 z-20 lg:relative lg:top-6 lg:z-auto lg:self-start">
+      <aside className="fade-up sticky top-2 z-20 md:relative md:top-6 md:z-auto md:self-start">
         <StepMinimapMobile
           quiz={quiz}
           stepIndex={stepIndex}
@@ -402,7 +447,7 @@ function SolveSection({
           remaining={remaining}
         />
 
-        <div className="hidden rounded-[24px] border border-[var(--color-apple-hairline)] bg-white/92 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-xl lg:block">
+        <div className="hidden rounded-[18px] border border-[var(--color-apple-hairline)] bg-white/92 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-xl md:block xl:rounded-[24px] xl:p-5">
           <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
             점검 현황
           </p>
@@ -412,13 +457,20 @@ function SolveSection({
           >
             {progress}%
           </p>
-          <p className="mt-2 text-[13px] leading-[1.55] text-[var(--color-apple-muted)]">
+          <p className="mt-2 break-keep text-[13px] leading-[1.55] text-[var(--color-apple-muted)]">
             {remaining === 0
               ? "모두 풀어봤어요. 결과를 보고 오답만 한 번 더 점검해요."
               : `${remaining}문제 더 풀면 결과로 넘어가요.`}
           </p>
 
-          <div className="mt-5 h-2 overflow-hidden rounded-full bg-[var(--color-apple-pearl)]">
+          <div
+            role="progressbar"
+            aria-label="문제 풀이 진행률"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress}
+            className="mt-5 h-2 overflow-hidden rounded-full bg-[var(--color-apple-pearl)]"
+          >
             <div
               className="h-full rounded-full bg-[var(--color-apple-action)] transition-[width] duration-300"
               style={{ width: `${progress}%` }}
@@ -427,7 +479,7 @@ function SolveSection({
 
           {/* 6열 그리드 — 현재 step은 진한 액션색 ring, 정답은 차분한 액션 tint,
               오답은 urgent tint, 미답은 회색. 사용자가 어디까지 왔는지 한눈에. */}
-          <div className="mt-6 grid grid-cols-6 gap-1.5">
+          <div className="mt-6 grid grid-cols-5 gap-1.5 xl:grid-cols-6">
             {quiz.questions.map((q, index) => {
               const graded = stepResults[q.id];
               const isCurrent = index === stepIndex;
@@ -437,6 +489,8 @@ function SolveSection({
                   key={q.id}
                   type="button"
                   onClick={() => onJump(index)}
+                  aria-label={`${index + 1}번 문제${graded ? (graded.correct ? ", 정답" : ", 오답") : ", 미완료"}${isFlagged ? ", 헷갈림 표시" : ""}`}
+                  aria-current={isCurrent ? "step" : undefined}
                   className={[
                     "inline-flex aspect-square w-full items-center justify-center rounded-[10px] border text-[12px] wght-560 tabular-nums transition-colors",
                     graded
@@ -456,10 +510,10 @@ function SolveSection({
 
           <div className="mt-6 rounded-[18px] bg-[var(--color-apple-pearl)] p-4">
             <p className="text-[12px] wght-560 text-[var(--color-apple-ink)]">한 문제씩 점검</p>
-            <ol className="mt-2 space-y-2 text-[12.5px] leading-[1.55] text-[var(--color-apple-muted)]">
-              <li>1. 답을 고르고 확인 누르기</li>
-              <li>2. 정답·근거 바로 확인</li>
-              <li>3. 다음 문제로 한 번에</li>
+            <ol className="mt-2 space-y-2 break-keep text-[12.5px] leading-[1.55] text-[var(--color-apple-muted)]">
+              <li>1. 답 선택 후 확인</li>
+              <li>2. 정답과 근거 확인</li>
+              <li>3. 다음 문제로 이동</li>
             </ol>
           </div>
         </div>
@@ -472,7 +526,7 @@ function SolveSection({
           ref={(node) => {
             questionRefs.current[currentQuestion.id] = node;
           }}
-          className="fade-up rounded-[24px] border border-[var(--color-apple-hairline)] bg-white/96 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.05)] backdrop-blur-xl sm:p-6"
+          className="fade-up scroll-mt-20 rounded-[20px] border border-[var(--color-apple-hairline)] bg-white/96 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.05)] backdrop-blur-xl sm:rounded-[24px] sm:p-6 md:scroll-mt-6"
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
             {/* min-w-0: 긴 stem(공백 없는 긴 토큰 포함)이 와도 0폭으로 짜부라지지 않게. */}
@@ -495,7 +549,7 @@ function SolveSection({
               }
               disabled={isReviewing}
               className={[
-                "inline-flex h-[34px] shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[12.5px] wght-560 transition-colors disabled:opacity-50",
+                "inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full px-3.5 text-[12.5px] wght-560 transition-colors disabled:opacity-50",
                 flagged[currentQuestion.id]
                   ? "bg-[color:rgba(255,159,10,0.14)] text-[color:rgb(180,83,9)]"
                   : "bg-[var(--color-apple-pearl)] text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]",
@@ -506,7 +560,7 @@ function SolveSection({
           </div>
 
           {currentQuestion.kind === "multiple-choice" ? (
-            <div className="mt-5 flex flex-col gap-2.5">
+            <div className="mt-4 flex flex-col gap-2 sm:mt-5 sm:gap-2.5">
               {currentQuestion.choices.map((choice) => {
                 const selected = value === choice.key;
                 // 채점 후엔 정답·내가 고른 오답을 색으로 분리. 정답 = 액션색, 오답 선택 = urgent.
@@ -516,7 +570,7 @@ function SolveSection({
                   <label
                     key={choice.key}
                     className={[
-                      "flex cursor-pointer items-start gap-3 rounded-[18px] border px-4 py-3.5 text-[14px] leading-[1.55] transition-all",
+                      "flex min-h-[52px] cursor-pointer items-start gap-3 rounded-[16px] border px-4 py-3 text-[14px] leading-[1.55] transition-all sm:rounded-[18px] sm:py-3.5",
                       isCorrectChoice
                         ? "border-[color:rgba(59,130,246,0.30)] bg-[color:rgba(59,130,246,0.10)] shadow-[0_10px_30px_rgba(59,130,246,0.12)]"
                         : isWrongSelected
@@ -600,7 +654,7 @@ function SolveSection({
                 <button
                   type="button"
                   onClick={() => setShownHints((prev) => ({ ...prev, [currentQuestion.id]: true }))}
-                  className="text-[13px] wght-560 text-[var(--color-apple-action)] hover:underline"
+                  className="inline-flex min-h-11 items-center pr-3 text-[13px] wght-560 text-[var(--color-apple-action)] hover:underline"
                 >
                   힌트 보기
                 </button>
@@ -659,7 +713,13 @@ function SolveSection({
                 disabled={loading}
                 className="inline-flex h-[44px] items-center justify-center whitespace-nowrap rounded-full bg-[var(--color-apple-action)] px-5 text-[14px] wght-560 text-white transition-all duration-150 hover:bg-[var(--color-apple-action-hover)] disabled:opacity-50"
               >
-                {loading ? "채점 중…" : isLastStep ? "결과 보기" : "다음 문제 →"}
+                {loading
+                  ? "채점 중…"
+                  : isLastStep && remaining > 0
+                    ? "미완료 문제로 →"
+                    : isLastStep
+                      ? "결과 보기"
+                      : "다음 문제 →"}
               </button>
             ) : (
               <button
@@ -694,6 +754,8 @@ function SolveSection({
 function GradeFeedback({ graded }: { graded: StepGradeResult }) {
   return (
     <div
+      role="status"
+      aria-live="polite"
       className={[
         "mt-5 rounded-[18px] border px-4 py-4 sm:px-5",
         graded.correct
@@ -729,6 +791,14 @@ function GradeFeedback({ graded }: { graded: StepGradeResult }) {
             title="정확한 표기는 다르지만 의미가 같아 정답으로 인정됐어요"
           >
             의미 인정
+          </span>
+        )}
+        {graded.llmGraded && (
+          <span
+            className="ml-1 inline-flex items-center rounded-full bg-[var(--color-apple-action-soft)] px-2 py-0.5 text-[10.5px] wght-560 text-[var(--color-apple-action)]"
+            title="자료의 모범답안과 필수 포인트를 기준으로 의미를 비교했어요"
+          >
+            서술 기준 채점
           </span>
         )}
         {graded.partial && (
@@ -868,7 +938,7 @@ function StepMinimapMobile({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-[14px] border border-[var(--color-apple-hairline)] bg-white/95 px-3 py-2.5 shadow-[0_4px_16px_rgba(15,23,42,0.04)] backdrop-blur-md lg:hidden">
+    <div className="rounded-[14px] border border-[var(--color-apple-hairline)] bg-white/95 px-3 py-2.5 shadow-[0_4px_16px_rgba(15,23,42,0.04)] backdrop-blur-md md:hidden">
       <div className="flex items-center justify-between gap-3">
         <p
           className="text-[14px] leading-none wght-620 tabular-nums text-[var(--color-apple-ink)]"
@@ -884,7 +954,7 @@ function StepMinimapMobile({
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
           aria-label={expanded ? "문제 목록 접기" : "문제 목록 펴기"}
-          className="-mr-1 inline-flex h-7 items-center gap-1 rounded-full bg-[var(--color-apple-pearl)] px-2.5 text-[11px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white"
+          className="-mr-1 inline-flex min-h-11 items-center gap-1 rounded-full bg-[var(--color-apple-pearl)] px-3 text-[11px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-white"
         >
           {expanded ? "접기" : "전체 보기"}
           <svg
@@ -895,6 +965,7 @@ function StepMinimapMobile({
             aria-hidden
             className={expanded ? "rotate-180 transition-transform" : "transition-transform"}
           >
+            <title>문제 목록 펼침 표시</title>
             <path
               d="M1.5 3l2.5 2.5L6.5 3"
               stroke="currentColor"
@@ -905,7 +976,14 @@ function StepMinimapMobile({
           </svg>
         </button>
       </div>
-      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--color-apple-pearl)]">
+      <div
+        role="progressbar"
+        aria-label="문제 풀이 진행률"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={progress}
+        className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--color-apple-pearl)]"
+      >
         <div
           className="h-full rounded-full bg-[var(--color-apple-action)] transition-[width] duration-300"
           style={{ width: `${progress}%` }}
@@ -925,6 +1003,8 @@ function StepMinimapMobile({
                   setExpanded(false);
                   onJump(index);
                 }}
+                aria-label={`${index + 1}번 문제${graded ? (graded.correct ? ", 정답" : ", 오답") : ", 미완료"}${isFlagged ? ", 헷갈림 표시" : ""}`}
+                aria-current={isCurrent ? "step" : undefined}
                 className={[
                   "inline-flex aspect-square w-full items-center justify-center rounded-[8px] border text-[11.5px] wght-560 tabular-nums transition-colors",
                   graded
@@ -996,6 +1076,7 @@ function ResultSection({
         gradingNote: graded.gradingNote,
         partial: graded.partial,
         whyWrong: graded.whyWrong,
+        llmGraded: graded.llmGraded,
       },
     ];
   });

@@ -9,6 +9,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:quiz-quality": "vitest run src/lib/validate-quiz.test.ts src/lib/prompt-safety.test.ts src/lib/eval/quiz-metrics.test.ts src/lib/eval/quiz-prompt-contract.test.ts",
+    "test:e2e": "playwright test",
+    "test:quality": "npm run typecheck && npm run test && npm run test:e2e",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "format": "biome format --write .",
@@ -30,7 +33,7 @@
     "file-type": "^22.0.1",
     "lucide-react": "^1.14.0",
     "mammoth": "^1.12.0",
-    "next": "16.2.4",
+    "next": "16.2.11",
     "officeparser": "^6.1.1",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.296",
@@ -43,7 +46,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@biomejs/biome": "^2.4.14",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

@@ -343,6 +343,7 @@ export interface Database {
           total: number;
           duration_ms?: number | null;
           status?: "completed" | "abandoned";
+          created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["quiz_attempts"]["Insert"]>;
         Relationships: [];

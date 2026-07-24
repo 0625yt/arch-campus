@@ -27,6 +27,13 @@ interface QuizResponseOk {
   }>;
   total: number;
   watermark: string;
+  quality: {
+    requested: number;
+    generated: number;
+    dropped: number;
+    limitedBySource: boolean;
+    reason: "complete" | "source-limited" | "generation-limited";
+  };
   usage: {
     inputTokens: number;
     outputTokens: number;
@@ -193,6 +200,7 @@ export async function POST(
         type: typeField,
         fullText: parsed.sanitizedText,
         pageCount: parsed.pageCount ?? null,
+        mimeType: parsed.mimeType,
       },
     ],
     parserWarnings: parsed.warnings,
@@ -227,6 +235,7 @@ export async function POST(
     })),
     total: result.quiz.questions.length,
     watermark: result.quiz.watermark,
+    quality: result.quality,
     usage: {
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,

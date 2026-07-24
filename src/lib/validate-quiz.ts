@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { QuizQuestionT } from "@/lib/schemas";
 
 /**
@@ -8,12 +6,12 @@ import type { QuizQuestionT } from "@/lib/schemas";
  * Sonnet이 evidence를 "그럴듯하게 들리는데 본문에는 없는" 문자열로 채우는 경우가 종종 있음.
  * 환각 evidence는 학생이 "어 자료에 이런 표현 없는데?" 하고 신뢰를 잃는 1순위.
  *
- * 검증 정책 (2026-06-04 근본 재설계 — substring 완전일치 → 문자 오버랩 비율):
+ * 검증 정책 (substring 완전일치 + 위치가 가까운 순서 보존 유사 인용):
  *   - 기존엔 "evidence가 본문에 substring으로 존재"를 요구했는데, OCR이 텍스트를 조금만
  *     다르게 뽑으면(후리가나 분리·줄바꿈·표 쪼갬·2단 레이아웃·각주) 정당한 인용도 대량 drop돼
  *     문제 수가 1~3개로 무너졌다. (영어 자료는 OCR 노이즈가 적어 우연히 멀쩡했을 뿐.)
- *   - 근본 해결: evidence의 글자 N-gram이 본문에 얼마나 존재하는지 "겹침 비율"로 판정.
- *     OCR 노이즈로 살짝 어긋난 정당 인용은 살리고(비율 높음), 자료에 없는 환각은 막는다(비율 급락).
+ *   - evidence 글자가 본문의 한 짧은 구간 안에서 같은 순서로 나타나는지 판정한다.
+ *     OCR 후리가나·줄바꿈 삽입은 살리되, 두 글자 조각이 문서 곳곳에 흩어진 짜깁기는 막는다.
  *   - 너무 짧은 evidence(< 10자)는 환각 위험 + 매칭 의미 X → drop
  *   - isMetadataOnly(본문 거의 없음)는 substring 검증 불가 → keep (진입 단계에서 본문 충분한
  *     자료만 오도록 가드, runQuizGeneration이 materialId 빈 값을 거부함)
@@ -31,7 +29,7 @@ import type { QuizQuestionT } from "@/lib/schemas";
  *   실측: 정당 인용 75~100% vs 환각 0~47% → 임계 0.6이면 둘을 확실히 분리(여유 13%p+).
  *   (3-gram은 짧은 본문에서 정당 인용도 55%로 떨어져 환각과 안 갈렸음.)
  */
-const EVIDENCE_OVERLAP_THRESHOLD = 0.6;
+const EVIDENCE_OVERLAP_THRESHOLD = 0.82;
 const NGRAM = 2;
 
 export interface ValidateResult {
@@ -39,10 +37,133 @@ export interface ValidateResult {
   dropped: Array<{ questionId: number; reason: string; evidence: string }>;
 }
 
+export interface QuestionIntegrityOptions {
+  allowedKinds?: readonly QuizQuestionT["kind"][];
+}
+
+/**
+ * Evidence가 존재해도 객관식 키·정답·보기 또는 사용자가 고른 문제 종류가 깨지면
+ * 학생에게 노출할 수 없다. 모델 출력의 구조적 결함을 문제 단위로 걸러낸다.
+ */
+export function validateQuestionIntegrity(
+  questions: QuizQuestionT[],
+  opts: QuestionIntegrityOptions = {},
+): ValidateResult {
+  const kept: QuizQuestionT[] = [];
+  const dropped: ValidateResult["dropped"] = [];
+  const allowed = opts.allowedKinds?.length ? new Set(opts.allowedKinds) : null;
+
+  for (const question of questions) {
+    const kind = question.kind ?? "multiple-choice";
+    const fail = (reason: string) => {
+      dropped.push({
+        questionId: question.id,
+        reason,
+        evidence: question.stem.slice(0, 120),
+      });
+    };
+
+    if (allowed && !allowed.has(kind)) {
+      fail(`선택하지 않은 문제 종류가 생성됨 (${kind})`);
+      continue;
+    }
+
+    if (containsPromptLeakage(question)) {
+      fail("프롬프트 또는 내부 지시 노출 의심");
+      continue;
+    }
+
+    if (kind === "multiple-choice") {
+      if (!question.choices || question.choices.length !== 4) {
+        fail("객관식 보기가 정확히 4개가 아님");
+        continue;
+      }
+
+      const keys = question.choices.map((choice) => choice.key);
+      const keySet = new Set<string>(keys);
+      const expected = ["A", "B", "C", "D"];
+      if (keySet.size !== 4 || !expected.every((key) => keySet.has(key))) {
+        fail("객관식 보기 키가 A~D로 고유하지 않음");
+        continue;
+      }
+
+      const normalizedChoices = question.choices.map((choice) => normalizeChoice(choice.text));
+      if (normalizedChoices.some((choice) => choice.length === 0)) {
+        fail("비어 있는 객관식 보기가 있음");
+        continue;
+      }
+      if (new Set(normalizedChoices).size !== normalizedChoices.length) {
+        fail("객관식 보기 내용이 중복됨");
+        continue;
+      }
+      if (question.choices.some((choice) => isMetaChoice(choice.text))) {
+        fail("'모두 정답/A와 B 모두/정답 없음' 같은 메타 보기가 포함됨");
+        continue;
+      }
+
+      const answer = question.answer.trim().toUpperCase();
+      if (!/^[ABCD]$/.test(answer) || !keySet.has(answer)) {
+        fail("객관식 정답이 A~D 보기 중 하나가 아님");
+        continue;
+      }
+      question.answer = answer;
+    }
+
+    if (kind === "short-answer") {
+      const scriptMismatch = japaneseScriptTargetMismatch(question.stem, question.answer);
+      if (scriptMismatch) {
+        fail(scriptMismatch);
+        continue;
+      }
+    }
+
+    kept.push(question);
+  }
+
+  return { kept, dropped };
+}
+
+/** 표기 자체를 묻는 문제에서 다른 문자 표기를 동의어로 섞으면 채점 목표가 무너진다. */
+function japaneseScriptTargetMismatch(stem: string, answer: string): string | null {
+  const normalizedStem = stem.normalize("NFKC").toLowerCase();
+  const asksHiragana = /(?:히라가나|ひらがな)\s*(?:로|으로|で)/u.test(normalizedStem);
+  const asksKatakana = /(?:가타카나|カタカナ)\s*(?:로|으로|で)/u.test(normalizedStem);
+  const asksKanji = /(?:한자|漢字)\s*(?:로|으로|で)/u.test(normalizedStem);
+  if (!asksHiragana && !asksKatakana && !asksKanji) return null;
+
+  const alternatives = answer
+    .replace(/^정답[:：]\s*/iu, "")
+    .split(/\s*[|/,;]\s*|\s*또는\s*/u)
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (alternatives.length === 0) return "표기 문제의 정답이 비어 있음";
+
+  const hasHiragana = (value: string) => /[ぁ-ゟ]/u.test(value);
+  const hasKatakana = (value: string) => /[ァ-ヿ]/u.test(value);
+  const hasHan = (value: string) => /\p{Script=Han}/u.test(value);
+
+  if (
+    asksHiragana &&
+    alternatives.some((value) => !hasHiragana(value) || hasKatakana(value) || hasHan(value))
+  ) {
+    return "히라가나 표기 문제 정답에 다른 문자 표기가 포함됨";
+  }
+  if (
+    asksKatakana &&
+    alternatives.some((value) => !hasKatakana(value) || hasHiragana(value) || hasHan(value))
+  ) {
+    return "가타카나 표기 문제 정답에 다른 문자 표기가 포함됨";
+  }
+  if (asksKanji && alternatives.some((value) => !hasHan(value))) {
+    return "한자 표기 문제 정답에 한자가 아닌 대안이 포함됨";
+  }
+  return null;
+}
+
 export function validateEvidence(
   questions: QuizQuestionT[],
   materialFullText: string,
-  opts: { isMetadataOnly: boolean },
+  opts: { isMetadataOnly: boolean; allowOcrFuzzy?: boolean },
 ): ValidateResult {
   const kept: QuizQuestionT[] = [];
   const dropped: ValidateResult["dropped"] = [];
@@ -54,8 +175,11 @@ export function validateEvidence(
     const evidence = (q.evidence ?? "").trim();
 
     if (opts.isMetadataOnly) {
-      // 메타만이면 evidence 없어도 통과 (본문이 없으니 검증 불가)
-      kept.push(q);
+      dropped.push({
+        questionId: q.id,
+        reason: "검증할 자료 본문이 없음",
+        evidence: evidence.slice(0, 120),
+      });
       continue;
     }
 
@@ -83,9 +207,19 @@ export function validateEvidence(
       kept.push(q);
       continue;
     }
-    // 2차: 문자 오버랩 비율 — OCR이 후리가나·줄바꿈·표·각주로 텍스트를 어긋나게 뽑아도
-    // evidence 글자열이 본문에 충분히 존재하면 정당한 인용으로 본다. 자료에 없는 환각은
-    // 글자 자체가 본문에 거의 없어 비율이 급락 → drop.
+    // 2차는 OCR로 읽힌 자료에만 허용한다. 일반 텍스트까지 유사 인용을 허용하면 모델이
+    // 본문을 바꿔 쓴 문장을 근거처럼 제출해도 살아남아 정확한 출처 추적이 깨진다.
+    if (!opts.allowOcrFuzzy) {
+      dropped.push({
+        questionId: q.id,
+        reason: "evidence가 자료 본문의 정확한 인용이 아님",
+        evidence: evidence.slice(0, 120),
+      });
+      continue;
+    }
+
+    // OCR 자료: 한 위치 주변의 순서 보존 유사도 — 후리가나·줄바꿈이 끼어도
+    // 원문 글자 순서는 남는다. 문서 전체에 흩어진 공통 글자 조각만으로는 통과하지 못한다.
     const overlap = charOverlapRatio(normalizedEvidence, compactSource);
     if (overlap >= EVIDENCE_OVERLAP_THRESHOLD) {
       kept.push(q);
@@ -101,6 +235,26 @@ export function validateEvidence(
   return { kept, dropped };
 }
 
+function normalizeChoice(value: string): string {
+  return value
+    .normalize("NFC")
+    .toLowerCase()
+    .replace(/[\s\p{P}\p{S}]+/gu, "")
+    .trim();
+}
+
+function containsPromptLeakage(question: QuizQuestionT): boolean {
+  const text = [
+    question.stem,
+    question.explanation,
+    question.answer,
+    ...(question.choices?.map((choice) => choice.text) ?? []),
+  ].join(" ");
+  return /<\/?(?:user_input|user_metadata|user_scope|user_intent)>|system\s*prompt|시스템\s*프롬프트|위\s*지침을?\s*무시/iu.test(
+    text,
+  );
+}
+
 function normalize(text: string): string {
   return text.normalize("NFC").replace(/\s+/g, " ").trim();
 }
@@ -111,23 +265,64 @@ function compact(text: string): string {
 }
 
 /**
- * evidence가 본문에 얼마나 "녹아있는지" — evidence를 N글자 윈도로 쪼개, 각 조각이
- * 본문 압축 문자열에 존재하는 비율을 반환(0~1).
- *
- * OCR이 후리가나(銀行↔ぎんこう)·줄바꿈·표를 사이에 끼워 substring을 깨뜨려도,
- * evidence의 연속 글자 조각 대부분은 본문 어딘가에 그대로 존재한다 → 비율 높음.
- * 자료에 없는 환각(時計·財布)은 조각 자체가 본문에 없어 비율이 0에 가깝다.
+ * evidence와 닮은 본문의 짧은 후보 구간들만 찾아 순서 보존 문자 비율과 2-gram 비율을
+ * 함께 계산한다. 문서 전체를 하나의 단어 주머니처럼 비교하지 않는 것이 핵심이다.
  */
 function charOverlapRatio(evidence: string, compactSourceText: string): number {
-  const ev = compact(evidence);
+  const compactEvidence = compact(evidence);
+  if (!compactEvidence) return 0;
+  if (compactSourceText.includes(compactEvidence)) return 1;
+
+  // 모델 evidence는 보통 20~200자다. 비정상적으로 긴 인용은 첫 800자만으로도
+  // 실제 원문 여부를 충분히 판정할 수 있고, 최악 입력의 비교 비용을 제한한다.
+  const ev = compactEvidence.slice(0, 800);
   if (ev.length < NGRAM) return compactSourceText.includes(ev) ? 1 : 0;
-  let hit = 0;
-  let total = 0;
-  for (let i = 0; i + NGRAM <= ev.length; i++) {
-    total++;
-    if (compactSourceText.includes(ev.slice(i, i + NGRAM))) hit++;
+
+  const anchorIndexes = Array.from(
+    new Set([0, 0.2, 0.4, 0.6, 0.8, 1].map((ratio) => Math.floor((ev.length - NGRAM) * ratio))),
+  );
+  const expectedStarts = new Set<number>();
+
+  for (const anchorIndex of anchorIndexes) {
+    const anchor = ev.slice(anchorIndex, anchorIndex + NGRAM);
+    let from = 0;
+    let found = 0;
+    while (found < 16 && expectedStarts.size < 80) {
+      const position = compactSourceText.indexOf(anchor, from);
+      if (position < 0) break;
+      expectedStarts.add(position - anchorIndex);
+      from = position + 1;
+      found += 1;
+    }
   }
-  return total === 0 ? 0 : hit / total;
+
+  if (expectedStarts.size === 0) return 0;
+
+  const evidenceGrams = shingles(ev, NGRAM);
+  let best = 0;
+  for (const expectedStart of expectedStarts) {
+    const padding = Math.floor(ev.length * 0.35) + 20;
+    const start = Math.max(0, expectedStart - padding);
+    const end = Math.min(compactSourceText.length, expectedStart + ev.length * 3 + 60);
+    const window = compactSourceText.slice(start, end);
+
+    let cursor = 0;
+    let orderedHits = 0;
+    for (const char of ev) {
+      const position = window.indexOf(char, cursor);
+      if (position < 0) continue;
+      orderedHits += 1;
+      cursor = position + 1;
+    }
+    const orderedRatio = orderedHits / ev.length;
+
+    let gramHits = 0;
+    for (const gram of evidenceGrams) if (window.includes(gram)) gramHits += 1;
+    const gramRatio = gramHits / Math.max(1, evidenceGrams.size);
+    best = Math.max(best, orderedRatio * 0.7 + gramRatio * 0.3);
+  }
+
+  return best;
 }
 
 /**
@@ -153,6 +348,133 @@ export function fingerprint(stem: string): string {
       // 80자는 긴 stem에서 앞부분만 같으면 오탐/누락이 잦아 120자로.
       .slice(0, 120)
   );
+}
+
+/**
+ * 어순·상투 문구만 조금 바꾼 문제까지 잡는 보수적 유사도 판정.
+ * 완전히 다른 개념의 짧은 질문을 합치지 않도록 충분히 긴 stem에만 적용한다.
+ */
+export function areNearDuplicateStems(a: string, b: string): boolean {
+  const left = canonicalStem(a);
+  const right = canonicalStem(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+
+  // "옳은 것"과 "옳지 않은 것", "memory"와 "no memory"처럼 표면 문자열은
+  // 거의 같아도 요구하는 답은 정반대다. 이런 쌍을 중복으로 제거하면 유효한 문제가
+  // 사라지므로, 명시적 부정 극성이 한쪽에만 있으면 유사도 계산 전에 분리한다.
+  if (hasNegativePolarity(left) !== hasNegativePolarity(right)) return false;
+
+  const leftCompact = compact(left);
+  const rightCompact = compact(right);
+  if (Math.min(leftCompact.length, rightCompact.length) < 12) return false;
+
+  const leftShingles = shingles(leftCompact, 3);
+  const rightShingles = shingles(rightCompact, 3);
+  const intersection = intersectionSize(leftShingles, rightShingles);
+  const union = leftShingles.size + rightShingles.size - intersection;
+  const jaccard = union === 0 ? 0 : intersection / union;
+  const containment = intersection / Math.max(1, Math.min(leftShingles.size, rightShingles.size));
+  const lengthRatio =
+    Math.max(leftCompact.length, rightCompact.length) /
+    Math.min(leftCompact.length, rightCompact.length);
+
+  return jaccard >= 0.82 || (containment >= 0.9 && lengthRatio <= 1.35);
+}
+
+function hasNegativePolarity(value: string): boolean {
+  return /\b(?:not|no|never|incorrect|wrong|false|except|least)\b|(?:않|아닌|아니|없|틀린|잘못|부적절)/iu.test(
+    value,
+  );
+}
+
+/** 모델이 정답을 A에 몰아도 보기 의미를 보존한 채 위치를 균등하게 재배치한다. */
+export function balanceMultipleChoiceAnswers(questions: QuizQuestionT[]): QuizQuestionT[] {
+  const keys = ["A", "B", "C", "D"] as const;
+  const counts: Record<(typeof keys)[number], number> = { A: 0, B: 0, C: 0, D: 0 };
+
+  return questions.map((question) => {
+    if ((question.kind ?? "multiple-choice") !== "multiple-choice" || !question.choices) {
+      return question;
+    }
+
+    const answer = question.answer.trim().toUpperCase();
+    const decorated = question.choices
+      .map((choice) => ({
+        choice,
+        correct: choice.key === answer,
+        rank: stableHash(`${question.stem}\u2237${choice.text}`),
+      }))
+      .sort((a, b) => a.rank - b.rank || a.choice.key.localeCompare(b.choice.key));
+    if (!decorated.some((item) => item.correct)) return question;
+
+    const minimum = Math.min(...keys.map((key) => counts[key]));
+    const candidates = keys.filter((key) => counts[key] === minimum);
+    const target = candidates[stableHash(question.stem) % candidates.length];
+    const targetIndex = keys.indexOf(target);
+    const correctIndex = decorated.findIndex((item) => item.correct);
+    [decorated[targetIndex], decorated[correctIndex]] = [
+      decorated[correctIndex],
+      decorated[targetIndex],
+    ];
+    counts[target] += 1;
+
+    return {
+      ...question,
+      answer: target,
+      choices: decorated.map((item, index) => ({
+        key: keys[index],
+        text: item.choice.text,
+      })),
+    };
+  });
+}
+
+function isMetaChoice(value: string): boolean {
+  const normalized = value.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+  return [
+    /^(?:all|none) of (?:the )?above\b/i,
+    /^both [a-d] (?:and|&) [a-d]\b/i,
+    /^(?:위|앞|상기)(?:의|에)? (?:모든|전부|보기|내용).*(?:정답|옳|맞)/u,
+    /^(?:모두|전부) (?:정답|옳|맞)/u,
+    /^(?:정답|해당) (?:없음|없다)/u,
+    /[a-d]\s*(?:와|과|및|그리고|&|\/)\s*[a-d]\s*(?:모두|둘 다|전부)/iu,
+  ].some((pattern) => pattern.test(normalized));
+}
+
+function canonicalStem(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(
+      /(?:자료(?:에|에서)?\s*(?:따르면|설명한|제시된)|다음\s*(?:중|문장(?:의)?|보기(?:에서)?)?|가장\s*(?:적절한|알맞은)|무엇(?:인가요?|입니까)|고르세요|선택하세요)/gu,
+      " ",
+    )
+    .replace(/[\s\p{P}\p{S}]+/gu, " ")
+    .trim();
+}
+
+function shingles(value: string, size: number): Set<string> {
+  const result = new Set<string>();
+  for (let index = 0; index + size <= value.length; index++) {
+    result.add(value.slice(index, index + size));
+  }
+  return result;
+}
+
+function intersectionSize<T>(left: Set<T>, right: Set<T>): number {
+  let size = 0;
+  for (const value of left) if (right.has(value)) size += 1;
+  return size;
+}
+
+function stableHash(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 
 /**
@@ -207,7 +529,7 @@ export function questionFingerprint(q: {
         .join("|")
         .slice(0, 120)
     : norm(q.answer ?? "");
-  return coreFp + "\u2237" + choiceFp;
+  return `${coreFp}\u2237${choiceFp}`;
 }
 
 /**

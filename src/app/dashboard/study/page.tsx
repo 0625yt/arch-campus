@@ -3,12 +3,7 @@ import { redirect } from "next/navigation";
 import { AppleShell } from "@/components/apple-shell";
 import { activityColor } from "@/lib/activity-color";
 import { tryGetOwnerId } from "@/lib/auth";
-import {
-  courseGradient,
-  courseLinearGradient,
-  courseLinearGradientDark,
-  hexTintDark,
-} from "@/lib/course-palette";
+import { courseAccentRgb, hexTintDark } from "@/lib/course-palette";
 import { type Activity, getRecentActivities } from "@/lib/data/activity";
 import { type CourseListItem, listCoursesGrouped } from "@/lib/data/materials";
 import { AddPersonalButton } from "./add-personal-button";
@@ -34,16 +29,8 @@ export default async function StudyIndexPage() {
     <div>
       <AppleShell>
         <header className="fade-up flex items-baseline justify-between gap-3">
-          <p
-            className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            공부
-          </p>
-          <Link
-            href="/dashboard"
-            className="group inline-flex items-baseline text-[12px] wght-450 text-[var(--color-apple-action)]"
-          >
+          <p className="page-kicker">공부</p>
+          <Link href="/dashboard" className="page-rail-link group">
             <span className="border-b border-transparent group-hover:border-[var(--color-apple-action)]">
               내 캠퍼스
             </span>
@@ -79,20 +66,35 @@ export default async function StudyIndexPage() {
 
 function Hero({ courseCount, totalMaterials }: { courseCount: number; totalMaterials: number }) {
   return (
-    <header className="mt-6 fade-up fade-up-1 sm:mt-8">
-      <h1
-        className="max-w-[820px] text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
-        style={{ letterSpacing: "-0.022em" }}
-      >
-        이번 학기, <span className="heading-dim">{courseCount}개 강의</span>
-      </h1>
-      <p
-        className="mt-2 max-w-[600px] text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        자료 {totalMaterials}개 등록
-      </p>
+    <header className="native-hero mt-5 px-4 py-4 fade-up fade-up-1 sm:mt-8 sm:px-7 sm:py-7">
+      <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-5">
+        <div>
+          <p className="page-kicker">이번 학기</p>
+          <h1
+            className="mt-2 max-w-[760px] text-[25px] leading-[1.04] wght-700 text-[var(--color-apple-ink)] sm:text-[42px] md:text-[48px]"
+            style={{ letterSpacing: "-0.028em" }}
+          >
+            이번 학기 강의
+          </h1>
+        </div>
+        <dl className="grid grid-cols-2 gap-2 sm:w-[260px]">
+          <Metric label="강의" value={courseCount} unit="개" />
+          <Metric label="자료" value={totalMaterials} unit="개" />
+        </dl>
+      </div>
     </header>
+  );
+}
+
+function Metric({ label, value, unit }: { label: string; value: number; unit: string }) {
+  return (
+    <div className="native-metric px-3 py-2.5">
+      <dt className="text-[10.5px] wght-560 text-[var(--color-apple-muted)]">{label}</dt>
+      <dd className="mt-1 text-[21px] leading-none wght-700 tabular-nums text-[var(--color-apple-ink)]">
+        {value}
+        <span className="ml-0.5 text-[12px] wght-450 text-[var(--color-apple-muted)]">{unit}</span>
+      </dd>
+    </div>
   );
 }
 
@@ -145,7 +147,7 @@ function SemesterSection({
         </h2>
         <Link
           href="/dashboard/calendar/import"
-          className="text-[12px] wght-560 text-[var(--color-apple-action)] hover:underline"
+          className="inline-flex min-h-11 items-center text-[12px] wght-560 text-[var(--color-apple-action)] hover:underline"
           style={{ letterSpacing: "-0.012em" }}
         >
           시간표 다시 올리기 ›
@@ -155,7 +157,7 @@ function SemesterSection({
       {courses.length === 0 ? (
         <SemesterEmpty className="mt-4" />
       ) : (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-3.5">
+        <div className="mt-3 grid gap-2 sm:mt-4 sm:grid-cols-2 sm:gap-3">
           {courses.map((c) => (
             <CourseCard key={c.id} course={c} />
           ))}
@@ -213,7 +215,7 @@ function PersonalSection({
       {courses.length === 0 ? (
         <PersonalEmpty className="mt-4" />
       ) : (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-3.5">
+        <div className="mt-4 grid gap-2.5 sm:grid-cols-2 sm:gap-3">
           {courses.map((c) => (
             <CourseCard key={c.id} course={c} />
           ))}
@@ -244,11 +246,7 @@ function PersonalEmpty({ className }: { className?: string }) {
 
 function CourseCard({ course }: { course: CourseListItem }) {
   const isPersonal = course.category === "personal";
-  // 좌→우 그라데이션 — 좌측에서 강의 색이 풍부하고 우측으로 흰 종이로 풀림.
-  // 단일 색 wash보다 호흡감 살아남. hover 시 우상단 radial wash가 추가로 등장.
-  const linearWash = courseLinearGradient(course.name, course.color);
-  const linearWashDark = courseLinearGradientDark(course.name, course.color);
-  const hoverGrad = courseGradient(course.name, course.color);
+  const accent = courseAccentRgb(course.name, course.color);
 
   return (
     <CourseContextWrapper
@@ -259,7 +257,7 @@ function CourseCard({ course }: { course: CourseListItem }) {
       isPersonal={isPersonal}
     >
       <div className="relative">
-        <div className="absolute right-3 top-3 z-20">
+        <div className="absolute right-1 top-1 z-20">
           <CourseActionsMenu
             courseId={course.id}
             initialName={course.name}
@@ -270,33 +268,27 @@ function CourseCard({ course }: { course: CourseListItem }) {
         </div>
         <Link
           href={`/dashboard/study/${encodeURIComponent(course.name)}`}
-          className="group card-glow-ribbon dark-surface-card course-wash elev-hover-2 spring-press relative flex min-h-[140px] flex-col justify-between overflow-hidden rounded-[14px] bg-white p-5 sm:p-5"
+          className="native-card group spring-press flex min-h-[92px] flex-col justify-between p-4 sm:min-h-[132px] sm:p-5 sm:pl-5"
+          data-accent
           style={
             {
-              "--card-wash": linearWash,
-              "--card-wash-dark": linearWashDark,
+              "--accent-rgb": `${accent.r} ${accent.g} ${accent.b}`,
             } as React.CSSProperties
           }
         >
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-            style={{ background: hoverGrad }}
-          />
-
           <div className="relative pr-8">
-            <span className="text-[11px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+            <span className="text-[10.5px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
               {isPersonal ? "개인 공부" : (course.professor ?? "교수 미정")}
             </span>
             <h3
-              className="mt-2 text-[20px] leading-[1.1] wght-700 text-[var(--color-apple-ink)] sm:text-[22px]"
+              className="mt-1.5 line-clamp-1 text-[17px] leading-[1.12] wght-700 text-[var(--color-apple-ink)] sm:mt-2 sm:line-clamp-2 sm:text-[21px]"
               style={{ letterSpacing: "-0.018em" }}
             >
               {course.name}
             </h3>
           </div>
 
-          <div className="relative mt-4 flex items-baseline justify-between">
+          <div className="relative mt-2.5 flex items-baseline justify-between sm:mt-4">
             <span
               className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
               style={{ letterSpacing: "-0.012em" }}
@@ -329,7 +321,7 @@ function RecentActivity({ activities, className }: { activities: Activity[]; cla
         </h2>
         <Link
           href="/dashboard/history"
-          className="group inline-flex items-baseline text-[12.5px] wght-560 text-[var(--color-apple-action)]"
+          className="group inline-flex min-h-11 items-center text-[12.5px] wght-560 text-[var(--color-apple-action)]"
         >
           <span className="border-b border-transparent group-hover:border-[var(--color-apple-action)]">
             전체 기록
@@ -338,7 +330,7 @@ function RecentActivity({ activities, className }: { activities: Activity[]; cla
         </Link>
       </div>
 
-      <ul className="mt-4 overflow-hidden rounded-[10px] border border-[var(--color-apple-hairline)] bg-white">
+      <ul className="native-list mt-4">
         {activities.map((a, idx) => {
           const accent = activityColor(a.kind);
           return (

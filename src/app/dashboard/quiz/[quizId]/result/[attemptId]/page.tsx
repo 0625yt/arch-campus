@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getAttemptSummary } from "@/lib/data/attempts";
+import { kstParts } from "@/lib/kst";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { QuizResultView, type ResultQuestion } from "../../quiz-result-view";
 
@@ -53,6 +54,7 @@ export default async function AttemptReviewPage({
     gradingNote: q.gradingNote,
     partial: q.partial,
     whyWrong: q.whyWrong,
+    llmGraded: q.llmGraded,
   }));
 
   const ratio = summary.total > 0 ? Math.round((summary.score / summary.total) * 100) : 0;
@@ -128,7 +130,8 @@ function LegacyAttemptNotice() {
 }
 
 function formatDateTime(d: Date): string {
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const part = kstParts(d);
+  return `${part.month}월 ${part.day}일 ${String(part.hour).padStart(2, "0")}:${String(part.minute).padStart(2, "0")}`;
 }
 
 function formatDuration(ms: number): string {

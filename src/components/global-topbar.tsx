@@ -77,7 +77,7 @@ function BrandLink() {
     <Link
       href={HOME_HREF}
       aria-label="홈"
-      className="group flex items-center gap-2 rounded-[8px] px-1.5 py-1 opacity-90 transition-opacity hover:opacity-100"
+      className="group flex h-10 items-center gap-2 rounded-[8px] px-1.5 opacity-90 transition-opacity hover:opacity-100"
     >
       <Logo />
       <span
@@ -143,23 +143,21 @@ function SegmentedNav({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="주 메뉴"
-      className="relative inline-flex items-center gap-0.5 rounded-full border border-[var(--color-apple-hairline-soft)] bg-gradient-to-b from-[var(--color-apple-pearl)]/85 to-[var(--color-apple-pearl)]/55 p-[3px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.05),inset_0_0_0_0.5px_rgba(255,255,255,0.75),0_1px_2px_rgba(0,0,0,0.02)]"
+      className="segmented-nav relative inline-flex items-center gap-0.5 rounded-full border border-[var(--color-apple-hairline-soft)] p-[3px]"
     >
       {NAV.map((item) => {
         const exact = "exact" in item && item.exact;
         const active = exact
           ? pathname === item.href
-          : pathname === item.href || pathname.startsWith(item.href + "/");
+          : pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
           <Link
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "relative inline-flex h-7 items-center rounded-full px-2.5 text-[12px] transition-all duration-200 xl:px-3 xl:text-[12.5px]",
-              active
-                ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_3px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.8)]"
-                : "wght-560 text-[var(--color-apple-muted)] hover:bg-white/40 hover:text-[var(--color-apple-ink)]",
+              "segmented-nav-item relative inline-flex h-9 items-center rounded-full px-2.5 text-[12px] transition-all duration-200 xl:px-3 xl:text-[12.5px]",
+              active ? "is-active wght-620" : "is-idle wght-560",
             )}
             style={{ letterSpacing: "-0.012em" }}
           >
@@ -218,7 +216,7 @@ function ProfileMenu() {
         aria-label="프로필"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex h-9 w-9 items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-95"
+        className="flex h-10 w-10 items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-95"
       >
         <Avatar />
       </button>

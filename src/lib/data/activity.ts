@@ -1,4 +1,5 @@
 import "server-only";
+import { listRecentAttempts, type RecentAttempt } from "@/lib/data/attempts";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 /**
@@ -41,15 +42,6 @@ interface GenerationRow {
   } | null;
 }
 
-interface AttemptRow {
-  id: string;
-  quiz_id: string;
-  score: number;
-  total: number;
-  created_at: string;
-  quizzes: { id: string; title: string; material_id: string | null } | null;
-}
-
 const GENERATION_LABEL: Record<string, string> = {
   summarize: "요약",
   quiz: "문제",
@@ -82,7 +74,7 @@ export async function getRecentActivities(opts: {
   const limit = opts.limit ?? 20;
   const admin = getAdminSupabase();
 
-  const [{ data: gens }, { data: attempts }] = await Promise.all([
+  const [{ data: gens }, attempts] = await Promise.all([
     admin
       .from("generations")
       .select(
@@ -92,12 +84,7 @@ export async function getRecentActivities(opts: {
       .eq("status", "ok")
       .order("created_at", { ascending: false })
       .limit(limit),
-    admin
-      .from("quiz_attempts")
-      .select("id, quiz_id, score, total, created_at, quizzes(id, title, material_id)")
-      .eq("owner_id", opts.ownerId)
-      .order("created_at", { ascending: false })
-      .limit(limit),
+    listRecentAttempts({ ownerId: opts.ownerId, limit }),
   ]);
 
   const list: Activity[] = [];
@@ -105,7 +92,7 @@ export async function getRecentActivities(opts: {
   for (const row of (gens ?? []) as unknown as GenerationRow[]) {
     list.push(mapGeneration(row));
   }
-  for (const row of (attempts ?? []) as unknown as AttemptRow[]) {
+  for (const row of attempts) {
     list.push(mapAttempt(row));
   }
 
@@ -174,17 +161,17 @@ function hrefFor(row: GenerationRow): string {
   return `/dashboard/history/${row.id}`;
 }
 
-function mapAttempt(row: AttemptRow): Activity {
-  const title = row.quizzes?.title ?? "(퀴즈)";
+function mapAttempt(row: RecentAttempt): Activity {
+  const title = row.quizTitle;
   const detail = `정답률 ${Math.round((row.score / Math.max(row.total, 1)) * 100)}% · ${row.score}/${row.total}`;
-  const href = `/dashboard/quiz/${row.quiz_id}`;
+  const href = `/dashboard/quiz/${row.quizId}/result/${row.attemptId}`;
   return {
-    id: `att-${row.id}`,
+    id: `att-${row.attemptId}`,
     kind: "attempt",
     kindLabel: "풀이",
     title,
     detail,
-    createdAt: row.created_at,
+    createdAt: row.attemptedAt,
     href,
   };
 }

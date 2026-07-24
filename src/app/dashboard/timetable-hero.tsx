@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { courseTint, courseTintDark } from "@/lib/course-palette";
+import { courseAccentRgb, courseTint, courseTintDark } from "@/lib/course-palette";
 import type { CourseListItem } from "@/lib/data/materials";
 import { buildTimetable, type CourseSlot, isKstToday, type Weekday } from "@/lib/timetable-grid";
 import { useIsDark } from "./use-mobile";
@@ -38,7 +39,8 @@ const GUTTER_PX_DESKTOP = 44;
 /** 첫(09:00)·끝 시간 라벨이 헤더/하단 경계에 안 먹히게 콘텐츠 상하 여백. */
 const BODY_PAD_PX = 10;
 /** 셀이 도저히 못 읽을 극단 케이스에만 스크롤로 빠지는 하한. 평소엔 fit이 우선. */
-const FLOOR_HOUR_PX = 34;
+const FLOOR_HOUR_PX = 24;
+const CORE_WEEKDAYS: Weekday[] = ["MON", "TUE", "WED", "THU", "FRI"];
 
 /* ─────────────────────────── Public API ─────────────────────────── */
 
@@ -160,20 +162,27 @@ function TimetableGrid({
     return () => mq.removeEventListener("change", apply);
   }, []);
 
+  const displayWeekdays = useMemo<Weekday[]>(() => {
+    const activeWeekend = data.activeWeekdays.filter(
+      (weekday) => weekday === "SAT" || weekday === "SUN",
+    );
+    return [...CORE_WEEKDAYS, ...activeWeekend];
+  }, [data.activeWeekdays]);
+
   const todayWeekday = useMemo<Weekday | null>(() => {
     const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
     const js = kst.getUTCDay();
     const order: Weekday[] = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
     const w = order[js];
-    return data.activeWeekdays.includes(w) ? w : null;
-  }, [data.activeWeekdays, now]);
+    return displayWeekdays.includes(w) ? w : null;
+  }, [displayWeekdays, now]);
 
   const shownDays = useMemo<Weekday[]>(() => {
     if (view === "today") {
-      return todayWeekday ? [todayWeekday] : data.activeWeekdays.slice(0, 1);
+      return todayWeekday ? [todayWeekday] : [CORE_WEEKDAYS[0]];
     }
-    return data.activeWeekdays;
-  }, [view, todayWeekday, data.activeWeekdays]);
+    return displayWeekdays;
+  }, [view, todayWeekday, displayWeekdays]);
 
   const hourStart = data.hourStart;
   const hourEnd = data.hourEnd;
@@ -212,7 +221,6 @@ function TimetableGrid({
   //   하단이라, 스크롤이 빈 곳으로 내려가 강의가 통째로 안 보였다(시간표 "날아감").
   //   해결: target을 "첫 강의가 보이는 위치" 이하로 clamp → 강의는 항상 화면에 든다.
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 스크롤 입력값 변할 때만 재정렬
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -382,29 +390,33 @@ function TimetableGrid({
                   const compact = cellH < 58;
                   // 짧을수록 상하 패딩을 줄여 텍스트 공간 확보. (좌우는 유지.)
                   const padY = tiny ? 3 : compact ? 5 : 6;
+                  const horizontalInset = isMobile ? 2 : 3;
+                  const accent = courseAccentRgb(s.courseName, s.color);
+                  const cellStyle: CSSProperties & { "--tt-accent-rgb": string } = {
+                    top: `${top + 2}px`,
+                    height: `${cellH}px`,
+                    paddingTop: `${padY}px`,
+                    paddingBottom: `${padY}px`,
+                    left: `calc(${left}% + ${horizontalInset}px)`,
+                    width: `calc(${colWidth}% - ${horizontalInset * 2}px)`,
+                    backgroundColor: isDark
+                      ? courseTintDark(s.courseName, s.color)
+                      : cellTint(s.courseName, s.color),
+                    "--tt-accent-rgb": `${accent.r} ${accent.g} ${accent.b}`,
+                  };
                   return (
                     <button
                       key={`${s.courseId}-${w}-${s.slot.startMinute}`}
                       type="button"
                       onClick={() => onPickCourse(s)}
-                      className={`tt-cell spring-press group absolute flex flex-col items-start overflow-hidden rounded-[12px] px-2.5 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_10px_26px_-8px_rgba(0,0,0,0.22)] ${
+                      className={`tt-cell spring-press group absolute flex flex-col items-start overflow-hidden rounded-[10px] px-1 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_10px_26px_-8px_rgba(0,0,0,0.22)] sm:px-2.5 ${
                         tiny ? "justify-center" : "justify-start"
                       } ${
                         isNow
                           ? "now-glow z-10 ring-2 ring-[var(--color-apple-action)] shadow-[0_10px_28px_-4px_rgba(0,113,227,0.5)]"
                           : ""
                       } ${isPast ? "opacity-75" : ""}`}
-                      style={{
-                        top: `${top + 2}px`,
-                        height: `${cellH}px`,
-                        paddingTop: `${padY}px`,
-                        paddingBottom: `${padY}px`,
-                        left: `calc(${left}% + 3px)`,
-                        width: `calc(${colWidth}% - 6px)`,
-                        backgroundColor: isDark
-                          ? courseTintDark(s.courseName, s.color)
-                          : cellTint(s.courseName, s.color),
-                      }}
+                      style={cellStyle}
                       aria-label={`${s.courseName} ${s.slot.startLabel} - ${s.slot.endLabel}${isNow ? " (진행 중)" : ""}`}
                     >
                       {/* 진행 중 라벨 — 셀 우상단 micro pulse dot. tiny 셀은 공간 없어 숨김. */}
@@ -418,21 +430,24 @@ function TimetableGrid({
                         </span>
                       )}
                       <span
-                        className={`${compact ? "line-clamp-1" : "line-clamp-2"} ${tiny ? "text-[12px]" : "text-[13.5px] sm:text-[14px]"} leading-[1.15] wght-700 ${
-                          isDark ? "text-white" : "text-[var(--color-apple-ink)]"
-                        }`}
-                        style={{ letterSpacing: "-0.018em" }}
+                        className={`${compact ? "line-clamp-1" : "line-clamp-2"} ${tiny ? "text-[9px] sm:text-[12px]" : "text-[9.5px] sm:text-[14px]"} max-w-full leading-[1.2] wght-700 text-[var(--color-apple-ink)]`}
+                        style={{ letterSpacing: 0, wordBreak: "keep-all", overflowWrap: "normal" }}
                       >
                         {s.courseName}
                       </span>
                       {!compact && (
                         <span
                           className={`mt-0.5 line-clamp-1 text-[10.5px] wght-560 tabular-nums ${
-                            isDark ? "text-white/75" : "text-[var(--color-apple-ink)]/55"
+                            isDark
+                              ? "text-[var(--color-apple-muted)]"
+                              : "text-[var(--color-apple-ink)]/55"
                           }`}
                           style={{ letterSpacing: "-0.012em" }}
                         >
-                          {s.slot.startLabel}–{s.slot.endLabel}
+                          <span className="sm:hidden">{s.slot.startLabel}</span>
+                          <span className="hidden sm:inline">
+                            {s.slot.startLabel}–{s.slot.endLabel}
+                          </span>
                         </span>
                       )}
                     </button>

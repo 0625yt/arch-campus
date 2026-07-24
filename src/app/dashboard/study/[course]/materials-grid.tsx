@@ -222,7 +222,7 @@ export function MaterialsGrid({
             <li key={m.id} className="relative">
               {/* 우상단 ⋯ 메뉴 — 선택 모드에선 숨김 */}
               {!selectMode && (
-                <div className="absolute right-3 top-3 z-10">
+                <div className="absolute right-1 top-1 z-10">
                   <MaterialActionsMenu
                     materialId={m.id}
                     initialTitle={m.title}

@@ -5,7 +5,7 @@ import type { EventView } from "@/lib/data/events";
 import type { CourseListItem } from "@/lib/data/materials";
 import type { SafetySignal } from "@/lib/data/semester-safety";
 import { formatEventLabel } from "@/lib/format-event";
-import { kstStartOfDay } from "@/lib/kst";
+import { dateKeyToDayNumber, kstDateKey } from "@/lib/kst";
 
 /**
  * Dashboard 하단 3-카드 strip — 한 화면 fit fold의 마지막 라인.
@@ -62,13 +62,12 @@ function NextEventCard({ event }: { event: EventView | null }) {
         label="다음 일정"
         tone="muted"
         title="일정 없음"
-        meta="강의계획서로 자동 등록"
+        meta="강의계획서에서 가져오기"
       />
     );
   }
-  const today = kstStartOfDay();
-  const startMs = new Date(event.startsAt).getTime();
-  const days = Math.round((startMs - today.getTime()) / 86400000);
+  const days =
+    dateKeyToDayNumber(kstDateKey(event.startsAt)) - dateKeyToDayNumber(kstDateKey(new Date()));
   const dDay = days === 0 ? "오늘" : days < 0 ? `D+${-days}` : `D-${days}`;
   const tone: CardTone = days <= 1 ? "warn" : "calm";
   return (

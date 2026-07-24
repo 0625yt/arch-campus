@@ -10,6 +10,7 @@
  */
 
 import type { EventView } from "@/lib/data/events";
+import { addDaysToDateKey, kstDateKey, kstParts, startOfWeekDateKey } from "@/lib/kst";
 
 /** 1시간당 픽셀 높이. 주 뷰·일 뷰 동일 스케일. */
 export const HOUR_HEIGHT_PX = 48;
@@ -29,22 +30,40 @@ const MIN_EVENT_HEIGHT_PX = 22;
  * 그리드 top 계산용.
  */
 export function isoToKstMinutes(iso: string): number {
-  const d = new Date(iso);
-  // toLocaleString으로 KST 보장. timezone-aware.
-  const kst = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-  return kst.getHours() * 60 + kst.getMinutes();
+  const parts = kstParts(iso);
+  return parts.hour * 60 + parts.minute;
 }
 
 /** ISO datetime → "YYYY-MM-DD" (KST 기준 날짜). 같은 날 판정용. */
 export function isoToKstDateKey(iso: string): string {
-  const d = new Date(iso);
-  // sv-SE 로케일은 ISO date 형식
-  return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
+  return kstDateKey(iso);
+}
+
+/**
+ * 날짜 뷰에서 이벤트가 표시돼야 하는지 판정한다.
+ * 일반 시간 일정은 시작한 날에만, 종일 다일 일정은 종료일까지 매일 표시한다.
+ */
+export function eventOccursOnDateKey(event: EventView, dateKey: string): boolean {
+  const startKey = isoToKstDateKey(event.startsAt);
+  if (!event.allDay || !event.endsAt) return startKey === dateKey;
+  const endKey = isoToKstDateKey(event.endsAt);
+  return startKey <= dateKey && dateKey <= endKey;
+}
+
+/** 월·년 뷰용 날짜 목록. 비정상적으로 긴 데이터가 화면을 잠그지 않도록 370일에서 제한한다. */
+export function eventDisplayDateKeys(event: EventView): string[] {
+  const startKey = isoToKstDateKey(event.startsAt);
+  if (!event.allDay || !event.endsAt) return [startKey];
+  const endKey = isoToKstDateKey(event.endsAt);
+  if (endKey <= startKey) return [startKey];
+
+  const keys: string[] = [];
+  let current = startKey;
+  for (let count = 0; current <= endKey && count < 370; count += 1) {
+    keys.push(current);
+    current = addDaysToDateKey(current, 1);
+  }
+  return keys;
 }
 
 /** 한국어 시간 라벨 — "오전 8시", "정오", "오후 1시". macOS Calendar 톤. */
@@ -159,9 +178,8 @@ export function layoutDayEvents(events: EventView[]): PositionedEvent[] {
  */
 export function getNowKstMinutes(mounted: boolean): number {
   if (!mounted) return -1;
-  const now = new Date();
-  const kst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-  return kst.getHours() * 60 + kst.getMinutes();
+  const parts = kstParts(new Date());
+  return parts.hour * 60 + parts.minute;
 }
 
 /**
@@ -169,19 +187,10 @@ export function getNowKstMinutes(mounted: boolean): number {
  * 주 뷰의 7일 컬럼 계산용. 우리 캘린더는 일요일 시작 (월 뷰와 일치).
  */
 export function startOfWeekKst(dateKey: string): string {
-  const d = new Date(`${dateKey}T00:00:00+09:00`);
-  const dow = d.getDay(); // 0(일) ~ 6(토)
-  d.setDate(d.getDate() - dow);
-  return isoToKstDateKey(d.toISOString());
+  return startOfWeekDateKey(dateKey);
 }
 
 /** 7일치 ISO date key 생성. */
 export function weekDateKeys(weekStart: string): string[] {
-  const out: string[] = [];
-  const d = new Date(`${weekStart}T00:00:00+09:00`);
-  for (let i = 0; i < 7; i++) {
-    out.push(isoToKstDateKey(d.toISOString()));
-    d.setDate(d.getDate() + 1);
-  }
-  return out;
+  return Array.from({ length: 7 }, (_, index) => addDaysToDateKey(weekStart, index));
 }

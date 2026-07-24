@@ -1,4 +1,5 @@
 import "server-only";
+import { isImportedClassInsideCourseTerm } from "@/lib/course-term";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 
@@ -11,6 +12,8 @@ export interface EventView {
   courseColor: string | null;
   /** 학기 시작일 (ISO date) — 시간표 등록 시 박힘. N주차 계산용 */
   courseTermStart: string | null;
+  /** 과목별 학기 종료일. 자동 시간표가 학기 밖으로 새는 것을 막는 경계. */
+  courseTermEnd: string | null;
   kind: EventRow["kind"];
   title: string;
   notes: string | null;
@@ -56,6 +59,7 @@ interface EventJoinRaw {
     name: string;
     color: string | null;
     term_start: string | null;
+    term_end: string | null;
   } | null;
 }
 
@@ -73,6 +77,7 @@ function mapEvent(
     courseName: row.courses?.name ?? null,
     courseColor: row.courses?.color ?? null,
     courseTermStart: row.courses?.term_start ?? null,
+    courseTermEnd: row.courses?.term_end ?? null,
     kind: row.kind,
     title: row.title,
     notes: row.notes,
@@ -93,7 +98,7 @@ function mapEvent(
 }
 
 const SELECT_COLS =
-  "id, course_id, kind, title, notes, starts_at, ends_at, all_day, weight_percent, confidence, confirmed, source_material_id, color, location, recurrence_rule, reminder_minutes, courses(id, name, color, term_start)";
+  "id, course_id, kind, title, notes, starts_at, ends_at, all_day, weight_percent, confidence, confirmed, source_material_id, color, location, recurrence_rule, reminder_minutes, courses(id, name, color, term_start, term_end)";
 
 export async function listEventsBetween(opts: {
   ownerId: string;
@@ -105,14 +110,16 @@ export async function listEventsBetween(opts: {
     .from("events")
     .select(SELECT_COLS)
     .eq("owner_id", opts.ownerId)
-    .gte("starts_at", opts.fromIso)
     .lt("starts_at", opts.toIso)
+    // 범위 전에 시작해 범위 안까지 이어지는 종일·다일 일정도 포함한다.
+    .or(`starts_at.gte.${opts.fromIso},ends_at.gte.${opts.fromIso}`)
     .order("starts_at", { ascending: true });
 
-  if (error || !data) return [];
+  if (error) throw new Error(`일정 범위 조회 실패: ${error.message}`);
+  if (!data) return [];
   const rows = data as unknown as EventJoinRaw[];
   const sourceById = await loadSourceMaterialMap(opts.ownerId, rows);
-  return rows.map((row) => mapEvent(row, sourceById));
+  return rows.map((row) => mapEvent(row, sourceById)).filter(isImportedClassInsideCourseTerm);
 }
 
 export async function listUpcomingEvents(opts: {
@@ -121,18 +128,23 @@ export async function listUpcomingEvents(opts: {
 }): Promise<EventView[]> {
   const admin = getAdminSupabase();
   const nowIso = new Date().toISOString();
+  const requestedLimit = opts.limit ?? 8;
   const { data, error } = await admin
     .from("events")
     .select(SELECT_COLS)
     .eq("owner_id", opts.ownerId)
     .gte("starts_at", nowIso)
     .order("starts_at", { ascending: true })
-    .limit(opts.limit ?? 8);
+    // 레거시 학기 밖 수업을 거른 뒤에도 요청 개수를 채울 수 있게 여유 있게 읽는다.
+    .limit(Math.min(100, Math.max(32, requestedLimit * 4)));
 
   if (error || !data) return [];
   const rows = data as unknown as EventJoinRaw[];
   const sourceById = await loadSourceMaterialMap(opts.ownerId, rows);
-  return rows.map((row) => mapEvent(row, sourceById));
+  return rows
+    .map((row) => mapEvent(row, sourceById))
+    .filter(isImportedClassInsideCourseTerm)
+    .slice(0, requestedLimit);
 }
 
 async function loadSourceMaterialMap(

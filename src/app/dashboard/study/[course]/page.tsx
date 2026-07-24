@@ -154,14 +154,40 @@ function CourseSafetyPanel({
   className?: string;
 }) {
   const tone = riskTone(safety.risk);
+  const unreadMaterial = safety.unreadMaterials[0] ?? null;
+  const recentMaterial = course.materials[0] ?? null;
+  const materialHref = (materialId: string) =>
+    `/dashboard/study/${encodeURIComponent(course.name)}/${materialId}`;
   const todayTask =
     safety.nextCritical != null
       ? `${formatEventLabel(safety.nextCritical)} 준비`
-      : safety.unreadMaterials[0]
-        ? `${safety.unreadMaterials[0].title} 정리`
+      : unreadMaterial
+        ? `${unreadMaterial.title} 정리`
         : safety.wrongCount > 0
           ? "오답만 다시 풀기"
-          : "새 자료 넣기";
+          : recentMaterial
+            ? `${recentMaterial.title} 이어보기`
+            : "새 자료 넣기";
+  const primaryAction = safety.nextCritical
+    ? { href: "/dashboard/calendar", label: "일정 확인" }
+    : unreadMaterial
+      ? { href: materialHref(unreadMaterial.id), label: "자료 정리" }
+      : safety.wrongCount > 0
+        ? { href: "/dashboard/review", label: "오답 풀기" }
+        : recentMaterial
+          ? { href: materialHref(recentMaterial.id), label: "이어보기" }
+          : { href: "#upload-zone", label: "자료 넣기" };
+  const secondaryAction =
+    safety.wrongCount > 0 && primaryAction.href !== "/dashboard/review"
+      ? { href: "/dashboard/review", label: "오답 보기" }
+      : recentMaterial
+        ? {
+            href: `/dashboard/quiz?material=${recentMaterial.id}`,
+            label: "문제 만들기",
+          }
+        : primaryAction.href !== "#upload-zone"
+          ? { href: "#upload-zone", label: "자료 추가" }
+          : null;
 
   return (
     <section className={className}>
@@ -184,12 +210,14 @@ function CourseSafetyPanel({
               className="mt-2 text-[12.5px] leading-[1.5] wght-450 text-[var(--color-apple-muted)]"
               style={{ letterSpacing: "-0.012em" }}
             >
-              이 과목에서 점수 손해로 이어질 수 있는 신호
+              {safety.risk === "safe"
+                ? "마지막 학습에서 자연스럽게 이어가요"
+                : "이 과목에서 점수 손해로 이어질 수 있는 신호"}
             </p>
           </div>
 
           <div className="border-t border-[var(--color-apple-hairline-soft)] px-5 py-5 sm:px-6 md:border-l md:border-t-0 lg:border-l-0 lg:border-t xl:border-l xl:border-t-0">
-            <ul className="grid gap-3 sm:grid-cols-3">
+            <ul className="grid grid-cols-3 gap-2 sm:gap-3">
               <CourseMetric label="안 본 자료" value={safety.unreadMaterials.length} />
               <CourseMetric label="오답" value={safety.wrongCount} />
               <CourseMetric label="확인 필요" value={safety.unconfirmedCount} />
@@ -207,19 +235,21 @@ function CourseSafetyPanel({
             </ul>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link
-                href="#upload-zone"
+                href={primaryAction.href}
                 className="spring-press inline-flex h-[34px] items-center rounded-full bg-[var(--color-apple-ink)] px-4 text-[12px] wght-620 text-white"
                 style={{ letterSpacing: "-0.012em" }}
               >
-                자료 넣기
+                {primaryAction.label}
               </Link>
-              <Link
-                href="/dashboard/review"
-                className="spring-press inline-flex h-[34px] items-center rounded-full bg-[var(--color-apple-pearl)] px-4 text-[12px] wght-620 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)]"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                오답 보기
-              </Link>
+              {secondaryAction && (
+                <Link
+                  href={secondaryAction.href}
+                  className="spring-press inline-flex h-[34px] items-center rounded-full bg-[var(--color-apple-pearl)] px-4 text-[12px] wght-620 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)]"
+                  style={{ letterSpacing: "-0.012em" }}
+                >
+                  {secondaryAction.label}
+                </Link>
+              )}
             </div>
           </div>
         </div>

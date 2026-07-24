@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s · arch",
   },
   description:
-    "강의자료·강의계획서·시간표를 올리면 오늘 할 일과 공부 흐름을 자동으로 정리하는 한국 대학생 학기 운영 OS.",
+    "강의계획서에서 시험·과제 일정을 찾고, 강의자료를 요약·문제·오답 복습으로 이어주는 대학생 학습 도구.",
   applicationName: "arch",
   authors: [{ name: "arch" }],
   keywords: [
@@ -34,20 +34,20 @@ export const metadata: Metadata = {
     siteName: "arch",
     title: "arch — 대학 생활을 놓치지 않게",
     description:
-      "강의자료·강의계획서·시간표를 올리면 오늘 할 일과 공부 흐름을 자동으로 정리하는 한국 대학생 학기 운영 OS.",
+      "강의계획서에서 시험·과제 일정을 찾고, 강의자료를 요약·문제·오답 복습으로 이어줍니다.",
     images: [
       {
         url: "/opengraph-image.svg",
         width: 1200,
         height: 630,
-        alt: "arch — 한 학기 운영 OS",
+        alt: "arch — 마감은 놓치지 않고, 시험공부는 미루지 않게",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: "arch — 대학 생활을 놓치지 않게",
-    description: "강의자료·강의계획서·시간표를 한 학기 운영 OS로",
+    description: "강의계획서에서 일정을 찾고, 강의자료를 문제·복습으로",
     images: ["/opengraph-image.svg"],
   },
 };
@@ -56,9 +56,7 @@ export const metadata: Metadata = {
  * 모바일 viewport — Next.js 16 viewport export 패턴.
  *
  * - width=device-width + initialScale=1: 디바이스 폭 그대로 매핑.
- * - maximumScale=1·userScalable=false: iOS Safari가 input focus 시 자동 줌하는 동작 차단.
- *   (16px 미만 입력칸 + 자동 줌 = 사용자 폭 갑자기 800px처럼 변함 → 레이아웃 폭주)
- *   대신 본문은 충분히 큰 폰트로 만들어 접근성 보완.
+ * - 확대 제한을 두지 않아 필요한 사용자가 핀치 줌을 사용할 수 있게 함.
  * - viewportFit=cover: iOS 노치·홈 인디케이터 영역까지 사용. safe-area-inset-* CSS로 안전 영역 확보.
  *   (이 옵션 없으면 env(safe-area-inset-*) 값이 0 — 모바일 nav가 노치에 가림)
  * - themeColor: 모바일 상단 상태바 색상. surface-canvas와 일치.
@@ -66,8 +64,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
   themeColor: "#fafafa",
 };
@@ -95,7 +91,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className="h-full antialiased" data-scroll-behavior="smooth">
+    <html
+      lang="ko"
+      className="h-full antialiased"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <head>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: theme bootstrap pre-hydration */}
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />

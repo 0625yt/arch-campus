@@ -1,121 +1,23 @@
 "use client";
 
+import { BookOpen, CalendarDays, Home, ListChecks, RotateCcw, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandMark } from "@/components/brand-mark";
 import { SearchTrigger } from "@/components/search-trigger";
 import { cn } from "@/lib/utils";
 
-/* 자체 SVG icons — Apple iOS bottom-tab 톤 */
-function IconHome({ active }: { active?: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <title>홈</title>
-      <path
-        d="M4.4 9.2 10 4.4l5.6 4.8v6c0 .9-.7 1.6-1.6 1.6H6c-.9 0-1.6-.7-1.6-1.6v-6z"
-        stroke="currentColor"
-        strokeWidth={active ? 1.7 : 1.4}
-        strokeLinejoin="round"
-      />
-      <path
-        d="M8 16.8v-4.5h4v4.5"
-        stroke="currentColor"
-        strokeWidth={active ? 1.7 : 1.4}
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function IconToday({ active }: { active?: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <title>지금</title>
-      <circle
-        cx="10"
-        cy="10"
-        r="2.8"
-        stroke="currentColor"
-        strokeWidth={active ? 1.7 : 1.4}
-        fill={active ? "currentColor" : "none"}
-      />
-      <circle
-        cx="10"
-        cy="10"
-        r="7"
-        stroke="currentColor"
-        strokeWidth={1.3}
-        opacity={active ? 0.5 : 0.35}
-      />
-    </svg>
-  );
-}
-function IconStudy({ active }: { active?: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <title>공부</title>
-      <path
-        d="M4 5h8.5c1.2 0 2 .8 2 1.8v9.2H6c-1.1 0-2-.8-2-1.8V5z"
-        stroke="currentColor"
-        strokeWidth={active ? 1.7 : 1.4}
-        strokeLinejoin="round"
-      />
-      <path
-        d="M4 5v11h10.5"
-        stroke="currentColor"
-        strokeWidth={active ? 1.7 : 1.4}
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-function IconCalendar({ active }: { active?: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <title>일정</title>
-      <rect
-        x="3.4"
-        y="5"
-        width="13.2"
-        height="11.4"
-        rx="1.6"
-        stroke="currentColor"
-        strokeWidth={active ? 1.7 : 1.4}
-      />
-      <path d="M3.4 8.4h13.2" stroke="currentColor" strokeWidth={active ? 1.7 : 1.4} />
-      <path
-        d="M7.4 3.6v2.2M12.6 3.6v2.2"
-        stroke="currentColor"
-        strokeWidth={active ? 1.7 : 1.4}
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-function IconTools({ active }: { active?: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <title>도구</title>
-      <path
-        d="M4.5 15.5l6-6M12.5 6.6l2.1-2.1 1.4 1.4-2.1 2.1-1.4-1.4z"
-        stroke="currentColor"
-        strokeWidth={active ? 1.7 : 1.4}
-        strokeLinejoin="round"
-      />
-      <circle cx="4.5" cy="15.5" r="1.3" stroke="currentColor" strokeWidth={active ? 1.7 : 1.4} />
-    </svg>
-  );
-}
-
 /*
- * iOS Tab Bar — Apple HIG 권장 5칸 한도 안에서 "지금"은 홈에 통합.
- * Today 콘텐츠는 /dashboard hero 영역에서 1급으로 노출되므로 별도 탭 불필요.
+ * 문제 생성이 제품의 핵심이므로 모바일에서도 독립 탭으로 유지한다.
+ * 6칸이지만 320px에서도 각 항목 폭이 53px 이상이라 터치 영역은 유지된다.
  */
 const NAV = [
-  { href: "/dashboard", label: "홈", Icon: IconHome },
-  { href: "/dashboard/study", label: "공부", Icon: IconStudy },
-  { href: "/dashboard/calendar", label: "일정", Icon: IconCalendar },
-  { href: "/dashboard/tools", label: "도구", Icon: IconTools },
+  { href: "/dashboard", label: "홈", Icon: Home },
+  { href: "/dashboard/study", label: "공부", Icon: BookOpen },
+  { href: "/dashboard/quiz", label: "문제", Icon: ListChecks },
+  { href: "/dashboard/review", label: "복습", Icon: RotateCcw },
+  { href: "/dashboard/calendar", label: "일정", Icon: CalendarDays },
+  { href: "/dashboard/tools", label: "도구", Icon: Wrench },
 ] as const;
 
 /**
@@ -128,7 +30,7 @@ export function MobileTopbar() {
       className="liquid-glass-bar sticky top-0 z-30 flex h-11 items-center justify-between gap-2 border-b border-[var(--color-apple-hairline-soft)] px-3 md:hidden"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <Link href="/dashboard" className="flex items-center gap-2 px-1">
+      <Link href="/dashboard" aria-label="홈" className="flex h-11 items-center gap-2 px-1">
         <BrandMark size={20} />
         <span
           className="wght-620 text-[14px] text-[var(--color-apple-ink)]"
@@ -143,7 +45,7 @@ export function MobileTopbar() {
 }
 
 /**
- * iOS Tab Bar — 5칸. 활성은 위에 짧은 ink 바.
+ * iOS Tab Bar — 활성은 위에 짧은 ink 바.
  */
 export function MobileTabBar() {
   const pathname = usePathname();
@@ -160,7 +62,7 @@ export function MobileTabBar() {
             pathname === href ||
             (href === "/dashboard"
               ? pathname === "/dashboard/chat"
-              : pathname.startsWith(href + "/"));
+              : pathname.startsWith(`${href}/`));
           return (
             <li key={href} className="flex-1">
               <Link
@@ -181,7 +83,7 @@ export function MobileTabBar() {
                     className="absolute left-1/2 top-0 h-[2px] w-7 -translate-x-1/2 rounded-b-full bg-[var(--color-apple-ink)]"
                   />
                 )}
-                <Icon active={active} />
+                <Icon aria-hidden size={20} strokeWidth={active ? 2.1 : 1.7} />
                 <span className="text-[10px]">{label}</span>
               </Link>
             </li>

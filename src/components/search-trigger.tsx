@@ -43,7 +43,7 @@ export function SearchTrigger({
         onClick={open}
         aria-label="검색 (⌘K)"
         className={cn(
-          "inline-flex h-9 w-9 items-center justify-center rounded-[8px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
+          "inline-flex h-11 w-11 items-center justify-center rounded-[8px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
           className,
         )}
       >
@@ -83,6 +83,7 @@ export function SearchTrigger({
 function SearchIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0">
+      <title>검색</title>
       <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth={1.3} />
       <path d="M9.3 9.3L12 12" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" />
     </svg>
