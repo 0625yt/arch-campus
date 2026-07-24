@@ -30,15 +30,15 @@
 - **Next.js 16.2.4 + React 19.2.4 (App Router)** — breaking change 큼. 라우팅·서버 컴포넌트·캐싱 코드 작성 전에 `node_modules/next/dist/docs/` 먼저 읽는다.
 - **Tailwind v4** (`@tailwindcss/postcss`) — 외부 폰트(Pretendard CDN)는 `@import "tailwindcss"` 앞에 와야 함.
 - **AI SDK** — Vercel AI SDK v6 (`ai`) + `@ai-sdk/anthropic` + `@ai-sdk/google` SDK **직접 사용**. AI Gateway는 보류(카드·크레딧 필요). 인증: `ANTHROPIC_API_KEY`(필수) + `GOOGLE_GENERATIVE_AI_API_KEY`(vendor 플래그 켤 때). prompt caching(`cache_control: { type: "ephemeral", ttl: "1h" }`)은 Anthropic에서만 의미. 새 도구는 [src/lib/claude.ts](src/lib/claude.ts) 패턴 복제.
-- **모델 라우팅** (★ 비용 통제) — 무분별한 Sonnet 사용 시 무료 사용자 1인당 월 5,000원 적자. 실제 매핑은 `TOOL_MODEL`.
-  - **Haiku 4.5** (`claude-haiku-4-5`): 요약·자연어 파싱·챗 (빈도 높음) — summarize, exam-extract, event-parse, post-mortem, chat, chat-free
-  - **Sonnet 4.6** (`claude-sonnet-4-6`): 품질·정확도 중요 — quiz, presentation, wizard-cram, report-structure, timetable-extract(Vision), syllabus-extract(강의계획서 추출 정확도)
-  - **Gemini 2.5 Flash** (`gemini-2.5-flash`): A/B용 대안 + **PDF OCR 기본** (`pdf-ocr`). 입력 $0.30·출력 $2.50/1M으로 Sonnet 대비 1/5 이하. 단 evidence 인용 정확도는 자료별로 검증 필요 (2026-05-28 1회 A/B 결과 0% — 프롬프트 보강 또는 자료별 재측정 필요).
-  - 도구별 env override:
-    - tier 분기(Anthropic 안): `QUIZ_MODEL`·`EXTRACT_MODEL`·`CHAT_MODEL`·`CHAT_FREE_MODEL`·`SYLLABUS_MODEL` (`haiku`|`sonnet`)
-    - vendor 분기(Anthropic ↔ Google): `QUIZ_MODEL_VENDOR`·`SUMMARY_MODEL_VENDOR` (`anthropic` 기본 / `google`로 켜면 Gemini Flash로). vendor 분기가 tier 분기보다 우선.
-    - PDF OCR 분기: `PDF_OCR_VENDOR` (기본 `google` / `anthropic`으로 끄면 unpdf 텍스트 추출만). 키(`GOOGLE_GENERATIVE_AI_API_KEY`) 없으면 자동 폴백. 2026-05-31 결정: 스캔본·표·수식·이미지 박힌 PDF가 unpdf만으론 본문 누락이 심해 Gemini Vision OCR을 prod 포함 기본 ON.
-- **Supabase** (Auth + Postgres + Storage + Realtime). RLS 켜둠, 어드민 작업은 service-role로 우회 + userId를 세션과 재검증. (pgvector·임베딩 미사용 — RAG는 풀텍스트 기반.)
+- **모델 라우팅** (★ 비용 통제, 2026-07-24 전면 Gemini 전환) — 라우팅은 `resolveModel()`. **전체 표·실측 A/B 근거는 [docs/COST.md](docs/COST.md)가 단일 출처.** 모든 도구가 Gemini(Claude는 env 원복용으로만 남김). 아래는 env override 없는 기본값.
+  - **Gemini 3.5 Flash-Lite** (`gemini-3.5-flash-lite`, $0.30/$2.50) — 대부분: **quiz** · summarize · **chat**(자료RAG) · chat-free · exam-extract · **exam-solve** · **report-structure** · **quiz-grade** · **quiz-verify** · event-parse · pdf-ocr. 실측으로 판정·풀이·요약·챗 다 통과(COST §9). quiz는 강화 파이프라인(verbatim + evidence검증 + **의미 dedup** + 스마트 topup + 2차 검수)이 전제 — 빼면 안 됨.
+  - **Gemini 3.6 Flash** (`gemini-3.6-flash`, $1.50/$7.50) — 위저드: presentation · wizard-assignment/exam/cram. Flash-Lite는 발표 슬라이드 감각 약해 탈락 → 상위 Flash.
+  - **Gemini 3.1 Pro** (`gemini-3.1-pro-preview`, $2/$12, **thinking budget 512**) — Vision: syllabus-extract · timetable-extract. 실측 시간표 요일 9/9(Flash-Lite 오추출). thinking 낮춰 정확도 유지 + 5.6배 빠름. **3.x Pro는 thinking 0 거부** → `callProviderOptions`가 512로 자동 설정.
+  - **모델 추가 시 3곳 동기화 필수**: `modelTier`(tier 분류) + `PRICING`(단가) + `estimateCost`(분기). 하나라도 빠지면 비용 집계 틀어짐.
+  - 도구별 env 원복 안전판(전부 Gemini→Claude): `QUIZ_MODEL_VENDOR=anthropic` · `CHAT_MODEL=haiku` · `EXAM_SOLVE_MODEL=haiku` · `QUIZ_GRADE_MODEL=haiku` · `QUIZ_VERIFY_MODEL=haiku` · `SYLLABUS_MODEL=haiku|sonnet` · `SUMMARY_MODEL_VENDOR=anthropic` 등.
+  - ⚠️ **프로덕션(Vercel) env는 코드에서 확인 불가** — 실제 prod 모델 확정은 `vercel env ls` 필요.
+  - ⚠️ **post-mortem은 미구현**(실제 AI 호출 0건, 라우팅 라벨만).
+- **Supabase** (Auth + Postgres + Storage + Realtime). RLS 켜둠, 어드민 작업은 service-role로 우회 + userId를 세션과 재검증. (pgvector 미사용 — RAG는 풀텍스트 기반. 단 quiz **의미 dedup**은 `gemini-embedding-001` 임베딩을 런타임에서 코사인 비교만 하고 저장 안 함 — [semantic-dedup.ts](src/lib/services/semantic-dedup.ts).)
 - **Remotion 사용 X** — 이전 프로젝트와 혼동 주의. 영상 생성 없음.
 - **언어**: UI·콘텐츠·프롬프트 한국어. 변수명·함수명·주석 영어.
 - **반응형 1급**: Mobile (<640) · iPad (768~1024) · Desktop (≥1280) **동등 지원**. 상세 [DESIGN.md §13](docs/design/DESIGN.md#13-반응형-전략--1급-시민).

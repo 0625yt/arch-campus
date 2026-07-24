@@ -207,8 +207,18 @@ export function validateEvidence(
       kept.push(q);
       continue;
     }
-    // 2차는 OCR로 읽힌 자료에만 허용한다. 일반 텍스트까지 유사 인용을 허용하면 모델이
-    // 본문을 바꿔 쓴 문장을 근거처럼 제출해도 살아남아 정확한 출처 추적이 깨진다.
+    // 1.5차 (전 자료 공통): 기호·구두점만 제거한 완전 substring 매칭.
+    //   Flash 계열이 원문 콜론(:)을 불릿(•·)으로 바꾸거나 구두점을 살짝 바꾸는 습관이 있는데,
+    //   내용은 그대로다. compact()는 기호를 다 지우므로 "기호만 다른 정당 인용"은 여기서 통과하고,
+    //   단어를 실제로 바꿔 쓴 패러프레이즈는 글자 시퀀스가 깨져 통과하지 못한다(환각 방어 유지).
+    //   substring(완전 포함)만 허용 — 흩어진 글자 짜깁기는 2차 charOverlap에서만 관대해진다.
+    const compactEvidence = compact(evidence);
+    if (compactEvidence.length >= 10 && compactSource.includes(compactEvidence)) {
+      kept.push(q);
+      continue;
+    }
+    // 2차는 OCR로 읽힌 자료에만 허용한다. 일반 텍스트까지 순서보존 유사도(부분 매칭)를 허용하면
+    // 모델이 본문을 바꿔 쓴 문장을 근거처럼 제출해도 살아남아 정확한 출처 추적이 깨진다.
     if (!opts.allowOcrFuzzy) {
       dropped.push({
         questionId: q.id,

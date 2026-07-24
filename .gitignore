@@ -68,3 +68,4 @@ supabase/.temp/
 .superpowers/
 /design/
 .playwright-mcp/
+.env*.local

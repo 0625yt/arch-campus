@@ -1,6 +1,12 @@
 import "server-only";
 import type { GenerateUsage } from "@/lib/claude";
-import { estimateCost, generate, generateWithFile, getModelVendor } from "@/lib/claude";
+import {
+  estimateCost,
+  generate,
+  generateWithFile,
+  getModelIdFor,
+  getModelVendor,
+} from "@/lib/claude";
 import { extractTimetableGrid } from "@/lib/parsers/pdf-grid";
 import { extractTimetableGridFromXlsx, extractXlsxLayout } from "@/lib/parsers/xlsx-grid";
 import { loadPrompt } from "@/lib/prompts";
@@ -206,7 +212,7 @@ export async function runTimetableExtraction(
     await logGeneration({
       ownerId: input.ownerId,
       materialId: input.materialId,
-      modelId: "claude-haiku-4-5",
+      modelId: getModelIdFor("timetable-extract"),
       status: "error",
       errorMessage: `${path}: ${detail}`,
     });

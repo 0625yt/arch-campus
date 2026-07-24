@@ -1,11 +1,16 @@
-# 현재 구현 상태 (2026-05-28 기준, 최종 갱신)
+# 현재 구현 상태 (2026-07-24 기준, 최종 갱신)
 
 > 이 문서는 **지금 무엇이 살아있고 무엇이 미구현인지**의 단일 출처다.
-> 청사진(설계 의도)은 [ARCHITECTURE.md](ARCHITECTURE.md), 제품 범위는 [PRODUCT.md](PRODUCT.md).
+> 청사진(설계 의도)은 [ARCHITECTURE.md](ARCHITECTURE.md), 제품 범위는 [PRODUCT.md](PRODUCT.md), AI 모델·비용은 [COST.md](COST.md).
 
 ## 갱신 이력
 
-- **2026-05-28 (최신)** — 자료 업로드 시점에 **자료 종류 선택 모달**(강의자료/기출문제), 기출 추출 동선을 문제 생성 폼과 **통합**(별도 화면 제거), 사이드바·과목 카드 **우클릭 컨텍스트 메뉴**(이름·교수·색상 수정·삭제), 문제 생성 폼의 추천 흐름 프리셋 제거(디자인 정리), **0023 quizzes.question_count cap 30**, **0022 wrong_items_v.topic** 약점 단원 통계, 모바일 UI 8건 + 캘린더 CRUD 2건, 챗 RAG 키워드 hint, SDK 직접 사용(AI Gateway 미사용).
+- **2026-07-24 (최신) — 모델 라우팅 대개편 + quiz 파이프라인 강화**:
+  - **quiz 생성 모델 = Gemini 3.5 Flash-Lite로 확정**(env·prod 무관 기본, `QUIZ_MODEL_VENDOR=anthropic`으로만 원복). quiz가 prod AI 비용 79.9%(실측)라 **1회 −82%** 절감. 근거·수치 전부 [COST.md](COST.md).
+  - **quiz 파이프라인 강화**: 신규 [semantic-dedup.ts](../src/lib/services/semantic-dedup.ts)(gemini-embedding-001 코사인≥0.85 의미중복 제거, 표면 dedup이 못 잡는 "글자다른데 뜻같은" 문제 차단, 키 없으면 폴백) 편입 + 스마트 topup(자료 한계 인식) + verbatim evidence 프롬프트 + "AI 티 어색한 보기 금지" 규칙. **semantic-dedup는 재사용 가능한 공유 모듈**(현재 quiz만 사용).
+  - **전면 Gemini 전환(Claude 탈피)** — 실측 A/B(COST §9)로 전 도구 검증. Flash-Lite 3.5: quiz·요약·챗·기출추출·exam-solve·리포트구조·채점·검수 등 대부분 / 3.6 Flash: 위저드(발표 등) / 3.1 Pro(thinking 512): 시간표·강계 Vision. Claude는 env 원복용으로만 남김.
+  - 테스트 245 passed / 7 skipped. 스크래치 A/B 진단 테스트 5개 정리, semantic-dedup 정식 테스트 유지.
+- **2026-05-28** — 자료 업로드 시점에 **자료 종류 선택 모달**(강의자료/기출문제), 기출 추출 동선을 문제 생성 폼과 **통합**(별도 화면 제거), 사이드바·과목 카드 **우클릭 컨텍스트 메뉴**(이름·교수·색상 수정·삭제), 문제 생성 폼의 추천 흐름 프리셋 제거(디자인 정리), **0023 quizzes.question_count cap 30**, **0022 wrong_items_v.topic** 약점 단원 통계, 모바일 UI 8건 + 캘린더 CRUD 2건, 챗 RAG 키워드 hint, SDK 직접 사용(AI Gateway 미사용).
 - **2026-05-28** — AI Gateway 도입 후 SDK 직접 사용으로 복귀 (`anthropic/...`·`google/...` slug 제거). `QUIZ_MODEL_VENDOR`·`SUMMARY_MODEL_VENDOR=google`로 Gemini 2.5 Flash A/B 가능(기본 OFF, prod 강제 차단). 0021 `generations.model_provider` 컬럼 추가. PRICING.haiku 단가 보정($0.8/$4 → $1/$5).
 - **2026-05-28** — 비로그인 랜딩 페이지·약관/개인정보 페이지 신설, 내 캠퍼스 홈을 **학기 안전망** 중심으로 개편, 시간표·강의계획서 import 강화(syllabus-extract Haiku → Sonnet).
 
@@ -64,10 +69,10 @@ AI 호출 라우트는 모두 `guardRateLimit("ai", ownerId)` + `force-dynamic`,
 
 | slug | 상태 | 연결 |
 |---|---|---|
-| presentation | ✅ 실동작 | `/api/wizards/presentation` (Sonnet) |
-| report-structure | ✅ 실동작 | `/api/wizards/report-structure` (Sonnet) |
-| report-checklist | ✅ 실동작 | `/api/wizards/report-checklist` (Sonnet) |
-| exam-cram | ✅ 실동작 | `/api/wizards/exam-cram` (Sonnet) |
+| presentation | ✅ 실동작 | `/api/wizards/presentation` (3.6 Flash) |
+| report-structure | ✅ 실동작 | `/api/wizards/report-structure` (Flash-Lite) |
+| report-checklist | ✅ 실동작 | `/api/wizards/report-checklist` (3.6 Flash) |
+| exam-cram | ✅ 실동작 | `/api/wizards/exam-cram` (3.6 Flash) |
 | presentation-qa | 🔁 redirect | → presentation 위저드 내 Q&A 포함 |
 | exam-questions | 🔁 redirect | → `/dashboard/study` 자료별 문제 생성 |
 | exam-wrong | 🔁 redirect | → `/dashboard/review` 오답 분석 |
@@ -95,11 +100,11 @@ AI 호출 라우트는 모두 `guardRateLimit("ai", ownerId)` + `force-dynamic`,
   ▼
   자료 상세 페이지 (type 분기)
     │
-    ├── type=lecture 등: 요약(Haiku) + 분할 뷰 + "문제 만들기" 폼
-    │     └─ 폼: 난이도·문제수(1~30)·종류(객·단·서)·범위·추가 요청 → quiz API (Sonnet)
+    ├── type=lecture 등: 요약(Flash-Lite) + 분할 뷰 + "문제 만들기" 폼
+    │     └─ 폼: 난이도·문제수(1~30)·종류(객·단·서)·범위·추가 요청 → quiz API (Flash-Lite + 강화 파이프라인)
     │
     └── type=exam: "기출문제 추출하기" 통합 폼
-          └─ 폼: 모든 옵션 숨김, 안내문만 → exam-extract API (Haiku, env로 Sonnet)
+          └─ 폼: 모든 옵션 숨김, 안내문만 → exam-extract API (Flash-Lite, env로 Haiku/Sonnet)
                 자료 본문에 실린 문제·정답·해설을 그대로 가져옴 (새 생성 X)
 ```
 
@@ -110,11 +115,13 @@ AI 호출 라우트는 모두 `guardRateLimit("ai", ownerId)` + `force-dynamic`,
 ## AI 레이어 (실제 호출 중)
 
 - **진입점** [src/lib/claude.ts](../src/lib/claude.ts) — `generate()`(JSON 출력) / `streamChatReply()`(SSE). 모든 system 메시지에 injection guard prepend + 1h ephemeral 캐싱.
-- **모델**: `claude-sonnet-4-6`, `claude-haiku-4-5`. 매핑은 `TOOL_MODEL`.
-  - **Haiku**: summarize · post-mortem · event-parse · exam-extract · chat · chat-free
-  - **Sonnet**: quiz · presentation · wizard-cram · report-structure · timetable-extract(Vision) · **syllabus-extract**(2026-05-28 Haiku→Sonnet 승격)
-  - env override: `QUIZ_MODEL` · `EXTRACT_MODEL` · `CHAT_MODEL` · `CHAT_FREE_MODEL` · `SYLLABUS_MODEL` (`haiku`|`sonnet`)
-- **vendor 분기**: `QUIZ_MODEL_VENDOR=google` · `SUMMARY_MODEL_VENDOR=google` → Gemini 2.5 Flash. **prod에선 강제 무시** (2026-05-28 1회 A/B evidence 매칭 0% — 재측정 전 차단).
+- **모델**(2026-07-24 전면 Gemini — 실측 A/B 근거는 [COST.md](COST.md) §9): 라우팅은 `resolveModel()`. Claude는 env 원복용으로만 남김.
+  - **Gemini 3.5 Flash-Lite** ($0.30/$2.50) — 대부분: quiz · summarize · chat(자료RAG) · chat-free · exam-extract · exam-solve · report-structure · quiz-grade · quiz-verify · event-parse · pdf-ocr
+  - **Gemini 3.6 Flash** ($1.50/$7.50) — 위저드: presentation · wizard-assignment/exam/cram
+  - **Gemini 3.1 Pro** ($2/$12, thinking budget 512) — Vision: syllabus-extract · timetable-extract
+  - env 원복 안전판: `QUIZ_MODEL_VENDOR=anthropic` · `CHAT_MODEL=haiku` · `EXAM_SOLVE_MODEL=haiku` · `QUIZ_GRADE_MODEL=haiku` · `QUIZ_VERIFY_MODEL=haiku` · `SYLLABUS_MODEL` 등.
+  - **prod env(Vercel)는 코드에서 확인 불가 — 실제 prod 모델은 `vercel env ls` 확인.**
+- **quiz 강화 파이프라인**: [semantic-dedup.ts](../src/lib/services/semantic-dedup.ts) 의미중복 제거(gemini-embedding-001, 코사인≥0.85) + 스마트 topup + verbatim 프롬프트 + 2차 검수(Flash-Lite).
 - **프롬프트** [src/lib/prompts.ts](../src/lib/prompts.ts) — `loadPrompt(name)`이 `_shared/persona-schema.md` + `_shared/master-rules.md` + 도구별 `*.md`를 조합.
   - 도구별: summarize · quiz · presentation · syllabus · timetable · exam-cram · report-checklist · report-structure · event-parse · exam-extract · chat · chat-free
 - **출력 검증** [src/lib/schemas.ts](../src/lib/schemas.ts) — Zod. 위저드 결과는 후처리 검증까지 (예: report-structure는 핵심 질문이 `?`로 끝나는지 — 치팅 가드).

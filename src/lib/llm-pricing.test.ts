@@ -31,6 +31,21 @@ describe("estimateCost — vendor·tier 단가 매트릭스 (2026-05-28 보정 �
     expect(cost).toBeCloseTo(0.3 + 2.5, 5);
   });
 
+  it("Gemini 3.5 Flash-Lite(기본): 입력 1M = $0.30, 출력 1M = $2.50 (quiz 검증 모델)", () => {
+    const cost = estimateCost(unitUsage(1_000_000, 1_000_000), MODELS.geminiFlashLite);
+    expect(cost).toBeCloseTo(0.3 + 2.5, 5);
+  });
+
+  it("Gemini 3.1 Flash-Lite: 입력 1M = $0.25, 출력 1M = $1.50 (더 싼 대안 tier)", () => {
+    const cost = estimateCost(unitUsage(1_000_000, 1_000_000), "gemini-3.1-flash-lite");
+    expect(cost).toBeCloseTo(0.25 + 1.5, 5);
+  });
+
+  it("Claude Sonnet 5는 sonnet tier로 집계 ($3/$15, 정가 기준)", () => {
+    const cost = estimateCost(unitUsage(1_000_000, 1_000_000), MODELS.sonnet5);
+    expect(cost).toBeCloseTo(3 + 15, 5);
+  });
+
   it("Gemini Flash 비용은 Sonnet 4.6의 1/5 이하 (퀴즈 전환 동기)", () => {
     const sonnetCost = estimateCost(unitUsage(22_000, 6_000), MODELS.sonnet);
     const flashCost = estimateCost(unitUsage(22_000, 6_000), MODELS.geminiFlash);

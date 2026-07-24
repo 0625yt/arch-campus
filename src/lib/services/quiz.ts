@@ -10,6 +10,7 @@ import { sanitizePromptField } from "@/lib/prompt-safety";
 import { loadPrompt } from "@/lib/prompts";
 import { parseQuizModelJson, type QuizOutputT, type QuizQuestionT } from "@/lib/schemas";
 import { verifyQuizQuestions } from "@/lib/services/quiz-verifier";
+import { dedupeBySemanticsCached } from "@/lib/services/semantic-dedup";
 import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
 import { buildPlaybookSection } from "@/lib/subject-playbook";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -30,14 +31,19 @@ import {
  * 책임 (4-Layer 청사진):
  *   Storage (호출자 담당) → Parse (호출자 담당)
  *   → Classify (이 모듈)
- *   → Generate (이 모듈)
- *   → Validate (Zod, 이 모듈)
+ *   → Generate (이 모듈, 청크 병렬)
+ *   → Validate (evidence + 구조 + 표면중복 + 의미중복, 이 모듈)
+ *   → Topup (미달 시 보충, 자료 한계면 중단)
+ *   → Verify (2차 정답·근거 검수, quiz-verifier)
  *   → Persist (quizzes·generations, 이 모듈)
  *
- * 비용 가드:
- *   - Sonnet 4.6 호출 1회 (~$0.03/문제5개). maxTokens 8192 (10문제 가정)
- *   - 분류기 Haiku 호출 1회 (~$0.0001)
- *   - 본문 60자 미만이면 분류기 스킵
+ * 모델·비용 (2026-07-24 FIX):
+ *   - 생성: Gemini 3.1 Flash-Lite ($0.25/$1.50). quiz는 AI 비용 79.9% → Sonnet 대비 5배 절감.
+ *     강화 파이프라인(verbatim 프롬프트 + evidence 검증 + 의미 dedup + 스마트 topup + 2차 검수)이
+ *     Flash-Lite 약점(청크 간 의미 중복·형식 실수)을 덮는다. 원복: QUIZ_MODEL_VENDOR=anthropic.
+ *   - 의미 dedup: gemini-embedding-001 배치 1회(~$0.0001/quiz). 표면 dedup이 못 잡는
+ *     "글자는 다른데 뜻이 같은" 문제를 코사인 유사도(≥0.85)로 거른다. 키 없으면 폴백.
+ *   - 분류기 Haiku 호출 1회 (~$0.0001). 본문 40자 미만이면 스킵.
  */
 
 export type Difficulty = "쉬움" | "보통" | "어려움";
@@ -355,7 +361,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   const previousFingerprints = new Set(previousStems.map(fingerprint));
   const seenQuestionFps = new Set<string>();
   const acceptedStemTexts: string[] = [];
-  const deduped = structurallyValid.filter((q) => {
+  const surfaceDeduped = structurallyValid.filter((q) => {
     const stemFp = fingerprint(q.stem);
     const qFp = questionFingerprint(q);
     const nearDuplicate = [...previousStems, ...acceptedStemTexts].some((stem) =>
@@ -374,6 +380,27 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     acceptedStemTexts.push(q.stem);
     return true;
   });
+
+  // ★ 의미 중복 제거 — 표면(fingerprint·3-gram)으로 못 잡는 "글자는 다른데 뜻이 같은" 문제를
+  // 임베딩 코사인 유사도로 거른다. 청크 간(청크끼리 서로 못 봐서 같은 개념 반복)에서 특히 유효.
+  // 임베딩 캐시(semanticStore)는 topup 루프까지 누적돼 보충 문제도 여기 대비 검사한다.
+  // 키(GOOGLE_GENERATIVE_AI_API_KEY) 없거나 임베딩 실패면 표면 dedup 결과 그대로 통과(폴백).
+  let semanticStore: Array<{ item: { text: string; q: QuizQuestionT }; embedding: number[] }> = [];
+  {
+    const res = await dedupeBySemanticsCached(
+      semanticStore,
+      surfaceDeduped.map((q) => ({ text: q.stem, q })),
+    );
+    semanticStore = res.kept;
+    for (const d of res.dropped) {
+      dropped.push({
+        questionId: d.q.id,
+        reason: "의미 중복 — 다른 문제와 사실상 같은 개념·같은 답",
+        evidence: d.q.stem.slice(0, 80),
+      });
+    }
+  }
+  const deduped = semanticStore.map((s) => s.item.q);
 
   // 첫 성공 청크 — 모델 ID·watermark는 여기서 가져옴
   const result = firstResult!;
@@ -471,6 +498,8 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     );
     dropped.push(...topupIntegrityDropped);
     const beforeLen = collected.length;
+    // 1) 표면 dedup 통과분만 추림
+    const topupSurface: QuizQuestionT[] = [];
     for (const q of topupKept) {
       const stemFp = fingerprint(q.stem);
       const qFp = questionFingerprint(q);
@@ -481,8 +510,27 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       previousFingerprints.add(stemFp);
       seenQuestionFps.add(qFp);
       acceptedStemTexts.push(q.stem);
-      collected.push(q);
-      if (collected.length >= input.requestedCount) break;
+      topupSurface.push(q);
+    }
+    // 2) 의미 dedup — 누적 store 대비. 통과분만 collected에 추가(요청 수에서 멈춤).
+    if (topupSurface.length > 0) {
+      const res = await dedupeBySemanticsCached(
+        semanticStore,
+        topupSurface.map((q) => ({ text: q.stem, q })),
+      );
+      semanticStore = res.kept;
+      for (const d of res.dropped) {
+        dropped.push({
+          questionId: d.q.id,
+          reason: "보충 문제 의미 중복 — 기존 문제와 사실상 같은 개념·같은 답",
+          evidence: d.q.stem.slice(0, 80),
+        });
+      }
+      for (const q of topupSurface) {
+        if (res.dropped.some((d) => d.q === q)) continue;
+        collected.push(q);
+        if (collected.length >= input.requestedCount) break;
+      }
     }
     // 이번 보충에서 새 문제가 0개면 stuck. 2번 연속 stuck이면 자료 본문 한계라 보고 중단.
     if (collected.length === beforeLen) {

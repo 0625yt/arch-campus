@@ -63,12 +63,19 @@
 
 ---
 
-## 3. 퀴즈 A/B 재측정 — Gemini 2.5 Flash (중)
+## 3. 퀴즈 A/B 재측정 — ✅ 완료 (2026-07-24 **Gemini 3.5 Flash-Lite 확정**)
 
-### 3-1. 현 상태
+### 3-1. 결론 (완료)
+- **quiz는 Gemini 3.5 Flash-Lite로 prod 확정**. 2026-05-28의 "evidence 0%" 문제는 **강화 파이프라인**으로 해결: verbatim 프롬프트 + validate-quiz evidence 검증 + 의미 dedup(gemini-embedding-001) + 스마트 topup + 2차 검수. 실측 통과.
+- **1회 비용 −82%** (Sonnet 대비). quiz는 prod 비용 79.9%라 절감 효과 최대.
+- 이전의 isProd 차단 가드는 제거됨 — 이제 prod 기본이 Flash-Lite. 원복은 `QUIZ_MODEL_VENDOR=anthropic`.
+- 상세 근거: [COST.md §9](COST.md) A/B 로그 + [MODEL-OPTIONS.md §3-A](MODEL-OPTIONS.md).
+
+<details><summary>2026-05-28 당시 측정 기록 (역사)</summary>
+
 - 인프라 완성 (`*_MODEL_VENDOR=google` 플래그, `generations.model_provider` 로깅).
-- 2026-05-28 1회 측정 결과: **evidence substring 매칭 0%** — 자료 본문 인용 정확도가 prod 기준 미달.
-- prod 차단 유지 중. `claude.ts:140` `resolveModel`에 `isProd` 가드 박혀 있음.
+- 2026-05-28 1회 측정 결과: **evidence substring 매칭 0%** — 당시엔 파이프라인 미완이라 prod 미달. 이후 강화 파이프라인으로 해결됨.
+</details>
 
 ### 3-2. 다음 조치 (이전 NEXT-STEPS §2-3 메트릭 그대로 사용)
 
