@@ -475,6 +475,7 @@ function MaterialQuizzes({
     createdAt: string;
     attemptCount: number;
     lastScore: number | null;
+    lastAttemptTotal: number | null;
     wrongCount: number;
   }>;
   dotColor: string;
@@ -538,9 +539,9 @@ function MaterialQuizzes({
                     <span className="wght-560 text-[var(--color-apple-action)]">
                       아직 안 풀었어요
                     </span>
-                  ) : q.lastScore !== null ? (
+                  ) : q.lastScore !== null && q.lastAttemptTotal !== null ? (
                     <span className="tabular-nums">
-                      최근 {q.lastScore}/{q.questionCount} · {q.attemptCount}회 풀이
+                      최근 {q.lastScore}/{q.lastAttemptTotal} · {q.attemptCount}회 풀이
                     </span>
                   ) : (
                     <span className="tabular-nums">{q.attemptCount}회 풀이</span>

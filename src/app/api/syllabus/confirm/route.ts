@@ -1,20 +1,30 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
+import { validateEventRange } from "@/lib/calendar-event-time";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-const EventInput = z.object({
-  kind: z.enum(["exam", "assignment", "presentation", "class", "etc"]),
-  title: z.string().min(1).max(120),
-  notes: z.string().max(500).nullable().optional(),
-  startsAt: z.string().min(8).max(40),
-  endsAt: z.string().min(8).max(40).nullable().optional(),
-  allDay: z.boolean().default(true),
-  weightPercent: z.number().min(0).max(100).nullable().optional(),
-  confidence: z.number().min(0).max(1).default(0.7),
-});
+const EventInput = z
+  .object({
+    kind: z.enum(["exam", "assignment", "presentation", "class", "etc"]),
+    title: z.string().min(1).max(120),
+    notes: z.string().max(500).nullable().optional(),
+    startsAt: z.string().min(8).max(40),
+    endsAt: z.string().min(8).max(40).nullable().optional(),
+    allDay: z.boolean().default(true),
+    weightPercent: z.number().min(0).max(100).nullable().optional(),
+    confidence: z.number().min(0).max(1).default(0.7),
+  })
+  .superRefine((event, ctx) => {
+    const rangeError = validateEventRange(event.startsAt, event.endsAt ?? null, {
+      allowDateOnly: event.allDay,
+    });
+    if (rangeError) {
+      ctx.addIssue({ code: "custom", path: ["startsAt"], message: rangeError });
+    }
+  });
 
 const RequestBody = z.object({
   courseId: z.string().uuid(),
@@ -72,6 +82,24 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
 
   if (courseErr || !course) {
     return NextResponse.json({ ok: false, error: "코스를 찾을 수 없어요" }, { status: 404 });
+  }
+
+  if (body.sourceMaterialId) {
+    const { data: material, error: materialErr } = await admin
+      .from("materials")
+      .select("id")
+      .eq("id", body.sourceMaterialId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    if (materialErr) {
+      return NextResponse.json(
+        { ok: false, error: `자료 확인 실패: ${materialErr.message}` },
+        { status: 500 },
+      );
+    }
+    if (!material) {
+      return NextResponse.json({ ok: false, error: "자료를 찾을 수 없어요" }, { status: 404 });
+    }
   }
 
   if (body.events.length === 0) {

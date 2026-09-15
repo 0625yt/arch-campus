@@ -107,7 +107,7 @@ export function CourseActionsMenu({
   }
 
   return (
-    <div ref={wrapRef} className="relative" onClick={stop} onPointerDown={stop}>
+    <div ref={wrapRef} className="relative">
       <button
         type="button"
         aria-label="강의 메뉴"
@@ -115,13 +115,15 @@ export function CourseActionsMenu({
           stop(e);
           setOpen((v) => !v);
         }}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/70 text-[14px] text-[var(--color-apple-muted)] backdrop-blur-sm transition-colors hover:bg-white hover:text-[var(--color-apple-ink)]"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[14px] text-[var(--color-apple-muted)] transition-colors"
       >
-        ⋯
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/70 backdrop-blur-sm transition-colors hover:bg-white hover:text-[var(--color-apple-ink)]">
+          ⋯
+        </span>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-8 z-30 min-w-[150px] rounded-[10px] border border-[var(--color-apple-hairline)] bg-white py-1 shadow-[var(--shadow-lift)]">
+        <div className="absolute right-0 top-11 z-30 min-w-[150px] rounded-[10px] border border-[var(--color-apple-hairline)] bg-white py-1 shadow-[var(--shadow-lift)]">
           <MenuItem
             label={isPersonal ? "이름·색상 수정" : "이름·교수·색상 수정"}
             onClick={() => {
@@ -161,8 +163,7 @@ export function CourseActionsMenu({
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={80}
-              autoFocus
-              className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[14px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+              className="h-11 w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 text-[14px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
             />
           </label>
 
@@ -180,7 +181,7 @@ export function CourseActionsMenu({
                 onChange={(e) => setProfessor(e.target.value)}
                 maxLength={60}
                 placeholder="비워두면 '교수 미정'"
-                className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[14px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+                className="h-11 w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 text-[14px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
               />
             </label>
           )}
@@ -200,13 +201,17 @@ export function CourseActionsMenu({
                   onClick={() => setColor(c)}
                   aria-label={`색상 ${c}`}
                   aria-pressed={color === c}
-                  className={
-                    color === c
-                      ? "h-7 w-7 rounded-full ring-2 ring-[var(--color-apple-ink)] ring-offset-2 ring-offset-white"
-                      : "h-7 w-7 rounded-full transition-transform hover:scale-110"
-                  }
-                  style={{ backgroundColor: c }}
-                />
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full"
+                >
+                  <span
+                    className={
+                      color === c
+                        ? "h-7 w-7 rounded-full ring-2 ring-[var(--color-apple-ink)] ring-offset-2 ring-offset-white"
+                        : "h-7 w-7 rounded-full transition-transform hover:scale-110"
+                    }
+                    style={{ backgroundColor: c }}
+                  />
+                </button>
               ))}
             </div>
           </fieldset>
@@ -222,14 +227,14 @@ export function CourseActionsMenu({
               type="button"
               onClick={() => setEditing(false)}
               disabled={busy}
-              className="rounded-[8px] px-3.5 py-2 text-[13px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
+              className="min-h-11 rounded-[8px] px-3.5 text-[13px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="rounded-[8px] bg-[var(--color-apple-ink)] px-3.5 py-2 text-[13px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="min-h-11 rounded-[8px] bg-[var(--color-apple-ink)] px-3.5 text-[13px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "저장 중…" : "저장"}
             </button>
@@ -267,8 +272,8 @@ function MenuItem({
       onClick={onClick}
       className={
         destructive
-          ? "block w-full px-3.5 py-1.5 text-left text-[12.5px] wght-560 text-[var(--color-urgent)] hover:bg-[var(--color-urgent)]/10"
-          : "block w-full px-3.5 py-1.5 text-left text-[12.5px] wght-560 text-[var(--color-apple-ink)] hover:bg-[var(--color-apple-pearl)]"
+          ? "block min-h-11 w-full px-3.5 py-1.5 text-left text-[12.5px] wght-560 text-[var(--color-urgent)] hover:bg-[var(--color-urgent)]/10"
+          : "block min-h-11 w-full px-3.5 py-1.5 text-left text-[12.5px] wght-560 text-[var(--color-apple-ink)] hover:bg-[var(--color-apple-pearl)]"
       }
     >
       {label}

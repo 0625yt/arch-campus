@@ -226,11 +226,15 @@ export async function runSyllabusExtraction(
   }
 
   // 자료가 어느 코스 소속인지 갱신
-  await admin
+  const { error: materialUpdateError } = await admin
     .from("materials")
     .update({ course_id: courseId, type: "syllabus" })
     .eq("id", input.materialId)
     .eq("owner_id", input.ownerId);
+  if (materialUpdateError) {
+    console.error("materials course 연결 실패:", materialUpdateError.message);
+    return { ok: false, status: 500, error: "강의계획서와 과목 연결에 실패했어요." };
+  }
 
   const costUsd = estimateCost(result.usage, result.modelId);
   await logGeneration({
@@ -267,15 +271,19 @@ async function upsertCourse(opts: {
   const admin = getAdminSupabase();
 
   // 같은 이름 코스가 이미 있으면 update
-  const { data: existing } = await admin
+  const { data: existing, error: findError } = await admin
     .from("courses")
     .select("id")
     .eq("owner_id", opts.ownerId)
     .eq("name", opts.name)
     .maybeSingle();
+  if (findError) {
+    console.error("courses 조회 실패:", findError.message);
+    return null;
+  }
 
   if (existing?.id) {
-    await admin
+    const { error } = await admin
       .from("courses")
       .update({
         professor: opts.professor,
@@ -286,6 +294,10 @@ async function upsertCourse(opts: {
       })
       .eq("id", existing.id)
       .eq("owner_id", opts.ownerId);
+    if (error) {
+      console.error("courses update 실패:", error.message);
+      return null;
+    }
     return existing.id;
   }
 

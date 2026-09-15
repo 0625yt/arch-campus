@@ -42,6 +42,18 @@ export interface MaterialListItem {
   courseId: string | null;
 }
 
+export interface QuizSourceMaterial {
+  id: string;
+  title: string;
+  type: MaterialRow["type"];
+  uploadedAt: string;
+  courseId: string | null;
+  courseName: string | null;
+  courseColor: string | null;
+  /** 기출은 원본 파일로 추출하고, 일반 자료는 검증 가능한 본문이 있어야 생성 가능. */
+  canGenerate: boolean;
+}
+
 export type CourseCategory = "semester" | "personal";
 
 export interface CourseListItem {
@@ -70,6 +82,16 @@ interface MaterialDetailRaw {
   courses: Pick<CourseRow, "id" | "name" | "color"> | null;
   mime_type: string | null;
   storage_path: string | null;
+}
+
+interface QuizSourceRaw {
+  id: string;
+  title: string;
+  type: MaterialRow["type"];
+  uploaded_at: string;
+  course_id: string | null;
+  full_text: string | null;
+  courses: Pick<CourseRow, "name" | "color"> | null;
 }
 
 export async function getMaterialDetail(opts: {
@@ -135,6 +157,34 @@ export async function listOrphanMaterials(opts: { ownerId: string }): Promise<Ma
 
   if (error || !data) return [];
   return data.map(toListItem);
+}
+
+/** `내 문제` 화면에서 곧바로 출제할 수 있는 최근 자료 목록. */
+export async function listQuizSourceMaterials(opts: {
+  ownerId: string;
+  limit?: number;
+}): Promise<QuizSourceMaterial[]> {
+  const admin = getAdminSupabase();
+  const { data, error } = await admin
+    .from("materials")
+    .select("id, title, type, uploaded_at, course_id, full_text, courses(name, color)")
+    .eq("owner_id", opts.ownerId)
+    .neq("type", "syllabus")
+    .order("uploaded_at", { ascending: false })
+    .limit(opts.limit ?? 100);
+
+  if (error || !data) return [];
+
+  return (data as unknown as QuizSourceRaw[]).map((row) => ({
+    id: row.id,
+    title: row.title,
+    type: row.type,
+    uploadedAt: row.uploaded_at,
+    courseId: row.course_id,
+    courseName: row.courses?.name ?? null,
+    courseColor: row.courses?.color ?? null,
+    canGenerate: row.type === "exam" || hasReadableQuizText(row.full_text),
+  }));
 }
 
 export async function getCourseByName(opts: { ownerId: string; name: string }): Promise<{
@@ -275,6 +325,12 @@ function parseSummary(raw: unknown): SummarizeOutputT | null {
   if (!raw || typeof raw !== "object") return null;
   const result = SummarizeOutput.safeParse(raw);
   return result.success ? result.data : null;
+}
+
+function hasReadableQuizText(text: string | null): boolean {
+  const trimmed = text?.trim() ?? "";
+  if (!trimmed || /^\[(?:자동 추출 실패|본문 자동 추출 실패)/u.test(trimmed)) return false;
+  return trimmed.replace(/[\s\p{P}\p{S}]/gu, "").length >= 40;
 }
 
 // 스키마 진화 추적용 — 향후 generations 테이블 직접 조회로 폴백할 때

@@ -2,7 +2,7 @@
 
 > **이 문서는 "이렇게 만들 것"의 가이드.** 새 도구 만들 때 이 청사진(4-Layer·RLS·검증·파이프라인)을 그대로 따른다.
 > 4-Layer 패턴·RLS·AI 호출·위저드 4종은 **이미 실제 구현됨** — 무엇이 살아있는지는 [docs/STATUS.md](STATUS.md).
-> 단 RAG 파이프라인의 임베딩·pgvector(아래 §)는 **채택하지 않았다** — 실제 RAG는 풀텍스트 기반이고 임베딩 의존성은 없다.
+> 단 RAG 파이프라인의 임베딩·pgvector(아래 §)는 **채택하지 않았다** — 실제 RAG는 풀텍스트 기반. (예외: quiz **의미 dedup**은 2026-07-24부터 `gemini-embedding-001`을 런타임에서 코사인 비교만 하고 **저장은 안 함** — pgvector 없이 [semantic-dedup.ts](../src/lib/services/semantic-dedup.ts).)
 
 ## 1. 멀티테넌시 [미구현]
 

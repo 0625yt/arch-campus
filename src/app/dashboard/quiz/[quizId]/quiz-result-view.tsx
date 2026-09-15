@@ -24,6 +24,8 @@ export interface ResultQuestion {
   };
   /** 단답형 오답일 때 내 답이 왜 틀렸는지. */
   whyWrong?: string;
+  /** 서술형을 모범답안 기준으로 의미 채점한 경우. */
+  llmGraded?: boolean;
 }
 
 export interface ResultViewProps {
@@ -213,6 +215,11 @@ function ResultCard({ q, idx }: { q: ResultQuestion; idx: number }) {
           {q.correct ? "정답" : q.submitted === null ? "미응답" : "오답"}
         </span>
       </div>
+      {q.llmGraded && (
+        <p className="mt-2 text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
+          서술 기준과 자료 근거를 바탕으로 의미를 비교한 결과예요.
+        </p>
+      )}
       <p className="mt-3 text-[15px] leading-[1.55] wght-560 text-[var(--color-apple-ink)]">
         {q.stem}
       </p>

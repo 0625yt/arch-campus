@@ -30,7 +30,7 @@ export function CalendarSection() {
                 자료 → 일정 추출
               </span>
               <span
-                className="text-[10px] wght-560 uppercase tracking-[0.08em] opacity-60"
+                className="text-[10px] wght-560 uppercase tracking-[0.08em]"
                 style={{ color: "var(--color-landing-text-muted)" }}
               >
                 예시

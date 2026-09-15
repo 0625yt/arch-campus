@@ -1,8 +1,14 @@
 import "server-only";
 import type { GenerateUsage } from "@/lib/claude";
-import { estimateCost, generate, generateWithFile, getModelVendor } from "@/lib/claude";
+import {
+  estimateCost,
+  generate,
+  generateWithFile,
+  getModelIdFor,
+  getModelVendor,
+} from "@/lib/claude";
 import { extractTimetableGrid } from "@/lib/parsers/pdf-grid";
-import { extractTimetableGridFromXlsx } from "@/lib/parsers/xlsx-grid";
+import { extractTimetableGridFromXlsx, extractXlsxLayout } from "@/lib/parsers/xlsx-grid";
 import { loadPrompt } from "@/lib/prompts";
 import {
   parseModelJson,
@@ -10,8 +16,8 @@ import {
   type TimetableOutputT,
   type TimetableSlotT,
 } from "@/lib/schemas";
-import { inferSemester } from "@/lib/semester";
 import { getAdminSupabase } from "@/lib/supabase/admin";
+import { normalizeTimetableOutput, resolveTermBounds } from "@/lib/timetable-validation";
 import { breakdown } from "@/lib/tokens";
 
 /**
@@ -28,6 +34,7 @@ export interface TimetableExtractInput {
   ownerId: string;
   materialId: string;
   title: string;
+  filename?: string;
   fullText: string;
   semesterHint?: string;
   /** PDF·이미지면 vision API로 직접 보냄. 셋이 같이 오면 fileBytes 우선 */
@@ -72,8 +79,7 @@ export async function runTimetableExtraction(
   const isPdf = input.fileMediaType === "application/pdf";
   const isXlsx =
     input.fileMediaType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-    input.fileMediaType === "application/vnd.ms-excel" ||
-    /\.xlsx?$/i.test(input.title);
+    /\.xlsx$/i.test(input.filename ?? input.title);
   const HEADER_KEYWORDS = ["일", "월", "화", "수", "목", "금", "토"] as const;
   if (isPdf && fileBytesForGrid) {
     try {
@@ -88,7 +94,31 @@ export async function runTimetableExtraction(
   }
   if (!gridMarkdown && isXlsx && fileBytesForGrid) {
     try {
-      const g = await extractTimetableGridFromXlsx(fileBytesForGrid, {
+      const layout = await extractXlsxLayout(fileBytesForGrid);
+      if (layout.ok && layout.likelyCourseCatalog) {
+        const courseRows = layout.sheets.reduce((sum, sheet) => sum + sheet.catalogLikeRows, 0);
+        return {
+          ok: false,
+          status: 422,
+          error:
+            `이 파일은 개인 시간표가 아니라 전체 개설강좌 목록으로 보여요 ` +
+            `(강좌 행 약 ${courseRows}개). 수강 신청한 과목만 보이는 내 시간표를 올려주세요.`,
+        };
+      }
+      if (layout.ok) {
+        gridMarkdown = layout.markdown;
+        gridSource = "xlsx";
+      }
+    } catch {
+      // 셀 주소 직렬화 실패 시 일반 텍스트 폴백
+    }
+  }
+
+  // 표준 월~금 헤더 격자는 더 간결한 마크다운으로 교체한다. 행 목록형·좌우
+  // 병렬형은 위의 주소 보존 layout이 그대로 남는다.
+  if (isXlsx && fileBytesForGrid) {
+    try {
+      const g = await extractTimetableGridFromXlsx(Uint8Array.from(fileBytesForGrid), {
         headerKeywords: HEADER_KEYWORDS,
         minMatches: 4,
       });
@@ -99,7 +129,7 @@ export async function runTimetableExtraction(
         gridSource = "xlsx";
       }
     } catch {
-      // xlsx 좌표 실패 → 일반 텍스트 폴백
+      // xlsx 표준 격자 실패 → 주소 보존 layout 또는 일반 텍스트 폴백
     }
   }
 
@@ -182,7 +212,7 @@ export async function runTimetableExtraction(
     await logGeneration({
       ownerId: input.ownerId,
       materialId: input.materialId,
-      modelId: "claude-haiku-4-5",
+      modelId: getModelIdFor("timetable-extract"),
       status: "error",
       errorMessage: `${path}: ${detail}`,
     });
@@ -218,6 +248,33 @@ export async function runTimetableExtraction(
     };
   }
 
+  if (parsed.rejected) {
+    return {
+      ok: false,
+      status: 422,
+      error:
+        parsed.rejectionReason ??
+        "개인 시간표로 확인되지 않았어요. 학교 포털에서 내 수강 과목이 보이는 시간표를 올려주세요.",
+    };
+  }
+  if (parsed.courses.length > 24) {
+    return {
+      ok: false,
+      status: 422,
+      error: `강의가 ${parsed.courses.length}개 감지되어 개인 시간표가 아닌 전체 강좌 목록으로 보여요. 내 시간표를 올려주세요.`,
+    };
+  }
+
+  const normalized = normalizeTimetableOutput(parsed);
+  parsed = normalized.output;
+  if (parsed.courses.length === 0) {
+    return {
+      ok: false,
+      status: 422,
+      error: "확인 가능한 과목명·요일·시간을 찾지 못했어요. 원본 시간표가 선명한지 확인해주세요.",
+    };
+  }
+
   const costUsd = estimateCost(result.usage, result.modelId);
   await logGeneration({
     ownerId: input.ownerId,
@@ -226,7 +283,12 @@ export async function runTimetableExtraction(
     usage: result.usage,
     cost: costUsd,
     status: "ok",
-    payload: { courseCount: parsed.courses.length },
+    payload: {
+      courseCount: parsed.courses.length,
+      warningCount: parsed.warnings.length,
+      droppedCourseCount: normalized.droppedCourseCount,
+      droppedSlotCount: normalized.droppedSlotCount,
+    },
   });
 
   return {
@@ -245,7 +307,7 @@ export async function runTimetableExtraction(
  * 의도:
  *   - 시간표 등록 = 한 학기 동안 매주 같은 요일·시간에 수업 있음
  *   - 캘린더·Today에서 보이려면 events 테이블에 행이 박혀야 함 (둘 다 events만 조회)
- *   - 학기 시작·종료는 inferSemester로 추정 (3월~6월 봄, 9월~12월 가을)
+ *   - 자료의 termYear/termLabel을 우선 사용하고, 없을 때만 현재 학기를 추정
  *
  * idempotency:
  *   - 같은 source_material_id로 이미 박힌 events 먼저 지우고 다시 박음
@@ -263,39 +325,77 @@ export async function confirmTimetable(input: {
     slots: TimetableSlotT[];
   }>;
 }): Promise<
-  { ok: true; insertedCourses: number; insertedEvents: number } | { ok: false; error: string }
+  | { ok: true; insertedCourses: number; insertedEvents: number }
+  | { ok: false; error: string; status?: 400 | 404 | 500 }
 > {
   const admin = getAdminSupabase();
-  const semester = inferSemester();
+
+  if (input.sourceMaterialId) {
+    const { data: material, error } = await admin
+      .from("materials")
+      .select("id")
+      .eq("id", input.sourceMaterialId)
+      .eq("owner_id", input.ownerId)
+      .maybeSingle();
+    if (error) return { ok: false, error: `자료 확인 실패: ${error.message}`, status: 500 };
+    if (!material) return { ok: false, error: "자료를 찾을 수 없어요.", status: 404 };
+  }
+
+  const semester = resolveTermBounds(input.termYear, input.termLabel);
   const termStart = new Date(`${semester.termStart}T00:00:00+09:00`);
   const termEnd = new Date(`${semester.termEnd}T23:59:59+09:00`);
 
-  // 같은 시간표를 다시 올린 경우 — 이전 자동 생성된 class events 먼저 삭제.
-  // sourceMaterialId 일치하는 것 + 같은 강의명으로 묶인 class kind까지 같이 청소.
-  // (다른 파일로 다시 올린 경우에도 같은 강의명이면 깨끗하게 갈아끼워짐)
-  if (input.sourceMaterialId) {
-    await admin
-      .from("events")
-      .delete()
-      .eq("owner_id", input.ownerId)
-      .eq("source_material_id", input.sourceMaterialId);
+  const validation = normalizeTimetableOutput({
+    termYear: input.termYear,
+    termLabel: input.termLabel,
+    courses: input.courses.map((course) => ({ ...course, confidence: 1 })),
+    rejected: false,
+    rejectionReason: null,
+    warnings: [],
+    watermark: "사용자가 검토하고 확정한 시간표입니다.",
+  });
+  if (validation.droppedCourseCount > 0 || validation.droppedSlotCount > 0) {
+    return {
+      ok: false,
+      error: "강의명이나 수업 시간이 올바르지 않은 항목이 있어요. 검토 화면에서 다시 확인해주세요.",
+    };
   }
-  const incomingNames = input.courses.map((c) => c.name);
-  if (incomingNames.length > 0) {
-    const { data: existingCourses } = await admin
-      .from("courses")
+  const courses = validation.output.courses;
+  if (courses.length === 0) return { ok: false, error: "등록할 강의가 없어요." };
+
+  // 현재 학기의 기존 강의·이벤트 ID를 먼저 스냅샷한다. 새 이벤트 저장이 모두
+  // 성공하기 전에는 기존 일정을 지우지 않아 네트워크/DB 오류에도 시간표가 보존된다.
+  const { data: termCourses, error: termCoursesError } = await admin
+    .from("courses")
+    .select("id, name")
+    .eq("owner_id", input.ownerId)
+    .eq("category", "semester")
+    .eq("term_start", semester.termStart);
+  if (termCoursesError) {
+    return { ok: false, error: `기존 시간표 확인 실패: ${termCoursesError.message}` };
+  }
+
+  const oldEventIds = new Set<string>();
+  const termCourseIds = (termCourses ?? []).map((course) => course.id);
+  if (termCourseIds.length > 0) {
+    const { data, error } = await admin
+      .from("events")
       .select("id")
       .eq("owner_id", input.ownerId)
-      .in("name", incomingNames);
-    const existingIds = (existingCourses ?? []).map((c) => c.id);
-    if (existingIds.length > 0) {
-      await admin
-        .from("events")
-        .delete()
-        .eq("owner_id", input.ownerId)
-        .eq("kind", "class")
-        .in("course_id", existingIds);
-    }
+      .eq("kind", "class")
+      .in("course_id", termCourseIds);
+    if (error) return { ok: false, error: `기존 수업 일정 확인 실패: ${error.message}` };
+    for (const event of data ?? []) oldEventIds.add(event.id);
+  }
+  if (input.sourceMaterialId) {
+    const { data, error } = await admin
+      .from("events")
+      .select("id")
+      .eq("owner_id", input.ownerId)
+      .eq("kind", "class")
+      .eq("source_material_id", input.sourceMaterialId);
+    if (error) return { ok: false, error: `기존 업로드 일정 확인 실패: ${error.message}` };
+    for (const event of data ?? []) oldEventIds.add(event.id);
   }
 
   let insertedCourses = 0;
@@ -313,17 +413,21 @@ export async function confirmTimetable(input: {
     confirmed: true;
   }> = [];
 
-  for (const c of input.courses) {
-    const courseId = await upsertCourse({
-      ownerId: input.ownerId,
-      name: c.name,
-      professor: c.professor,
-      location: c.location,
-      schedule: c.slots.map(slotToScheduleString),
-      termStart: semester.termStart,
-      termEnd: semester.termEnd,
-    });
-    if (!courseId) continue;
+  for (const c of courses) {
+    let courseId: string;
+    try {
+      courseId = await upsertCourse({
+        ownerId: input.ownerId,
+        name: c.name,
+        professor: c.professor ?? null,
+        location: c.location ?? null,
+        schedule: c.slots.map(slotToScheduleString),
+        termStart: semester.termStart,
+        termEnd: semester.termEnd,
+      });
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "강의 저장 실패" };
+    }
     insertedCourses += 1;
 
     for (const slot of c.slots) {
@@ -348,18 +452,61 @@ export async function confirmTimetable(input: {
 
   // events 일괄 insert (chunk 분할 — 한 학기 8과목 × 주 2회 × 15주 = 240행 정도)
   let insertedEvents = 0;
+  const insertedEventIds: string[] = [];
   const CHUNK = 200;
   for (let i = 0; i < eventRows.length; i += CHUNK) {
     const chunk = eventRows.slice(i, i + CHUNK);
-    const { error } = await admin.from("events").insert(chunk);
+    const { data, error } = await admin.from("events").insert(chunk).select("id");
     if (error) {
       console.error("events insert 실패:", error.message);
+      await deleteEventIds(admin, input.ownerId, insertedEventIds);
       return { ok: false, error: `events 저장 실패: ${error.message}` };
     }
+    insertedEventIds.push(...(data ?? []).map((event) => event.id));
     insertedEvents += chunk.length;
   }
 
+  const oldDeleteError = await deleteEventIds(admin, input.ownerId, [...oldEventIds]);
+  if (oldDeleteError) {
+    // 교체 실패 시 방금 만든 일정만 되돌려 기존 시간표가 계속 보이게 한다.
+    await deleteEventIds(admin, input.ownerId, insertedEventIds);
+    return { ok: false, error: `기존 시간표 교체 실패: ${oldDeleteError}` };
+  }
+
+  // 이번 업로드에서 빠진 현재 학기 강의는 학습 자료를 보존하되 시간표 표시만 제거한다.
+  const incomingKeys = new Set(courses.map((course) => normalizedCourseName(course.name)));
+  const removedCourseIds = (termCourses ?? [])
+    .filter((course) => !incomingKeys.has(normalizedCourseName(course.name)))
+    .map((course) => course.id);
+  if (removedCourseIds.length > 0) {
+    const { error } = await admin
+      .from("courses")
+      .update({ schedule: [] })
+      .eq("owner_id", input.ownerId)
+      .in("id", removedCourseIds);
+    if (error) {
+      return { ok: false, error: `이전 강의 시간표 정리 실패: ${error.message}` };
+    }
+  }
+
   return { ok: true, insertedCourses, insertedEvents };
+}
+
+async function deleteEventIds(
+  admin: ReturnType<typeof getAdminSupabase>,
+  ownerId: string,
+  ids: string[],
+): Promise<string | null> {
+  const chunkSize = 200;
+  for (let index = 0; index < ids.length; index += chunkSize) {
+    const { error } = await admin
+      .from("events")
+      .delete()
+      .eq("owner_id", ownerId)
+      .in("id", ids.slice(index, index + chunkSize));
+    if (error) return error.message;
+  }
+  return null;
 }
 
 /**
@@ -426,7 +573,7 @@ async function upsertCourse(opts: {
   schedule: string[];
   termStart: string;
   termEnd: string;
-}): Promise<string | null> {
+}): Promise<string> {
   const admin = getAdminSupabase();
 
   const { data: existing } = await admin
@@ -434,10 +581,11 @@ async function upsertCourse(opts: {
     .select("id")
     .eq("owner_id", opts.ownerId)
     .eq("name", opts.name)
+    .eq("term_start", opts.termStart)
     .maybeSingle();
 
   if (existing?.id) {
-    await admin
+    const { error } = await admin
       .from("courses")
       .update({
         professor: opts.professor,
@@ -448,6 +596,7 @@ async function upsertCourse(opts: {
       })
       .eq("id", existing.id)
       .eq("owner_id", opts.ownerId);
+    if (error) throw new Error(`강의 업데이트 실패: ${error.message}`);
     return existing.id;
   }
 
@@ -467,9 +616,13 @@ async function upsertCourse(opts: {
     .single();
   if (error || !created) {
     console.error("courses insert 실패:", error?.message);
-    return null;
+    throw new Error(`강의 저장 실패: ${error?.message ?? "unknown"}`);
   }
   return created.id;
+}
+
+function normalizedCourseName(name: string): string {
+  return name.normalize("NFKC").toLocaleLowerCase("ko-KR").replace(/\s+/g, "").trim();
 }
 
 const WEEKDAY_KO: Record<TimetableSlotT["weekday"], string> = {

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { upsertAttemptResults } from "@/lib/data/attempts";
+import { getAttemptResults, upsertAttemptResults } from "@/lib/data/attempts";
 import { QuizQuestion } from "@/lib/schemas";
-import { gradeQuiz } from "@/lib/services/grade-quiz";
+import { gradeQuiz, type SubmittedAnswer } from "@/lib/services/grade-quiz";
 import { gradeWithLlmAssist } from "@/lib/services/grade-quiz-llm";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
@@ -25,7 +25,19 @@ const SubmitBody = z.object({
     )
     // 부분 제출 허용 — 답한 문제만 옴(안 푼 문제 빈 답 강제 X). grade-one이 이미 누적
     // 저장했으니 0개여도 마감만 하면 됨.
-    .max(30),
+    .max(50)
+    .superRefine((answers, ctx) => {
+      const seen = new Set<number>();
+      for (const answer of answers) {
+        if (seen.has(answer.questionId)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `같은 문제(${answer.questionId})의 답이 두 번 들어왔어요.`,
+          });
+        }
+        seen.add(answer.questionId);
+      }
+    }),
   /** grade-one이 만든 진행 attempt — 같은 attempt를 마감해 중복 INSERT 방지. */
   attemptId: z.string().uuid().optional(),
   durationMs: z.number().int().nonnegative().optional(),
@@ -47,6 +59,7 @@ interface SubmitOk {
     evidencePage?: number | null;
     gradingNote?: string;
     llmPromoted?: boolean;
+    llmGraded?: boolean;
   }>;
   watermark: string;
 }
@@ -114,15 +127,47 @@ export async function POST(
       { status: 500 },
     );
   }
-  // 답한 문제만 채점 (부분 제출). 안 푼 문제는 results에 안 들어가 오답으로 안 박힌다.
-  const answeredIds = new Set(body.answers.map((a) => a.questionId));
-  const answeredQuestions = questions.filter((q) => answeredIds.has(q.id));
-  const baseGraded = gradeQuiz(answeredQuestions, body.answers);
 
-  // 단답형 LLM 보조 — 정확 매칭 실패한 short-answer만 Haiku에 의미 등가 확인.
-  // 정답 없는 case는 빠르게 반환(no-op)이라 비용은 단답 오답이 있을 때만 발생.
-  // 모델 실패 시 baseGraded 그대로 반환 (실패 안전).
-  const graded = await gradeWithLlmAssist(baseGraded, answeredQuestions);
+  const questionIds = new Set(questions.map((question) => question.id));
+  const unknownId = body.answers.find((answer) => !questionIds.has(answer.questionId));
+  if (unknownId) {
+    return NextResponse.json(
+      { ok: false, error: "이 퀴즈에 없는 문제 번호예요." },
+      { status: 400 },
+    );
+  }
+
+  const existing = body.attemptId
+    ? await getAttemptResults({ ownerId, quizId, attemptId: body.attemptId })
+    : [];
+  if (body.attemptId && existing === null) {
+    return NextResponse.json(
+      { ok: false, error: "이 풀이 기록을 이어갈 수 없어요. 페이지를 새로고침해 주세요." },
+      { status: 409 },
+    );
+  }
+  if (body.answers.length === 0 && !body.attemptId) {
+    return NextResponse.json(
+      { ok: false, error: "먼저 한 문제 이상 풀어주세요." },
+      { status: 400 },
+    );
+  }
+
+  // grade-one에서 이미 판정한 똑같은 답은 그대로 재사용한다. 마지막 제출 때 AI를 다시
+  // 호출해 같은 답의 정오가 뒤바뀌는 일을 막고, 바꿔 쓴 답만 새로 채점한다.
+  const existingById = new Map((existing ?? []).map((result) => [result.questionId, result]));
+  const answerById = new Map(body.answers.map((answer) => [answer.questionId, answer]));
+  const questionsToGrade = questions.filter((question) => {
+    const answer = answerById.get(question.id);
+    if (!answer) return false;
+    return existingById.get(question.id)?.submitted !== submittedValue(answer);
+  });
+  const answersToGrade = questionsToGrade
+    .map((question) => answerById.get(question.id))
+    .filter((answer): answer is SubmittedAnswer => Boolean(answer));
+
+  const baseGraded = gradeQuiz(questionsToGrade, answersToGrade);
+  const graded = await gradeWithLlmAssist(baseGraded, questionsToGrade);
 
   // grade-one이 만든 attempt를 마감(UPSERT) — 새 INSERT 안 함(중복 attempt 방지).
   // 이번 제출분을 기존 누적 results에 병합하고, 마감된 전체 results를 받아 결과 화면에 쓴다.
@@ -156,9 +201,15 @@ export async function POST(
       evidence: r.evidence,
       evidencePage: r.evidencePage,
       gradingNote: r.gradingNote,
+      llmPromoted: r.llmPromoted,
+      llmGraded: r.llmGraded,
       partial: r.partial,
       whyWrong: r.whyWrong,
     })),
     watermark: quiz.watermark,
   });
+}
+
+function submittedValue(answer: SubmittedAnswer): string {
+  return typeof answer.choice === "string" ? answer.choice : answer.response.trim();
 }

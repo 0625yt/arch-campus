@@ -1,9 +1,11 @@
 "use client";
 
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useJob } from "@/lib/hooks/use-job";
+import { isValidTimeRange } from "@/lib/timetable-validation";
 import { ConfidenceBadge, countByConfidence } from "./confidence-badge";
 
 type Phase = "upload" | "extracting" | "review" | "saving" | "done";
@@ -44,6 +46,11 @@ interface ExtractedResponse {
   termYear: number | null;
   termLabel: string | null;
   courses: Course[];
+  warnings?: Array<{
+    code: "invalid-time" | "deduplicated" | "merged-slots" | "missing-time" | "conflict";
+    message: string;
+    courseNames: string[];
+  }>;
   parser: string;
   pageCount?: number;
   usage: { costUsd: number };
@@ -355,7 +362,7 @@ function UploadCard({
           />
           <input
             type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.xlsx,.xls,.hwp,.hwpx"
+            accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.xlsx,.hwp,.hwpx"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="sr-only"
             disabled={extracting}
@@ -433,6 +440,7 @@ function ReviewSection({
   const confidenceValues = extracted.courses.map((c) => c.confidence ?? 0.7);
   const dist = countByConfidence(confidenceValues);
   const needsReview = dist.mid + dist.low;
+  const warnings = extracted.warnings ?? [];
   return (
     <div className="mt-10 fade-up fade-up-3 sm:mt-12">
       {/* 학기 헤더 */}
@@ -456,6 +464,28 @@ function ReviewSection({
           강의 {extracted.courses.length}개 추출됨 · ${extracted.usage.costUsd.toFixed(4)}
         </p>
       </section>
+
+      {warnings.length > 0 && (
+        <section
+          aria-labelledby="timetable-review-warnings"
+          className="mt-5 border-y border-[var(--color-apple-hairline)] py-5"
+        >
+          <h2
+            id="timetable-review-warnings"
+            className="text-[14px] wght-620 text-[var(--color-apple-ink)]"
+          >
+            자동으로 바로잡은 부분
+          </h2>
+          <ul className="mt-2 space-y-1.5 text-[12.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]">
+            {warnings.map((warning) => (
+              <li key={`${warning.code}-${warning.message}`} className="flex gap-2">
+                <span aria-hidden className="mt-[0.7em] h-1 w-1 shrink-0 rounded-full bg-current" />
+                <span>{warning.message}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="mt-8">
         <div className="flex items-baseline justify-between gap-3">
@@ -646,9 +676,9 @@ function CourseRow({
               setEditing(true);
             }}
             aria-label="강의 정보 수정"
-            className="z-10 inline-flex h-7 w-7 items-center justify-center rounded-full text-[12px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+            className="z-10 inline-flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
           >
-            ✎
+            <Pencil aria-hidden size={16} strokeWidth={1.8} />
           </button>
           <span
             aria-hidden
@@ -710,6 +740,7 @@ function CourseEditCard({
   const [professor, setProfessor] = useState(course.professor ?? "");
   const [location, setLocation] = useState(course.location ?? "");
   const [slots, setSlots] = useState(course.slots);
+  const [formError, setFormError] = useState<string | null>(null);
 
   function updateSlot(idx: number, patch: Partial<Course["slots"][number]>) {
     setSlots((prev) => {
@@ -727,6 +758,15 @@ function CourseEditCard({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (slots.length === 0) {
+      setFormError("수업 시간을 하나 이상 추가해주세요.");
+      return;
+    }
+    if (slots.some((slot) => !isValidTimeRange(slot.startTime, slot.endTime))) {
+      setFormError("종료 시간은 시작 시간보다 늦어야 해요.");
+      return;
+    }
+    setFormError(null);
     const patch: Partial<Course> = {
       name: name.trim(),
       professor: professor.trim() || null,
@@ -752,7 +792,7 @@ function CourseEditCard({
 
       <ul className="flex flex-col gap-1.5">
         {slots.map((s, i) => (
-          <li key={slotKey(s)} className="flex items-center gap-1.5">
+          <li key={`${slotKey(s)}-${i}`} className="flex min-w-0 flex-wrap items-center gap-1.5">
             <select
               value={s.weekday}
               onChange={(e) =>
@@ -783,20 +823,27 @@ function CourseEditCard({
               type="button"
               onClick={() => removeSlot(i)}
               aria-label="이 시간 삭제"
-              className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-[14px] text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-urgent)]"
+              className="ml-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-urgent)]"
             >
-              ×
+              <Trash2 aria-hidden size={16} strokeWidth={1.8} />
             </button>
           </li>
         ))}
         <button
           type="button"
           onClick={addSlot}
-          className="self-start rounded-full border border-dashed border-[var(--color-apple-hairline)] px-3 py-1 text-[11.5px] wght-560 text-[var(--color-apple-muted)] hover:border-[var(--color-apple-action)] hover:text-[var(--color-apple-action)]"
+          className="inline-flex min-h-11 self-start items-center gap-1.5 rounded-full border border-dashed border-[var(--color-apple-hairline)] px-3 text-[11.5px] wght-560 text-[var(--color-apple-muted)] hover:border-[var(--color-apple-action)] hover:text-[var(--color-apple-action)]"
         >
-          + 시간 추가
+          <Plus aria-hidden size={15} strokeWidth={1.8} />
+          시간 추가
         </button>
       </ul>
+
+      {formError && (
+        <p role="alert" className="text-[12px] wght-560 text-[var(--color-urgent)]">
+          {formError}
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-2">
         <input

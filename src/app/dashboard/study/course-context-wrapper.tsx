@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContextMenu, type ContextMenuItem, useContextMenu } from "@/components/context-menu";
 import { Modal } from "@/components/modal";
@@ -128,8 +128,7 @@ export function CourseContextWrapper({
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={80}
-              autoFocus
-              className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[14px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+              className="h-11 w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 text-[14px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
             />
           </label>
 
@@ -147,7 +146,7 @@ export function CourseContextWrapper({
                 onChange={(e) => setProfessor(e.target.value)}
                 maxLength={60}
                 placeholder="비워두면 '교수 미정'"
-                className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[14px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+                className="h-11 w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 text-[14px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
               />
             </label>
           )}
@@ -167,13 +166,17 @@ export function CourseContextWrapper({
                   onClick={() => setColor(c)}
                   aria-label={`색상 ${c}`}
                   aria-pressed={color === c}
-                  className={
-                    color === c
-                      ? "h-7 w-7 rounded-full ring-2 ring-[var(--color-apple-ink)] ring-offset-2 ring-offset-white"
-                      : "h-7 w-7 rounded-full transition-transform hover:scale-110"
-                  }
-                  style={{ backgroundColor: c }}
-                />
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full"
+                >
+                  <span
+                    className={
+                      color === c
+                        ? "h-7 w-7 rounded-full ring-2 ring-[var(--color-apple-ink)] ring-offset-2 ring-offset-white"
+                        : "h-7 w-7 rounded-full transition-transform hover:scale-110"
+                    }
+                    style={{ backgroundColor: c }}
+                  />
+                </button>
               ))}
             </div>
           </fieldset>
@@ -189,14 +192,14 @@ export function CourseContextWrapper({
               type="button"
               onClick={() => setEditing(false)}
               disabled={busy}
-              className="rounded-[8px] px-3.5 py-2 text-[13px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
+              className="min-h-11 rounded-[8px] px-3.5 text-[13px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="rounded-[8px] bg-[var(--color-apple-ink)] px-3.5 py-2 text-[13px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="min-h-11 rounded-[8px] bg-[var(--color-apple-ink)] px-3.5 text-[13px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "저장 중…" : "저장"}
             </button>

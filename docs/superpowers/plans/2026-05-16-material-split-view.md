@@ -1,4 +1,6 @@
-# Material 상세 split-view + 자동 PDF 변환 Implementation Plan
+# [ARCHIVED] Material 상세 split-view + 자동 PDF 변환 Implementation Plan
+
+> **역사 기록 — 현재 실행 금지 (2026-07-23 갱신).** 이 계획의 CloudConvert 자동 변환·iframe 뷰어는 현재 제품에서 제거되거나 교체됐다. 현재 동작과 검증 기준은 [현행 design 문서](../specs/2026-05-16-material-split-view-design.md)와 소스 코드를 따른다. Office/HWP 파일은 자동 변환하지 않고 업로드 단계에서 PDF로 내보내 다시 올리도록 안내한다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -1414,4 +1416,3 @@ vercel ls --prod | grep "arch-campus-" | head -1
 | 10. 변환 상태 컴포넌트 | 1h |
 | 11. 배포 + 실측 | 30분 |
 | **합계** | **~6h** |
-

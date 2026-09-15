@@ -15,6 +15,17 @@ const PUBLIC_PREFIXES = ["/", "/login", "/signup", "/auth", "/terms", "/privacy"
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
+  const pathname = request.nextUrl.pathname;
+
+  // 순수 공개 콘텐츠는 세션에 따라 달라지지 않는다. Proxy에서 원격 auth 조회를
+  // 기다리지 않아야 정적 랜딩의 캐시·TTFB 이점을 그대로 얻는다.
+  const isAuthFreePublicPage =
+    pathname === "/" ||
+    pathname === "/terms" ||
+    pathname.startsWith("/terms/") ||
+    pathname === "/privacy" ||
+    pathname.startsWith("/privacy/");
+  if (isAuthFreePublicPage) return response;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -41,7 +52,6 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
   const isPublic = PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if (!user && !isPublic && process.env.NODE_ENV === "production") {

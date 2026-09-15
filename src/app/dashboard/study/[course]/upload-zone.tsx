@@ -119,45 +119,48 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
       createdAt: new Date().toISOString(),
       startedAt: new Date().toISOString(),
     });
-    const putRes = await fetch(urlBody.signedUrl, {
-      method: "PUT",
-      headers: {
-        "content-type": file.type || "application/octet-stream",
-        "x-upsert": "false",
-      },
-      body: file,
-    });
-    if (!putRes.ok) {
-      removeOptimisticJob(optimisticId);
-      throw new Error(`파일 업로드 실패 (HTTP ${putRes.status})`);
-    }
+    try {
+      const putRes = await fetch(urlBody.signedUrl, {
+        method: "PUT",
+        headers: {
+          "content-type": file.type || "application/octet-stream",
+          "x-upsert": "false",
+        },
+        body: file,
+      });
+      if (!putRes.ok) {
+        throw new Error(`파일 업로드 실패 (HTTP ${putRes.status})`);
+      }
 
-    // 3) finalize — 파싱·INSERT·잡 큐잉
-    const finRes = await fetch("/api/materials/finalize", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        storagePath: urlBody.storagePath,
-        filename: file.name,
-        mimeType: file.type || undefined,
-        materialId: urlBody.materialId,
-        courseId,
-        type,
-        intentNote: note || undefined,
-      }),
-    });
-    const finBody = (await finRes.json().catch(() => null)) as
-      | { ok: true; materialId: string }
-      | { ok: false; error: string }
-      | null;
-    if (!finRes.ok || !finBody || finBody.ok === false) {
+      // 3) finalize — 파싱·INSERT·잡 큐잉
+      const finRes = await fetch("/api/materials/finalize", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          storagePath: urlBody.storagePath,
+          filename: file.name,
+          mimeType: file.type || undefined,
+          materialId: urlBody.materialId,
+          courseId,
+          type,
+          intentNote: note || undefined,
+        }),
+      });
+      const finBody = (await finRes.json().catch(() => null)) as
+        | { ok: true; materialId: string }
+        | { ok: false; error: string }
+        | null;
+      if (!finRes.ok || !finBody || finBody.ok === false) {
+        const msg =
+          (finBody && finBody.ok === false && finBody.error) ||
+          `finalize 실패 (HTTP ${finRes.status})`;
+        throw new Error(msg);
+      }
+      return finBody.materialId;
+    } catch (error) {
       removeOptimisticJob(optimisticId);
-      const msg =
-        (finBody && finBody.ok === false && finBody.error) ||
-        `finalize 실패 (HTTP ${finRes.status})`;
-      throw new Error(msg);
+      throw error;
     }
-    return finBody.materialId;
   }
 
   /**
@@ -258,55 +261,65 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
     setCurrentIndex(files.length);
     setCurrentName(`${files.length}개 파일 합치는 중…`);
 
-    // 3) finalize-merged 호출
-    const mergeRes = await fetch("/api/materials/finalize-merged", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        materialId: primary.materialId,
-        sources: sources.map((s) => ({
-          storagePath: s.storagePath,
-          filename: s.filename,
-          mimeType: s.mimeType,
-        })),
-        courseId,
-        type,
-        intentNote: note || undefined,
-      }),
-    });
-    const mergeBody = (await mergeRes.json().catch(() => null)) as
-      | { ok: true; materialId: string; mergeMode: "pdf" | "text-concat"; mergedCount: number }
-      | { ok: false; error: string; reason?: string }
-      | null;
+    try {
+      // 3) finalize-merged 호출
+      const mergeRes = await fetch("/api/materials/finalize-merged", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          materialId: primary.materialId,
+          sources: sources.map((s) => ({
+            storagePath: s.storagePath,
+            filename: s.filename,
+            mimeType: s.mimeType,
+          })),
+          courseId,
+          type,
+          intentNote: note || undefined,
+        }),
+      });
+      const mergeBody = (await mergeRes.json().catch(() => null)) as
+        | { ok: true; materialId: string; mergeMode: "pdf" | "text-concat"; mergedCount: number }
+        | { ok: false; error: string; reason?: string }
+        | null;
 
-    if (!mergeRes.ok || !mergeBody || mergeBody.ok === false) {
-      for (const id of optimisticIds) removeOptimisticJob(id);
+      if (!mergeRes.ok || !mergeBody || mergeBody.ok === false) {
+        for (const id of optimisticIds) removeOptimisticJob(id);
 
-      // 서버가 "형식 섞임"으로 거부하면 → separate 폴백 자동 호출 (이미 업로드된 파일들로)
-      if (mergeBody && "reason" in mergeBody && mergeBody.reason === "incompatible") {
-        setErrorMsg(null);
-        await fallbackToSeparate(sources, type, note);
+        // 서버가 "형식 섞임"으로 거부하면 → separate 폴백 자동 호출 (이미 업로드된 파일들로)
+        if (mergeBody && "reason" in mergeBody && mergeBody.reason === "incompatible") {
+          setErrorMsg(null);
+          await fallbackToSeparate(sources, type, note);
+          return;
+        }
+
+        setErrorMsg(
+          (mergeBody && mergeBody.ok === false && mergeBody.error) ||
+            `합치기 실패 (HTTP ${mergeRes.status})`,
+        );
+        setPhase("error");
         return;
       }
 
+      pingActiveJobs();
+      pingSidebarCourses();
+      setUploaded([
+        {
+          filename: `${primary.filename} 외 ${sources.length - 1}개`,
+          materialId: mergeBody.materialId,
+        },
+      ]);
+      setFailed([]);
+      setPhase("done");
+    } catch (error) {
+      for (const id of optimisticIds) removeOptimisticJob(id);
       setErrorMsg(
-        (mergeBody && mergeBody.ok === false && mergeBody.error) ||
-          `합치기 실패 (HTTP ${mergeRes.status})`,
+        error instanceof Error
+          ? `파일을 합치지 못했어요. ${error.message}`
+          : "연결이 끊겼어요. 다시 시도해 주세요.",
       );
       setPhase("error");
-      return;
     }
-
-    pingActiveJobs();
-    pingSidebarCourses();
-    setUploaded([
-      {
-        filename: `${primary.filename} 외 ${sources.length - 1}개`,
-        materialId: mergeBody.materialId,
-      },
-    ]);
-    setFailed([]);
-    setPhase("done");
   }
 
   /**
@@ -323,10 +336,10 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
 
     for (let i = 0; i < sources.length; i++) {
       const s = sources[i];
+      const optimisticId = `optimistic-${s.materialId}`;
       setCurrentIndex(i + 1);
       setCurrentName(s.filename);
       try {
-        const optimisticId = `optimistic-${s.materialId}`;
         addOptimisticJob({
           id: optimisticId,
           tool: "upload",
@@ -364,6 +377,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
         }
         okList.push({ filename: s.filename, materialId: finBody.materialId });
       } catch (e) {
+        removeOptimisticJob(optimisticId);
         failList.push({
           filename: s.filename,
           reason: e instanceof Error ? e.message : "알 수 없는 오류",
@@ -522,6 +536,8 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
           className="sr-only"
           onChange={(e) => {
             const picked = Array.from(e.target.files ?? []);
+            // 동일 파일로 재시도해도 change가 다시 발생하도록 선택 값을 비운다.
+            e.target.value = "";
             if (picked.length > 0) askTypeThenUpload(picked);
           }}
         />

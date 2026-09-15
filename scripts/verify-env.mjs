@@ -25,34 +25,25 @@ async function main() {
   ]) {
     record(key, Boolean(env[key]), env[key] ? `${env[key].slice(0, 8)}…` : "비어있음");
   }
-  // LLM 라우팅 — 둘 중 하나는 있어야 모델 호출이 가능.
-  // - AI_GATEWAY_API_KEY (권장, Vercel AI Gateway 경유)
-  // - ANTHROPIC_API_KEY (fallback, Anthropic SDK 직접 호출)
-  const hasGateway = Boolean(env.AI_GATEWAY_API_KEY) || Boolean(env.VERCEL_OIDC_TOKEN);
+  // 현재 앱은 Gateway가 아니라 Anthropic·Google SDK를 직접 쓴다.
   const hasAnthropic = Boolean(env.ANTHROPIC_API_KEY);
+  const hasGoogle = Boolean(env.GOOGLE_GENERATIVE_AI_API_KEY);
   record(
-    "AI_GATEWAY_API_KEY 또는 VERCEL_OIDC_TOKEN",
-    hasGateway,
-    hasGateway ? "있음" : "비어있음 — Gateway 라우팅 비활성",
-  );
-  record(
-    "ANTHROPIC_API_KEY (Gateway 없을 때 fallback)",
+    "ANTHROPIC_API_KEY",
     hasAnthropic,
     hasAnthropic ? `${env.ANTHROPIC_API_KEY.slice(0, 8)}…` : "비어있음",
   );
-  if (!hasGateway && !hasAnthropic) {
-    record("LLM 라우팅", false, "Gateway·Anthropic 둘 다 없음 — 모든 AI 호출 실패");
+  record(
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+    hasGoogle,
+    hasGoogle ? `${env.GOOGLE_GENERATIVE_AI_API_KEY.slice(0, 6)}…` : "비어있음",
+  );
+  if (!hasAnthropic && !hasGoogle) {
+    record("LLM 라우팅", false, "Anthropic·Google 키가 모두 없음 — 모든 AI 호출 실패");
   }
-  // vendor 라우팅 플래그 — 비어있어도 정상(기본은 Anthropic)
-  if (env.QUIZ_MODEL_VENDOR || env.SUMMARY_MODEL_VENDOR) {
-    console.log(
-      `  ↳ vendor 플래그: quiz=${env.QUIZ_MODEL_VENDOR ?? "anthropic"} ` +
-        `summary=${env.SUMMARY_MODEL_VENDOR ?? "anthropic"}`,
-    );
-  }
+  console.log(`  ↳ 실제 라우팅: quiz=${resolveQuizRoute(env)} · summary=${resolveSummaryRoute(env)}`);
 
-  // Anthropic 직접 ping은 ANTHROPIC_API_KEY가 있을 때만 (fallback 동작 확인용).
-  // Gateway 자체 ping은 OIDC 토큰 만료 등 false-positive가 흔해 생략.
+  // Anthropic·Google을 각각 직접 호출해 "키가 있다"와 "키가 동작한다"를 분리한다.
   if (env.ANTHROPIC_API_KEY) {
     console.log("\n── Anthropic 직접 호출 (fallback 경로) ───────────");
     try {
@@ -83,7 +74,38 @@ async function main() {
       record("Anthropic API 호출", false, err.message);
     }
   } else {
-    console.log("\n── Anthropic 직접 호출 — skip (Gateway 단독 운영) ─");
+    console.log("\n── Anthropic 직접 호출 — skip (키 없음) ──────────");
+  }
+
+  if (env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    console.log("\n── Google Gemini 직접 호출 ───────────────────────");
+    try {
+      const endpoint =
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+      const res = await fetch(`${endpoint}?key=${encodeURIComponent(env.GOOGLE_GENERATIVE_AI_API_KEY)}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: "Reply with exactly OK" }] }],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 16,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+        }),
+      });
+      const json = await res.json();
+      const text = json.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("")?.trim();
+      record(
+        "Google Gemini API 호출",
+        res.ok && text === "OK",
+        res.ok ? `응답 "${text || "(비어있음)"}"` : `HTTP ${res.status} ${safeApiError(json)}`,
+      );
+    } catch (err) {
+      record("Google Gemini API 호출", false, err.message);
+    }
+  } else {
+    console.log("\n── Google Gemini 직접 호출 — skip (키 없음) ──────");
   }
 
   console.log("\n── Supabase (anon, RLS 적용) ─────────────────────");
@@ -160,6 +182,36 @@ async function main() {
     console.log(`\x1b[31m실패 ${failed.length}건\x1b[0m`);
     process.exit(1);
   }
+}
+
+function isGoogle(value) {
+  return ["google", "gemini"].includes(String(value ?? "").trim().toLowerCase());
+}
+
+function isAnthropic(value) {
+  return ["anthropic", "claude"].includes(String(value ?? "").trim().toLowerCase());
+}
+
+function isProduction(env) {
+  return env.VERCEL_ENV === "production" || env.NEXT_PUBLIC_VERCEL_ENV === "production";
+}
+
+function resolveQuizRoute(env) {
+  if (isGoogle(env.LLM_VENDOR) && !isAnthropic(env.QUIZ_MODEL_VENDOR)) return "Gemini 2.5 Pro";
+  if (!isProduction(env) && isGoogle(env.QUIZ_MODEL_VENDOR)) return "Gemini 2.5 Flash";
+  return "Claude Sonnet 4.6";
+}
+
+function resolveSummaryRoute(env) {
+  if (isGoogle(env.LLM_VENDOR) && !isAnthropic(env.SUMMARY_MODEL_VENDOR)) {
+    return "Gemini 2.5 Flash";
+  }
+  return isAnthropic(env.SUMMARY_MODEL_VENDOR) ? "Claude Haiku 4.5" : "Gemini 2.5 Flash";
+}
+
+function safeApiError(json) {
+  const message = json?.error?.message;
+  return typeof message === "string" ? message.slice(0, 160) : "응답 형식 확인 필요";
 }
 
 main().catch((err) => {

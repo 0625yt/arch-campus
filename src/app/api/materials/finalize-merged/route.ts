@@ -326,6 +326,7 @@ export async function POST(
       fullText: merged.text,
       sanitizedText: merged.sanitizedText,
       pageCount: merged.pageCount,
+      mimeType: finalMimeType,
       parserWarnings: merged.warnings,
       difficulty: (body.difficulty ?? "보통") as Difficulty,
       requestedCount: body.count ?? 10,

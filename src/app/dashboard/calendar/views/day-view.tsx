@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { EventView } from "@/lib/data/events";
 import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
+import { kstParts, weekdayOfDateKey } from "@/lib/kst";
 import { useIsDark } from "../../use-mobile";
 import { eventColorThemed } from "../calendar-board";
 import {
+  eventOccursOnDateKey,
   formatHourLabel,
   getNowKstMinutes,
   HOUR_HEIGHT_PX,
@@ -60,15 +62,13 @@ export function DayView({
   const todayKey = isoToKstDateKey(new Date().toISOString());
   const isToday = dateKey === todayKey;
 
-  const d = new Date(`${dateKey}T00:00:00+09:00`);
-  const dow = d.getDay();
-  const monthDay = `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const dow = weekdayOfDateKey(dateKey);
+  const monthDay = `${month}월 ${day}일`;
 
   // 이 날짜 이벤트만 필터 + 뷰 모드(시간표만이면 수업만)
   const dayEvents = events.filter(
-    (e) =>
-      isoToKstDateKey(e.startsAt) === dateKey &&
-      (viewMode === "all" || e.kind === "class"),
+    (e) => eventOccursOnDateKey(e, dateKey) && (viewMode === "all" || e.kind === "class"),
   );
   const allDay = dayEvents.filter((e) => e.allDay);
   const timed = dayEvents.filter((e) => !e.allDay);
@@ -77,9 +77,7 @@ export function DayView({
   // 일 뷰도 새벽(0~5시) 안 보여줌 — 일관성 + 학생 컨텍스트.
   // 단, 0~5시에 시작하는 이벤트가 있으면 자동으로 0시부터 표시.
   const hasEarlyEvent = timed.some((e) => {
-    const d = new Date(e.startsAt);
-    const kst = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-    return kst.getHours() < 6;
+    return kstParts(e.startsAt).hour < 6;
   });
   const startHour = hasEarlyEvent ? 0 : 6;
   const visibleHours = 24 - startHour;
@@ -103,7 +101,7 @@ export function DayView({
             }`}
             style={{ letterSpacing: "-0.018em" }}
           >
-            {d.getFullYear()}년 {monthDay}
+            {year}년 {monthDay}
           </span>
           <span
             className="mt-1 text-[14px] wght-450 text-[var(--color-apple-muted)]"

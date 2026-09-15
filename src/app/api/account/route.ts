@@ -88,15 +88,23 @@ export async function DELETE(
         const slice = allPaths.slice(i, i + CHUNK);
         const { error } = await admin.storage.from(BUCKET).remove(slice);
         if (error) {
-          console.error("[account.delete] storage remove failed", { error: error.message });
-        } else {
-          storageDeleted += slice.length;
+          throw new Error(`storage remove failed: ${error.message}`);
         }
+        storageDeleted += slice.length;
       }
     }
   } catch (e) {
     console.error("[account.delete] storage cleanup failed", e);
-    // 진행은 계속 — DB 삭제가 우선
+    // Storage가 남은 채 auth.user를 지우면 사용자가 다시 로그인해 삭제를
+    // 재시도할 수 없다. 계정은 유지하고 안전하게 중단한다.
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "업로드 자료를 모두 정리하지 못해 계정 삭제를 중단했어요. 잠시 후 다시 시도해 주세요.",
+      },
+      { status: 500 },
+    );
   }
 
   // 2) DB cascade — 자식 → 부모 순서. FK on delete cascade가 모두 박혀있으면

@@ -13,6 +13,8 @@ node_modules/
 
 # testing
 /coverage
+/playwright-report
+/test-results
 
 # next.js
 /.next/
@@ -66,3 +68,4 @@ supabase/.temp/
 .superpowers/
 /design/
 .playwright-mcp/
+.env*.local

@@ -1,5 +1,5 @@
 import "server-only";
-import { estimateCost, generate, getModelVendor } from "@/lib/claude";
+import { estimateCost, generate, getModelIdFor, getModelVendor } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
 import {
   ChecklistOutput,
@@ -91,7 +91,7 @@ export async function runReportChecklist(input: ChecklistInput): Promise<Checkli
   } catch (e) {
     await logGeneration({
       ownerId: input.ownerId,
-      modelId: "claude-sonnet-4-6",
+      modelId: getModelIdFor("wizard-assignment"),
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });

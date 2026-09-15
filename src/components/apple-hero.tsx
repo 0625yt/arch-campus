@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 /**
@@ -34,14 +35,19 @@ export function AppleHeroTopBar({
   chip?: string;
 }) {
   return (
-    <header className="fade-up flex items-baseline justify-between gap-3">
+    <header className="fade-up flex min-h-11 items-center justify-between gap-3">
       {back ? (
         <Link
           href={back.href}
-          className="group inline-flex items-baseline gap-1 text-[12px] wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
+          className="group -ml-2 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-[12px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:bg-surface-strong hover:text-[var(--color-apple-ink)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          <span className="transition-transform group-hover:-translate-x-0.5">‹</span>
+          <ArrowLeft
+            aria-hidden
+            size={14}
+            strokeWidth={1.7}
+            className="transition-transform group-hover:-translate-x-0.5 motion-reduce:transform-none"
+          />
           {back.label}
         </Link>
       ) : (
@@ -78,13 +84,11 @@ export function AppleHero({
   if (process.env.NODE_ENV !== "production") {
     const titleStr = typeof title === "string" ? title : "";
     if (titleStr.endsWith(".") || titleStr.endsWith("。")) {
-      // biome-ignore lint/suspicious/noConsole: dev-only AI-tone guard
       console.warn(
         `[AppleHero] 헤더는 이름표이지 문장이 아니에요. 마침표 제거 권장: "${titleStr}"`,
       );
     }
     if (sub?.endsWith("드릴게요.") || sub?.endsWith("만들어져요.")) {
-      // biome-ignore lint/suspicious/noConsole: dev-only AI-tone guard
       console.warn(`[AppleHero] 어시스턴트체 카피 감지: "${sub}" — 명사구·평서체로 교체 권장.`);
     }
   }
@@ -98,8 +102,8 @@ export function AppleHero({
         {eyebrow}
       </p>
       <h1
-        className="mt-2 text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
-        style={{ letterSpacing: "-0.022em" }}
+        className="mt-2.5 text-balance break-keep text-[28px] leading-[1.22] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
+        style={{ letterSpacing: "-0.04em" }}
       >
         {title}
         {titleMuted && (
@@ -111,7 +115,7 @@ export function AppleHero({
       </h1>
       {sub && (
         <p
-          className="mt-2.5 max-w-[600px] text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
+          className="mt-3 max-w-[600px] break-keep text-[13.5px] leading-[1.7] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
           style={{ letterSpacing: "-0.012em" }}
         >
           {sub}

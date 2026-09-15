@@ -1,29 +1,17 @@
 "use client";
 
+import { ArrowUpRight, History, LogOut, Settings2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
+import { SearchTrigger } from "@/components/search-trigger";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { inferSemester } from "@/lib/semester";
 import { cn } from "@/lib/utils";
+import styles from "./navigation.module.css";
 
-/**
- * 글로벌 상단 nav — Apple Mail/Notes macOS 톤.
- * - 좌측: wordmark
- * - 가운데: segmented (지금/공부/일정/도구) — Apple System Preferences·Music 패턴
- * - 우측: 검색 칩 + 프로필 메뉴
- *
- * 사이드바를 대체. 사용자: "메뉴 빼고 애플처럼 그냥 똑같이 보여버려."
- * 모바일은 별도 MobileTabBar가 받음.
- */
-
-/*
- * NAV — Apple Mail / Music macOS 톤. "지금"은 홈(/dashboard)에 통합됐고,
- * 학습 큐(내 문제·복습)는 메인 segmented에서 살아남는다 (학생이 가장 자주 누름).
- */
 const NAV = [
-  { href: "/dashboard", label: "홈", exact: true },
+  { href: "/dashboard", label: "홈" },
   { href: "/dashboard/study", label: "공부" },
   { href: "/dashboard/quiz", label: "내 문제" },
   { href: "/dashboard/review", label: "복습" },
@@ -31,40 +19,38 @@ const NAV = [
   { href: "/dashboard/tools", label: "도구" },
 ] as const;
 
-const HOME_HREF = "/dashboard";
-
 export function GlobalTopbar() {
   const pathname = usePathname();
 
   return (
     <header
-      data-glass
-      className="liquid-glass-bar sticky top-0 z-40 hidden border-b border-[var(--color-apple-hairline-soft)] md:block"
+      className={cn(styles.topbar, "sticky top-0 z-40 hidden md:block")}
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      {/*
-        Apple Music macOS toolbar 톤 — nav를 진짜 가운데로 (사용자 요청 2026-05-31).
-          ┌─ Leading: brand
-          ├─ flex spacer
-          ├─ Center: SegmentedNav (absolute centered도 가능하지만 flex로 안정)
-          ├─ flex spacer
-          └─ Trailing cluster: 학기 · 테마 · 프로필
-      */}
-      <div className="mx-auto flex h-12 max-w-[1440px] items-center gap-3 px-5 md:px-8 xl:px-10">
-        {/* Leading — brand */}
-        <div className="flex flex-1 shrink-0 items-center">
-          <BrandLink />
-        </div>
-
-        {/* Center — nav segmented (진짜 가운데) */}
-        <div className="flex shrink-0 items-center justify-center">
-          <SegmentedNav pathname={pathname} />
-        </div>
-
-        {/* Trailing cluster — meta · profile */}
-        <div className="flex flex-1 shrink-0 items-center justify-end gap-2">
-          <SemesterChip />
-          <ThemeToggle />
+      <div className={styles.desktopInner}>
+        <BrandLink />
+        <nav aria-label="주 메뉴" className={styles.desktopNav}>
+          {NAV.map(({ href, label }) => {
+            const active =
+              pathname === href ||
+              (href === "/dashboard"
+                ? pathname === "/dashboard/chat"
+                : pathname.startsWith(`${href}/`));
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={cn(styles.desktopTab, active && styles.activeTab)}
+              >
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className={styles.actions}>
+          <SearchTrigger variant="compact" />
+          <ThemeToggle className={styles.themeControl} />
           <ProfileMenu />
         </div>
       </div>
@@ -72,237 +58,151 @@ export function GlobalTopbar() {
   );
 }
 
-function BrandLink() {
+export function BrandLink() {
   return (
-    <Link
-      href={HOME_HREF}
-      aria-label="홈"
-      className="group flex items-center gap-2 rounded-[8px] px-1.5 py-1 opacity-90 transition-opacity hover:opacity-100"
-    >
-      <Logo />
-      <span
-        className="text-[14px] wght-620 text-[var(--color-apple-ink)]"
-        style={{ letterSpacing: "-0.014em" }}
-      >
-        arch
+    <Link href="/dashboard" aria-label="arch 홈" className={styles.brand}>
+      <span aria-hidden className={styles.brandMark}>
+        <BrandMark size={26} monochrome />
       </span>
+      <span className={styles.wordmark}>arch</span>
+      <span className={styles.brandSuffix}>campus</span>
     </Link>
   );
 }
 
-/**
- * 학기·주차 chip — Apple Mail의 "Inbox · 12" 카운터 톤.
- * 사용자가 매번 보는 정보 (지금 몇 주차인지)를 nav에 영구적으로 박는다.
- */
-function SemesterChip() {
-  const sem = inferSemester();
-  // 학기 첫날부터 경과 주차 계산 (1주차부터)
-  const start = new Date(sem.termStart);
-  const now = new Date();
-  const diffMs = now.getTime() - start.getTime();
-  const week = Math.max(1, Math.min(16, Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1));
+type Profile = {
+  displayName: string | null;
+  email: string | null;
+  department: string | null;
+  year: number | null;
+};
 
-  return (
-    <Link
-      href="/dashboard/calendar"
-      aria-label={`${sem.label} ${week}주차 — 캘린더로 이동`}
-      className="group hidden items-center gap-1.5 rounded-full border border-[var(--color-apple-hairline-soft)] bg-[var(--color-apple-pearl)]/60 px-2.5 py-1 transition-colors hover:bg-[var(--color-apple-pearl)] lg:inline-flex"
-    >
-      <span
-        aria-hidden
-        className="h-1.5 w-1.5 rounded-full bg-[var(--color-apple-action)]"
-        style={{ boxShadow: "0 0 6px var(--color-apple-action)" }}
-      />
-      <span
-        className="text-[11px] wght-560 text-[var(--color-apple-muted)] group-hover:text-[var(--color-apple-ink)]"
-        style={{ letterSpacing: "-0.011em" }}
-      >
-        {sem.label}
-      </span>
-      <span
-        aria-hidden
-        className="text-[10px] wght-700 tabular-nums text-[var(--color-apple-muted)]/70"
-      >
-        ·
-      </span>
-      <span
-        className="text-[11px] wght-700 tabular-nums text-[var(--color-apple-ink)]"
-        style={{ letterSpacing: "-0.011em" }}
-      >
-        {week}주차
-      </span>
-    </Link>
-  );
-}
-
-/**
- * Apple System Settings·Music 헤더 톤의 segmented pill.
- * 활성 항목은 흰 캡슐 + 살짝 그림자.
- */
-function SegmentedNav({ pathname }: { pathname: string }) {
-  return (
-    <nav
-      aria-label="주 메뉴"
-      className="relative inline-flex items-center gap-0.5 rounded-full border border-[var(--color-apple-hairline-soft)] bg-gradient-to-b from-[var(--color-apple-pearl)]/85 to-[var(--color-apple-pearl)]/55 p-[3px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.05),inset_0_0_0_0.5px_rgba(255,255,255,0.75),0_1px_2px_rgba(0,0,0,0.02)]"
-    >
-      {NAV.map((item) => {
-        const exact = "exact" in item && item.exact;
-        const active = exact
-          ? pathname === item.href
-          : pathname === item.href || pathname.startsWith(item.href + "/");
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "relative inline-flex h-7 items-center rounded-full px-2.5 text-[12px] transition-all duration-200 xl:px-3 xl:text-[12.5px]",
-              active
-                ? "wght-620 bg-white text-[var(--color-apple-ink)] shadow-[0_1px_3px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.8)]"
-                : "wght-560 text-[var(--color-apple-muted)] hover:bg-white/40 hover:text-[var(--color-apple-ink)]",
-            )}
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
-
-function ProfileMenu() {
-  const [open, setOpen] = useState(false);
-  const [profile, setProfile] = useState<{
-    displayName: string | null;
-    email: string | null;
-    department: string | null;
-    year: number | null;
-  } | null>(null);
+/** Desktop and mobile use the same account controls and keyboard behavior. */
+export function ProfileMenu() {
+  const pathname = usePathname();
+  const panelId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const firstLinkRef = useRef<HTMLAnchorElement>(null);
+  const [openedOnPath, setOpenedOnPath] = useState<string | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const open = openedOnPath === pathname;
 
   useEffect(() => {
-    let aborted = false;
-    fetch("/api/profile")
-      .then((r) => r.json())
-      .then((j) => {
-        if (aborted) return;
-        if (j?.ok && j.profile) setProfile(j.profile);
-      })
-      .catch(() => {});
-    return () => {
-      aborted = true;
-    };
-  }, []);
+    if (openedOnPath && openedOnPath !== pathname) setOpenedOnPath(null);
+  }, [openedOnPath, pathname]);
 
-  // 외부 클릭으로 닫기
   useEffect(() => {
     if (!open) return;
-    function onDown(e: MouseEvent) {
-      const target = e.target as HTMLElement;
-      if (!target.closest("[data-profile-menu]")) setOpen(false);
+    firstLinkRef.current?.focus();
+    function onPointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpenedOnPath(null);
     }
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
+    function onFocusIn(event: FocusEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpenedOnPath(null);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setOpenedOnPath(null);
+      triggerRef.current?.focus();
+    }
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    document.addEventListener("focusin", onFocusIn);
+    // A breakpoint change hides one bar. Do not leave its account panel open.
+    const breakpoint = window.matchMedia("(min-width: 768px)");
+    const close = () => setOpenedOnPath(null);
+    breakpoint.addEventListener("change", close);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("focusin", onFocusIn);
+      breakpoint.removeEventListener("change", close);
+    };
   }, [open]);
 
-  const name = profile?.displayName || profile?.email?.split("@")[0] || "사용자";
+  useEffect(() => {
+    if (!open || profile) return;
+    const controller = new AbortController();
+    fetch("/api/profile", { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result) => {
+        if (result?.ok && result.profile) setProfile(result.profile);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [open, profile]);
+
+  const name = profile?.displayName || profile?.email?.split("@")[0] || "내 계정";
   const sub = profile?.department
     ? `${profile.department}${profile.year ? ` · ${profile.year}학년` : ""}`
-    : profile?.email || "";
+    : profile?.email || "프로필과 서비스 설정";
+  const initial = profile?.displayName?.slice(0, 1) || profile?.email?.slice(0, 1);
 
   return (
-    <div className="relative" data-profile-menu>
+    <div ref={rootRef} className={styles.profile}>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label="프로필"
-        aria-haspopup="menu"
+        onClick={() => setOpenedOnPath(open ? null : pathname)}
+        aria-label="내 계정"
+        aria-haspopup="dialog"
         aria-expanded={open}
-        className="flex h-9 w-9 items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-95"
+        aria-controls={open ? panelId : undefined}
+        className={styles.profileTrigger}
       >
-        <Avatar />
+        <span aria-hidden className={styles.avatar}>
+          {initial || <UserRound size={17} strokeWidth={1.8} />}
+        </span>
       </button>
 
       {open && (
         <div
-          role="menu"
-          className="absolute right-0 top-[44px] z-50 w-[244px] origin-top-right overflow-hidden rounded-[14px] border border-[var(--color-apple-hairline-soft)] bg-white/95 shadow-[0_8px_28px_-6px_rgba(0,0,0,0.18),0_2px_6px_-2px_rgba(0,0,0,0.08)] backdrop-blur-xl"
-          style={{ animation: "scale-in 160ms ease-out both" }}
+          id={panelId}
+          role="dialog"
+          aria-modal="false"
+          aria-label="계정 메뉴"
+          className={styles.profilePanel}
         >
-          <div className="flex items-center gap-3 border-b border-[var(--color-apple-hairline-soft)] px-3.5 py-3">
-            <Avatar />
-            <div className="min-w-0 flex-1">
-              <div
-                className="truncate text-[13px] wght-620 text-[var(--color-apple-ink)]"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                {name}
-              </div>
-              <div className="truncate text-[11px] wght-450 text-[var(--color-apple-muted)]">
-                {sub}
-              </div>
-            </div>
+          <div className={styles.profileHeader}>
+            <span className={styles.profileEyebrow}>MY CAMPUS</span>
+            <p className={styles.profileName}>{name}</p>
+            <p className={styles.profileMeta}>{sub}</p>
           </div>
-          <MenuLink href="/dashboard/history" label="활동 기록" onSelect={() => setOpen(false)} />
-          <MenuLink href="/dashboard/settings" label="설정" onSelect={() => setOpen(false)} />
-          <div className="border-t border-[var(--color-apple-hairline-soft)]">
-            <form action="/auth/signout" method="post">
-              <button
-                type="submit"
-                className="block w-full px-3.5 py-2.5 text-left text-[12.5px] wght-450 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)]"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                로그아웃
-              </button>
-            </form>
+          <div className={styles.profileLinks}>
+            <Link
+              ref={firstLinkRef}
+              href="/dashboard/settings"
+              onClick={() => setOpenedOnPath(null)}
+              className={styles.menuLink}
+            >
+              <Settings2 aria-hidden size={17} strokeWidth={1.7} />
+              <span>프로필 및 설정</span>
+              <ArrowUpRight aria-hidden size={15} className={styles.menuArrow} />
+            </Link>
+            <Link
+              href="/dashboard/history"
+              onClick={() => setOpenedOnPath(null)}
+              className={styles.menuLink}
+            >
+              <History aria-hidden size={17} strokeWidth={1.7} />
+              <span>활동 기록</span>
+              <ArrowUpRight aria-hidden size={15} className={styles.menuArrow} />
+            </Link>
           </div>
+          <div className={styles.menuFooter}>
+            <span>화면 테마</span>
+            <ThemeToggle className={styles.themeControl} />
+          </div>
+          <form action="/auth/signout" method="post" className={styles.signout}>
+            <button type="submit" className={styles.menuLink}>
+              <LogOut aria-hidden size={17} strokeWidth={1.7} />
+              <span>로그아웃</span>
+            </button>
+          </form>
         </div>
       )}
     </div>
-  );
-}
-
-function MenuLink({
-  href,
-  label,
-  onSelect,
-}: {
-  href: string;
-  label: string;
-  onSelect: () => void;
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onSelect}
-      className="block px-3.5 py-2 text-[12.5px] wght-450 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)]"
-      style={{ letterSpacing: "-0.012em" }}
-    >
-      {label}
-    </Link>
-  );
-}
-
-function Logo() {
-  return (
-    <span
-      aria-hidden
-      className="inline-flex shrink-0"
-      style={{ filter: "drop-shadow(0 1px 2px rgba(0, 113, 227, 0.18))" }}
-    >
-      <BrandMark size={22} />
-    </span>
-  );
-}
-
-function Avatar() {
-  return (
-    <div
-      aria-hidden
-      className="h-7 w-7 shrink-0 rounded-full"
-      style={{
-        background: "radial-gradient(circle at 30% 30%, #f0a8c0 0%, #c785b0 38%, #6a4a8a 100%)",
-      }}
-    />
   );
 }

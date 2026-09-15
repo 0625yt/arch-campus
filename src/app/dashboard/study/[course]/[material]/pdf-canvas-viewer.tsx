@@ -18,11 +18,19 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
  * - 모든 페이지를 세로 스택으로 렌더(전체 렌더). 페이지 많은 PDF의 성능은
  *   스텝 4에서 가상화로 다룬다 — 지금은 단순 전체 렌더.
  * - width: 컨테이너 px 너비를 ResizeObserver로 측정해 FitH 대응(컬럼 가로에 맞춤).
- * - 점프: page prop이 바뀌면 해당 페이지 wrapper로 scrollIntoView.
+ * - 점프: page/requestNonce가 바뀌면 해당 페이지 wrapper 위치로 PDF 패널만 스크롤.
  *
- * 시그니처는 기존 PdfViewer와 동일({ src, page })로 호출부 변경 최소화.
+ * requestNonce는 같은 페이지를 다시 요청한 경우도 점프를 재실행하기 위한 값.
  */
-export function PdfCanvasViewer({ src, page }: { src: string; page: number }) {
+export function PdfCanvasViewer({
+  src,
+  page,
+  requestNonce,
+}: {
+  src: string;
+  page: number;
+  requestNonce: number;
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pageRefs = useRef<Map<number, HTMLElement>>(new Map());
   const debounceRef = useRef<number | null>(null);
@@ -50,12 +58,26 @@ export function PdfCanvasViewer({ src, page }: { src: string; page: number }) {
     };
   }, []);
 
-  // 점프 — page prop이 바뀌면 해당 페이지 wrapper로 부드럽게 스크롤.
+  // 점프 — PDF 내부 컨테이너만 이동한다.
+  // scrollIntoView는 스크롤 가능한 모든 조상을 함께 움직여 자료 상세의 제목까지
+  // 화면 밖으로 밀어냈다. 컨테이너 기준 좌표를 계산해 PDF 패널에만 적용한다.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: requestNonce는 같은 page 값의 재점프를 의도적으로 다시 실행하는 트리거다.
   useEffect(() => {
     if (numPages === 0) return;
+    const container = containerRef.current;
     const target = pageRefs.current.get(page);
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [page, numPages]);
+    if (!container || !target) return;
+
+    const containerTop = container.getBoundingClientRect().top;
+    const targetTop = target.getBoundingClientRect().top;
+    container.scrollTo({
+      top: container.scrollTop + targetTop - containerTop,
+      behavior:
+        page === 1 || window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+    });
+  }, [page, requestNonce, numPages]);
 
   if (hasError) {
     return (

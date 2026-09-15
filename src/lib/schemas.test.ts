@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   ChecklistOutput,
-  evidenceMatches,
   ExamExtractedQuestion,
   ExamSolveOutput,
+  evidenceMatches,
   findBannedWords,
   hasWatermark,
   parseModelJson,
+  parseQuizModelJson,
   QuizOutput,
   replaceBannedWords,
   SummarizeOutput,
+  TimetableOutput,
 } from "./schemas";
 
 describe("findBannedWords", () => {
@@ -117,6 +119,64 @@ describe("QuizOutput rejected branch", () => {
   });
 });
 
+describe("QuizOutput choices normalization", () => {
+  const base = {
+    id: 1,
+    kind: "short-answer" as const,
+    difficulty: "보통" as const,
+    topic: "용어",
+    stem: "자료에서 설명한 핵심 용어의 이름을 정확히 쓰세요.",
+    answer: "상호 배제",
+    explanation: "자료에서 한 번에 한 프로세스만 진입할 수 있다고 설명한 조건입니다.",
+    evidence: "상호 배제는 한 프로세스만 임계 구역에 진입하도록 보장한다.",
+  };
+
+  it("비객관식의 빈 choices 배열을 null로 정규화한다", () => {
+    const parsed = QuizOutput.parse({
+      questions: [{ ...base, choices: [] }],
+      watermark: "이 자료는 학습 보조용이며 직접 검토하세요.",
+    });
+    expect(parsed.rejected).not.toBe(true);
+    if (!parsed.rejected) expect(parsed.questions[0].choices).toBeNull();
+  });
+
+  it("1~3개짜리 깨진 choices 배열은 여전히 거부한다", () => {
+    expect(() =>
+      QuizOutput.parse({
+        questions: [{ ...base, choices: [{ key: "A", text: "보기 하나" }] }],
+        watermark: "이 자료는 학습 보조용이며 직접 검토하세요.",
+      }),
+    ).toThrow();
+  });
+
+  it("모델의 kind 별칭과 외국어 난이도 라벨을 안전하게 정규화한다", () => {
+    const parsed = QuizOutput.parse({
+      questions: [{ ...base, kind: "short_answer", difficulty: "medium", choices: [] }],
+      watermark: "이 자료는 학습 보조용이며 직접 검토하세요.",
+    });
+    expect(parsed.rejected).not.toBe(true);
+    if (!parsed.rejected) {
+      expect(parsed.questions[0].kind).toBe("short-answer");
+      expect(parsed.questions[0].difficulty).toBe("보통");
+    }
+  });
+
+  it("한 문제 형식이 깨져도 같은 응답의 정상 문제는 보존한다", () => {
+    const parsed = parseQuizModelJson(
+      JSON.stringify({
+        questions: [
+          { ...base, choices: [] },
+          { ...base, id: 2, stem: "짧음", choices: [] },
+        ],
+        watermark: "이 자료는 학습 보조용이며 직접 검토하세요.",
+      }),
+    );
+    expect(parsed.output.rejected).not.toBe(true);
+    if (!parsed.output.rejected) expect(parsed.output.questions).toHaveLength(1);
+    expect(parsed.invalidQuestions).toHaveLength(1);
+  });
+});
+
 describe("ExamExtractedQuestion answerSource", () => {
   const base = {
     id: 1,
@@ -140,6 +200,23 @@ describe("ExamExtractedQuestion answerSource", () => {
 
   it("material·ai 외 값은 거부", () => {
     expect(() => ExamExtractedQuestion.parse({ ...base, answerSource: "guess" })).toThrow();
+  });
+});
+
+describe("TimetableOutput model tolerance", () => {
+  it("시간 미상 null 슬롯은 응답 전체 대신 해당 슬롯만 후처리할 수 있게 보존한다", () => {
+    const parsed = TimetableOutput.parse({
+      courses: [
+        {
+          name: "온라인 강의",
+          slots: [{ weekday: "FRI", startTime: null, endTime: null }],
+          confidence: 0.6,
+        },
+      ],
+      watermark: "이 자료는 학습 보조용이며 직접 확인해야 합니다.",
+    });
+
+    expect(parsed.courses[0].slots[0]).toMatchObject({ startTime: "", endTime: "" });
   });
 });
 

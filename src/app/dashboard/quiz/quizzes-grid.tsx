@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   courseGradient,
   courseInkColor,
+  courseInkColorDark,
   courseLinearGradient,
   courseLinearGradientDark,
 } from "@/lib/course-palette";
@@ -120,6 +121,7 @@ function PendingQuizCard({
   const linearWash = courseLinearGradient(seedName, pending.courseColor, 0.22);
   const linearWashDark = courseLinearGradientDark(seedName, pending.courseColor);
   const inkColor = courseInkColor(seedName, pending.courseColor);
+  const inkColorDark = courseInkColorDark(seedName, pending.courseColor);
 
   return (
     <li>
@@ -142,7 +144,7 @@ function PendingQuizCard({
         <div className="relative flex items-baseline justify-between gap-2">
           <p
             className="min-w-0 flex-1 truncate text-[10.5px] wght-700 uppercase tracking-[0.06em]"
-            style={{ color: inkColor }}
+            style={{ color: `light-dark(${inkColor}, ${inkColorDark})` }}
           >
             {pending.courseName ?? "자료"}
           </p>
@@ -183,6 +185,7 @@ function QuizCard({
   const linearWashDark = courseLinearGradientDark(seedName, quiz.courseColor);
   const hoverGrad = courseGradient(seedName, quiz.courseColor);
   const inkColor = courseInkColor(seedName, quiz.courseColor);
+  const inkColorDark = courseInkColorDark(seedName, quiz.courseColor);
 
   // 이미 풀었고 마지막 시도에서 못 맞힌 문제가 있으면 → 카드 클릭은 "오답만 다시 풀기".
   // 그래야 틀린 것만 빠르게 복습. 전부 맞혔거나 안 풀었으면 처음부터.
@@ -192,28 +195,28 @@ function QuizCard({
   const href = hasWrong ? `/dashboard/quiz/${quiz.id}/wrong` : `/dashboard/quiz/${quiz.id}`;
 
   return (
-    // ⋯ 버튼이 Link 안에 있으면 모바일 터치가 Link로 새 메뉴 대신 라우팅돼 버린다.
-    // → 버튼을 Link 밖, li 직속 형제로 절대배치해서 클릭을 구조적으로 분리.
-    <li className="relative">
+    <li
+      className="card-glow-ribbon dark-surface-card course-wash elev-1 group relative overflow-hidden rounded-[14px] bg-white transition-shadow hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+      style={
+        {
+          "--card-wash": linearWash,
+          "--card-wash-dark": linearWashDark,
+        } as React.CSSProperties
+      }
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{ background: hoverGrad }}
+      />
       <Link
         href={href}
-        className="card-glow-ribbon dark-surface-card course-wash elev-1 spring-press group relative block overflow-hidden rounded-[14px] bg-white px-4 py-3.5 transition-shadow hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
-        style={
-          {
-            "--card-wash": linearWash,
-            "--card-wash-dark": linearWashDark,
-          } as React.CSSProperties
-        }
+        className={`spring-press relative block px-4 pt-3.5 ${hasWrong ? "pb-2.5" : "pb-3.5"}`}
       >
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-          style={{ background: hoverGrad }}
-        />
         <div className="relative flex items-baseline justify-between gap-2">
           <p
             className="min-w-0 flex-1 truncate text-[10.5px] wght-700 uppercase tracking-[0.06em]"
-            style={{ color: inkColor }}
+            style={{ color: `light-dark(${inkColor}, ${inkColorDark})` }}
           >
             {quiz.courseName ?? "자료"}
           </p>
@@ -241,38 +244,33 @@ function QuizCard({
           <span className="dot-sep">·</span>
           {quiz.attemptCount === 0 ? (
             <span className="wght-620 text-[var(--color-apple-action)]">새 세트</span>
-          ) : quiz.lastScore !== null ? (
+          ) : quiz.lastScore !== null && quiz.lastAttemptTotal !== null ? (
             <span className="tabular-nums">
-              {quiz.lastScore}/{quiz.questionCount} · {quiz.attemptCount}회
+              {quiz.lastScore}/{quiz.lastAttemptTotal} · {quiz.attemptCount}회
             </span>
           ) : (
             <span className="tabular-nums">{quiz.attemptCount}회 풀이</span>
           )}
         </div>
-
-        {/* 오답 있으면: 메인 클릭은 오답복습(href), 카드 하단에 "오답 N · 전체 다시" 라인 */}
-        {hasWrong && (
-          <div className="relative mt-2.5 flex items-center justify-between gap-2 border-t border-[var(--color-apple-hairline)] pt-2.5">
-            <span className="text-[11.5px] wght-620 text-[var(--color-urgent)]">
-              오답 {wrongCount}문제 복습 →
-            </span>
-            <button
-              type="button"
-              onClick={(e) => {
-                // 카드 Link로의 전파를 막고 전체 다시 풀기로.
-                e.preventDefault();
-                e.stopPropagation();
-                window.location.href = `/dashboard/quiz/${quiz.id}`;
-              }}
-              className="shrink-0 rounded-full bg-[var(--color-apple-pearl)] px-2.5 py-1 text-[10.5px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)]"
-            >
-              전체 다시
-            </button>
-          </div>
-        )}
       </Link>
 
-      {/* ⋯ 메뉴 버튼 — Link 밖 형제. 절대배치로 카드 우상단에 띄움. */}
+      {hasWrong && (
+        <div className="relative z-10 mx-4 flex items-center justify-between gap-2 border-t border-[var(--color-apple-hairline)] py-2.5">
+          <Link
+            href={`/dashboard/quiz/${quiz.id}/wrong`}
+            className="inline-flex min-h-11 items-center text-[11.5px] wght-620 text-[var(--color-urgent)] hover:underline"
+          >
+            오답 {wrongCount}문제 복습 →
+          </Link>
+          <Link
+            href={`/dashboard/quiz/${quiz.id}`}
+            className="inline-flex min-h-11 shrink-0 items-center rounded-full bg-[var(--color-apple-pearl)] px-3 text-[10.5px] wght-560 text-[var(--color-apple-muted)] transition-colors hover:text-[var(--color-apple-ink)]"
+          >
+            전체 다시
+          </Link>
+        </div>
+      )}
+
       <button
         type="button"
         aria-label="문제 메뉴"
@@ -282,9 +280,10 @@ function QuizCard({
           const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
           onOpenMenu({ x: r.right, y: r.bottom });
         }}
-        className="absolute right-2 top-2.5 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+        className="absolute right-1 top-1 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+          <title>문제 메뉴</title>
           <circle cx="3" cy="8" r="1.4" />
           <circle cx="8" cy="8" r="1.4" />
           <circle cx="13" cy="8" r="1.4" />

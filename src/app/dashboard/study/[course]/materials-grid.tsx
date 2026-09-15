@@ -1,12 +1,22 @@
 "use client";
 
+import {
+  ArrowUpRight,
+  Check,
+  CheckCheck,
+  FileText,
+  LoaderCircle,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { type CSSProperties, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { pingSidebarCourses } from "@/components/sidebar";
-import { hexLinearGradient } from "@/lib/course-palette";
 import { useActiveJobs } from "@/lib/hooks/use-active-jobs";
+import styles from "./course.module.css";
 import { MaterialActionsMenu } from "./material-actions-menu";
 
 const TYPE_LABEL = {
@@ -17,7 +27,7 @@ const TYPE_LABEL = {
   syllabus: "강의계획서",
   notice: "공지",
 } as const;
-
+type SummaryFilter = "all" | "ready" | "unread";
 interface MaterialItem {
   id: string;
   title: string;
@@ -27,12 +37,6 @@ interface MaterialItem {
   hasSummary: boolean;
 }
 
-/**
- * 자료 카드 그리드 + 일괄 선택·삭제. 선택 모드 토글 시 카드 체크박스 노출.
- *
- * 일괄 삭제는 별도 API 만들지 않고 Promise.all로 단건 DELETE 묶음 — 자료 수십 개 단위
- * 라 부담 없음. 실패한 것은 실패 카운트로 사용자에게 알리되 부분 성공도 받아들임.
- */
 export function MaterialsGrid({
   courseName,
   materials,
@@ -47,29 +51,33 @@ export function MaterialsGrid({
   currentCourseId: string;
 }) {
   const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<SummaryFilter>("all");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // 사용자가 막 삭제한 id들 — server refetch가 props로 도착하기 전까지 숨김
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const { jobs: activeJobs } = useActiveJobs();
-  // grid에 아직 안 보이는 신규 자료의 materialId 모음 — 생성 중 카드로 미리 그림
   const knownIds = new Set(materials.map((m) => m.id));
-  const pendingMaterials = new Map<string, { title: string; tools: Set<string> }>();
-  for (const j of activeJobs) {
-    if (!j.materialId || knownIds.has(j.materialId)) continue;
-    // courseId가 있다면 현재 강의만, 없으면 일단 보임 (optimistic은 courseId 박혀있음)
-    if (j.courseId && j.courseId !== currentCourseId) continue;
-    const prev = pendingMaterials.get(j.materialId);
-    if (prev) {
-      prev.tools.add(j.tool);
-    } else {
-      pendingMaterials.set(j.materialId, {
-        title: j.materialTitle ?? "새 자료",
-        tools: new Set([j.tool]),
-      });
-    }
+  const pendingMaterials = new Map<string, string>();
+  for (const job of activeJobs) {
+    if (!job.materialId || knownIds.has(job.materialId)) continue;
+    if (job.courseId && job.courseId !== currentCourseId) continue;
+    pendingMaterials.set(job.materialId, job.materialTitle ?? "새 자료");
   }
+  const visibleMaterials = materials.filter((m) => !hiddenIds.has(m.id));
+  const normalizedQuery = query.trim().toLocaleLowerCase("ko-KR");
+  const filteredMaterials = visibleMaterials.filter(
+    (m) =>
+      m.title.toLocaleLowerCase("ko-KR").includes(normalizedQuery) &&
+      (filter === "all" || (filter === "ready" ? m.hasSummary : !m.hasSummary)),
+  );
+  const filteredPending = Array.from(pendingMaterials.entries()).filter(
+    ([, title]) => filter !== "ready" && title.toLocaleLowerCase("ko-KR").includes(normalizedQuery),
+  );
+  const allSelected =
+    filteredMaterials.length > 0 && filteredMaterials.every((m) => selected.has(m.id));
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -79,60 +87,49 @@ export function MaterialsGrid({
       return next;
     });
   }
-
-  function selectAll() {
-    setSelected(new Set(materials.map((m) => m.id)));
-  }
-  function clearAll() {
-    setSelected(new Set());
-  }
   function exitSelectMode() {
     setSelectMode(false);
-    clearAll();
+    setSelected(new Set());
+  }
+  function resetFilters() {
+    setQuery("");
+    setFilter("all");
+    setSelected(new Set());
   }
 
   async function handleBulkDelete() {
     const ids = Array.from(selected);
-    // optimistic: 사용자 시야에선 즉시 사라짐
-    setHiddenIds((prev) => {
-      const next = new Set(prev);
-      for (const id of ids) next.add(id);
-      return next;
-    });
+    setDeleteError(null);
+    setHiddenIds((prev) => new Set([...prev, ...ids]));
     setConfirmDelete(false);
     exitSelectMode();
-
     const results = await Promise.allSettled(
       ids.map((id) =>
         fetch(`/api/materials/${id}`, { method: "DELETE" }).then(async (res) => {
-          const j = await res.json();
-          if (!res.ok || !j.ok) throw new Error(j.error ?? "삭제 실패");
+          const json = await res.json();
+          if (!res.ok || !json.ok) throw new Error(json.error ?? "삭제 실패");
           return id;
         }),
       ),
     );
-    // 실패한 것 다시 보이게 복구
-    const failedIds = results
-      .map((r, i) => (r.status === "rejected" ? ids[i] : null))
-      .filter((x): x is string => x !== null);
+    const failedIds = results.flatMap((result, index) =>
+      result.status === "rejected" ? [ids[index]] : [],
+    );
     if (failedIds.length > 0) {
       setHiddenIds((prev) => {
         const next = new Set(prev);
         for (const id of failedIds) next.delete(id);
         return next;
       });
-      alert(`${ids.length - failedIds.length}개 삭제됨, ${failedIds.length}개 실패`);
+      setDeleteError(
+        `${ids.length - failedIds.length}개 삭제했어요. 삭제하지 못한 ${failedIds.length}개는 다시 표시했어요.`,
+      );
     }
     pingSidebarCourses();
     router.refresh();
   }
-
   function hideMaterial(id: string) {
-    setHiddenIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      return next;
-    });
+    setHiddenIds((prev) => new Set([...prev, id]));
   }
   function unhideMaterial(id: string) {
     setHiddenIds((prev) => {
@@ -142,149 +139,170 @@ export function MaterialsGrid({
     });
   }
 
-  const visibleMaterials = materials.filter((m) => !hiddenIds.has(m.id));
-
-  if (visibleMaterials.length === 0) {
+  if (visibleMaterials.length === 0 && pendingMaterials.size === 0 && !deleteError) {
     return (
-      <div className="elev-1 mt-6 rounded-[18px] bg-white px-7 py-12 text-center sm:py-16">
-        <p
-          className="text-[16px] wght-560 text-[var(--color-apple-ink)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          아직 자료가 없어요
-        </p>
-        <p
-          className="mt-2 text-[13px] wght-450 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.022em" }}
-        >
-          아래에서 PDF·HWPX·PPTX·이미지를 끌어다 놓으면 60초 안에 요약과 첫 문제가 만들어져요.
-        </p>
+      <div className={styles.emptyLibrary}>
+        <span className={styles.emptyDocument} aria-hidden>
+          <FileText size={30} strokeWidth={1.3} />
+        </span>
+        <div>
+          <h3>첫 자료가 들어올 자리</h3>
+          <p>강의 자료를 올리고, 핵심 요약과 연습 문제를 만들어 보세요.</p>
+          <a href="#upload-zone" className={styles.textLink}>
+            자료 추가하기 <Plus size={15} aria-hidden />
+          </a>
+        </div>
       </div>
     );
   }
 
   return (
     <>
-      {/* 선택 모드 툴바 */}
-      <div className="mt-4 flex items-center justify-between gap-3">
-        {selectMode ? (
-          <>
-            <div className="flex items-center gap-2">
-              <span
-                className="text-[12.5px] wght-560 tabular-nums text-[var(--color-apple-ink)]"
-                style={{ letterSpacing: "-0.012em" }}
-              >
-                {selected.size}개 선택됨
-              </span>
+      <div className={styles.libraryToolbar}>
+        <fieldset className={styles.filters} aria-label="요약 상태 필터">
+          {(
+            [
+              { value: "all", label: "전체" },
+              { value: "ready", label: "요약 완료" },
+              { value: "unread", label: "요약 전" },
+            ] as const
+          ).map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              aria-pressed={filter === item.value}
+              onClick={() => {
+                setFilter(item.value);
+                setSelected(new Set());
+              }}
+            >
+              {item.label}
+              {item.value === "all" && <span>{visibleMaterials.length}</span>}
+            </button>
+          ))}
+        </fieldset>
+        <label className={styles.searchBox}>
+          <Search size={15} aria-hidden />
+          <input
+            type="search"
+            aria-label="자료 제목 검색"
+            placeholder="자료 제목 검색"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSelected(new Set());
+            }}
+          />
+        </label>
+      </div>
+      <div className={styles.selectionToolbar}>
+        <span className={styles.resultCount} role="status">
+          {selectMode ? `${selected.size}개 선택됨` : `${filteredMaterials.length}개의 자료`}
+        </span>
+        <div className={styles.selectionActions}>
+          {selectMode ? (
+            <>
               <button
                 type="button"
-                onClick={selected.size === materials.length ? clearAll : selectAll}
-                className="rounded-full px-2.5 py-1 text-[11.5px] wght-560 text-[var(--color-apple-action)] hover:bg-[var(--color-apple-pearl)]"
+                disabled={filteredMaterials.length === 0}
+                onClick={() =>
+                  setSelected(allSelected ? new Set() : new Set(filteredMaterials.map((m) => m.id)))
+                }
               >
-                {selected.size === materials.length ? "전체 해제" : "전체 선택"}
+                {allSelected ? "전체 해제" : "전체 선택"}
               </button>
-            </div>
-            <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={exitSelectMode}
-                className="rounded-full px-3 py-1.5 text-[12.5px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={() => selected.size > 0 && setConfirmDelete(true)}
+                onClick={() => setConfirmDelete(true)}
                 disabled={selected.size === 0}
-                className="rounded-full bg-[var(--color-urgent)] px-3 py-1.5 text-[12.5px] wght-620 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                className={styles.deleteButton}
               >
                 선택 삭제
               </button>
-            </div>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setSelectMode(true)}
-            className="ml-auto rounded-full px-3 py-1 text-[11.5px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
-          >
-            선택 모드
-          </button>
-        )}
+              <button type="button" onClick={exitSelectMode}>
+                취소 <X size={13} aria-hidden />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSelectMode(true)}
+              disabled={filteredMaterials.length === 0}
+            >
+              <CheckCheck size={15} aria-hidden /> 선택 모드
+            </button>
+          )}
+        </div>
       </div>
-
-      <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-        {visibleMaterials.map((m) => {
-          const isSelected = selected.has(m.id);
-          // 좌→우 wash — 강의 dotColor 기준. study CourseCard와 시각 시스템 통일.
-          const linearWash = hexLinearGradient(dotColor, 0.22);
-          return (
-            <li key={m.id} className="relative">
-              {/* 우상단 ⋯ 메뉴 — 선택 모드에선 숨김 */}
-              {!selectMode && (
-                <div className="absolute right-3 top-3 z-10">
-                  <MaterialActionsMenu
-                    materialId={m.id}
-                    initialTitle={m.title}
-                    currentCourseId={currentCourseId}
-                    courses={moveTargets}
-                    onDeleteOptimistic={hideMaterial}
-                    onDeleteFailed={unhideMaterial}
-                  />
-                </div>
-              )}
-
-              {selectMode ? (
-                <button
-                  type="button"
-                  onClick={() => toggle(m.id)}
-                  aria-pressed={isSelected}
-                  className={`group card-glow-ribbon dark-surface-card relative flex h-full w-full flex-col overflow-hidden rounded-[12px] bg-white p-6 text-left transition-all ${
-                    isSelected ? "ring-2 ring-[var(--color-apple-action)]" : ""
-                  }`}
-                  style={{
-                    ["--ribbon-color" as string]: dotColor,
-                    backgroundImage: linearWash,
-                  }}
-                >
-                  <CardInner m={m} dotColor={dotColor} selectMode />
-                  <span
-                    aria-hidden
-                    className={`absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-md border text-[11px] wght-700 transition-colors ${
-                      isSelected
-                        ? "border-[var(--color-apple-action)] bg-[var(--color-apple-action)] text-white"
-                        : "border-[var(--color-apple-hairline)] bg-white text-transparent"
-                    }`}
+      {deleteError && (
+        <p className={styles.deleteError} role="alert">
+          {deleteError}
+        </p>
+      )}
+      {filteredMaterials.length === 0 && filteredPending.length === 0 ? (
+        <div className={styles.noResults}>
+          <p>조건에 맞는 자료가 없어요.</p>
+          <button type="button" onClick={resetFilters} className={styles.textLink}>
+            검색과 필터 초기화
+          </button>
+        </div>
+      ) : (
+        <ul className={styles.materialGrid}>
+          {filteredMaterials.map((material, index) => {
+            const isSelected = selected.has(material.id);
+            const cardStyle = {
+              "--course-color": dotColor,
+              "--card-order": Math.min(index, 5),
+            } as CSSProperties;
+            return (
+              <li key={material.id} className={styles.materialItem} style={cardStyle}>
+                {!selectMode && (
+                  <div className={styles.materialMenu}>
+                    <MaterialActionsMenu
+                      materialId={material.id}
+                      initialTitle={material.title}
+                      currentCourseId={currentCourseId}
+                      courses={moveTargets}
+                      onDeleteOptimistic={hideMaterial}
+                      onDeleteFailed={unhideMaterial}
+                    />
+                  </div>
+                )}
+                {selectMode ? (
+                  <button
+                    type="button"
+                    onClick={() => toggle(material.id)}
+                    aria-pressed={isSelected}
+                    className={styles.materialCard}
+                    data-selected={isSelected}
                   >
-                    ✓
-                  </span>
-                </button>
-              ) : (
-                <Link
-                  href={`/dashboard/study/${encodeURIComponent(courseName)}/${m.id}`}
-                  className="group card-glow-ribbon dark-surface-card relative flex h-full flex-col overflow-hidden rounded-[12px] bg-white p-6"
-                  style={{
-                    ["--ribbon-color" as string]: dotColor,
-                    backgroundImage: linearWash,
-                  }}
-                >
-                  <CardInner m={m} dotColor={dotColor} />
-                </Link>
-              )}
+                    <CardInner material={material} selectMode />
+                    <span aria-hidden className={styles.checkbox}>
+                      {isSelected && <Check size={14} />}
+                    </span>
+                  </button>
+                ) : (
+                  <Link
+                    href={`/dashboard/study/${encodeURIComponent(courseName)}/${material.id}`}
+                    className={styles.materialCard}
+                  >
+                    <CardInner material={material} />
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+          {filteredPending.map(([id, title]) => (
+            <li key={`pending-${id}`}>
+              <PendingCard title={title} />
             </li>
-          );
-        })}
-        {Array.from(pendingMaterials.entries()).map(([id, info]) => (
-          <li key={`pending-${id}`} className="relative">
-            <PendingCard title={info.title} dotColor={dotColor} />
-          </li>
-        ))}
-      </ul>
-
+          ))}
+        </ul>
+      )}
       <ConfirmDialog
         open={confirmDelete}
         title={`자료 ${selected.size}개 삭제`}
-        description={`선택한 자료와 원본 파일이 모두 사라져요. 되돌릴 수 없어요.`}
+        description="선택한 자료와 원본 파일이 모두 사라져요. 되돌릴 수 없어요."
         confirmLabel="삭제"
         destructive
         onConfirm={handleBulkDelete}
@@ -295,49 +313,35 @@ export function MaterialsGrid({
 }
 
 function CardInner({
-  m,
-  dotColor,
-  selectMode,
+  material,
+  selectMode = false,
 }: {
-  m: MaterialItem;
-  dotColor: string;
+  material: MaterialItem;
   selectMode?: boolean;
 }) {
   return (
     <>
-      <div className={`flex items-center justify-between gap-2 ${selectMode ? "pr-8" : "pr-8"}`}>
-        <span
-          className="text-[11px] wght-560 uppercase tracking-[0.06em]"
-          style={{ color: dotColor }}
-        >
-          {TYPE_LABEL[m.type]}
-          {m.hasSummary ? " · 요약 OK" : ""}
+      <div className={styles.materialTop}>
+        <span className={styles.documentIcon} aria-hidden>
+          <FileText size={21} strokeWidth={1.5} />
         </span>
-        <span
-          className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {m.pageCount != null ? `${m.pageCount}쪽` : ""}
-        </span>
+        <span className={styles.materialType}>{TYPE_LABEL[material.type]}</span>
+        {material.pageCount != null && (
+          <span className={styles.pageCount}>{material.pageCount}쪽</span>
+        )}
       </div>
-
-      <h3
-        className="mt-3 text-[16px] leading-[1.3] wght-560 text-[var(--color-apple-ink)]"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        {m.title}
-      </h3>
-
-      <div className="mt-auto pt-5 flex items-center justify-between">
-        <span
-          className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-          style={{ letterSpacing: "-0.012em" }}
-        >
-          {formatRelative(m.uploadedAt)}
-        </span>
+      <h3>{material.title}</h3>
+      <div className={styles.materialBottom}>
+        <div className={styles.materialMeta}>
+          <span className={styles.summaryStatus} data-ready={material.hasSummary}>
+            <span />
+            {material.hasSummary ? "요약 완료" : "요약 전"}
+          </span>
+          <time dateTime={material.uploadedAt}>{formatRelative(material.uploadedAt)}</time>
+        </div>
         {!selectMode && (
-          <span className="text-[14px] text-[var(--color-apple-muted)] transition-all group-hover:translate-x-0.5 group-hover:text-[var(--color-apple-action)]">
-            ›
+          <span className={styles.materialArrow} aria-hidden>
+            <ArrowUpRight size={17} />
           </span>
         )}
       </div>
@@ -345,51 +349,28 @@ function CardInner({
   );
 }
 
-function PendingCard({ title, dotColor }: { title: string; dotColor: string }) {
+function PendingCard({ title }: { title: string }) {
   return (
-    <div
-      aria-busy
-      className="flex h-full min-h-[150px] flex-col justify-between rounded-[12px] border border-dashed border-[var(--color-apple-hairline)] bg-white p-6"
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span
-          className="text-[11px] wght-560 uppercase tracking-[0.06em]"
-          style={{ color: dotColor }}
-        >
-          생성 중
-        </span>
-        <span
-          aria-hidden
-          className="h-3.5 w-3.5 animate-spin rounded-full border-[1.5px] border-[var(--color-apple-hairline)] border-t-[var(--color-apple-action)]"
-        />
+    <div aria-busy="true" className={styles.pendingCard}>
+      <div className={styles.pendingLabel}>
+        <LoaderCircle size={17} aria-hidden /> 생성 중
       </div>
-      <h3
-        className="mt-3 truncate text-[16px] leading-[1.3] wght-560 text-[var(--color-apple-ink)]"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        {title}
-      </h3>
-      <p
-        className="mt-auto pt-5 text-[12px] wght-450 text-[var(--color-apple-muted)]"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        요약·문제를 준비하고 있어요
-      </p>
+      <h3>{title}</h3>
+      <p>요약·문제를 준비하고 있어요</p>
+      <span className={styles.pendingProgress} aria-hidden />
     </div>
   );
 }
 
 function formatRelative(iso: string): string {
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return "";
-  const diff = Date.now() - t;
-  const min = Math.round(diff / 60000);
-  if (min < 1) return "방금 전";
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  const day = Math.round(hr / 24);
-  if (day < 30) return `${day}일 전`;
-  const mon = Math.round(day / 30);
-  return `${mon}개월 전`;
+  const time = new Date(iso).getTime();
+  if (!Number.isFinite(time)) return "";
+  const minutes = Math.max(0, Math.round((Date.now() - time) / 60000));
+  if (minutes < 1) return "방금 전";
+  if (minutes < 60) return `${minutes}분 전`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${days}일 전`;
+  return `${Math.round(days / 30)}개월 전`;
 }
