@@ -1,5 +1,6 @@
 import "server-only";
 import { isImportedClassInsideCourseTerm } from "@/lib/course-term";
+import { kstDateKey, kstStartOfDay } from "@/lib/kst";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 
@@ -127,13 +128,16 @@ export async function listUpcomingEvents(opts: {
   limit?: number;
 }): Promise<EventView[]> {
   const admin = getAdminSupabase();
-  const nowIso = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const todayIso = kstStartOfDay(now).toISOString();
   const requestedLimit = opts.limit ?? 8;
   const { data, error } = await admin
     .from("events")
     .select(SELECT_COLS)
     .eq("owner_id", opts.ownerId)
-    .gte("starts_at", nowIso)
+    // 오늘 종일 일정과 이미 시작했지만 아직 끝나지 않은 일정도 후보에 포함한다.
+    .or(`starts_at.gte.${todayIso},ends_at.gt.${nowIso}`)
     .order("starts_at", { ascending: true })
     // 레거시 학기 밖 수업을 거른 뒤에도 요청 개수를 채울 수 있게 여유 있게 읽는다.
     .limit(Math.min(100, Math.max(32, requestedLimit * 4)));
@@ -144,7 +148,20 @@ export async function listUpcomingEvents(opts: {
   return rows
     .map((row) => mapEvent(row, sourceById))
     .filter(isImportedClassInsideCourseTerm)
+    .filter((event) => isUpcomingEvent(event, now))
     .slice(0, requestedLimit);
+}
+
+/** 종일 일정은 KST 해당 날짜가 끝날 때까지, 시간 일정은 실제 종료까지 유지한다. */
+export function isUpcomingEvent(
+  event: Pick<EventView, "startsAt" | "endsAt" | "allDay">,
+  now: Date,
+): boolean {
+  const startsAt = Date.parse(event.startsAt);
+  if (!Number.isFinite(startsAt)) return false;
+  if (startsAt >= now.getTime()) return true;
+  if (event.endsAt && Date.parse(event.endsAt) > now.getTime()) return true;
+  return event.allDay && kstDateKey(event.startsAt) === kstDateKey(now);
 }
 
 async function loadSourceMaterialMap(

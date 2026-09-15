@@ -32,6 +32,7 @@
   --color-accent: #1d4ed8;
   --color-accent-strong: #1e40af;
   --color-accent-soft: #ebf1ff;
+  --color-on-accent: #ffffff;
 
   --color-warn: #b45309;
   --color-warn-soft: #fef3c7;
@@ -197,6 +198,7 @@ html[data-theme="dark"] {
   --color-fg-disabled: #525a68;
   --color-accent: #79b3ff;
   --color-accent-strong: #9bc7ff;
+  --color-on-accent: #101622;
 
   --color-apple-ink: #f4f6fb;
   --color-apple-muted: #aeb4c0;
@@ -295,10 +297,8 @@ html[data-theme="dark"] .auth-light [class*="bg-white/"]:not(.dark-keep-white) {
  * /dashboard/* 모든 페이지의 .dashboard-canvas 래퍼에 적용.
  */
 .dashboard-canvas {
-  /* Apple MacBook Air 톤 — 흰 캔버스 위에 위→아래 sky-blue 그라데이션 한 줄 */
-  background-color: #ffffff;
-  background-image: var(--surface-canvas-blob);
-  background-attachment: fixed;
+  background-color: var(--color-surface);
+  background-image: none;
 }
 
 /*
@@ -310,7 +310,7 @@ html[data-theme="dark"] .auth-light [class*="bg-white/"]:not(.dark-keep-white) {
  */
 html[data-theme="dark"] .dashboard-canvas {
   background-color: var(--color-bg);
-  background-image: var(--surface-canvas-blob);
+  background-image: none;
 }
 
 /*
@@ -952,7 +952,11 @@ body {
 /* iOS Safari 100vh 폴백 */
 .h-screen-safe {
   height: 100vh;
-  height: 100dvh;
+}
+@supports (height: 100dvh) {
+  .h-screen-safe {
+    height: 100dvh;
+  }
 }
 
 /* 포커스 — 키보드 사용자만, 폼 컨트롤 제외
@@ -1068,7 +1072,7 @@ select:focus-visible {
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(3px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -1088,14 +1092,22 @@ select:focus-visible {
   }
 }
 .fade-up {
-  animation: fade-up 120ms var(--ease-out) both;
+  animation: fade-up 360ms var(--ease-out) both;
 }
-.fade-up-1,
-.fade-up-2,
-.fade-up-3,
-.fade-up-4,
+.fade-up-1 {
+  animation-delay: 30ms;
+}
+.fade-up-2 {
+  animation-delay: 65ms;
+}
+.fade-up-3 {
+  animation-delay: 100ms;
+}
+.fade-up-4 {
+  animation-delay: 135ms;
+}
 .fade-up-5 {
-  animation-delay: 0ms;
+  animation-delay: 170ms;
 }
 
 /* 행 호버 — 좌측으로 살짝 밀림 (종이 노트 느낌) */
@@ -1250,6 +1262,7 @@ html {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }

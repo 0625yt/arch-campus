@@ -46,15 +46,15 @@ test("로그인 화면은 세 기기에서 깨지지 않고 접근 가능하다"
 
 test("랜딩의 제품 흐름과 자료 정리 장면은 세 기기에서 깨지지 않는다", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /마감은 놓치지 않고/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /이번 학기,.*좀 가볍게/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: /자료 하나를 열면/ })).toBeAttached();
   await expect(page.getByText("p.6 → 원문", { exact: true })).toBeAttached();
   await expect(page.getByRole("heading", { name: /정리한 순간부터/ })).toBeAttached();
   await expectNoHorizontalOverflow(page);
   await expectNoSeriousAccessibilityViolations(page);
 
-  const calendarTab = page.getByRole("tab", { name: /일정/ });
-  const materialTab = page.getByRole("tab", { name: /자료 정리/ });
+  const calendarTab = page.locator("#product").getByRole("tab", { name: /일정/ });
+  const materialTab = page.locator("#product").getByRole("tab", { name: /자료 정리/ });
   await calendarTab.focus();
   await calendarTab.press("ArrowRight");
   await expect(materialTab).toHaveAttribute("aria-selected", "true");
@@ -70,6 +70,14 @@ test("랜딩의 제품 흐름과 자료 정리 장면은 세 기기에서 깨지
   await page.getByRole("button", { name: "다크 모드로 전환" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expectNoHorizontalOverflow(page);
+  await page.evaluate(async () => {
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation instanceof CSSTransition)
+        .map((animation) => animation.finished.catch(() => {})),
+    );
+  });
   await expectNoSeriousAccessibilityViolations(page);
 
   await page.emulateMedia({ reducedMotion: "reduce" });

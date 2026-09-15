@@ -1,11 +1,23 @@
 "use client";
 
+import {
+  ArrowRight,
+  ArrowUpRight,
+  BookOpen,
+  CalendarDays,
+  Check,
+  Clock3,
+  FileText,
+  MapPin,
+} from "lucide-react";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { courseAccentRgb, courseTint, courseTintDark } from "@/lib/course-palette";
 import type { CourseListItem } from "@/lib/data/materials";
 import { buildTimetable, type CourseSlot, isKstToday, type Weekday } from "@/lib/timetable-grid";
+import styles from "./campus.module.css";
+import timetableStyles from "./timetable-hero.module.css";
 import { useIsDark } from "./use-mobile";
 
 /**
@@ -20,7 +32,7 @@ import { useIsDark } from "./use-mobile";
  * 시각:
  *   - 진행 중 강의 now-glow (절제된 2.4s breathe)
  *   - 현재 시각 가로 라인 (1분 단위 갱신, KST 기준)
- *   - 모바일은 today 토글 기본
+ *   - 한 주·오늘·목록으로 전환하며 강의실까지 확인
  */
 
 const DAY_LABELS_KO: Record<Weekday, string> = {
@@ -38,8 +50,8 @@ const GUTTER_PX_MOBILE = 36;
 const GUTTER_PX_DESKTOP = 44;
 /** 첫(09:00)·끝 시간 라벨이 헤더/하단 경계에 안 먹히게 콘텐츠 상하 여백. */
 const BODY_PAD_PX = 10;
-/** 셀이 도저히 못 읽을 극단 케이스에만 스크롤로 빠지는 하한. 평소엔 fit이 우선. */
-const FLOOR_HOUR_PX = 24;
+/** 강의명·강의실이 들어가는 최소 높이. 짧은 화면에서는 읽기 가능한 크기로 스크롤. */
+const FLOOR_HOUR_PX = 48;
 const CORE_WEEKDAYS: Weekday[] = ["MON", "TUE", "WED", "THU", "FRI"];
 
 /* ─────────────────────────── Public API ─────────────────────────── */
@@ -52,23 +64,30 @@ export function TimetableHeading({
   courses: CourseListItem[];
   studentName: string | null;
 }) {
-  void courses;
+  const semesterCourses = courses.filter((course) => course.category === "semester");
+  const materialCount = courses.reduce((count, course) => count + course.materialCount, 0);
   const greeting = studentName ? `${studentName}님의 이번 주` : "이번 주";
 
   return (
-    <header className="min-w-0">
-      <p
-        className="text-[10px] uppercase wght-620 text-[var(--color-apple-muted)]"
-        style={{ letterSpacing: "0.08em" }}
-      >
-        시간표
-      </p>
-      <h1
-        className="mt-0.5 text-[19px] leading-[1.05] wght-700 text-[var(--color-apple-ink)] sm:mt-1 sm:text-[32px] md:text-[38px]"
-        style={{ letterSpacing: "-0.026em" }}
-      >
-        {greeting}
-      </h1>
+    <header className={styles.heading}>
+      <div>
+        <h1 className={styles.title}>{greeting}</h1>
+        <p className={styles.subtitle}>
+          {semesterCourses.length > 0
+            ? "수업부터 마감까지, 이번 주의 흐름을 한눈에"
+            : "이번 학기, 나만의 공부 리듬을 만드는 곳"}
+        </p>
+      </div>
+      {courses.length > 0 && (
+        <div className={styles.summary}>
+          <span>
+            <strong>{semesterCourses.length}</strong> 강의
+          </span>
+          <span>
+            <strong>{materialCount}</strong> 자료
+          </span>
+        </div>
+      )}
     </header>
   );
 }
@@ -86,7 +105,7 @@ export function TimetableHero({
   const data = useTimetableData(courses);
 
   if (data.slots.length === 0) {
-    return <EmptyTimetableHero />;
+    return <EmptyTimetableHero hasCourses={courses.length > 0} />;
   }
 
   return (
@@ -137,7 +156,7 @@ function useMeasuredHeight() {
 
 /* ─────────────────────────── Grid ─────────────────────────── */
 
-type View = "week" | "today";
+type View = "week" | "today" | "list";
 
 function TimetableGrid({
   data,
@@ -207,6 +226,7 @@ function TimetableGrid({
   const nowInRange = nowMin >= minuteOffset && nowMin <= minuteOffset + totalMinutes;
   // 현재 시각을 body 콘텐츠 높이 비율(0~1)로.
   const nowFrac = nowInRange ? (nowMin - minuteOffset) / totalMinutes : null;
+  const todayColumn = shownDays.findIndex((weekday) => isKstToday(weekday, now));
 
   // 오늘 보이는 강의들의 첫 시작 픽셀 — 자동 스크롤이 강의를 가리지 않게 하는 기준.
   const firstSlotTopPx = useMemo(() => {
@@ -243,7 +263,7 @@ function TimetableGrid({
   }, [hourStart, hourEnd]);
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden">
+    <section className={timetableStyles.timetable} aria-label="내 강의 시간표">
       {/* Toggle row */}
       <div className="mb-2 flex items-center justify-between">
         <div className="flex shrink-0 items-center gap-1.5">
@@ -254,6 +274,7 @@ function TimetableGrid({
             label="오늘만"
             disabled={!todayWeekday}
           />
+          <ViewPill active={view === "list"} onClick={() => setView("list")} label="목록" />
         </div>
         <Link
           href="/dashboard/calendar"
@@ -265,7 +286,7 @@ function TimetableGrid({
       </div>
 
       {/* Card */}
-      <div className="fade-up fade-up-1 relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[16px] border border-[var(--color-apple-hairline-soft)] bg-white elev-1">
+      <div className={timetableStyles.card} hidden={view === "list"}>
         {/* Header — gutter | days */}
         <div
           className="grid border-b border-[var(--color-apple-hairline-soft)] bg-[var(--color-apple-pearl)]/30"
@@ -386,8 +407,9 @@ function TimetableGrid({
                   const cellH = height - 4;
                   // tiny: 시각 줄이 못 들어감 + 패딩 줄이고 세로 중앙 정렬로 강의명 1줄 확실히.
                   const tiny = cellH < 40;
-                  // compact: 강의명만(시각 숨김). 그 이상이면 강의명 2줄 + 시각.
-                  const compact = cellH < 58;
+                  // 강의실이 먼저 들어가게 제목을 줄인다. 전체 정보는 목록에서도 확인 가능.
+                  const compact = cellH < 76;
+                  const showTime = cellH >= 62;
                   // 짧을수록 상하 패딩을 줄여 텍스트 공간 확보. (좌우는 유지.)
                   const padY = tiny ? 3 : compact ? 5 : 6;
                   const horizontalInset = isMobile ? 2 : 3;
@@ -409,7 +431,7 @@ function TimetableGrid({
                       key={`${s.courseId}-${w}-${s.slot.startMinute}`}
                       type="button"
                       onClick={() => onPickCourse(s)}
-                      className={`tt-cell spring-press group absolute flex flex-col items-start overflow-hidden rounded-[10px] px-1 text-left transition-all duration-200 hover:-translate-y-px hover:shadow-[0_10px_26px_-8px_rgba(0,0,0,0.22)] sm:px-2.5 ${
+                      className={`tt-cell ${timetableStyles.cell} group absolute flex flex-col items-start overflow-hidden rounded-[10px] px-1 text-left sm:px-2.5 ${
                         tiny ? "justify-center" : "justify-start"
                       } ${
                         isNow
@@ -417,7 +439,8 @@ function TimetableGrid({
                           : ""
                       } ${isPast ? "opacity-75" : ""}`}
                       style={cellStyle}
-                      aria-label={`${s.courseName} ${s.slot.startLabel} - ${s.slot.endLabel}${isNow ? " (진행 중)" : ""}`}
+                      aria-label={`${s.courseName} ${s.slot.startLabel} - ${s.slot.endLabel}, ${s.location?.trim() || "강의실 미등록"}${isNow ? " (진행 중)" : ""}`}
+                      title={`${s.courseName} · ${DAY_LABELS_KO[w]} ${s.slot.startLabel}–${s.slot.endLabel}\n${s.location?.trim() || "강의실 미등록 · 눌러서 수정"}${s.professor ? ` · ${s.professor}` : ""}`}
                     >
                       {/* 진행 중 라벨 — 셀 우상단 micro pulse dot. tiny 셀은 공간 없어 숨김. */}
                       {isNow && !tiny && (
@@ -435,7 +458,13 @@ function TimetableGrid({
                       >
                         {s.courseName}
                       </span>
-                      {!compact && (
+                      {!tiny && (
+                        <span className={timetableStyles.cellLocation}>
+                          <MapPin size={11} aria-hidden />
+                          <span>{s.location?.trim() || "강의실 추가"}</span>
+                        </span>
+                      )}
+                      {showTime && (
                         <span
                           className={`mt-0.5 line-clamp-1 text-[10.5px] wght-560 tabular-nums ${
                             isDark
@@ -457,11 +486,15 @@ function TimetableGrid({
 
               {/* 현재 시각 라인 — 파란 컬럼 wash를 뺀 자리의 주인공.
                   도트 + 현재 시각 칩(HH:MM) + 가는 라인. "내 시간"이 한눈에. */}
-              {nowFrac !== null && shownDays.some((w) => isKstToday(w, now)) && (
+              {nowFrac !== null && todayColumn !== -1 && (
                 <div
                   aria-hidden
-                  className="time-bar-pulse pointer-events-none absolute inset-x-0 z-20 flex items-center"
-                  style={{ top: `${BODY_PAD_PX + nowFrac * hourPx * hourSpan}px` }}
+                  className="time-bar-pulse pointer-events-none absolute z-20 flex items-center"
+                  style={{
+                    top: `${BODY_PAD_PX + nowFrac * hourPx * hourSpan}px`,
+                    left: `${(todayColumn / shownDays.length) * 100}%`,
+                    width: `${100 / shownDays.length}%`,
+                  }}
                 >
                   <span className="relative -ml-1 inline-flex h-2 w-2 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-apple-action)] opacity-60" />
@@ -480,6 +513,94 @@ function TimetableGrid({
           </div>
         </div>
       </div>
+      {view === "list" && (
+        <TimetableList
+          data={data}
+          now={now}
+          weekdays={displayWeekdays}
+          onPickCourse={onPickCourse}
+        />
+      )}
+      <p className={timetableStyles.hint}>
+        <MapPin size={12} aria-hidden /> 강의를 누르면 강의실과 시간을 수정할 수 있어요
+      </p>
+    </section>
+  );
+}
+
+function TimetableList({
+  data,
+  now,
+  weekdays,
+  onPickCourse,
+}: {
+  data: ReturnType<typeof buildTimetable>;
+  now: Date;
+  weekdays: Weekday[];
+  onPickCourse: (slot: CourseSlot) => void;
+}) {
+  return (
+    <section className={timetableStyles.agenda} aria-label="요일별 강의 목록">
+      {weekdays.map((weekday) => {
+        const slots = data.slots
+          .filter((slot) => slot.slot.weekday === weekday)
+          .sort((a, b) => a.slot.startMinute - b.slot.startMinute);
+        const today = isKstToday(weekday, now);
+        return (
+          <section key={weekday} className={timetableStyles.agendaDay}>
+            <h3 className={timetableStyles.agendaDayTitle} data-today={today}>
+              {DAY_LABELS_KO[weekday]}요일
+              {today && <span>오늘</span>}
+              <span className={timetableStyles.dayCount}>{slots.length}개 수업</span>
+            </h3>
+            {slots.length === 0 ? (
+              <p className={timetableStyles.freeDay}>등록된 수업이 없어요</p>
+            ) : (
+              <ul className={timetableStyles.agendaCourses}>
+                {slots.map((slot) => {
+                  const accent = courseAccentRgb(slot.courseName, slot.color);
+                  const style = {
+                    "--tt-accent-rgb": `${accent.r} ${accent.g} ${accent.b}`,
+                  } as CSSProperties;
+                  return (
+                    <li key={`${slot.courseId}-${slot.slot.startMinute}`}>
+                      <button
+                        type="button"
+                        className={timetableStyles.agendaCourse}
+                        style={style}
+                        onClick={() => onPickCourse(slot)}
+                      >
+                        <span className={timetableStyles.agendaTime}>
+                          <Clock3 size={12} aria-hidden />
+                          {slot.slot.startLabel}
+                          <span>{slot.slot.endLabel}</span>
+                        </span>
+                        <span className={timetableStyles.agendaDetails}>
+                          <strong>{slot.courseName}</strong>
+                          <span className={timetableStyles.agendaLocation}>
+                            <MapPin size={13} aria-hidden />
+                            {slot.location?.trim() || "강의실 미등록 · 눌러서 추가"}
+                          </span>
+                          {slot.professor && (
+                            <span className={timetableStyles.agendaProfessor}>
+                              {slot.professor}
+                            </span>
+                          )}
+                        </span>
+                        <ArrowUpRight
+                          className={timetableStyles.agendaArrow}
+                          size={17}
+                          aria-hidden
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        );
+      })}
     </section>
   );
 }
@@ -515,35 +636,113 @@ function ViewPill({
 
 /* ─────────────────────────── Empty ─────────────────────────── */
 
-function EmptyTimetableHero() {
+function EmptyTimetableHero({ hasCourses }: { hasCourses: boolean }) {
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center rounded-[16px] border border-dashed border-[var(--color-apple-hairline)] bg-white/60 p-8 text-center">
-      <p
-        className="text-[10px] uppercase wght-620 text-[var(--color-apple-muted)]"
-        style={{ letterSpacing: "0.08em" }}
-      >
-        시간표 없음
-      </p>
-      <p
-        className="mt-2 max-w-[360px] text-[14.5px] wght-560 text-[var(--color-apple-ink)]"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        한 학기를 한 장으로 펼쳐볼게요
-      </p>
-      <p
-        className="mt-1.5 max-w-[400px] text-[12px] wght-450 leading-[1.55] text-[var(--color-apple-muted)]"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        시간표 한 장만 올려두면 오늘 어디서 뭘 듣는지 한눈에 들어와요.
-      </p>
-      <Link
-        href="/dashboard/calendar/import?kind=timetable"
-        className="btn-ink spring-press mt-5 inline-flex h-10 items-center gap-1.5 rounded-full bg-[var(--color-apple-ink)] px-4 text-[12.5px] wght-560 text-white transition-opacity hover:opacity-90"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        시간표 올리기 <span aria-hidden>›</span>
-      </Link>
-    </div>
+    <section className={styles.welcome} aria-labelledby="campus-start-title">
+      <div className={styles.welcomeMain}>
+        <div className={styles.welcomeCopy}>
+          <span className={styles.eyebrow}>MY CAMPUS / 나의 시작점</span>
+          <h2 id="campus-start-title" className={styles.welcomeTitle}>
+            한 학기의 시작은
+            <br />
+            <span>가볍게, 한 장부터</span>
+          </h2>
+          <p className={styles.welcomeDescription}>
+            시간표 이미지를 올리고 과목과 시간을 확인하세요.
+            <br className="hidden sm:block" /> 수업을 누르면 그 과목의 자료로 바로 이어집니다.
+          </p>
+          <Link href="/dashboard/calendar/import?kind=timetable" className={styles.primaryAction}>
+            시간표 올리기 <ArrowRight size={17} aria-hidden />
+          </Link>
+          <Link href="/dashboard/study" className={styles.secondaryAction}>
+            {hasCourses ? "등록한 과목에서 공부 이어가기" : "시간표 없이 자료부터 시작하기"}{" "}
+            <ArrowUpRight size={14} aria-hidden />
+          </Link>
+        </div>
+        <div className={styles.scheduleArt} aria-hidden="true">
+          <div className={styles.paperBack} />
+          <div className={styles.paper}>
+            <div className={styles.paperHeader}>
+              <span>MY WEEK</span>
+              <CalendarDays size={17} />
+            </div>
+            <div className={styles.paperDays}>
+              {["MON", "TUE", "WED", "THU", "FRI"].map((day) => (
+                <span key={day}>{day[0]}</span>
+              ))}
+            </div>
+            <div className={styles.paperGrid}>
+              <span className={styles.paperClass} style={{ gridColumn: "1", gridRow: "1 / 3" }}>
+                <BookOpen size={16} />
+              </span>
+              <span className={styles.paperClass} style={{ gridColumn: "3", gridRow: "2 / 4" }}>
+                <FileText size={16} />
+              </span>
+              <span className={styles.paperClass} style={{ gridColumn: "5", gridRow: "1 / 3" }}>
+                <BookOpen size={16} />
+              </span>
+              <span className={styles.paperClass} style={{ gridColumn: "2", gridRow: "4 / 6" }} />
+              <span className={styles.paperClass} style={{ gridColumn: "4", gridRow: "4 / 6" }} />
+            </div>
+            <div className={styles.paperFooter}>YOUR SEMESTER, CONNECTED.</div>
+          </div>
+          <span className={styles.paperNote}>
+            <Check size={15} /> 내 시간표를 한눈에
+          </span>
+        </div>
+      </div>
+      <div className={styles.startSteps}>
+        <StartStep
+          number="01"
+          icon={<CalendarDays size={18} />}
+          title="시간표로 한 주 정리"
+          description="이미지에서 과목·시간 가져오기"
+          href="/dashboard/calendar/import?kind=timetable"
+        />
+        <StartStep
+          number="02"
+          icon={<FileText size={18} />}
+          title="자료에서 공부 시작"
+          description="강의자료를 요약과 문제로"
+          href="/dashboard/study"
+        />
+        <StartStep
+          number="03"
+          icon={<BookOpen size={18} />}
+          title="틀린 문제 다시 보기"
+          description="쌓인 오답을 과목별로 복습"
+          href="/dashboard/review"
+        />
+      </div>
+    </section>
+  );
+}
+
+function StartStep({
+  number,
+  icon,
+  title,
+  description,
+  href,
+}: {
+  number: string;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  href: string;
+}) {
+  return (
+    <Link href={href} className={styles.startStep}>
+      <span className={styles.stepNumber}>{number}</span>
+      <div className={styles.stepContent}>
+        <span className={styles.stepTitle}>
+          {icon}
+          {title}
+        </span>
+        <span className={styles.stepDescription}>{description}</span>
+      </div>
+      <ArrowUpRight className={styles.stepArrow} size={17} aria-hidden />
+    </Link>
   );
 }
 

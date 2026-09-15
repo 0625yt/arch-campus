@@ -16,19 +16,26 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
-    const current = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-    setTheme(current);
+    const root = document.documentElement;
+    const sync = () => setTheme(root.dataset.theme === "dark" ? "dark" : "light");
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
   }, []);
 
   const toggle = () => {
-    const next = theme === "dark" ? "light" : "dark";
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
     setTheme(next);
     if (next === "dark") {
       document.documentElement.setAttribute("data-theme", "dark");
-      localStorage.setItem("arch-theme", "dark");
     } else {
       document.documentElement.removeAttribute("data-theme");
-      localStorage.setItem("arch-theme", "light");
+    }
+    try {
+      localStorage.setItem("arch-theme", next);
+    } catch {
+      // Theme changes still work when the browser disallows persistent storage.
     }
   };
 

@@ -261,8 +261,8 @@ function buildSignals({
       evidence: event.notes
         ? `유의: ${event.notes}`
         : "유의: 제출 형식·범위·장소를 직접 확인하세요",
-      href: "/dashboard",
-      cta: "지금 시작",
+      href: "/dashboard/calendar",
+      cta: "일정 확인",
     });
   }
 

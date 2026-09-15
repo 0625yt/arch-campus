@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LandingHero } from "./landing/hero";
+import styles from "./landing/landing.module.css";
 import { MaterialWorkspaceSection } from "./landing/material-workspace-section";
 import { ProductShowcase } from "./landing/product-showcase";
 import { TodaySection } from "./landing/today-section";
@@ -13,15 +14,9 @@ export default function Home() {
   const startLabel = "무료로 시작하기";
 
   return (
-    <div
-      className="min-h-screen overflow-x-clip"
-      style={{
-        background: "var(--color-landing-bg)",
-        color: "var(--color-landing-text-strong)",
-      }}
-    >
+    <div className={`min-h-screen overflow-x-clip ${styles.page}`}>
       <TopNav startHref={startHref} />
-      <main>
+      <main id="main-content">
         <LandingHero startHref={startHref} startLabel={startLabel} />
         <ProductShowcase startHref={startHref} startLabel={startLabel} />
         <MaterialWorkspaceSection startHref={startHref} startLabel={startLabel} />
@@ -35,28 +30,22 @@ export default function Home() {
 
 function TopNav({ startHref }: { startHref: string }) {
   return (
-    <header
-      className="sticky top-0 z-50 backdrop-blur-xl"
-      style={{
-        background: "color-mix(in oklab, var(--color-landing-bg) 78%, transparent)",
-        borderBottom: "1px solid var(--color-landing-hairline)",
-      }}
-    >
-      <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-3 px-5 py-2 sm:px-8">
+    <header className={`sticky top-0 z-50 backdrop-blur-xl ${styles.nav}`}>
+      <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-3 px-5 py-2.5 sm:px-8 lg:px-12">
         <Link
           href="/"
-          className="group inline-flex min-h-11 items-center gap-2 transition-opacity hover:opacity-80"
+          className="group inline-flex min-h-11 items-center transition-opacity hover:opacity-80"
+          aria-label="arch 홈"
         >
-          <BrandMark />
-          <span
-            className="text-[15px] wght-700"
-            style={{ color: "var(--color-landing-text-strong)" }}
-          >
-            arch
+          <span className={styles.brand}>arch</span>
+          <span className={styles.brandNote} aria-hidden>
+            MADE FOR
+            <br />
+            YOUR SEMESTER
           </span>
         </Link>
 
-        <nav className="flex items-center gap-1.5">
+        <nav className="flex items-center gap-1.5" aria-label="주요 메뉴">
           <a
             href="#product"
             className="hidden min-h-11 items-center px-3 text-[13px] wght-560 transition-colors hover:opacity-75 sm:inline-flex"
@@ -78,7 +67,7 @@ function TopNav({ startHref }: { startHref: string }) {
           >
             안심하고 시작
           </a>
-          <ThemeToggle className="ml-1 !h-11 !w-11" />
+          <ThemeToggle className="sm:ml-1 !h-11 !w-11" />
           <Link
             href="/login"
             className="inline-flex min-h-11 items-center px-2 text-[13px] wght-560 transition-colors hover:opacity-75 sm:px-3"
@@ -88,7 +77,7 @@ function TopNav({ startHref }: { startHref: string }) {
           </Link>
           <Link
             href={startHref}
-            className="spring-press inline-flex min-h-11 items-center rounded-[10px] bg-[var(--color-landing-text-strong)] px-3 text-[13px] wght-700 transition-opacity hover:opacity-85 sm:px-4"
+            className="spring-press inline-flex min-h-11 items-center rounded-[10px] bg-[var(--color-landing-text-strong)] px-3 text-[12px] wght-700 transition-opacity hover:opacity-85 sm:px-4 sm:text-[13px]"
             style={{ color: "var(--color-landing-bg)", letterSpacing: "-0.012em" }}
           >
             무료 시작

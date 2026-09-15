@@ -24,7 +24,7 @@ export function BottomCards({
   courses: CourseListItem[];
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
       <UrgentCard signal={signals[0] ?? null} />
       <NextEventCard event={events[0] ?? null} />
       <CoursesCard courses={courses} />
@@ -36,7 +36,15 @@ export function BottomCards({
 
 function UrgentCard({ signal }: { signal: SafetySignal | null }) {
   if (!signal) {
-    return <BaseCard href="/dashboard" label="긴급 신호" tone="muted" title="이상 없음" meta="" />;
+    return (
+      <BaseCard
+        href="/dashboard/today"
+        label="오늘의 우선순위"
+        tone="muted"
+        title="급한 일 없이 차분하게"
+        meta="오늘 할 일 살펴보기"
+      />
+    );
   }
   const tone: CardTone =
     signal.tone === "urgent" ? "urgent" : signal.tone === "warn" ? "warn" : "muted";
@@ -58,10 +66,10 @@ function NextEventCard({ event }: { event: EventView | null }) {
   if (!event) {
     return (
       <BaseCard
-        href="/dashboard/calendar"
+        href="/dashboard/calendar/import?kind=syllabus"
         label="다음 일정"
         tone="muted"
-        title="일정 없음"
+        title="다음 마감도 놓치지 않게"
         meta="강의계획서에서 가져오기"
       />
     );
@@ -103,8 +111,8 @@ function CoursesCard({ courses }: { courses: CourseListItem[] }) {
         href="/dashboard/study"
         label="강의"
         tone="muted"
-        title="강의 없음"
-        meta="강의계획서 한 장으로 시작"
+        title="첫 과목을 추가해 보세요"
+        meta="과목별로 자료와 문제 모으기"
       />
     );
   }
@@ -181,7 +189,7 @@ function BaseCard({
   return (
     <Link
       href={href}
-      className={`spring-press elev-1 card-lift group relative flex flex-col justify-between overflow-hidden rounded-[14px] bg-white px-4 py-3.5 transition-all hover:-translate-y-px ${s.ring}`}
+      className={`spring-press elev-1 card-lift group relative flex min-h-[102px] flex-col justify-between overflow-hidden rounded-[12px] bg-white px-4 py-3.5 transition-all hover:-translate-y-0.5 ${s.ring}`}
       style={{
         backgroundImage: s.glow,
         backgroundRepeat: "no-repeat",
@@ -209,9 +217,9 @@ function BaseCard({
         </span>
         <span
           aria-hidden
-          className="text-[12px] text-[var(--color-apple-muted)] opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:opacity-100"
+          className="text-[15px] text-[var(--color-apple-muted)] transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--color-accent)]"
         >
-          ›
+          ↗
         </span>
       </div>
       <div className="mt-1.5 flex min-w-0 items-end justify-between gap-2">
@@ -251,6 +259,7 @@ function DonutRing({ pct }: { pct: number }) {
   const off = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
   return (
     <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden className="-rotate-90 shrink-0">
+      <title>자료 등록 비율</title>
       <circle
         className="ring-track"
         cx="14"
