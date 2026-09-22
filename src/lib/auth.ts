@@ -1,3 +1,4 @@
+import { MfaRequiredError } from "./mfa";
 import { getCurrentUser } from "./supabase/server";
 
 /**
@@ -21,7 +22,10 @@ export class UnauthorizedError extends Error {
 }
 
 export async function getOwnerId(): Promise<string> {
-  const user = await getCurrentUser();
+  const user = await getCurrentUser().catch((error: unknown) => {
+    if (error instanceof MfaRequiredError) throw new UnauthorizedError(error.message);
+    throw error;
+  });
   if (user?.id) return user.id;
   if (process.env.NODE_ENV !== "production") return DEV_FALLBACK_USER_ID;
   throw new UnauthorizedError();

@@ -739,7 +739,9 @@ function CourseEditCard({
   const [name, setName] = useState(course.name);
   const [professor, setProfessor] = useState(course.professor ?? "");
   const [location, setLocation] = useState(course.location ?? "");
-  const [slots, setSlots] = useState(course.slots);
+  const [slots, setSlots] = useState(() =>
+    course.slots.map((slot) => ({ ...slot, editorId: crypto.randomUUID() })),
+  );
   const [formError, setFormError] = useState<string | null>(null);
 
   function updateSlot(idx: number, patch: Partial<Course["slots"][number]>) {
@@ -753,7 +755,10 @@ function CourseEditCard({
     setSlots((prev) => prev.filter((_, i) => i !== idx));
   }
   function addSlot() {
-    setSlots((prev) => [...prev, { weekday: "MON", startTime: "09:00", endTime: "10:50" }]);
+    setSlots((prev) => [
+      ...prev,
+      { editorId: crypto.randomUUID(), weekday: "MON", startTime: "09:00", endTime: "10:50" },
+    ]);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -771,7 +776,7 @@ function CourseEditCard({
       name: name.trim(),
       professor: professor.trim() || null,
       location: location.trim() || null,
-      slots,
+      slots: slots.map(({ editorId: _editorId, ...slot }) => slot),
     };
     onSave(patch);
   }
@@ -792,7 +797,7 @@ function CourseEditCard({
 
       <ul className="flex flex-col gap-1.5">
         {slots.map((s, i) => (
-          <li key={`${slotKey(s)}-${i}`} className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <li key={s.editorId} className="flex min-w-0 flex-wrap items-center gap-1.5">
             <select
               value={s.weekday}
               onChange={(e) =>

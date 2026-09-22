@@ -83,8 +83,11 @@ export function DayView({
   const visibleHours = 24 - startHour;
   const gridHeight = visibleHours * HOUR_HEIGHT_PX;
 
+  const scrolledDate = useRef<string | null>(null);
   useEffect(() => {
     if (!mounted || !scrollRef.current) return;
+    if (scrolledDate.current === `${dateKey}:${startHour}`) return;
+    scrolledDate.current = `${dateKey}:${startHour}`;
     // 진입 시 08시로 스크롤 — startHour 보정 후. 보통은 06시 시작이라 약간만 내림.
     const targetHour = 8;
     scrollRef.current.scrollTop = Math.max(0, (targetHour - startHour) * HOUR_HEIGHT_PX - 24);
@@ -272,6 +275,7 @@ export function DayView({
                         fill="none"
                         className="mt-[2px] shrink-0 opacity-70"
                       >
+                        <title>아이콘</title>
                         <path
                           d="M17 2l4 4-4 4M3 11v-1a4 4 0 014-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 01-4 4H3"
                           stroke="currentColor"

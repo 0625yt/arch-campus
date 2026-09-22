@@ -10,6 +10,7 @@ import {
   type MaterialListItem,
 } from "@/lib/data/materials";
 import { getExtractedExam, listQuizzesForMaterial } from "@/lib/data/quizzes";
+import { keyedItems } from "@/lib/keyed-items";
 import { getDefaultStyles, type SummaryStyle } from "@/lib/material-policy";
 import type { SummarizeOutputT } from "@/lib/schemas";
 import { createSignedReadUrl } from "@/lib/storage";
@@ -649,8 +650,8 @@ function SummaryArticle({ summary, className }: { summary: SummarizeOutputT; cla
               한 번 더 보면 좋은 부분
             </h3>
             <ul className="mt-4 flex flex-col gap-4">
-              {summary.reviewSpots.map((spot, i) => (
-                <li key={i}>
+              {keyedItems(summary.reviewSpots).map(({ item: spot, key: contentKey0 }) => (
+                <li key={contentKey0}>
                   <p
                     className="text-[15px] wght-560 text-[var(--color-apple-ink)]"
                     style={{ letterSpacing: "-0.012em" }}
@@ -680,12 +681,12 @@ function SummaryArticle({ summary, className }: { summary: SummarizeOutputT; cla
 function SummaryBlocks({ blocks }: { blocks: SummarizeOutputT["blocks"] }) {
   return (
     <div>
-      {blocks.map((b, i) => {
+      {keyedItems(blocks).map(({ item: b, key: contentKey1 }) => {
         const pageHint = "sourcePage" in b && b.sourcePage ? `p.${b.sourcePage}` : null;
         if (b.type === "h2") {
           return (
             <h3
-              key={i}
+              key={contentKey1}
               className="mt-9 flex items-baseline gap-2 first:mt-0 text-[19px] wght-620 text-[var(--color-apple-ink)] sm:text-[21px]"
               style={{ letterSpacing: "-0.012em" }}
             >
@@ -701,7 +702,7 @@ function SummaryBlocks({ blocks }: { blocks: SummarizeOutputT["blocks"] }) {
         if (b.type === "para") {
           return (
             <p
-              key={i}
+              key={contentKey1}
               className="mt-4 text-[15px] leading-[1.7] text-[var(--color-apple-ink)] sm:text-[16px]"
               style={{ letterSpacing: "-0.012em" }}
             >
@@ -717,12 +718,12 @@ function SummaryBlocks({ blocks }: { blocks: SummarizeOutputT["blocks"] }) {
         if (b.type === "bullets") {
           return (
             <ul
-              key={i}
+              key={contentKey1}
               className="mt-4 flex flex-col gap-2 text-[15px] leading-[1.65] text-[var(--color-apple-ink)] sm:text-[16px]"
               style={{ letterSpacing: "-0.012em" }}
             >
-              {b.items.map((item, j) => (
-                <li key={j} className="flex gap-3">
+              {keyedItems(b.items).map(({ item, key: contentKey2 }, j) => (
+                <li key={contentKey2} className="flex gap-3">
                   <span
                     aria-hidden
                     className="mt-[10px] h-1 w-1 shrink-0 select-none rounded-full bg-[var(--color-apple-muted)]"
@@ -743,7 +744,7 @@ function SummaryBlocks({ blocks }: { blocks: SummarizeOutputT["blocks"] }) {
         const isWarn = b.tone === "warn";
         return (
           <aside
-            key={i}
+            key={contentKey1}
             className={`mt-5 rounded-[12px] px-5 py-4 ${
               isWarn ? "bg-[var(--color-urgent-soft)]" : "bg-[var(--color-apple-pearl)]"
             }`}

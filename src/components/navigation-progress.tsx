@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * 라우팅 progress bar — App Router 전용.
@@ -22,7 +22,7 @@ export function NavigationProgress() {
   const tickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function clearTimers() {
+  const clearTimers = useCallback(() => {
     if (tickerRef.current) {
       clearInterval(tickerRef.current);
       tickerRef.current = null;
@@ -31,9 +31,9 @@ export function NavigationProgress() {
       clearTimeout(fadeTimerRef.current);
       fadeTimerRef.current = null;
     }
-  }
+  }, []);
 
-  function start() {
+  const start = useCallback(() => {
     clearTimers();
     setVisible(true);
     setProgress(8);
@@ -46,16 +46,16 @@ export function NavigationProgress() {
         return Math.min(90, p + step);
       });
     }, 180);
-  }
+  }, [clearTimers]);
 
-  function complete() {
+  const complete = useCallback(() => {
     clearTimers();
     setProgress(100);
     fadeTimerRef.current = setTimeout(() => {
       setVisible(false);
       setProgress(0);
     }, 240);
-  }
+  }, [clearTimers]);
 
   // 1) 클릭 캡처 — 같은 origin, 새 URL이면 start
   useEffect(() => {
@@ -86,25 +86,25 @@ export function NavigationProgress() {
     }
     document.addEventListener("click", onClick, { capture: true });
     return () => document.removeEventListener("click", onClick, { capture: true });
-  }, []);
+  }, [start]);
 
-  // 2) pathname/searchParams 바뀌면 complete
+  const routeKey = `${pathname}?${searchParams.toString()}`;
+  const previousRoute = useRef(routeKey);
   useEffect(() => {
-    if (!visible) return;
-    complete();
-    // visible은 의도적으로 deps에서 제외 — start 직후 같은 effect가 또 돌면 곤란
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, searchParams]);
+    if (previousRoute.current === routeKey) return;
+    previousRoute.current = routeKey;
+    if (visible) complete();
+  }, [routeKey, visible, complete]);
 
   // 안전망 — 6초 넘게 안 끝나면 강제 완료
   useEffect(() => {
     if (!visible) return;
     const safety = setTimeout(() => complete(), 6000);
     return () => clearTimeout(safety);
-  }, [visible]);
+  }, [visible, complete]);
 
   // unmount cleanup
-  useEffect(() => clearTimers, []);
+  useEffect(() => clearTimers, [clearTimers]);
 
   if (!visible && progress === 0) return null;
 

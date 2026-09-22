@@ -1,6 +1,5 @@
 "use client";
-
-import { useActionState } from "react";
+import { cloneElement, isValidElement, type ReactElement, useActionState, useId } from "react";
 import type { OnboardingState } from "./actions";
 
 const TERM_LABEL: Record<"spring" | "fall", string> = {
@@ -116,13 +115,16 @@ function Field({
   required?: boolean;
   children: React.ReactNode;
 }) {
+  const controlId = useId();
   return (
-    <label className="flex flex-col gap-2">
+    <label htmlFor={controlId} className="flex flex-col gap-2">
       <span className="flex items-center gap-1.5 text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
         {label}
         {required && <span className="text-[var(--color-urgent)]">*</span>}
       </span>
-      {children}
+      {isValidElement(children)
+        ? cloneElement(children as ReactElement<{ id?: string }>, { id: controlId })
+        : children}
     </label>
   );
 }

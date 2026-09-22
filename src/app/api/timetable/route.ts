@@ -120,7 +120,7 @@ export async function POST(
   const mimeType = uploaded.mimeType;
   after(async () => {
     try {
-      await markJobRunning({ jobId: job.id, ownerId });
+      if (!(await markJobRunning({ jobId: job.id, ownerId }))) return;
 
       let parsed: Awaited<ReturnType<typeof parseDocument>>;
       try {

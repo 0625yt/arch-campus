@@ -1,5 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { safeAuthRedirect } from "./lib/auth-redirect";
+import { requiresMfa } from "./lib/mfa";
 import type { Database } from "./lib/supabase/types";
 
 const PUBLIC_PREFIXES = ["/", "/login", "/signup", "/auth", "/terms", "/privacy"];
@@ -52,13 +54,28 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  function redirectWithCookies(path: string) {
+    const redirected = NextResponse.redirect(new URL(path, request.url));
+    for (const cookie of response.cookies.getAll()) redirected.cookies.set(cookie);
+    return redirected;
+  }
+  if (user && !pathname.startsWith("/auth/") && (await requiresMfa(supabase, user))) {
+    const next = safeAuthRedirect(
+      pathname === "/login" || pathname === "/signup"
+        ? request.nextUrl.searchParams.get("next")
+        : pathname + request.nextUrl.search,
+    );
+    return redirectWithCookies(`/auth/mfa?next=${encodeURIComponent(next)}`);
+  }
+
   const isPublic = PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if (!user && !isPublic && process.env.NODE_ENV === "production") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+    url.search = "";
+    url.searchParams.set("next", pathname + request.nextUrl.search);
+    return redirectWithCookies(url.pathname + url.search);
   }
 
   // 로그인 상태에서 인증 페이지 진입 → 대시보드로. /login/forgot, /signup/verify, /auth/reset은
@@ -66,7 +83,7 @@ export async function proxy(request: NextRequest) {
   if (user && (pathname === "/login" || pathname === "/signup")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    return redirectWithCookies(url.pathname + url.search);
   }
 
   return response;

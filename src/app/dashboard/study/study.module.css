@@ -450,7 +450,8 @@
     transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.25s,
     border-color 0.25s;
-  animation: card-arrive 0.55s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--card-order) * 35ms) backwards;
+  animation: card-arrive 0.55s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--card-order) * 35ms)
+    backwards;
 }
 .courseCard::before {
   content: "";

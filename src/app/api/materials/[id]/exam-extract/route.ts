@@ -105,7 +105,7 @@ export async function POST(
   // 백그라운드 실행
   after(async () => {
     try {
-      await markJobRunning({ jobId: job.id, ownerId });
+      if (!(await markJobRunning({ jobId: job.id, ownerId }))) return;
       const result = await runExamExtract({
         ownerId,
         materialId: material.id,

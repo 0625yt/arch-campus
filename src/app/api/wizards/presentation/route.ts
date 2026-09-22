@@ -104,7 +104,7 @@ export async function POST(req: Request): Promise<NextResponse> {
 
   after(async () => {
     try {
-      await markJobRunning({ jobId: job.id, ownerId });
+      if (!(await markJobRunning({ jobId: job.id, ownerId }))) return;
 
       const result = await runPresentation({
         ownerId,

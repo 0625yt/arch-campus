@@ -35,6 +35,7 @@ export default async function DashboardHomePage() {
         <TopChrome semesterLabel={semester.label} hasCourses={hasTimetable} />
         <div className={`flex min-h-0 flex-1 flex-col ${hasTimetable ? "sm:overflow-hidden" : ""}`}>
           <DashboardClient
+            initialNow={new Date().toISOString()}
             courses={allCourses}
             hasTimetable={hasTimetable}
             studentName={profile?.displayName ?? null}

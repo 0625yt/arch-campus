@@ -132,6 +132,7 @@ export default async function CampusPreviewPage({
             </p>
             <div className="flex min-h-0 flex-1 flex-col sm:overflow-hidden">
               <DashboardClient
+                initialNow={new Date().toISOString()}
                 courses={courses}
                 hasTimetable
                 studentName="지민"

@@ -47,7 +47,7 @@ export function CourseSheet({
 
   // 새 course 열릴 때 편집 모드 reset
   useEffect(() => {
-    setEditing(false);
+    if (course) setEditing(false);
   }, [course]);
 
   if (!course) return null;
@@ -154,9 +154,9 @@ export function CourseSheet({
                 <section className="sheet-item-in">
                   <SectionLabel>강의 시간</SectionLabel>
                   <ul className="mt-3 flex flex-col gap-1.5">
-                    {slots.map((s, i) => (
+                    {slots.map((s) => (
                       <li
-                        key={`${s.weekday}-${s.startMinute}-${i}`}
+                        key={`${s.weekday}-${s.startMinute}-${s.endMinute}`}
                         className="flex items-baseline justify-between rounded-[10px] bg-[var(--color-apple-pearl)] px-4 py-2.5"
                       >
                         <span
@@ -275,8 +275,11 @@ function EditForm({
 }) {
   const [name, setName] = useState(course.name);
   const [location, setLocation] = useState(course.location ?? "");
-  const [slots, setSlots] = useState<SlotDraft[]>(
-    initialSlots.length > 0 ? initialSlots : [{ weekday: "MON", start: "09:00", end: "10:50" }],
+  const [slots, setSlots] = useState<(SlotDraft & { id: string })[]>(() =>
+    (initialSlots.length > 0
+      ? initialSlots
+      : [{ weekday: "MON" as const, start: "09:00", end: "10:50" }]
+    ).map((slot) => ({ ...slot, id: crypto.randomUUID() })),
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -288,7 +291,10 @@ function EditForm({
     setSlots((prev) => prev.filter((_, i) => i !== idx));
   };
   const addSlot = () => {
-    setSlots((prev) => [...prev, { weekday: "MON", start: "09:00", end: "10:50" }]);
+    setSlots((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), weekday: "MON", start: "09:00", end: "10:50" },
+    ]);
   };
 
   const save = async () => {
@@ -378,7 +384,7 @@ function EditForm({
         <ul className="mt-3 flex flex-col gap-2">
           {slots.map((s, idx) => (
             <li
-              key={idx}
+              key={s.id}
               className="flex items-center gap-2 rounded-[10px] bg-[var(--color-apple-pearl)] px-2.5 py-2"
             >
               <select
@@ -484,6 +490,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function CloseIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden fill="none">
+      <title>아이콘</title>
       <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
@@ -492,6 +499,7 @@ function CloseIcon() {
 function PencilIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden fill="none">
+      <title>아이콘</title>
       <path
         d="M2 12l1-3 7-7 2 2-7 7-3 1z"
         stroke="currentColor"

@@ -113,7 +113,7 @@ export async function POST(
 
   after(async () => {
     try {
-      await markJobRunning({ jobId: job.id, ownerId });
+      if (!(await markJobRunning({ jobId: job.id, ownerId }))) return;
       const result = await runQuizGeneration({
         ownerId,
         courseId: primary.course_id ?? null,

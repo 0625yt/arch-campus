@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 test("등록된 시간표를 펼치고 과목 자료 진입을 확인할 수 있다", async ({ page }) => {
+  const hydrationErrors: string[] = [];
+  page.on("pageerror", (error) => {
+    if (/hydration/i.test(error.message)) hydrationErrors.push(error.message);
+  });
   await page.clock.setFixedTime(new Date("2026-09-10T00:30:00Z"));
   await page.goto("/dev/campus-preview");
   await expect(page.getByRole("heading", { name: "지민님의 이번 주" })).toBeVisible();
@@ -25,4 +29,5 @@ test("등록된 시간표를 펼치고 과목 자료 진입을 확인할 수 있
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
     page.viewportSize()!.width + 1,
   );
+  expect(hydrationErrors).toEqual([]);
 });

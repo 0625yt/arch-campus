@@ -96,3 +96,32 @@ describe("Excel timetable structure", () => {
     expect(result.grids[0].markdown).toContain("자료구조");
   });
 });
+
+it("round-trips extended conditional formatting with the patched UUID dependency", async () => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("조건부 서식");
+  sheet.addRows([[1], [2], [3]]);
+  sheet.addConditionalFormatting({
+    ref: "A1:A3",
+    rules: [
+      {
+        type: "iconSet",
+        iconSet: "3Stars",
+        cfvo: [
+          { type: "percent", value: 0 },
+          { type: "percent", value: 33 },
+          { type: "percent", value: 67 },
+        ],
+        priority: 1,
+      },
+    ],
+  });
+  const buffer = await workbook.xlsx.writeBuffer();
+  const restored = new ExcelJS.Workbook();
+  await restored.xlsx.load(buffer);
+  expect(restored.getWorksheet("조건부 서식")?.getCell("A2").value).toBe(2);
+  expect(restored.getWorksheet("조건부 서식")).toHaveProperty(
+    "conditionalFormattings.0.rules.0.iconSet",
+    "3Stars",
+  );
+});

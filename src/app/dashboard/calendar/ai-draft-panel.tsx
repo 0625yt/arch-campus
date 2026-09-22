@@ -1,6 +1,5 @@
 "use client";
-
-import { useState } from "react";
+import { cloneElement, isValidElement, type ReactElement, useId, useState } from "react";
 import { useSpeechInput } from "@/lib/hooks/use-speech-input";
 import type { CourseOption } from "./calendar-board";
 
@@ -39,6 +38,7 @@ import type { CourseOption } from "./calendar-board";
 type Kind = "exam" | "assignment" | "presentation" | "etc";
 
 interface Draft {
+  editorId: string;
   title: string;
   kind: Kind;
   starts_at: string;
@@ -134,7 +134,7 @@ export function EventAIDraftPanel({
         setError(json.error ?? "정리에 실패했어요");
         return;
       }
-      const arr = (json.events as Omit<Draft, "selected" | "course_id">[]) ?? [];
+      const arr = (json.events as Omit<Draft, "selected" | "course_id" | "editorId">[]) ?? [];
       if (arr.length === 0) {
         setError("일정으로 보이는 내용을 못 찾았어요");
         return;
@@ -142,6 +142,7 @@ export function EventAIDraftPanel({
       setDrafts(
         arr.map((d) => ({
           ...d,
+          editorId: crypto.randomUUID(),
           course_id: guessCourseId(d.title, courses),
           selected: true,
         })),
@@ -248,6 +249,7 @@ export function EventAIDraftPanel({
           className="absolute right-3 top-3 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <title>아이콘</title>
             <path
               d="M3.5 3.5l7 7M10.5 3.5l-7 7"
               stroke="currentColor"
@@ -282,7 +284,7 @@ export function EventAIDraftPanel({
           <ul className="mt-5 flex flex-col gap-2.5">
             {drafts.map((d, i) => (
               <DraftCard
-                key={i}
+                key={d.editorId}
                 draft={d}
                 courses={courses}
                 expanded={expandedIdx === i}
@@ -360,6 +362,7 @@ export function EventAIDraftPanel({
         className="absolute right-3 top-3 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
       >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+          <title>아이콘</title>
           <path
             d="M3.5 3.5l7 7M10.5 3.5l-7 7"
             stroke="currentColor"
@@ -401,7 +404,6 @@ export function EventAIDraftPanel({
             onChange={(e) => setText(e.target.value)}
             rows={4}
             maxLength={2000}
-            autoFocus
             placeholder={EXAMPLE_PLACEHOLDER}
             className="w-full resize-none border-0 bg-transparent p-0 text-[15px] leading-[1.55] wght-450 text-[var(--color-apple-ink)] outline-none placeholder:text-[var(--color-apple-muted)]/55"
             style={{ letterSpacing: "-0.012em" }}
@@ -645,6 +647,7 @@ function DraftCard({
             }}
           >
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <title>아이콘</title>
               <path
                 d="M9.5 2.5l2 2-7 7H2.5v-2l7-7z"
                 stroke="currentColor"
@@ -663,6 +666,7 @@ function DraftCard({
             }}
           >
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <title>아이콘</title>
               <path
                 d="M3 4h8M5.5 4V2.5h3V4M4 4l.5 8h5L10 4M6 6.5v3.5M8 6.5v3.5"
                 stroke="currentColor"
@@ -677,10 +681,7 @@ function DraftCard({
 
       {/* 인라인 편집 트레이 — explicit expand. focus-within implicit 폐기. */}
       {expanded && (
-        <div
-          className="relative z-[2] flex flex-col gap-3 border-t border-[var(--color-apple-hairline-soft)] px-4 py-3 pl-5"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="relative z-[2] flex flex-col gap-3 border-t border-[var(--color-apple-hairline-soft)] px-4 py-3 pl-5">
           {/* 제목 인라인 편집 */}
           <FieldRow label="제목">
             <input
@@ -728,15 +729,18 @@ function DraftCard({
 
 /** 인라인 편집 라벨. */
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  const controlId = useId();
   return (
-    <label className="flex flex-1 flex-col gap-1">
+    <label htmlFor={controlId} className="flex flex-1 flex-col gap-1">
       <span
         className="text-[10.5px] wght-560 uppercase text-[var(--color-apple-muted)]"
         style={{ letterSpacing: "0.06em" }}
       >
         {label}
       </span>
-      {children}
+      {isValidElement(children)
+        ? cloneElement(children as ReactElement<{ id?: string }>, { id: controlId })
+        : children}
     </label>
   );
 }
@@ -771,6 +775,7 @@ function CardIconButton({
 function SparkleIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <title>아이콘</title>
       <path
         d="M7 1.5l1.4 3.6L12 6.5l-3.6 1.4L7 11.5 5.6 7.9 2 6.5l3.6-1.4L7 1.5z"
         fill="currentColor"
@@ -782,6 +787,7 @@ function SparkleIcon() {
 function PlusIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+      <title>아이콘</title>
       <path d="M5 1.5v7M1.5 5h7" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" />
     </svg>
   );
@@ -801,7 +807,10 @@ function MicIcon({ active }: { active: boolean }) {
       aria-label={active ? "녹음 중" : "마이크"}
       className={active ? "animate-pulse" : ""}
     >
-      <title>{active ? "녹음 중" : "마이크"}</title>
+      <title>
+        <title>아이콘</title>
+        {active ? "녹음 중" : "마이크"}
+      </title>
       <path
         d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"
         stroke="currentColor"
@@ -829,6 +838,7 @@ function Spinner() {
       aria-hidden
       className="animate-spin"
     >
+      <title>아이콘</title>
       <circle cx="8" cy="8" r="6" stroke="currentColor" strokeOpacity="0.3" strokeWidth="2" />
       <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>

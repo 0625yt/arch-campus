@@ -47,8 +47,8 @@
   --color-highlight: #e8efff;
 
   /* Apple 어휘 — /dashboard 한정 사용 (다른 라우트 영향 X) */
-  --color-apple-action: #0071e3;
-  --color-apple-action-hover: #0077e6;
+  --color-apple-action: #0066cc;
+  --color-apple-action-hover: #005bb8;
   --color-apple-ink: #1d1d1f;
   --color-apple-pearl: #f5f5f7;
   --color-apple-muted: #6e6e73;
@@ -1508,4 +1508,17 @@ html[data-theme="dark"] .now-glow {
   @page {
     margin: 16mm;
   }
+}
+
+/* Dashboard content stays readable while entering; motion never fades interactive text away. */
+@keyframes readable-rise {
+  from {
+    transform: translateY(8px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.dashboard-canvas .fade-up {
+  animation-name: readable-rise;
 }

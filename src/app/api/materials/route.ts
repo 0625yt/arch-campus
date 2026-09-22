@@ -45,7 +45,7 @@ export async function runSummarizeJob(opts: {
   intentNote?: string;
 }): Promise<void> {
   try {
-    await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId });
+    if (!(await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId }))) return;
     const result = await runSummarize({
       ownerId: opts.ownerId,
       materialId: opts.materialId,
@@ -94,7 +94,7 @@ export async function runQuizJob(opts: {
   requestedCount: number;
 }): Promise<void> {
   try {
-    await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId });
+    if (!(await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId }))) return;
     const result = await runQuizGeneration({
       ownerId: opts.ownerId,
       courseId: opts.courseId,

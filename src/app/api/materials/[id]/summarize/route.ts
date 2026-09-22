@@ -112,7 +112,7 @@ export async function POST(
   // 백그라운드 실행 — 응답 보낸 뒤에도 함수 max duration 동안 계속
   after(async () => {
     try {
-      await markJobRunning({ jobId: job.id, ownerId });
+      if (!(await markJobRunning({ jobId: job.id, ownerId }))) return;
       const result = await runSummarize({
         ownerId,
         materialId: material.id,

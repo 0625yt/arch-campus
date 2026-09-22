@@ -1,222 +1,61 @@
-# 현재 구현 상태 (2026-07-24 기준, 최종 갱신)
+# 기능 구현 현황 — 2026-09-22
 
-> 이 문서는 **지금 무엇이 살아있고 무엇이 미구현인지**의 단일 출처다.
-> 청사진(설계 의도)은 [ARCHITECTURE.md](ARCHITECTURE.md), 제품 범위는 [PRODUCT.md](PRODUCT.md), AI 모델·비용은 [COST.md](COST.md).
+현재 코드 기준의 단일 현황 문서. [점검 보고서](audit/2026-09-22-hardening.md)에 테스트 결과·수정·제약을 기록한다. 제품 목표는 [PRODUCT.md](PRODUCT.md), 다음 작업은 [NEXT-STEPS.md](NEXT-STEPS.md).
 
-## 갱신 이력
+## 판정 기준
 
-- **2026-07-24 (최신) — 모델 라우팅 대개편 + quiz 파이프라인 강화**:
-  - **quiz 생성 모델 = Gemini 3.5 Flash-Lite로 확정**(env·prod 무관 기본, `QUIZ_MODEL_VENDOR=anthropic`으로만 원복). quiz가 prod AI 비용 79.9%(실측)라 **1회 −82%** 절감. 근거·수치 전부 [COST.md](COST.md).
-  - **quiz 파이프라인 강화**: 신규 [semantic-dedup.ts](../src/lib/services/semantic-dedup.ts)(gemini-embedding-001 코사인≥0.85 의미중복 제거, 표면 dedup이 못 잡는 "글자다른데 뜻같은" 문제 차단, 키 없으면 폴백) 편입 + 스마트 topup(자료 한계 인식) + verbatim evidence 프롬프트 + "AI 티 어색한 보기 금지" 규칙. **semantic-dedup는 재사용 가능한 공유 모듈**(현재 quiz만 사용).
-  - **전면 Gemini 전환(Claude 탈피)** — 실측 A/B(COST §9)로 전 도구 검증. Flash-Lite 3.5: quiz·요약·챗·기출추출·exam-solve·리포트구조·채점·검수 등 대부분 / 3.6 Flash: 위저드(발표 등) / 3.1 Pro(thinking 512): 시간표·강계 Vision. Claude는 env 원복용으로만 남김.
-  - 테스트 245 passed / 7 skipped. 스크래치 A/B 진단 테스트 5개 정리, semantic-dedup 정식 테스트 유지.
-- **2026-05-28** — 자료 업로드 시점에 **자료 종류 선택 모달**(강의자료/기출문제), 기출 추출 동선을 문제 생성 폼과 **통합**(별도 화면 제거), 사이드바·과목 카드 **우클릭 컨텍스트 메뉴**(이름·교수·색상 수정·삭제), 문제 생성 폼의 추천 흐름 프리셋 제거(디자인 정리), **0023 quizzes.question_count cap 30**, **0022 wrong_items_v.topic** 약점 단원 통계, 모바일 UI 8건 + 캘린더 CRUD 2건, 챗 RAG 키워드 hint, SDK 직접 사용(AI Gateway 미사용).
-- **2026-05-28** — AI Gateway 도입 후 SDK 직접 사용으로 복귀 (`anthropic/...`·`google/...` slug 제거). `QUIZ_MODEL_VENDOR`·`SUMMARY_MODEL_VENDOR=google`로 Gemini 2.5 Flash A/B 가능(기본 OFF, prod 강제 차단). 0021 `generations.model_provider` 컬럼 추가. PRICING.haiku 단가 보정($0.8/$4 → $1/$5).
-- **2026-05-28** — 비로그인 랜딩 페이지·약관/개인정보 페이지 신설, 내 캠퍼스 홈을 **학기 안전망** 중심으로 개편, 시간표·강의계획서 import 강화(syllabus-extract Haiku → Sonnet).
+- **구현**: 화면과 실행 코드가 연결되어 있음. 모든 운영 조건에서 검증됐다는 의미는 아니다.
+- **부분 구현**: 핵심 일부는 있으나 목표 기능을 끝까지 충족하지 못함.
+- **미구현**: 실행 경로가 없음. 프롬프트·타입·기획 문서만 있는 경우도 포함.
+- 자동 테스트, 외부 서비스 연결, 실제 사용자 흐름 검증을 분리한다.
 
-## 라이브 데모
+## 기능별 현황
 
-- 프로덕션: https://arch-campus.vercel.app (Vercel + GitHub auto-deploy)
-- GitHub: https://github.com/0625yt/arch-campus
-- `main` push → production 자동 배포 / 다른 브랜치 → preview URL
-- `vercel.json`은 framework preset 고정용 — 지우지 말 것
-
----
-
-## 라우트 — 대부분 실제 DB/AI 연결 (mock 아님)
-
-`/dashboard/*`는 전부 `force-dynamic` (SSR, 캐시 X).
-
-| 라우트 | 상태 | 데이터 |
+| 영역 | 판정 | 근거 / 한계 |
 |---|---|---|
-| `/` | 비로그인 랜딩(마케팅) / 로그인 시 대시보드 리다이렉트 | 인증 체크 |
-| `/privacy` · `/terms` | 개인정보처리방침·이용약관 | 정적 |
-| `/login` · `/onboarding` | 폼 | Supabase Auth |
-| `/dashboard` (내 캠퍼스) | 실DB | **학기 안전망** — 마감·시험·오답·방치 자료 신호 + 과목 위험도, 다가오는 일정, 강의 그리드 (`semester-safety.ts`) |
-| `/dashboard/today` | 실DB | 다가오는 일정 + 최근 활동 |
-| `/dashboard/study` | 실DB | 강의 그룹 + 최근 활동, **과목 우클릭 메뉴** (이름·교수·색상 수정·삭제) |
-| `/dashboard/study/[course]` | 실DB | 자료 그리드 + 업로드 존 + **자료 종류 선택 모달**(강의자료 기본 / 기출문제) |
-| `/dashboard/study/[course]/[material]` | 실DB | 자료 + 요약/퀴즈, PDF↔요약 분할 뷰(너비 드래그), 자료 챗, **type=exam이면 기출 추출 통합 폼** |
-| `/dashboard/calendar` | 실DB | 월/주/일 뷰, 이벤트 인라인 편집, 자연어·시간표·강의계획서 추출, **HITL confidence**, 한국어 음성 받아쓰기 |
-| `/dashboard/calendar/import` | 실DB | 시간표/강의계획서 import 플로우(추출→**confidence 확인**→저장) |
-| `/dashboard/chat` | 실(SSE) | 자유 챗 — 클라이언트 상태 + `/api/chat/free` 스트리밍 |
-| `/dashboard/review` | 실DB | 오답 모아보기 + **약점 단원 통계** (wrong_items_v.topic 기반) |
-| `/dashboard/history` · `/history/[gid]` | 실DB | 위저드 결과 목록·재방문 |
-| `/dashboard/quiz/[quizId]` (+result, +wrong) | 실DB | 퀴즈 풀이·채점·오답, **step-by-step 풀이 모드** |
-| `/dashboard/tools` | mock 카탈로그 | 위저드 12종 카드 배열 (4종만 클릭 가능) |
-| `/dashboard/tools/{presentation,exam-cram,report-checklist,report-structure}` | 실(API) | 위저드 본체 — courses/materials 조회 + 비동기 생성 |
-| `/dashboard/settings/security` | UI | — |
-| `/dashboard/dev/*` | 실DB | audit·cache·quiz 디버그 (개발용) |
+| 랜딩·가입 전 학습 체험 | 구현 | `app/landing/semester-demo.tsx`; 일정·요약 출처·문제 해설 체험, 테스트 포함 |
+| 이메일·Google 로그인/가입 | 구현 | `app/login`, `app/signup`, `app/auth/callback`; 실제 신규 가입·메일 도착·OAuth 왕복은 별도 |
+| 온보딩·프로필 | 구현 | `app/onboarding`, `api/profile` |
+| 비밀번호 재설정·전체 로그아웃·계정 삭제 | 구현 | `login/forgot`, `auth/reset`, `settings/security`, `api/account`; 실제 계정 삭제는 이번 점검에서 실행하지 않음 |
+| MFA | **부분** | 로그인 challenge·서버/API AAL2 강제 구현 및 실제 TOTP 검증. DB restrictive policy 0027은 작성됐지만 미적용·미검증 |
+| 기기별 세션 목록·선택 로그아웃 | 미구현 | 현재는 모든 기기 로그아웃 버튼 |
+| 시간표·강의실·과목 수정 | 구현 | `dashboard/timetable-hero.tsx`, `course-sheet.tsx`; 주간/오늘/목록, 강의실 표시 |
+| 오늘의 우선순위 | 구현 | `dashboard/today/page.tsx`; 실제 safety 신호+다가오는 일정. 9월 15일 누락 라우트 복구 |
+| 공부 과목 검색·분류 | 구현 | `study/study-workspace.tsx`; 과목·교수·강의실, 학기·개인 공부 |
+| 자료 업로드·이동·삭제·진행 표시 | 구현 | `study/[course]/upload-zone.tsx`, `materials-grid.tsx`, `api/materials/*`; 검색·요약 필터·실패 복구 테스트 |
+| 요약·출처·분할 PDF 보기 | 구현 | `study/[course]/[material]`; PDF별 원문 추출 정확도·큰 파일 품질은 별도 |
+| 자료 챗·자유 챗 | 구현 | `api/chat/*`, `lib/chat-client.ts`; 스트림 조각/오류 복구 테스트 |
+| 문제 생성·기출 추출·채점·오답 | 구현 | `api/quiz/*`, `api/materials/[id]/*`, `dashboard/review`; 자료별 생성 입력 상한 50, DB 제약 상한 100은 별개 |
+| 간격 반복 복습(FSRS) | 미구현 | 현재 오답 묶음·재풀이이며 복습 시점 계산/리뷰 스케줄 모델 없음 |
+| 일정 월·주·일·연 보기·CRUD | 구현 | `dashboard/calendar/calendar-board.tsx`, `api/events/*` |
+| 시간표·강의계획서 추출 | 구현 | `api/timetable`, `api/syllabus`; 사용자 확인 후 저장. 양식별 정확도는 별도 실측 필요 |
+| 외부 캘린더 양방향 동기화 | 미구현 | Google/Apple OAuth calendar scope·sync worker 없음 |
+| 알림 | **부분** | `reminder_minutes` 저장 필드가 있으나 푸시 구독·전송 worker 없음 |
+| PWA | **부분** | manifest 있음. 오프라인 서비스워커·푸시 없음 |
+| 발표·리포트 구조·요구사항·벼락치기·독후감 | 구현 | 5개 위저드 페이지와 API. 독후감 재표현 API도 있음 |
+| Q&A·기출형 문제·오답 분석 카탈로그 | 기존 기능 연결 | 각각 발표/공부/복습으로 이동. 독립 위저드로 세지 않음 |
+| 팀플·진로 위저드 | 미구현 | 도구 카탈로그 비활성 항목 |
+| 시험 후 회고(post-mortem) | 미구현 | 모델 ToolKind 등이 있어도 페이지·서비스·API 실행 흐름 없음 |
+| 결제·Pro·월별 비용 쿼터 | 미구현 | 분당 호출 제한과 결제/사용량 상한은 다름 |
+| 친구 초대·보상·학과 통계 | 미구현 | referrals 및 entitlement 흐름 없음 |
+| 성적·합격 추적 | 미구현 | outcomes 입력·저장·통계 흐름 없음 |
+| 피드백·관리 화면 | 구현 | `api/feedback`, `admin/feedback`, admin 권한 가드 |
+| 작업 실행 | **부분** | `after()`+jobs+Realtime/폴링, 8분 stale 복구·원자적 실행 선점·완료 상태 덮어쓰기 방지. 내구성 있는 재시도 큐/스케줄러는 없음 |
 
----
+## 데이터와 운영 경계
 
-## API 라우트 (src/app/api)
+- 사용자 확인은 `getCurrentUser()` → `getOwnerId()`/`tryGetOwnerId()`; 서비스 역할 쿼리는 owner 조건을 별도로 유지한다.
+- Auth 연결·anon 4개 테이블 0행·Storage 연결 확인. 임시 인증 사용자 2개로 과목·자료·일정·문제 조회/삭제/위조 소유자 삽입 차단과 실제 TOTP를 검사해 22개 통과했다. 모든 테이블의 모든 작업 검증을 뜻하지 않는다.
+- 코드에 있는 27개 SQL의 운영 적용 여부는 마이그레이션 이력 대조 전까지 **미확인**이다.
+- Upstash 미설정 시 메모리 sliding window. 제한 저장소 장애 시 503으로 작업 시작을 거절한다. 멀티인스턴스 비용 보호를 보장하지 않는다.
+- 서버 개발 모드에서는 fallback 사용자가 있으므로 개발 화면이 열린다는 사실만으로 실제 로그인이 검증되지 않는다.
 
-AI 호출 라우트는 모두 `guardRateLimit("ai", ownerId)` + `force-dynamic`, 대부분 `maxDuration` 300s (chat 60s).
+## 모델과 품질
 
-- **자료·생성**: `materials`(+upload-url/finalize/[id]/{summarize,quiz,exam-extract,original-url}) · `quiz`(+[id]/submit) · `summarize`
-  - `finalize` 가 `type: "lecture" | "exam" | ...` 받아서 `materials.type`에 박음 (업로드 모달에서 선택)
-- **추출**: `syllabus`(+confirm) · `timetable`(+confirm) · `events/draft`(자연어→일정) · `calendar/imports/reset`(import 초기화)
-- **위저드(비동기)**: `wizards/presentation` · `wizards/exam-cram` · `wizards/report-checklist` · `wizards/report-structure` — 모두 `after()` + `jobs` 테이블 + 폴링(`jobs/[id]`, `jobs/active`)
-- **챗**: `chat/free`(SSE) · `chat/threads`(+[id], +[id]/messages)
-- **CRUD**: `account` · `profile` · `courses`(+[id]) PATCH·DELETE · `events`(+[id]) · `activity`
+`src/lib/claude.ts`의 `getModelIdFor()`가 실제 라우팅 기준이다. 주석·`TOOL_MODEL`·과거 문서만으로 운영 모델을 단정하지 않는다.
 
----
+9월 17일 로컬 설정에서 Gemini 3.5 Flash-Lite / 3.6 Flash / 3.1 Pro Preview의 모델 메타데이터 조회가 성공했다. 이것은 **API 가용성** 검증이며 생성 품질 점수가 아니다. 과거 A/B 수치는 [COST.md](COST.md) 당시 조건으로 한정한다. 기본 단위 테스트에서 외부 AI 테스트 7개는 건너뛴다.
 
-## 위저드 현황 (`/dashboard/tools`)
+## 디자인
 
-12종 카탈로그 카드 중:
-
-| slug | 상태 | 연결 |
-|---|---|---|
-| presentation | ✅ 실동작 | `/api/wizards/presentation` (3.6 Flash) |
-| report-structure | ✅ 실동작 | `/api/wizards/report-structure` (Flash-Lite) |
-| report-checklist | ✅ 실동작 | `/api/wizards/report-checklist` (3.6 Flash) |
-| exam-cram | ✅ 실동작 | `/api/wizards/exam-cram` (3.6 Flash) |
-| presentation-qa | 🔁 redirect | → presentation 위저드 내 Q&A 포함 |
-| exam-questions | 🔁 redirect | → `/dashboard/study` 자료별 문제 생성 |
-| exam-wrong | 🔁 redirect | → `/dashboard/review` 오답 분석 |
-| team-roles · team-minutes · career-* (5종) | ⚫ 준비 중 | MVP 제외 (PRODUCT §6-1: 팀플·진로 = Phase 3) |
-
-- 위저드 4종 모두 마지막 단계에 "추가 요청 사항" 자유 입력.
-- 위저드 페이지 우측에 ChatGPT 톤 사이드바 — 전체 위저드 결과 히스토리(탭 필터), 접기/펼치기 localStorage 영속.
-- 결과 재방문: `/dashboard/history/[gid]`에서 `generations.payload`를 Zod로 파싱해 ResultCard 렌더.
-
----
-
-## 자료 흐름 (2026-05-28 통합)
-
-```
-업로드 존
-  │
-  ▼ 파일 선택
-  ┌─────────────────────┐
-  │ "이 자료의 종류는?" │ ← 모달 (chip: 강의자료 기본 / 기출문제)
-  └─────────────────────┘
-  │
-  ▼ 종류 확정
-  finalize API (type 박힘)
-  │
-  ▼
-  자료 상세 페이지 (type 분기)
-    │
-    ├── type=lecture 등: 요약(Flash-Lite) + 분할 뷰 + "문제 만들기" 폼
-    │     └─ 폼: 난이도·문제수(1~30)·종류(객·단·서)·범위·추가 요청 → quiz API (Flash-Lite + 강화 파이프라인)
-    │
-    └── type=exam: "기출문제 추출하기" 통합 폼
-          └─ 폼: 모든 옵션 숨김, 안내문만 → exam-extract API (Flash-Lite, env로 Haiku/Sonnet)
-                자료 본문에 실린 문제·정답·해설을 그대로 가져옴 (새 생성 X)
-```
-
-이전엔 type=exam 자료에서 별도 Empty/Loading/Error 화면이 떠 있었으나, 2026-05-28 동선 통합으로 일반 자료와 같은 "문제 만들기" 진입점을 쓰되 폼 내용만 분기한다.
-
----
-
-## AI 레이어 (실제 호출 중)
-
-- **진입점** [src/lib/claude.ts](../src/lib/claude.ts) — `generate()`(JSON 출력) / `streamChatReply()`(SSE). 모든 system 메시지에 injection guard prepend + 1h ephemeral 캐싱.
-- **모델**(2026-07-24 전면 Gemini — 실측 A/B 근거는 [COST.md](COST.md) §9): 라우팅은 `resolveModel()`. Claude는 env 원복용으로만 남김.
-  - **Gemini 3.5 Flash-Lite** ($0.30/$2.50) — 대부분: quiz · summarize · chat(자료RAG) · chat-free · exam-extract · exam-solve · report-structure · quiz-grade · quiz-verify · event-parse · pdf-ocr
-  - **Gemini 3.6 Flash** ($1.50/$7.50) — 위저드: presentation · wizard-assignment/exam/cram
-  - **Gemini 3.1 Pro** ($2/$12, thinking budget 512) — Vision: syllabus-extract · timetable-extract
-  - env 원복 안전판: `QUIZ_MODEL_VENDOR=anthropic` · `CHAT_MODEL=haiku` · `EXAM_SOLVE_MODEL=haiku` · `QUIZ_GRADE_MODEL=haiku` · `QUIZ_VERIFY_MODEL=haiku` · `SYLLABUS_MODEL` 등.
-  - **prod env(Vercel)는 코드에서 확인 불가 — 실제 prod 모델은 `vercel env ls` 확인.**
-- **quiz 강화 파이프라인**: [semantic-dedup.ts](../src/lib/services/semantic-dedup.ts) 의미중복 제거(gemini-embedding-001, 코사인≥0.85) + 스마트 topup + verbatim 프롬프트 + 2차 검수(Flash-Lite).
-- **프롬프트** [src/lib/prompts.ts](../src/lib/prompts.ts) — `loadPrompt(name)`이 `_shared/persona-schema.md` + `_shared/master-rules.md` + 도구별 `*.md`를 조합.
-  - 도구별: summarize · quiz · presentation · syllabus · timetable · exam-cram · report-checklist · report-structure · event-parse · exam-extract · chat · chat-free
-- **출력 검증** [src/lib/schemas.ts](../src/lib/schemas.ts) — Zod. 위저드 결과는 후처리 검증까지 (예: report-structure는 핵심 질문이 `?`로 끝나는지 — 치팅 가드).
-- **챗 RAG**: 자료 기반 챗은 키워드 매칭으로 관련 청크 hint를 system에 prepend → 발췌 정확도 보강.
-
----
-
-## 데이터·인증 레이어 (실제 동작)
-
-- **Supabase** — Auth + Postgres + Storage + RLS + Realtime.
-  - [src/lib/supabase/](../src/lib/supabase/): `client`(브라우저 anon) · `server`(SSR anon+cookie) · `admin`(service-role, RLS 우회) · `types`
-  - admin client는 항상 `owner_id`를 세션과 재검증 (RLS 우회 가드).
-- **인증** [src/lib/auth.ts](../src/lib/auth.ts) — `getOwnerId()`/`tryGetOwnerId()`. 세션 있으면 user.id, dev는 fallback UUID, prod 세션 없으면 401.
-- **데이터 레이어** [src/lib/data/](../src/lib/data/): `activity` · `attempts` · `events` · `jobs` · `materials` · `profile` · `quizzes` · `wizard-history` · `semester-safety`(홈 학기 안전망 — 마감·시험·오답·방치 자료 신호 + 과목 위험도 집계) — 전부 `server-only` + admin + owner 검증.
-- **레이트리밋** — Upstash Redis. 미설정 시 우아하게 통과.
-
----
-
-## DB 마이그레이션 (0001 ~ 0023, 전부 적용됨)
-
-`supabase/migrations/`. 주요 테이블: `profiles` · `courses` · `materials` · `generations` · `quizzes`(+questions/attempts) · `events` · `jobs` · `chat_threads`(+messages) · `audit_log`. 모두 RLS + `owner_id` 격리.
-
-| # | 무엇이 들어왔나 |
-|---|---|
-| 0001 init | profiles · courses · materials · generations 기본 스키마 |
-| 0002 storage | Supabase Storage 정책 |
-| 0003 dev_seed | 개발용 시드 |
-| 0004 relax_uploads | 업로드 제약 완화 |
-| 0005 quizzes | quizzes + questions + attempts |
-| 0006 material_summaries | 자료 요약 |
-| 0007 events | 캘린더 |
-| 0008 jobs | 비동기 작업 |
-| 0009 attempt_review | 오답 리뷰 |
-| 0010 course_category | semester / personal 분리 |
-| 0011 materials_pdf_convert | HWP·Office → PDF 변환 |
-| 0012 events_enrich | 이벤트 확장 |
-| 0013 quizzes_mode | 퀴즈 모드 (생성 vs 추출) |
-| 0014 jobs exam-extract | 기출 추출 tool 추가 |
-| 0015 jobs realtime | jobs realtime 채널 |
-| 0016 audit_log | 감사 로그 |
-| 0017 drop_unused_pii_indexes | 인덱스 정리 |
-| 0018 chat_threads | 챗 스레드·메시지 |
-| 0019 audit_log_rollup | 감사 로그 집계 |
-| 0020 jobs_tool_check_extend | `report-checklist`·`report-structure`·`chat`·`chat-free` jobs.tool CHECK 추가 |
-| **0021** generations.model_provider | A/B 라벨링 |
-| **0022** wrong_items_v.topic | 약점 단원 통계 view |
-| **0023** quizzes_question_count_check | cap 1~20 → 1~30 (시험 직전 대량 점검) |
-
-> 새 ToolKind를 jobs에 INSERT하려면 0020처럼 CHECK 제약을 확장하는 마이그레이션이 필요하다.
-
----
-
-## 디자인 시스템 (Apple 톤)
-
-- **토큰** [src/app/globals.css](../src/app/globals.css): `--color-apple-pearl/ink/muted/action/hairline` + 시맨틱(success/coral/cobalt/…). 단일 액센트 = action blue `#0071e3`.
-- letterSpacing: 본문 `-0.012em`, uppercase eyebrow `0.06em`. chevron `›`.
-- 가드는 [docs/design/DESIGN.md](design/DESIGN.md) — 특히 §10 AI 티 패턴 금지(좌측 동그라미 점·마침표 카피 남발·generic shadcn 모달).
-- **반응형 1급**: Mobile/iPad/Desktop 동등 지원. 캘린더는 모바일에서 풀스크린(헤더·패딩 제거 + FAB), 위저드 사이드바는 모바일 우하단 pill로 접근.
-
----
-
-## 알아둘 SSR 함정
-
-- 클라이언트에서 `Date.now()`/`new Date()` 상대시간 → hydration mismatch. `mounted` 플래그 + `suppressHydrationWarning` 패턴.
-- localStorage·`matchMedia` 의존 UI(사이드바 접힘, 분할 비율)는 SSR 기본값 → mount 후 반영. 첫 프레임 깜빡임 주의(위저드 사이드바는 mount 전 렌더 차단).
-- App Router는 같은 라우트로 돌아올 때 client 컴포넌트 인스턴스를 캐시 → 입력값 초기화는 `useEffect(() => {...}, [])` 마운트 리셋 필요(챗 입력창에서 사용).
-
----
-
-## 보조 서비스
-
-- **services/hwp-converter** — HWP/HWPX → PDF 변환 마이크로서비스 (LibreOffice + Node, 별도 배포). `HWP_CONVERTER_URL`/`TOKEN` 미설정 시 "PDF로 내보내서 올려주세요" 안내. 호출부 [src/lib/parsers/hwp.ts](../src/lib/parsers/hwp.ts).
-
----
-
-## 의존성 (실재, package.json)
-
-- `next@16.2.4` · `react@19.2.4` · `react-dom@19.2.4`
-- `tailwindcss@4` + `@tailwindcss/postcss`
-- `ai@^6` + `@ai-sdk/anthropic@^3` + `@ai-sdk/google@^3` (Anthropic 기본, Google은 A/B용)
-- `@supabase/ssr@^0.10` · `@supabase/supabase-js@^2`
-- `@upstash/ratelimit@^2` · `@upstash/redis@^1`
-- 파서: `unpdf` · `mammoth` · `exceljs` · `officeparser` · `file-type` · `tiktoken`
-- `zod@^4` · `clsx` · `tailwind-merge` · `lucide-react`
-- dev: `@biomejs/biome@^2` · `vitest@^4` · `typescript@^5` · `husky@^9`
-
----
-
-## 백로그 / 미구현 (Phase 2~3)
-
-- **위저드 8종 (팀플·진로·자기소개서·면접·공모전)** — MVP 제외 (PRODUCT §6-1)
-- **챗 스레드 영속** — 생성 API는 있으나 자유 챗은 클라이언트 상태만
-- **친구 초대 viral loop** — 초대 코드·스터디 모드 (PRODUCT §2-1 기능 4)
-- **성적·합격 추적** — PRODUCT §2-1 기능 5
-- **공모전·대외활동 플레이어** — PRODUCT §2-2 기능 8
-- **post-mortem (시험 후 회고)** — 도구 정의·프롬프트는 있으나 UI 미연결
-- **자료 협업·고급 분석** — Phase 3+
-- **자료 종류 "기타" 직접 입력** — 현재 picker는 강의자료/기출문제 2종. "기타 자유 입력"은 `custom_type_label` 마이그레이션 필요 → 별도 PR
+시간표 정보 밀도와 공부 공간의 그래파이트·코발트·CSS 3D 문서 레이어를 사용한다. 검색·분류·자료 카드·모바일/다크/동작 줄이기 테스트가 있다. 전체 앱이 동일한 수준으로 접근성 검증된 것은 아니다. 현재 우선 기준은 [ARCH-CAMPUS-STYLE.md](design/ARCH-CAMPUS-STYLE.md).

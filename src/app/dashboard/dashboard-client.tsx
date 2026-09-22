@@ -13,9 +13,10 @@ import { TimetableHeading, TimetableHero } from "./timetable-hero";
  * 대시보드 단일 타이머 — NowBanner·TimetableHero·스파인 카드가 같은 "지금"을 공유.
  * 이전엔 now-banner·timetable-hero가 각자 60s setInterval을 돌려 두 개가 어긋날 수 있었음.
  */
-function useNow(): Date {
-  const [now, setNow] = useState(() => new Date());
+function useNow(initialNow: string): Date {
+  const [now, setNow] = useState(() => new Date(initialNow));
   useEffect(() => {
+    setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(t);
   }, []);
@@ -41,15 +42,17 @@ export function DashboardClient({
   studentName,
   signals,
   events,
+  initialNow,
 }: {
   courses: CourseListItem[];
   hasTimetable: boolean;
   studentName: string | null;
   signals: SafetySignal[];
   events: EventView[];
+  initialNow: string;
 }) {
   const [openCourse, setOpenCourse] = useState<CourseListItem | null>(null);
-  const now = useNow();
+  const now = useNow(initialNow);
 
   return (
     <div className={`flex min-h-0 flex-col ${hasTimetable ? "sm:h-full sm:overflow-hidden" : ""}`}>

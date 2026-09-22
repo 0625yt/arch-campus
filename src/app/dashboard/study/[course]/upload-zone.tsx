@@ -6,6 +6,7 @@ import { type DragEvent, useRef, useState } from "react";
 import { Modal } from "@/components/modal";
 import { pingSidebarCourses } from "@/components/sidebar";
 import { addOptimisticJob, pingActiveJobs, removeOptimisticJob } from "@/lib/hooks/use-active-jobs";
+import { keyedItems } from "@/lib/keyed-items";
 import { cn } from "@/lib/utils";
 
 type Phase = "idle" | "uploading" | "done" | "error";
@@ -700,8 +701,8 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
 
           {pendingFiles.length > 1 && (
             <ul className="mt-3 space-y-0.5 text-[11.5px] wght-450 text-[var(--color-apple-muted)]/85">
-              {pendingFiles.slice(0, 5).map((f, i) => (
-                <li key={`${f.name}-${i}`} className="truncate">
+              {keyedItems(pendingFiles.slice(0, 5)).map(({ item: f, key: contentKey0 }) => (
+                <li key={contentKey0} className="truncate">
                   · {f.name}
                 </li>
               ))}

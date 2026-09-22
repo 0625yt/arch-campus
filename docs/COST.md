@@ -1,5 +1,7 @@
 # AI 비용 실측·추정표 (2026-07-24 갱신)
 
+> **2026-09-17 감사 메모:** 아래 비용·A/B 수치는 기록된 당시 조건이다. 현재 가격·운영 환경·생성 품질을 재검증한 수치로 해석하지 않는다. 실제 모델 선택은 `src/lib/claude.ts`의 `getModelIdFor()`/`resolveModel()`이며 `TOOL_MODEL`만으로 판단하면 틀릴 수 있다. 이번 연결/모델 가용성 검사와 남은 비용 보호는 [점검 보고서](audit/2026-09-17-feature-audit.md)에 기록한다.
+
 > **목적**: 기능별로 어떤 모델을 쓰고, 1회 호출당 원가가 얼마이며, 프로덕션에서 실제로 얼마 나가는지 한눈에.
 > **근거**: 단가는 [src/lib/claude.ts](../src/lib/claude.ts)의 `PRICING` 상수(코드 실측), 모델 매핑은 `resolveModel()`/`TOOL_MODEL`/`GEMINI_BY_TOOL`, 토큰 상한은 각 서비스 `maxTokens`·본문 cap. **§2는 프로덕션 `generations` 테이블 실측**(2026-05-10~07-23, 234행, $20.18).
 > **주의**: 이 문서는 정산용이 아니라 모델 선택·적자 통제 판단용이다. 실측은 매 호출 `estimateCost()`가 `generations`에 남긴다.

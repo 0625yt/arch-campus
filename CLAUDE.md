@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+> **2026-09-17 구현 기준:** 실제 구조·진행 상태는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/STATUS.md](docs/STATUS.md), [점검 보고서](docs/audit/2026-09-17-feature-audit.md)를 우선 확인한다. 모델 라우팅은 `getModelIdFor()`/`resolveModel()`가 단일 출처이며 `TOOL_MODEL`만으로 판단하지 않는다. 문서의 과거 모델·버전·가격은 lockfile과 공식 자료를 재확인한다.
+
 이 파일은 Claude Code가 이 저장소에서 코드를 작성할 때 따르는 **행동 규칙**입니다.
 규칙 외 정보는 별도 문서로 분리:
 

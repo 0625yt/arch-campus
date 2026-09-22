@@ -354,8 +354,8 @@ function TimetableGrid({
                     <span
                       className={`text-[8px] tabular-nums transition-colors ${
                         isCurrentHour
-                          ? "wght-560 text-[var(--color-apple-action)]/70"
-                          : "wght-560 text-[var(--color-apple-muted)]/70"
+                          ? "wght-560 text-[var(--color-apple-action)]"
+                          : "wght-560 text-[var(--color-apple-muted)]"
                       }`}
                       style={{ letterSpacing: "-0.008em" }}
                     >
@@ -501,7 +501,7 @@ function TimetableGrid({
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--color-apple-action)] shadow-[0_0_8px_rgba(0,113,227,0.5)]" />
                   </span>
                   <span
-                    className="ml-1 shrink-0 rounded-full bg-[var(--color-apple-action)] px-1.5 py-px text-[9.5px] wght-700 tabular-nums leading-none text-white shadow-[0_1px_4px_-1px_rgba(0,113,227,0.5)]"
+                    className="ml-1 shrink-0 rounded-full bg-[var(--color-apple-action)] px-1.5 py-px text-[9.5px] wght-700 tabular-nums leading-none text-[var(--color-on-accent)] shadow-[0_1px_4px_-1px_rgba(0,113,227,0.5)]"
                     style={{ letterSpacing: "-0.01em" }}
                   >
                     {nowLabel}

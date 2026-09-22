@@ -270,14 +270,12 @@ export function CommandPalette() {
       />
 
       {/* Panel */}
-      <div
-        className="relative w-full max-w-[600px] overflow-hidden rounded-2xl bg-white shadow-[var(--shadow-lift)] fade-up"
-        onKeyDown={onKeyDown}
-      >
+      <div className="relative w-full max-w-[600px] overflow-hidden rounded-2xl bg-white shadow-[var(--shadow-lift)] fade-up">
         {/* Search row */}
         <div className="flex items-center gap-3 border-b border-[var(--color-apple-hairline)] px-4 py-3">
           <SearchIcon />
           <input
+            onKeyDown={onKeyDown}
             ref={inputRef}
             type="text"
             value={query}
@@ -440,6 +438,7 @@ function SearchIcon() {
       aria-hidden
       className="shrink-0 text-[var(--color-apple-muted)]"
     >
+      <title>아이콘</title>
       <circle cx="7" cy="7" r="4.6" stroke="currentColor" strokeWidth={1.4} />
       <path d="M11 11l3 3" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
     </svg>
