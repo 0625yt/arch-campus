@@ -1,4 +1,4 @@
-# 기능 구현 현황 — 2026-09-22
+# 기능 구현 현황 — 2026-09-25
 
 현재 코드 기준의 단일 현황 문서. [점검 보고서](audit/2026-09-22-hardening.md)에 테스트 결과·수정·제약을 기록한다. 제품 목표는 [PRODUCT.md](PRODUCT.md), 다음 작업은 [NEXT-STEPS.md](NEXT-STEPS.md).
 
@@ -17,7 +17,7 @@
 | 이메일·Google 로그인/가입 | 구현 | `app/login`, `app/signup`, `app/auth/callback`; 실제 신규 가입·메일 도착·OAuth 왕복은 별도 |
 | 온보딩·프로필 | 구현 | `app/onboarding`, `api/profile` |
 | 비밀번호 재설정·전체 로그아웃·계정 삭제 | 구현 | `login/forgot`, `auth/reset`, `settings/security`, `api/account`; 실제 계정 삭제는 이번 점검에서 실행하지 않음 |
-| MFA | **부분** | 로그인 challenge·서버/API AAL2 강제 구현 및 실제 TOTP 검증. DB restrictive policy 0027은 작성됐지만 미적용·미검증 |
+| MFA | **부분** | 로그인 challenge·서버/API AAL2 강제, 실제 TOTP, 운영 DB restrictive policy 0027과 AAL1/AAL2 검사 완료. 복구 코드는 미구현 |
 | 기기별 세션 목록·선택 로그아웃 | 미구현 | 현재는 모든 기기 로그아웃 버튼 |
 | 시간표·강의실·과목 수정 | 구현 | `dashboard/timetable-hero.tsx`, `course-sheet.tsx`; 주간/오늘/목록, 강의실 표시 |
 | 오늘의 우선순위 | 구현 | `dashboard/today/page.tsx`; 실제 safety 신호+다가오는 일정. 9월 15일 누락 라우트 복구 |
@@ -46,7 +46,7 @@
 
 - 사용자 확인은 `getCurrentUser()` → `getOwnerId()`/`tryGetOwnerId()`; 서비스 역할 쿼리는 owner 조건을 별도로 유지한다.
 - Auth 연결·anon 4개 테이블 0행·Storage 연결 확인. 임시 인증 사용자 2개로 과목·자료·일정·문제 조회/삭제/위조 소유자 삽입 차단과 실제 TOTP를 검사해 22개 통과했다. 모든 테이블의 모든 작업 검증을 뜻하지 않는다.
-- 코드에 있는 27개 SQL의 운영 적용 여부는 마이그레이션 이력 대조 전까지 **미확인**이다.
+- 운영 스키마의 테이블·컬럼·제약·인덱스·트리거·Realtime·Storage를 0001~0026 결과와 대조했다. 이력을 정합화한 뒤 0027을 적용했고, 원격 이력 27개가 로컬과 일치한다.
 - Upstash 미설정 시 메모리 sliding window. 제한 저장소 장애 시 503으로 작업 시작을 거절한다. 멀티인스턴스 비용 보호를 보장하지 않는다.
 - 서버 개발 모드에서는 fallback 사용자가 있으므로 개발 화면이 열린다는 사실만으로 실제 로그인이 검증되지 않는다.
 

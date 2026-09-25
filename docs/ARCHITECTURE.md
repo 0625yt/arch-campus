@@ -45,7 +45,7 @@ service-role을 사용하는 신규 경로는 다음을 유지한다.
 - 자유 입력은 길이·형식 제한, 프롬프트 경계 태그 중립화와 출력 스키마 검증.
 - 로그인 `next`는 `src/lib/auth-redirect.ts`로 내부 경로만 허용.
 
-`/auth/mfa`와 proxy·getCurrentUser의 AAL2 검증으로 등록한 계정의 화면/API 접근을 보호한다. redirect 시 갱신 쿠키를 보존한다. DB 직접 접근 강제는 0027 restrictive policy를 적용해야 하며 현재 연결 오류로 미적용이다. 전체 로그아웃은 refresh token 폐기이며 이미 발급된 access token의 남은 유효기간을 고려해야 한다.
+`/auth/mfa`와 proxy·getCurrentUser의 AAL2 검증으로 등록한 계정의 화면/API 접근을 보호한다. redirect 시 갱신 쿠키를 보존한다. 0027 restrictive policy도 운영 DB에 적용해 검증 factor가 있는 계정의 AAL1 직접 접근을 막고 AAL2만 허용한다. 전체 로그아웃은 refresh token 폐기이며 이미 발급된 access token의 남은 유효기간을 고려해야 한다.
 
 ## 5. 업로드·문서 파싱
 
@@ -84,7 +84,7 @@ SSE 소비자는 `src/lib/chat-client.ts`에서 UTF-8/이벤트 경계, 서버 �
 ## 8. 운영·검증
 
 - Upstash가 없으면 인메모리 sliding window; 저장소 오류 시 503으로 거절. 월 사용량 과금/쿼터와 다르다.
-- 마이그레이션 파일은 0001~0027. 운영 적용 여부는 이력 대조 필요.
+- 마이그레이션 파일은 0001~0027. 2026-09-25 운영 이력과 일치하며, 이후 변경은 `supabase migration list --linked`로 대조한다.
 - `verify:env`는 키 비공개·생성 없는 연결 검사. `--models`는 모델 메타데이터 확인.
 - Vitest: 로직/경계 검증. 외부 모델 평가는 opt-in.
 - Playwright/axe: 모바일 390·태블릿 834·노트북 1280. 개발 fixture/네트워크 모의와 실제 계정 테스트를 분리.

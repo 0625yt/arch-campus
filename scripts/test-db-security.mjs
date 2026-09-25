@@ -27,11 +27,37 @@ try {
   await client.query("begin");
   await client.query("set local statement_timeout = '15s'");
   await client.query("set local lock_timeout = '3s'");
-  await client.query(
-    await readFile(
-      new URL("../supabase/migrations/0027_mfa_assurance.sql", import.meta.url),
-      "utf8",
-    ),
+  const migrationState = await client.query(`
+    select
+      to_regprocedure('public.has_required_assurance()') is not null as function_exists,
+      (
+        select count(*)::int
+        from pg_policies
+        where policyname = 'require_verified_mfa'
+          and schemaname in ('public', 'storage')
+      ) as policy_count
+  `);
+  if (!migrationState.rows[0].function_exists && migrationState.rows[0].policy_count === 0) {
+    await client.query(
+      await readFile(
+        new URL("../supabase/migrations/0027_mfa_assurance.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+  }
+  const installedState = await client.query(`
+    select
+      to_regprocedure('public.has_required_assurance()') is not null as function_exists,
+      (
+        select count(*)::int
+        from pg_policies
+        where policyname = 'require_verified_mfa'
+          and schemaname in ('public', 'storage')
+      ) as policy_count
+  `);
+  check(
+    "MFA migration is fully installed",
+    installedState.rows[0].function_exists && installedState.rows[0].policy_count === 12,
   );
   const a = randomUUID(),
     b = randomUUID();
@@ -105,7 +131,7 @@ try {
   }
   await client.query("reset role");
   await client.query(
-    "insert into auth.mfa_factors (id,user_id,factor_type,status,friendly_name,secret) values ($1,$2,'totp','verified','transaction fixture','fixture')",
+    "insert into auth.mfa_factors (id,user_id,factor_type,status,friendly_name,secret,created_at,updated_at) values ($1,$2,'totp','verified','transaction fixture','fixture',now(),now())",
     [randomUUID(), a],
   );
   for (const { table, id } of rows) {
