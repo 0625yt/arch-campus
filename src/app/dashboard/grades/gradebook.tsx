@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   academicTermKey,
   academicTermLabel,
+  COURSE_CREDIT_OPTIONS,
   COURSE_GRADES,
   type CourseGrade,
   calculateGpa,
@@ -29,8 +30,6 @@ import {
 } from "@/lib/academic";
 import type { CourseListItem } from "@/lib/data/materials";
 import styles from "./grades.module.css";
-
-const CREDIT_OPTIONS = Array.from({ length: 12 }, (_, index) => (index + 1) / 2);
 
 export function Gradebook({
   initialCourses,
@@ -252,7 +251,7 @@ function GradeRow({
       <label>
         <span className="sr-only">{course.name} 학점</span>
         <select value={credits} onChange={(event) => setCredits(event.target.value)}>
-          {CREDIT_OPTIONS.map((value) => (
+          {COURSE_CREDIT_OPTIONS.map((value) => (
             <option key={value} value={value}>
               {value}학점
             </option>
@@ -363,7 +362,7 @@ function AddCourseForm({
       <label>
         <span>학점</span>
         <select value={credits} onChange={(event) => setCredits(event.target.value)}>
-          {CREDIT_OPTIONS.map((value) => (
+          {COURSE_CREDIT_OPTIONS.map((value) => (
             <option key={value} value={value}>
               {value}학점
             </option>

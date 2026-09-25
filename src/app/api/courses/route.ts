@@ -42,7 +42,7 @@ const CreateBody = z
     location: z.string().max(120).nullable().optional(),
     semesterYear: z.number().int().min(2000).max(2100).nullable().optional(),
     semesterTerm: z.enum(SEMESTER_TERMS).nullable().optional(),
-    credits: z.number().min(0.5).max(30).multipleOf(0.5).nullable().optional(),
+    credits: z.number().min(0).max(30).multipleOf(0.5).nullable().optional(),
     grade: z.enum(COURSE_GRADES).nullable().optional(),
     color: z
       .string()

@@ -41,7 +41,7 @@ const PatchBody = z
       .nullable()
       .optional(),
     target_grade: z.enum(["A+", "A", "B+", "B"]).nullable().optional(),
-    credits: z.number().min(0.5).max(30).multipleOf(0.5).nullable().optional(),
+    credits: z.number().min(0).max(30).multipleOf(0.5).nullable().optional(),
     grade: z.enum(COURSE_GRADES).nullable().optional(),
     // 인라인 시간표 편집 — slots 통째 교체. null이면 schedule 비움.
     schedule: z.array(z.string().regex(SLOT_RE)).max(10).nullable().optional(),

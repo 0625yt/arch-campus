@@ -9,6 +9,13 @@ test("공부 공간에서 강의실 검색과 분류 전환 후 과목을 찾는
   await page.goto("/dev/campus-preview?view=study");
   const library = page.getByRole("region", { name: /내 과목/ });
   await expect(library.getByRole("article")).toHaveCount(6);
+  const termSelect = page.getByRole("combobox", { name: "공부할 학기" });
+  await termSelect.selectOption("2026-spring");
+  await expect(library.getByRole("article")).toHaveCount(2);
+  await expect(library.getByRole("heading", { name: "알고리즘 기초" })).toBeVisible();
+  await expect(library.getByRole("heading", { name: "자료구조" })).toHaveCount(0);
+  await termSelect.selectOption("2026-fall");
+  await expect(library.getByRole("article")).toHaveCount(6);
   await page.getByRole("textbox", { name: "과목 검색" }).fill("공학관 302");
   await expect(library.getByRole("article")).toHaveCount(1);
   await expect(library.getByRole("heading", { name: "자료구조" })).toBeVisible();

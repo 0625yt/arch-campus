@@ -14,6 +14,9 @@ test("학기별 성적과 학점 가중 평점을 한눈에 관리한다", async
   const termSelect = page.getByRole("combobox", { name: "조회할 학기" });
   await expect(termSelect.locator('option[value="2026-spring"]')).toHaveText("2026년 1학기");
   await expect(termSelect.locator('option[value="2026-winter"]')).toHaveText("2026년 겨울학기");
+  await expect(
+    page.getByRole("combobox", { name: "자료구조 학점" }).locator('option[value="0"]'),
+  ).toHaveText("0학점");
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])

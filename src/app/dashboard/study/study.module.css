@@ -363,6 +363,30 @@
   padding-bottom: 14px;
   border-bottom: 1px solid var(--color-line-strong);
 }
+.toolbarControls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+.termPicker {
+  flex-shrink: 0;
+}
+.termPicker select {
+  min-height: 44px;
+  padding: 0 32px 0 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  outline: 0;
+  background: var(--color-bg);
+  color: var(--color-apple-ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+.termPicker select:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
 .filters {
   display: flex;
   gap: 4px;
@@ -778,6 +802,17 @@
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+  }
+  .toolbarControls {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .termPicker select {
+    width: 100%;
+  }
+  .filters {
+    overflow-x: auto;
   }
   .search {
     width: 100%;

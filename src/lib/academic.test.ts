@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   academicTermLabel,
+  COURSE_CREDIT_OPTIONS,
   calculateGpa,
   compareAcademicTerms,
   inferAcademicTerm,
@@ -40,6 +41,13 @@ describe("academic terms", () => {
     expect(terms).toHaveLength(28);
     expect(terms).toContainEqual({ year: 2026, term: "summer" });
     expect(terms).toContainEqual({ year: 2026, term: "winter" });
+  });
+
+  it("supports zero-credit pass/fail courses", () => {
+    expect(COURSE_CREDIT_OPTIONS[0]).toBe(0);
+    expect(
+      calculateGpa([{ semesterYear: 2026, semesterTerm: "fall", credits: 0, grade: "P" }]),
+    ).toMatchObject({ gpa: null, registeredCredits: 0, earnedCredits: 0 });
   });
 });
 

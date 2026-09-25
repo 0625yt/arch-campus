@@ -4,7 +4,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { academicTermLabel, type SemesterTerm } from "@/lib/academic";
+import { academicTermLabel, COURSE_CREDIT_OPTIONS, type SemesterTerm } from "@/lib/academic";
 import { useJob } from "@/lib/hooks/use-job";
 import { isValidTimeRange } from "@/lib/timetable-validation";
 import { ConfidenceBadge, countByConfidence } from "./confidence-badge";
@@ -892,7 +892,7 @@ function CourseEditCard({
             onChange={(e) => setCredits(e.target.value)}
             className="h-full min-h-10 w-full appearance-none rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[12.5px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
           >
-            {Array.from({ length: 12 }, (_, index) => (index + 1) / 2).map((value) => (
+            {COURSE_CREDIT_OPTIONS.map((value) => (
               <option key={value} value={value}>
                 {value}학점
               </option>

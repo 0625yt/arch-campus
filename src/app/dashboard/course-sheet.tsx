@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { academicTermLabel, COURSE_GRADES, type CourseGrade } from "@/lib/academic";
+import {
+  academicTermLabel,
+  COURSE_CREDIT_OPTIONS,
+  COURSE_GRADES,
+  type CourseGrade,
+} from "@/lib/academic";
 import type { CourseListItem } from "@/lib/data/materials";
 import { parseScheduleString, type Weekday, weekdayKoShort } from "@/lib/timetable-grid";
 
@@ -205,7 +210,10 @@ export function CourseSheet({
                           : "미입력"
                       }
                     />
-                    <CourseMetric label="학점" value={course.credits ? `${course.credits}` : "—"} />
+                    <CourseMetric
+                      label="학점"
+                      value={course.credits !== null ? `${course.credits}` : "—"}
+                    />
                     <CourseMetric label="등급" value={course.grade ?? "미입력"} />
                   </div>
                   <Link
@@ -435,7 +443,7 @@ function EditForm({
               onChange={(e) => setCredits(e.target.value)}
               className="h-10 rounded-[9px] border border-[var(--color-apple-hairline)] bg-white px-3 text-[13px] text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)]"
             >
-              {Array.from({ length: 12 }, (_, index) => (index + 1) / 2).map((value) => (
+              {COURSE_CREDIT_OPTIONS.map((value) => (
                 <option key={value} value={value}>
                   {value}학점
                 </option>

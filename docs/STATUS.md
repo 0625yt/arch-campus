@@ -20,7 +20,7 @@
 | MFA | **부분** | 로그인 challenge·서버/API AAL2 강제, 실제 TOTP, 운영 DB restrictive policy 0027과 AAL1/AAL2 검사 완료. 복구 코드는 미구현 |
 | 기기별 세션 목록·선택 로그아웃 | 미구현 | 현재는 모든 기기 로그아웃 버튼 |
 | 학기별 시간표·강의실·과목 수정 | 구현 | `dashboard/page.tsx`, `timetable-hero.tsx`, `course-sheet.tsx`; 최근 6년+다음 학년도 학기 선택, 주간/오늘/목록, 강의실 표시 |
-| 학기 성적·평점 | 구현 | `dashboard/grades`, `lib/academic.ts`; 과목별 0.5 단위 학점·등급, 4.5 만점 학기/누적 평점, P/NP 제외 |
+| 학기 성적·평점 | 구현 | `dashboard/grades`, `lib/academic.ts`; 무학점 과목을 포함한 0.5 단위 학점·등급, 4.5 만점 학기/누적 평점, P/NP 제외 |
 | 오늘의 우선순위 | 구현 | `dashboard/today/page.tsx`; 실제 safety 신호+다가오는 일정. 9월 15일 누락 라우트 복구 |
 | 공부 과목 검색·분류 | 구현 | `study/study-workspace.tsx`; 과목·교수·강의실, 학기·개인 공부 |
 | 자료 업로드·이동·삭제·진행 표시 | 구현 | `study/[course]/upload-zone.tsx`, `materials-grid.tsx`, `api/materials/*`; 검색·요약 필터·실패 복구 테스트 |
@@ -59,4 +59,4 @@
 
 ## 디자인
 
-시간표 정보 밀도와 공부 공간의 그래파이트·코발트·CSS 3D 문서 레이어를 사용한다. 검색·분류·자료 카드·모바일/다크/동작 줄이기 테스트가 있다. 전체 앱이 동일한 수준으로 접근성 검증된 것은 아니다. 현재 우선 기준은 [ARCH-CAMPUS-STYLE.md](design/ARCH-CAMPUS-STYLE.md).
+시간표 정보 밀도와 공부 공간의 그래파이트·코발트·CSS 3D 문서 레이어를 사용한다. 공부 공간은 학기 선택에 따라 정규 과목을 분리하고 개인 공부는 별도로 유지한다. 검색·분류·자료 카드·모바일/다크/동작 줄이기 테스트가 있다. 전체 앱이 동일한 수준으로 접근성 검증된 것은 아니다. 현재 우선 기준은 [ARCH-CAMPUS-STYLE.md](design/ARCH-CAMPUS-STYLE.md).

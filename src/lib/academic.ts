@@ -16,6 +16,9 @@ export const COURSE_GRADES = [
 ] as const;
 export type CourseGrade = (typeof COURSE_GRADES)[number];
 
+/** 학교별 무학점 P/NP 과목을 포함한 0.5 단위 학점 선택지. */
+export const COURSE_CREDIT_OPTIONS = Array.from({ length: 13 }, (_, index) => index / 2);
+
 export interface AcademicCourse {
   semesterYear: number | null;
   semesterTerm: SemesterTerm | null;

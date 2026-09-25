@@ -12,8 +12,16 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { type CSSProperties, useRef, useState } from "react";
+import { type CSSProperties, useMemo, useRef, useState } from "react";
 import { AppleShell } from "@/components/apple-shell";
+import {
+  academicTermKey,
+  academicTermLabel,
+  compareAcademicTerms,
+  isCourseInTerm,
+  parseAcademicTermKey,
+  type SemesterTerm,
+} from "@/lib/academic";
 import { courseAccentRgb } from "@/lib/course-palette";
 import type { Activity } from "@/lib/data/activity";
 import type { CourseListItem } from "@/lib/data/materials";
@@ -24,7 +32,7 @@ import s from "./study.module.css";
 
 const filters = [
   { id: "all", label: "전체" },
-  { id: "semester", label: "이번 학기" },
+  { id: "semester", label: "선택 학기" },
   { id: "personal", label: "개인 공부" },
 ] as const;
 
@@ -38,15 +46,29 @@ export function StudyWorkspace({
   const [filter, setFilter] = useState<(typeof filters)[number]["id"]>("all");
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+  const termOptions = useMemo(() => collectCourseTerms(courses), [courses]);
+  const [selectedTermKey, setSelectedTermKey] = useState(() =>
+    termOptions[0] ? academicTermKey(termOptions[0].year, termOptions[0].term) : "",
+  );
+  const selectedTerm = parseAcademicTermKey(selectedTermKey);
   const totalMaterials = courses.reduce((sum, course) => sum + course.materialCount, 0);
   const normalized = query.trim().toLocaleLowerCase("ko-KR");
   const visible = courses.filter(
     (course) =>
-      (filter === "all" || course.category === filter) &&
+      (course.category === "personal"
+        ? filter !== "semester"
+        : filter !== "personal" &&
+          Boolean(selectedTerm && isCourseInTerm(course, selectedTerm.year, selectedTerm.term))) &&
       [course.name, course.professor, course.location].some((value) =>
         value?.toLocaleLowerCase("ko-KR").includes(normalized),
       ),
   );
+  const visibleSemesterCount = courses.filter(
+    (course) =>
+      course.category === "semester" &&
+      Boolean(selectedTerm && isCourseInTerm(course, selectedTerm.year, selectedTerm.term)),
+  ).length;
+  const personalCount = courses.filter((course) => course.category === "personal").length;
   const latest = recent[0];
 
   return (
@@ -108,7 +130,9 @@ export function StudyWorkspace({
             </h2>
           </div>
           <div className={s.libraryActions}>
-            <Link href="/dashboard/calendar/import?kind=timetable">
+            <Link
+              href={`/dashboard/calendar/import?kind=timetable${selectedTermKey ? `&term=${selectedTermKey}` : ""}`}
+            >
               <CalendarPlus size={15} aria-hidden />
               <span>시간표 등록</span>
             </Link>
@@ -116,21 +140,50 @@ export function StudyWorkspace({
           </div>
         </div>
         <div className={s.toolbar}>
-          <fieldset className={s.filters} aria-label="과목 분류">
-            {filters.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={filter === item.id}
-                onClick={() => setFilter(item.id)}
-              >
-                {item.label}
-                <span>
-                  {courses.filter((c) => item.id === "all" || c.category === item.id).length}
-                </span>
-              </button>
-            ))}
-          </fieldset>
+          <div className={s.toolbarControls}>
+            {termOptions.length > 0 && (
+              <label className={s.termPicker}>
+                <span className="sr-only">공부할 학기</span>
+                <select
+                  value={selectedTermKey}
+                  onChange={(event) => {
+                    setSelectedTermKey(event.target.value);
+                    if (filter === "personal") setFilter("semester");
+                  }}
+                >
+                  {termOptions.map(({ year, term }) => {
+                    const key = academicTermKey(year, term);
+                    return (
+                      <option key={key} value={key}>
+                        {academicTermLabel(year, term)}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+            )}
+            <fieldset className={s.filters} aria-label="과목 분류">
+              {filters.map((item) => {
+                const count =
+                  item.id === "personal"
+                    ? personalCount
+                    : item.id === "semester"
+                      ? visibleSemesterCount
+                      : visibleSemesterCount + personalCount;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-pressed={filter === item.id}
+                    onClick={() => setFilter(item.id)}
+                  >
+                    {item.label}
+                    <span>{count}</span>
+                  </button>
+                );
+              })}
+            </fieldset>
+          </div>
           <div className={s.search}>
             <Search size={16} aria-hidden />
             <input
@@ -155,7 +208,11 @@ export function StudyWorkspace({
           </div>
         </div>
         <p role="status" className={s.resultCount}>
-          {query ? `“${query}” 검색 결과 ${visible.length}개` : `${visible.length}개의 과목`}
+          {query
+            ? `“${query}” 검색 결과 ${visible.length}개`
+            : filter === "personal" || !selectedTerm
+              ? `${visible.length}개의 과목`
+              : `${academicTermLabel(selectedTerm.year, selectedTerm.term)} · ${visible.length}개의 과목`}
         </p>
         {visible.length > 0 ? (
           <div className={s.courseGrid}>
@@ -193,7 +250,9 @@ export function StudyWorkspace({
               </button>
             ) : (
               <div className={s.emptyActions}>
-                <Link href="/dashboard/calendar/import?kind=timetable">
+                <Link
+                  href={`/dashboard/calendar/import?kind=timetable${selectedTermKey ? `&term=${selectedTermKey}` : ""}`}
+                >
                   시간표로 시작하기 <ArrowUpRight size={15} aria-hidden />
                 </Link>
                 <AddPersonalButton variant="ghost" />
@@ -262,7 +321,18 @@ function CourseCard({ course, index }: { course: CourseListItem; index: number }
         <Link className={s.courseLink} href={`/dashboard/study/${course.id}`}>
           <div className={s.courseTop}>
             <span className={s.courseNumber}>{String(index + 1).padStart(2, "0")}</span>
-            <span>{isPersonal ? "개인 공부" : course.professor || "교수 정보 미등록"}</span>
+            <span>
+              {isPersonal
+                ? "개인 공부"
+                : [
+                    course.semesterYear && course.semesterTerm
+                      ? academicTermLabel(course.semesterYear, course.semesterTerm)
+                      : null,
+                    course.professor || "교수 정보 미등록",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+            </span>
           </div>
           <h3>{course.name}</h3>
           <div className={s.courseMeta}>
@@ -293,6 +363,18 @@ function CourseCard({ course, index }: { course: CourseListItem; index: number }
       </article>
     </CourseContextWrapper>
   );
+}
+
+function collectCourseTerms(
+  courses: CourseListItem[],
+): Array<{ year: number; term: SemesterTerm }> {
+  const terms = new Map<string, { year: number; term: SemesterTerm }>();
+  for (const course of courses) {
+    if (course.category !== "semester" || !course.semesterYear || !course.semesterTerm) continue;
+    const value = { year: course.semesterYear, term: course.semesterTerm };
+    terms.set(academicTermKey(value.year, value.term), value);
+  }
+  return [...terms.values()].sort(compareAcademicTerms);
 }
 
 function StudySculpture() {

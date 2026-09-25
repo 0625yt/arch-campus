@@ -12,6 +12,20 @@ export const dynamic = "force-dynamic";
 
 const courses: CourseListItem[] = [
   {
+    id: "preview-algorithms",
+    name: "알고리즘 기초",
+    professor: "한교수",
+    color: "#8aa6c1",
+    schedule: ["수 13:00-14:30"],
+    location: "공학관 401",
+    materialCount: 3,
+    category: "semester",
+    semesterYear: 2026,
+    semesterTerm: "spring",
+    credits: 3,
+    grade: "A0",
+  },
+  {
     id: "preview-structures",
     name: "자료구조",
     professor: "김교수",
