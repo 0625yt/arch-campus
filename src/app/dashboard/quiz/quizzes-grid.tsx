@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { academicTermLabel } from "@/lib/academic";
 import {
   courseGradient,
   courseInkColor,
@@ -241,6 +242,12 @@ function QuizCard({
           <span className="tabular-nums">{quiz.questionCount}문제</span>
           <span className="dot-sep">·</span>
           <span>{quiz.difficulty}</span>
+          {quiz.semesterYear && quiz.semesterTerm ? (
+            <>
+              <span className="dot-sep">·</span>
+              <span>{academicTermLabel(quiz.semesterYear, quiz.semesterTerm)}</span>
+            </>
+          ) : null}
           <span className="dot-sep">·</span>
           {quiz.attemptCount === 0 ? (
             <span className="wght-620 text-[var(--color-apple-action)]">새 세트</span>

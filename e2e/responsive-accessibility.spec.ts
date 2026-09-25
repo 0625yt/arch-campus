@@ -109,6 +109,10 @@ test("로그인 후 홈과 문제 생성 진입이 세 기기에서 유지된다
   await page.goto("/dashboard/quiz");
   await expect(page.getByRole("heading", { name: /내 문제/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "새 문제" })).toBeVisible();
+  const quizTerm = page.getByLabel("문제를 볼 학기");
+  await expect(quizTerm).toBeVisible();
+  await quizTerm.selectOption(process.env.E2E_GRADE_TERM ?? "2026-fall");
+  await expect(page).toHaveURL(/\/dashboard\/quiz\?term=/);
   await expectNoHorizontalOverflow(page);
   await expectNoSeriousAccessibilityViolations(page);
 });

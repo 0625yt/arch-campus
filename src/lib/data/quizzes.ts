@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import type { SemesterTerm } from "@/lib/academic";
 import {
   attemptActivityTime,
   parseAttemptResults,
@@ -161,6 +162,8 @@ export interface QuizListItem {
   materialId: string | null;
   courseName: string | null;
   courseColor: string | null;
+  semesterYear: number | null;
+  semesterTerm: SemesterTerm | null;
   difficulty: "쉬움" | "보통" | "어려움";
   questionCount: number;
   createdAt: string;
@@ -262,15 +265,28 @@ export async function listGeneratedQuizzes(opts: {
   const courseIds = Array.from(
     new Set(quizzes.map((q) => q.course_id).filter((id): id is string => id !== null)),
   );
-  const courseMap = new Map<string, { name: string; color: string | null }>();
+  const courseMap = new Map<
+    string,
+    {
+      name: string;
+      color: string | null;
+      semesterYear: number | null;
+      semesterTerm: SemesterTerm | null;
+    }
+  >();
   if (courseIds.length > 0) {
     const { data: courses } = await admin
       .from("courses")
-      .select("id, name, color")
+      .select("id, name, color, semester_year, semester_term")
       .eq("owner_id", opts.ownerId)
       .in("id", courseIds);
     for (const c of courses ?? []) {
-      courseMap.set(c.id, { name: c.name, color: c.color });
+      courseMap.set(c.id, {
+        name: c.name,
+        color: c.color,
+        semesterYear: c.semester_year,
+        semesterTerm: c.semester_term,
+      });
     }
   }
 
@@ -303,6 +319,8 @@ export async function listGeneratedQuizzes(opts: {
       materialId: q.material_id,
       courseName: course?.name ?? null,
       courseColor: course?.color ?? null,
+      semesterYear: course?.semesterYear ?? null,
+      semesterTerm: course?.semesterTerm ?? null,
       difficulty: q.difficulty,
       questionCount: q.question_count,
       createdAt: q.created_at,

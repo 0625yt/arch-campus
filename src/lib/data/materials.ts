@@ -51,6 +51,8 @@ export interface QuizSourceMaterial {
   courseId: string | null;
   courseName: string | null;
   courseColor: string | null;
+  semesterYear: number | null;
+  semesterTerm: SemesterTerm | null;
   /** 기출은 원본 파일로 추출하고, 일반 자료는 검증 가능한 본문이 있어야 생성 가능. */
   canGenerate: boolean;
 }
@@ -96,7 +98,7 @@ interface QuizSourceRaw {
   uploaded_at: string;
   course_id: string | null;
   full_text: string | null;
-  courses: Pick<CourseRow, "name" | "color"> | null;
+  courses: Pick<CourseRow, "name" | "color" | "semester_year" | "semester_term"> | null;
 }
 
 export async function getMaterialDetail(opts: {
@@ -172,7 +174,9 @@ export async function listQuizSourceMaterials(opts: {
   const admin = getAdminSupabase();
   const { data, error } = await admin
     .from("materials")
-    .select("id, title, type, uploaded_at, course_id, full_text, courses(name, color)")
+    .select(
+      "id, title, type, uploaded_at, course_id, full_text, courses(name, color, semester_year, semester_term)",
+    )
     .eq("owner_id", opts.ownerId)
     .neq("type", "syllabus")
     .order("uploaded_at", { ascending: false })
@@ -188,6 +192,8 @@ export async function listQuizSourceMaterials(opts: {
     courseId: row.course_id,
     courseName: row.courses?.name ?? null,
     courseColor: row.courses?.color ?? null,
+    semesterYear: row.courses?.semester_year ?? null,
+    semesterTerm: row.courses?.semester_term ?? null,
     canGenerate: row.type === "exam" || hasReadableQuizText(row.full_text),
   }));
 }
