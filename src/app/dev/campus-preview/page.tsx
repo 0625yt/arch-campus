@@ -20,6 +20,10 @@ const courses: CourseListItem[] = [
     location: "공학관 302",
     materialCount: 4,
     category: "semester",
+    semesterYear: 2026,
+    semesterTerm: "fall",
+    credits: 3,
+    grade: "A+",
   },
   {
     id: "preview-design",
@@ -30,6 +34,10 @@ const courses: CourseListItem[] = [
     location: "디자인관 201",
     materialCount: 2,
     category: "semester",
+    semesterYear: 2026,
+    semesterTerm: "fall",
+    credits: 3,
+    grade: "B+",
   },
   {
     id: "preview-statistics",
@@ -40,6 +48,10 @@ const courses: CourseListItem[] = [
     location: "자연과학관 103",
     materialCount: 3,
     category: "semester",
+    semesterYear: 2026,
+    semesterTerm: "fall",
+    credits: 3,
+    grade: null,
   },
   {
     id: "preview-english",
@@ -50,6 +62,10 @@ const courses: CourseListItem[] = [
     location: "인문관 205",
     materialCount: 1,
     category: "semester",
+    semesterYear: 2026,
+    semesterTerm: "fall",
+    credits: 2,
+    grade: "P",
   },
   {
     id: "preview-project",
@@ -60,6 +76,10 @@ const courses: CourseListItem[] = [
     location: "공학관 501",
     materialCount: 0,
     category: "semester",
+    semesterYear: 2026,
+    semesterTerm: "fall",
+    credits: 3,
+    grade: null,
   },
 ];
 
@@ -90,6 +110,10 @@ export default async function CampusPreviewPage({
                   location: null,
                   materialCount: 2,
                   category: "personal",
+                  semesterYear: null,
+                  semesterTerm: null,
+                  credits: null,
+                  grade: null,
                 },
               ]}
               recent={[
@@ -116,7 +140,7 @@ export default async function CampusPreviewPage({
     return (
       <main className="mx-auto max-w-[800px] px-6 py-12">
         <h1 className="mb-6 text-xl">개발용 업로드 복구 확인</h1>
-        <UploadZone courseId="preview-course" courseName="예시 과목" />
+        <UploadZone courseId="preview-course" />
       </main>
     );
   }
@@ -138,6 +162,23 @@ export default async function CampusPreviewPage({
                 studentName="지민"
                 signals={[]}
                 events={[]}
+                semesterGpa={{
+                  gpa: 4.07,
+                  registeredCredits: 14,
+                  gradedCredits: 6,
+                  earnedCredits: 8,
+                  gradedCourseCount: 3,
+                  totalCourseCount: 5,
+                }}
+                cumulativeGpa={{
+                  gpa: 4.07,
+                  registeredCredits: 14,
+                  gradedCredits: 6,
+                  earnedCredits: 8,
+                  gradedCourseCount: 3,
+                  totalCourseCount: 5,
+                }}
+                semesterLabel="2026년 2학기"
               />
             </div>
           </div>

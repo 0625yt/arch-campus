@@ -322,6 +322,7 @@ export async function confirmTimetable(input: {
     name: string;
     professor: string | null;
     location: string | null;
+    credits: number | null;
     slots: TimetableSlotT[];
   }>;
 }): Promise<
@@ -342,6 +343,8 @@ export async function confirmTimetable(input: {
   }
 
   const semester = resolveTermBounds(input.termYear, input.termLabel);
+  const semesterYear = Number(semester.termStart.slice(0, 4));
+  const semesterTerm = semesterTermFromStart(semester.termStart);
   const termStart = new Date(`${semester.termStart}T00:00:00+09:00`);
   const termEnd = new Date(`${semester.termEnd}T23:59:59+09:00`);
 
@@ -424,6 +427,9 @@ export async function confirmTimetable(input: {
         schedule: c.slots.map(slotToScheduleString),
         termStart: semester.termStart,
         termEnd: semester.termEnd,
+        semesterYear,
+        semesterTerm,
+        credits: c.credits ?? null,
       });
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : "강의 저장 실패" };
@@ -573,12 +579,15 @@ async function upsertCourse(opts: {
   schedule: string[];
   termStart: string;
   termEnd: string;
+  semesterYear: number;
+  semesterTerm: "spring" | "summer" | "fall" | "winter";
+  credits: number | null;
 }): Promise<string> {
   const admin = getAdminSupabase();
 
   const { data: existing } = await admin
     .from("courses")
-    .select("id")
+    .select("id, credits")
     .eq("owner_id", opts.ownerId)
     .eq("name", opts.name)
     .eq("term_start", opts.termStart)
@@ -593,6 +602,9 @@ async function upsertCourse(opts: {
         schedule: opts.schedule,
         term_start: opts.termStart,
         term_end: opts.termEnd,
+        semester_year: opts.semesterYear,
+        semester_term: opts.semesterTerm,
+        credits: opts.credits ?? existing.credits,
       })
       .eq("id", existing.id)
       .eq("owner_id", opts.ownerId);
@@ -610,6 +622,9 @@ async function upsertCourse(opts: {
       schedule: opts.schedule,
       term_start: opts.termStart,
       term_end: opts.termEnd,
+      semester_year: opts.semesterYear,
+      semester_term: opts.semesterTerm,
+      credits: opts.credits ?? 3,
       category: "semester",
     })
     .select("id")
@@ -619,6 +634,14 @@ async function upsertCourse(opts: {
     throw new Error(`강의 저장 실패: ${error?.message ?? "unknown"}`);
   }
   return created.id;
+}
+
+function semesterTermFromStart(value: string): "spring" | "summer" | "fall" | "winter" {
+  const month = Number(value.slice(5, 7));
+  if (month >= 3 && month <= 6) return "spring";
+  if (month >= 7 && month <= 8) return "summer";
+  if (month >= 9) return "fall";
+  return "winter";
 }
 
 function normalizedCourseName(name: string): string {

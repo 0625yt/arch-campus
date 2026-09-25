@@ -1796,7 +1796,7 @@ function EventDetailPanel({
               )}
               {event.courseName && (
                 <Link
-                  href={`/dashboard/study/${encodeURIComponent(event.courseName)}`}
+                  href={`/dashboard/study/${event.courseId ?? encodeURIComponent(event.courseName)}`}
                   className="text-[12.5px] wght-450 text-[var(--color-apple-action)] hover:underline"
                   style={{ letterSpacing: "-0.012em" }}
                 >

@@ -259,7 +259,7 @@ function CourseCard({ course, index }: { course: CourseListItem; index: number }
         <div className={s.courseMenu}>
           <CourseActionsMenu {...props} />
         </div>
-        <Link className={s.courseLink} href={`/dashboard/study/${encodeURIComponent(course.name)}`}>
+        <Link className={s.courseLink} href={`/dashboard/study/${course.id}`}>
           <div className={s.courseTop}>
             <span className={s.courseNumber}>{String(index + 1).padStart(2, "0")}</span>
             <span>{isPersonal ? "개인 공부" : course.professor || "교수 정보 미등록"}</span>

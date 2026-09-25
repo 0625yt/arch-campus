@@ -4,6 +4,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { academicTermLabel, type SemesterTerm } from "@/lib/academic";
 import { useJob } from "@/lib/hooks/use-job";
 import { isValidTimeRange } from "@/lib/timetable-validation";
 import { ConfidenceBadge, countByConfidence } from "./confidence-badge";
@@ -73,7 +74,11 @@ const WEEKDAY_KO: Record<Weekday, string> = {
 
 const WEEKDAY_ORDER: Weekday[] = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
-export function TimetableImportFlow() {
+export function TimetableImportFlow({
+  defaultTerm,
+}: {
+  defaultTerm?: { year: number; term: SemesterTerm } | null;
+}) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("upload");
   const [file, setFile] = useState<File | null>(null);
@@ -134,10 +139,18 @@ export function TimetableImportFlow() {
       setPhase("upload");
       return;
     }
-    setExtracted(payload);
+    setExtracted(
+      defaultTerm
+        ? {
+            ...payload,
+            termYear: defaultTerm.year,
+            termLabel: academicTermLabel(defaultTerm.year, defaultTerm.term),
+          }
+        : payload,
+    );
     setKeepIds(new Set(payload.courses.map((_, i) => i)));
     setPhase("review");
-  }, [job, jobPollError, phase]);
+  }, [defaultTerm, job, jobPollError, phase]);
 
   async function handleConfirm() {
     if (!extracted) return;
@@ -694,6 +707,9 @@ function CourseRow({
       </div>
 
       <ul className="relative flex flex-wrap gap-1.5">
+        <li className="rounded-full bg-[color-mix(in_srgb,var(--color-apple-action)_10%,white)] px-2.5 py-1 text-[11.5px] wght-650 text-[var(--color-apple-action)]">
+          {course.credits ?? 3}학점
+        </li>
         {sortedSlots.map((s) => (
           <li
             key={slotKey(s)}
@@ -739,6 +755,7 @@ function CourseEditCard({
   const [name, setName] = useState(course.name);
   const [professor, setProfessor] = useState(course.professor ?? "");
   const [location, setLocation] = useState(course.location ?? "");
+  const [credits, setCredits] = useState(String(course.credits ?? 3));
   const [slots, setSlots] = useState(() =>
     course.slots.map((slot) => ({ ...slot, editorId: crypto.randomUUID() })),
   );
@@ -776,6 +793,7 @@ function CourseEditCard({
       name: name.trim(),
       professor: professor.trim() || null,
       location: location.trim() || null,
+      credits: Number(credits),
       slots: slots.map(({ editorId: _editorId, ...slot }) => slot),
     };
     onSave(patch);
@@ -850,7 +868,7 @@ function CourseEditCard({
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <input
           type="text"
           value={professor}
@@ -867,6 +885,20 @@ function CourseEditCard({
           maxLength={120}
           className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[12.5px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
         />
+        <label className="relative">
+          <span className="sr-only">이수학점</span>
+          <select
+            value={credits}
+            onChange={(e) => setCredits(e.target.value)}
+            className="h-full min-h-10 w-full appearance-none rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[12.5px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+          >
+            {Array.from({ length: 12 }, (_, index) => (index + 1) / 2).map((value) => (
+              <option key={value} value={value}>
+                {value}학점
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="flex justify-end gap-2 border-t border-[var(--color-apple-hairline)] pt-3">
@@ -901,6 +933,7 @@ function courseKey(course: Course): string {
     course.name,
     course.professor ?? "",
     course.location ?? "",
+    String(course.credits ?? ""),
     course.slots.map(slotKey).sort().join("|"),
   ].join("::");
 }

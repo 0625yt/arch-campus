@@ -1,4 +1,5 @@
 import "server-only";
+import { inferAcademicTerm, type SemesterTerm } from "@/lib/academic";
 import {
   estimateCost,
   type GenerateUsage,
@@ -19,12 +20,12 @@ import { breakdown } from "@/lib/tokens";
  * 책임:
  *   - Haiku 호출 (저비용)
  *   - Zod 검증
- *   - course upsert (이미 같은 이름의 코스 있으면 업데이트, 없으면 생성)
+ *   - course upsert (같은 학기의 같은 이름 코스가 있으면 업데이트, 없으면 생성)
  *   - events 후보 반환 (사용자 검토 후 별도 API로 confirm)
  *
  * 보안:
  *   - admin 클라이언트 쓰지만 항상 owner_id 강제
- *   - course 매칭은 (owner_id, name) 기준 — 다른 사용자 코스로 새지 않음
+ *   - course 매칭은 (owner_id, 학기, name) 기준 — 다른 학기·사용자 코스로 새지 않음
  */
 
 export interface SyllabusExtractInput {
@@ -209,7 +210,7 @@ export async function runSyllabusExtraction(
     };
   }
 
-  // course upsert — owner_id + name 기준
+  // course upsert — owner_id + 학기 + name 기준
   const admin = getAdminSupabase();
   const courseId = await upsertCourse({
     ownerId: input.ownerId,
@@ -269,13 +270,18 @@ async function upsertCourse(opts: {
   termEnd: string | null;
 }): Promise<string | null> {
   const admin = getAdminSupabase();
+  const semester = academicTermFromStart(opts.termStart);
 
-  // 같은 이름 코스가 이미 있으면 update
+  // 같은 학기의 같은 이름 코스가 이미 있으면 update
   const { data: existing, error: findError } = await admin
     .from("courses")
     .select("id")
     .eq("owner_id", opts.ownerId)
     .eq("name", opts.name)
+    .eq("semester_year", semester.year)
+    .eq("semester_term", semester.term)
+    .eq("archived", false)
+    .limit(1)
     .maybeSingle();
   if (findError) {
     console.error("courses 조회 실패:", findError.message);
@@ -291,6 +297,8 @@ async function upsertCourse(opts: {
         schedule: opts.schedule,
         term_start: opts.termStart,
         term_end: opts.termEnd,
+        semester_year: semester.year,
+        semester_term: semester.term,
       })
       .eq("id", existing.id)
       .eq("owner_id", opts.ownerId);
@@ -311,6 +319,9 @@ async function upsertCourse(opts: {
       schedule: opts.schedule,
       term_start: opts.termStart,
       term_end: opts.termEnd,
+      semester_year: semester.year,
+      semester_term: semester.term,
+      credits: 3,
       category: "semester",
     })
     .select("id")
@@ -320,6 +331,21 @@ async function upsertCourse(opts: {
     return null;
   }
   return created.id;
+}
+
+function academicTermFromStart(
+  termStart: string | null,
+  now: Date = new Date(),
+): { year: number; term: SemesterTerm } {
+  const match = /^(\d{4})-(\d{2})-\d{2}/.exec(termStart ?? "");
+  if (!match) return inferAcademicTerm(now);
+  const calendarYear = Number(match[1]);
+  const month = Number(match[2]);
+  if (month <= 2) return { year: calendarYear - 1, term: "winter" };
+  if (month <= 6) return { year: calendarYear, term: "spring" };
+  if (month <= 8) return { year: calendarYear, term: "summer" };
+  if (month <= 11) return { year: calendarYear, term: "fall" };
+  return { year: calendarYear, term: "winter" };
 }
 
 function buildDynamicContext(meta: { title: string; semesterHint?: string }): string {
@@ -553,6 +579,7 @@ export const __test = {
   inferScheduleFromText,
   autoAlignScheduleAnchoredEvents,
   markScheduleWeekdayMismatches,
+  academicTermFromStart,
 };
 
 async function logGeneration(opts: {

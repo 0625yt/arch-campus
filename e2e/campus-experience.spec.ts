@@ -26,7 +26,7 @@ test("내 캠퍼스에서 검색과 계정 설정을 키보드와 터치로 열 
     "외부 환경은 로그인 세션 필요",
   );
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: /이번 주/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /학기/ })).toBeVisible();
   const account = page
     .getByRole("button", { name: "내 계정", exact: true })
     .filter({ visible: true });

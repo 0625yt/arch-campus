@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { GpaSummary } from "@/lib/academic";
 import { courseAccentRgb, courseTint, courseTintDark } from "@/lib/course-palette";
 import type { CourseListItem } from "@/lib/data/materials";
 import { buildTimetable, type CourseSlot, isKstToday, type Weekday } from "@/lib/timetable-grid";
@@ -60,13 +61,18 @@ const CORE_WEEKDAYS: Weekday[] = ["MON", "TUE", "WED", "THU", "FRI"];
 export function TimetableHeading({
   courses,
   studentName,
+  semesterGpa,
+  cumulativeGpa,
+  semesterLabel,
 }: {
   courses: CourseListItem[];
   studentName: string | null;
+  semesterGpa: GpaSummary;
+  cumulativeGpa: GpaSummary;
+  semesterLabel: string;
 }) {
   const semesterCourses = courses.filter((course) => course.category === "semester");
-  const materialCount = courses.reduce((count, course) => count + course.materialCount, 0);
-  const greeting = studentName ? `${studentName}님의 이번 주` : "이번 주";
+  const greeting = studentName ? `${studentName}님의 ${semesterLabel}` : semesterLabel;
 
   return (
     <header className={styles.heading}>
@@ -78,15 +84,19 @@ export function TimetableHeading({
             : "이번 학기, 나만의 공부 리듬을 만드는 곳"}
         </p>
       </div>
-      {courses.length > 0 && (
-        <div className={styles.summary}>
-          <span>
-            <strong>{semesterCourses.length}</strong> 강의
+      {semesterCourses.length > 0 && (
+        <section className={styles.summary} aria-label="학기 성적 요약">
+          <span title="이번 학기 평점">
+            <strong>{semesterGpa.gpa?.toFixed(2) ?? "—"}</strong> 학기
           </span>
-          <span>
-            <strong>{materialCount}</strong> 자료
+          <span title="전체 학기 누적 평점">
+            <strong>{cumulativeGpa.gpa?.toFixed(2) ?? "—"}</strong> 누적
           </span>
-        </div>
+          <span title="이번 학기 신청 학점">
+            <strong>{semesterGpa.registeredCredits || "—"}</strong> 학점
+          </span>
+          <span className="sr-only">{semesterCourses.length}개 강의</span>
+        </section>
       )}
     </header>
   );

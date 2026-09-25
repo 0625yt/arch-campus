@@ -124,7 +124,7 @@ export async function getSemesterSafetySnapshot(ownerId: string): Promise<Semest
         risk,
         score,
         reasons: reasons.length > 0 ? reasons.slice(0, 3) : ["놓친 신호 없음"],
-        actionHref: `/dashboard/study/${encodeURIComponent(course.name)}`,
+        actionHref: `/dashboard/study/${course.id}`,
         actionLabel: risk === "safe" ? "자료 보기" : "지금 정리",
         counts: {
           unreadMaterials,

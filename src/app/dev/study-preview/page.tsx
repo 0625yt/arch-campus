@@ -52,7 +52,7 @@ export default async function StudyPreviewPage({
           </div>
         </header>
         <MaterialsGrid
-          courseName="자료구조"
+          courseId="preview-course"
           materials={materials}
           dotColor="#7aa6d6"
           currentCourseId="preview-course"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { GpaSummary } from "@/lib/academic";
 import type { EventView } from "@/lib/data/events";
 import type { CourseListItem } from "@/lib/data/materials";
 import type { SafetySignal } from "@/lib/data/semester-safety";
@@ -43,6 +44,9 @@ export function DashboardClient({
   signals,
   events,
   initialNow,
+  semesterGpa,
+  cumulativeGpa,
+  semesterLabel,
 }: {
   courses: CourseListItem[];
   hasTimetable: boolean;
@@ -50,6 +54,9 @@ export function DashboardClient({
   signals: SafetySignal[];
   events: EventView[];
   initialNow: string;
+  semesterGpa: GpaSummary;
+  cumulativeGpa: GpaSummary;
+  semesterLabel: string;
 }) {
   const [openCourse, setOpenCourse] = useState<CourseListItem | null>(null);
   const now = useNow(initialNow);
@@ -59,7 +66,13 @@ export function DashboardClient({
       {/* 헤더 + 스파인 카드 = 하나의 그룹. 모바일은 간격을 타이트하게 줄여
           시간표(flex-1)가 화면 대부분을 차지하게 한다(사용자 요청: 시간표 꽉 차게). */}
       <div className="shrink-0">
-        <TimetableHeading courses={courses} studentName={studentName} />
+        <TimetableHeading
+          courses={courses}
+          studentName={studentName}
+          semesterGpa={semesterGpa}
+          cumulativeGpa={cumulativeGpa}
+          semesterLabel={semesterLabel}
+        />
         <div className="fade-up fade-up-1 mt-2 sm:mt-3">
           <SpineCard courses={courses} now={now} />
         </div>

@@ -19,7 +19,8 @@
 | 비밀번호 재설정·전체 로그아웃·계정 삭제 | 구현 | `login/forgot`, `auth/reset`, `settings/security`, `api/account`; 실제 계정 삭제는 이번 점검에서 실행하지 않음 |
 | MFA | **부분** | 로그인 challenge·서버/API AAL2 강제, 실제 TOTP, 운영 DB restrictive policy 0027과 AAL1/AAL2 검사 완료. 복구 코드는 미구현 |
 | 기기별 세션 목록·선택 로그아웃 | 미구현 | 현재는 모든 기기 로그아웃 버튼 |
-| 시간표·강의실·과목 수정 | 구현 | `dashboard/timetable-hero.tsx`, `course-sheet.tsx`; 주간/오늘/목록, 강의실 표시 |
+| 학기별 시간표·강의실·과목 수정 | 구현 | `dashboard/page.tsx`, `timetable-hero.tsx`, `course-sheet.tsx`; 최근 6년+다음 학년도 학기 선택, 주간/오늘/목록, 강의실 표시 |
+| 학기 성적·평점 | 구현 | `dashboard/grades`, `lib/academic.ts`; 과목별 0.5 단위 학점·등급, 4.5 만점 학기/누적 평점, P/NP 제외 |
 | 오늘의 우선순위 | 구현 | `dashboard/today/page.tsx`; 실제 safety 신호+다가오는 일정. 9월 15일 누락 라우트 복구 |
 | 공부 과목 검색·분류 | 구현 | `study/study-workspace.tsx`; 과목·교수·강의실, 학기·개인 공부 |
 | 자료 업로드·이동·삭제·진행 표시 | 구현 | `study/[course]/upload-zone.tsx`, `materials-grid.tsx`, `api/materials/*`; 검색·요약 필터·실패 복구 테스트 |
@@ -38,15 +39,15 @@
 | 시험 후 회고(post-mortem) | 미구현 | 모델 ToolKind 등이 있어도 페이지·서비스·API 실행 흐름 없음 |
 | 결제·Pro·월별 비용 쿼터 | 미구현 | 분당 호출 제한과 결제/사용량 상한은 다름 |
 | 친구 초대·보상·학과 통계 | 미구현 | referrals 및 entitlement 흐름 없음 |
-| 성적·합격 추적 | 미구현 | outcomes 입력·저장·통계 흐름 없음 |
+| 성적·합격 추적 | **부분** | 학기별 과목 성적·평점은 구현. 합격 outcomes·목표 대비 향상·익명 코호트 통계는 미구현 |
 | 피드백·관리 화면 | 구현 | `api/feedback`, `admin/feedback`, admin 권한 가드 |
 | 작업 실행 | **부분** | `after()`+jobs+Realtime/폴링, 8분 stale 복구·원자적 실행 선점·완료 상태 덮어쓰기 방지. 내구성 있는 재시도 큐/스케줄러는 없음 |
 
 ## 데이터와 운영 경계
 
 - 사용자 확인은 `getCurrentUser()` → `getOwnerId()`/`tryGetOwnerId()`; 서비스 역할 쿼리는 owner 조건을 별도로 유지한다.
-- Auth 연결·anon 4개 테이블 0행·Storage 연결 확인. 임시 인증 사용자 2개로 과목·자료·일정·문제 조회/삭제/위조 소유자 삽입 차단과 실제 TOTP를 검사해 22개 통과했다. 모든 테이블의 모든 작업 검증을 뜻하지 않는다.
-- 운영 스키마의 테이블·컬럼·제약·인덱스·트리거·Realtime·Storage를 0001~0026 결과와 대조했다. 이력을 정합화한 뒤 0027을 적용했고, 원격 이력 27개가 로컬과 일치한다.
+- Auth 연결·anon 4개 테이블 0행·Storage 연결 확인. 임시 인증 사용자 2개로 과목·자료·일정·문제 조회/삭제/위조 소유자 삽입 차단, 학기 성적 필드 왕복, 실제 TOTP를 검사해 23개 통과했다. 모든 테이블의 모든 작업 검증을 뜻하지 않는다.
+- 운영 스키마 이력은 0001~0028이 로컬과 일치한다. 0028 적용 후 기존 정규 강의 28개의 학기 식별자가 누락 없이 이전됐고 학기·학점·등급 제약 5개를 확인했다.
 - Upstash 미설정 시 메모리 sliding window. 제한 저장소 장애 시 503으로 작업 시작을 거절한다. 멀티인스턴스 비용 보호를 보장하지 않는다.
 - 서버 개발 모드에서는 fallback 사용자가 있으므로 개발 화면이 열린다는 사실만으로 실제 로그인이 검증되지 않는다.
 

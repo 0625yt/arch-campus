@@ -67,7 +67,7 @@ try {
       `${id}@example.invalid`,
     ]);
   const tables = [
-    { table: "courses", values: { name: "security fixture" } },
+    { table: "courses", values: { name: "security fixture", category: "personal" } },
     { table: "materials", values: { title: "security fixture", type: "lecture" } },
     {
       table: "events",

@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 import { AppleShell } from "@/components/apple-shell";
 import { tryGetOwnerId } from "@/lib/auth";
-import { getCourseByName, listCoursesWithMaterialCount } from "@/lib/data/materials";
+import { getCourseByRouteKey, listCoursesWithMaterialCount } from "@/lib/data/materials";
 import { getCourseSafetyDetail, type RiskLevel } from "@/lib/data/semester-safety";
 import { formatEventLabel } from "@/lib/format-event";
 import styles from "./course.module.css";
@@ -13,7 +13,7 @@ import { UploadZone } from "./upload-zone";
 
 export const dynamic = "force-dynamic";
 
-type Course = NonNullable<Awaited<ReturnType<typeof getCourseByName>>>;
+type Course = NonNullable<Awaited<ReturnType<typeof getCourseByRouteKey>>>;
 type CourseSafety = Awaited<ReturnType<typeof getCourseSafetyDetail>>;
 
 export default async function CourseDetailPage({
@@ -22,12 +22,12 @@ export default async function CourseDetailPage({
   params: Promise<{ course: string }>;
 }) {
   const { course: courseParam } = await params;
-  const courseName = decodeURIComponent(courseParam);
+  const courseKey = decodeURIComponent(courseParam);
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
 
   const [course, allCourses] = await Promise.all([
-    getCourseByName({ ownerId, name: courseName }),
+    getCourseByRouteKey({ ownerId, key: courseKey }),
     listCoursesWithMaterialCount({ ownerId }),
   ]);
   if (!course) notFound();
@@ -88,7 +88,7 @@ export default async function CourseDetailPage({
           </a>
         </div>
         <MaterialsGrid
-          courseName={course.name}
+          courseId={course.id}
           materials={course.materials.map((m) => ({
             id: m.id,
             title: m.title,
@@ -115,7 +115,7 @@ export default async function CourseDetailPage({
           강의 자료를 올리면 요약부터 연습 문제까지 한곳에 모여요.
         </p>
         <div className={styles.uploadSurface}>
-          <UploadZone courseId={course.id} courseName={course.name} />
+          <UploadZone courseId={course.id} />
         </div>
       </section>
     </AppleShell>
@@ -126,8 +126,7 @@ function CourseSafetyPanel({ course, safety }: { course: Course; safety: CourseS
   const tone = riskTone(safety.risk);
   const unreadMaterial = safety.unreadMaterials[0] ?? null;
   const recentMaterial = course.materials[0] ?? null;
-  const materialHref = (materialId: string) =>
-    `/dashboard/study/${encodeURIComponent(course.name)}/${materialId}`;
+  const materialHref = (materialId: string) => `/dashboard/study/${course.id}/${materialId}`;
   const todayTask = safety.nextCritical
     ? `${formatEventLabel(safety.nextCritical)} 준비`
     : unreadMaterial

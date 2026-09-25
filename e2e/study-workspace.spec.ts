@@ -23,7 +23,7 @@ test("공부 공간에서 강의실 검색과 분류 전환 후 과목을 찾는
   await expect(library.getByRole("article")).toHaveCount(6);
   await expect(library.getByRole("link", { name: /자료구조/ })).toHaveAttribute(
     "href",
-    "/dashboard/study/%EC%9E%90%EB%A3%8C%EA%B5%AC%EC%A1%B0",
+    "/dashboard/study/preview-structures",
   );
   await library.getByRole("button", { name: "주제 추가", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "개인 공부 주제 추가" })).toBeVisible();

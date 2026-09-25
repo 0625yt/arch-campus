@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import type { CourseGrade, SemesterTerm } from "@/lib/academic";
 import { SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
@@ -67,6 +68,10 @@ export interface CourseListItem {
   materialCount: number;
   /** 0010: 정규 강의 vs 개인 공부 (자격증·시험) */
   category: CourseCategory;
+  semesterYear: number | null;
+  semesterTerm: SemesterTerm | null;
+  credits: number | null;
+  grade: CourseGrade | null;
 }
 
 interface MaterialDetailRaw {
@@ -187,7 +192,7 @@ export async function listQuizSourceMaterials(opts: {
   }));
 }
 
-export async function getCourseByName(opts: { ownerId: string; name: string }): Promise<{
+export async function getCourseByRouteKey(opts: { ownerId: string; key: string }): Promise<{
   id: string;
   name: string;
   professor: string | null;
@@ -199,13 +204,21 @@ export async function getCourseByName(opts: { ownerId: string; name: string }): 
   materials: MaterialListItem[];
 } | null> {
   const admin = getAdminSupabase();
-  const { data: course, error } = await admin
+  const baseQuery = admin
     .from("courses")
     .select("id, name, professor, color, schedule, location, term_start, term_end")
     .eq("owner_id", opts.ownerId)
-    .eq("name", opts.name)
-    .eq("archived", false)
-    .maybeSingle();
+    .eq("archived", false);
+  const isId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    opts.key,
+  );
+  const { data: course, error } = await (isId
+    ? baseQuery.eq("id", opts.key).maybeSingle()
+    : baseQuery
+        .eq("name", opts.key)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle());
   if (error || !course) return null;
 
   const materials = await listMaterialsByCourse({ ownerId: opts.ownerId, courseId: course.id });
@@ -229,7 +242,9 @@ export async function listCoursesWithMaterialCount(opts: {
   const admin = getAdminSupabase();
   const { data: courses, error } = await admin
     .from("courses")
-    .select("id, name, professor, color, category, schedule, location")
+    .select(
+      "id, name, professor, color, category, schedule, location, semester_year, semester_term, credits, grade",
+    )
     .eq("owner_id", opts.ownerId)
     .eq("archived", false)
     .order("created_at", { ascending: true });
@@ -247,6 +262,10 @@ export async function listCoursesWithMaterialCount(opts: {
       location: c.location,
       materialCount: 0,
       category: (c.category ?? "semester") as CourseCategory,
+      semesterYear: c.semester_year,
+      semesterTerm: c.semester_term as SemesterTerm | null,
+      credits: c.credits,
+      grade: c.grade as CourseGrade | null,
     }));
   }
 
@@ -273,6 +292,10 @@ export async function listCoursesWithMaterialCount(opts: {
     location: c.location,
     materialCount: tally.get(c.id) ?? 0,
     category: (c.category ?? "semester") as CourseCategory,
+    semesterYear: c.semester_year,
+    semesterTerm: c.semester_term as SemesterTerm | null,
+    credits: c.credits,
+    grade: c.grade as CourseGrade | null,
   }));
 }
 

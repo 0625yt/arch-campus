@@ -36,6 +36,17 @@ describe("syllabus postprocess", () => {
     expect(inferred).toEqual(["화 13:00-14:15", "금 09:00-10:15"]);
   });
 
+  it("keeps repeated course names separated by academic term", () => {
+    expect(__test.academicTermFromStart("2026-03-02")).toEqual({
+      year: 2026,
+      term: "spring",
+    });
+    expect(__test.academicTermFromStart("2027-01-03")).toEqual({
+      year: 2026,
+      term: "winter",
+    });
+  });
+
   it("auto-aligns week-based in-class events to the unique nearest course weekday", () => {
     const parsed = makeParsed({
       events: [

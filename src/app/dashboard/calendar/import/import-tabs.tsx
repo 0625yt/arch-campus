@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { SemesterTerm } from "@/lib/academic";
 import { SyllabusImportFlow } from "./syllabus-import-flow";
 import { TimetableImportFlow } from "./timetable-import-flow";
 
@@ -25,9 +26,11 @@ const TABS: { id: Kind; label: string; hint: string }[] = [
 export function ImportTabs({
   initialKind,
   existingCourseCount,
+  defaultTerm,
 }: {
   initialKind: Kind;
   existingCourseCount: number;
+  defaultTerm: { year: number; term: SemesterTerm } | null;
 }) {
   const router = useRouter();
   const [kind, setKind] = useState<Kind>(initialKind);
@@ -136,7 +139,11 @@ export function ImportTabs({
         </div>
       </div>
 
-      {kind === "timetable" ? <TimetableImportFlow /> : <SyllabusImportFlow />}
+      {kind === "timetable" ? (
+        <TimetableImportFlow defaultTerm={defaultTerm} />
+      ) : (
+        <SyllabusImportFlow />
+      )}
     </>
   );
 }

@@ -41,6 +41,42 @@
 .semester svg {
   color: var(--color-accent);
 }
+.semesterSwitcher {
+  position: relative;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-apple-ink);
+  transition:
+    border-color 180ms,
+    box-shadow 180ms;
+}
+.semesterSwitcher:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+.semesterSwitcher > svg:first-child {
+  color: var(--color-accent);
+}
+.semesterSwitcher > svg:last-child {
+  pointer-events: none;
+  color: var(--color-apple-muted);
+}
+.semesterSwitcher select {
+  appearance: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
 .todayLink,
 .editTimetable {
   min-height: 44px;

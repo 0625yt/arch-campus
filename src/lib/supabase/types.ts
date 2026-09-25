@@ -98,6 +98,10 @@ export interface Database {
           location: string | null;
           term_start: string | null;
           term_end: string | null;
+          semester_year: number | null;
+          semester_term: "spring" | "summer" | "fall" | "winter" | null;
+          credits: number | null;
+          grade: "A+" | "A0" | "B+" | "B0" | "C+" | "C0" | "D+" | "D0" | "F" | "P" | "NP" | null;
           /** 0010: semester=정규 강의, personal=자격증·개인 공부 */
           category: "semester" | "personal";
           created_at: string;
@@ -114,6 +118,10 @@ export interface Database {
           location?: string | null;
           term_start?: string | null;
           term_end?: string | null;
+          semester_year?: number | null;
+          semester_term?: "spring" | "summer" | "fall" | "winter" | null;
+          credits?: number | null;
+          grade?: "A+" | "A0" | "B+" | "B0" | "C+" | "C0" | "D+" | "D0" | "F" | "P" | "NP" | null;
           category?: "semester" | "personal";
         };
         Update: Partial<Database["public"]["Tables"]["courses"]["Insert"]>;

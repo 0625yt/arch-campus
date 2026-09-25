@@ -43,6 +43,7 @@ interface Command {
 
 const PAGES: { href: string; label: string; hint: string }[] = [
   { href: "/dashboard", label: "홈", hint: "과제·공지·팀플·마감 신호" },
+  { href: "/dashboard/grades", label: "성적", hint: "학기별 수강학점·평점·누적 성적" },
   { href: "/dashboard/study", label: "공부", hint: "과목별 자료와 약점" },
   { href: "/dashboard/quiz", label: "내 문제", hint: "직접 만든 문제 모음" },
   { href: "/dashboard/review", label: "복습", hint: "오답·약점 큐" },
@@ -168,7 +169,7 @@ export function CommandPalette() {
         keywords: c.professor ?? "",
         meta: "강의",
         dotColor: c.color ?? "#7aa6d6",
-        run: () => router.push(`/dashboard/study/${encodeURIComponent(c.name)}`),
+        run: () => router.push(`/dashboard/study/${c.id}`),
       });
     }
 

@@ -66,7 +66,7 @@ function guessMimeFromName(name: string): string {
  *   - optimistic job dock에 파일마다 별개 카드 (사용자가 어느게 끝났는지 인지)
  *   - 모달 취소 = 전부 취소
  */
-export function UploadZone({ courseId, courseName }: { courseId: string; courseName: string }) {
+export function UploadZone({ courseId }: { courseId: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -599,7 +599,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               {uploaded.length === 1 ? (
                 <Link
-                  href={`/dashboard/study/${encodeURIComponent(courseName)}/${uploaded[0].materialId}`}
+                  href={`/dashboard/study/${courseId}/${uploaded[0].materialId}`}
                   onClick={(e) => e.stopPropagation()}
                   className="rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-1.5 text-[12px] wght-560 text-[var(--color-apple-ink)] hover:border-[var(--color-apple-action)] hover:text-[var(--color-apple-action)]"
                   style={{ letterSpacing: "-0.012em" }}
@@ -608,7 +608,7 @@ export function UploadZone({ courseId, courseName }: { courseId: string; courseN
                 </Link>
               ) : (
                 <Link
-                  href={`/dashboard/study/${encodeURIComponent(courseName)}`}
+                  href={`/dashboard/study/${courseId}`}
                   onClick={(e) => e.stopPropagation()}
                   className="rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-1.5 text-[12px] wght-560 text-[var(--color-apple-ink)] hover:border-[var(--color-apple-action)] hover:text-[var(--color-apple-action)]"
                   style={{ letterSpacing: "-0.012em" }}

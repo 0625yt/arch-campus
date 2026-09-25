@@ -38,13 +38,13 @@ interface MaterialItem {
 }
 
 export function MaterialsGrid({
-  courseName,
+  courseId,
   materials,
   dotColor,
   moveTargets,
   currentCourseId,
 }: {
-  courseName: string;
+  courseId: string;
   materials: MaterialItem[];
   dotColor: string;
   moveTargets: { id: string; name: string }[];
@@ -283,7 +283,7 @@ export function MaterialsGrid({
                   </button>
                 ) : (
                   <Link
-                    href={`/dashboard/study/${encodeURIComponent(courseName)}/${material.id}`}
+                    href={`/dashboard/study/${courseId}/${material.id}`}
                     className={styles.materialCard}
                   >
                     <CardInner material={material} />

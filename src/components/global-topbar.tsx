@@ -12,6 +12,7 @@ import styles from "./navigation.module.css";
 
 const NAV = [
   { href: "/dashboard", label: "홈" },
+  { href: "/dashboard/grades", label: "성적" },
   { href: "/dashboard/study", label: "공부" },
   { href: "/dashboard/quiz", label: "내 문제" },
   { href: "/dashboard/review", label: "복습" },

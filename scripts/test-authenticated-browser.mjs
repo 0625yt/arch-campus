@@ -28,6 +28,24 @@ try {
     })
     .eq("id", id);
   if (profile.error) throw profile.error;
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const semesterYear = month <= 2 ? now.getFullYear() - 1 : now.getFullYear();
+  const semesterTerm =
+    month <= 2 ? "winter" : month <= 6 ? "spring" : month <= 8 ? "summer" : "fall";
+  const gradeTermKey = `${semesterYear}-${semesterTerm}`;
+  const course = await admin.from("courses").insert({
+    owner_id: id,
+    name: "검증 강의",
+    professor: "테스트 교수",
+    location: "검증관 101",
+    category: "semester",
+    semester_year: semesterYear,
+    semester_term: semesterTerm,
+    credits: 3,
+    grade: "B+",
+  });
+  if (course.error) throw course.error;
   const jar = new Map();
   const client = createServerClient(url, key, {
     cookies: {
@@ -70,7 +88,14 @@ try {
         "로그인 후",
         "--workers=2",
       ],
-      { stdio: "inherit", env: { ...process.env, E2E_STORAGE_STATE: statePath } },
+      {
+        stdio: "inherit",
+        env: {
+          ...process.env,
+          E2E_STORAGE_STATE: statePath,
+          E2E_GRADE_TERM: gradeTermKey,
+        },
+      },
     );
     child.on("error", reject);
     child.on("exit", resolve);

@@ -93,7 +93,16 @@ test("로그인 후 홈과 문제 생성 진입이 세 기기에서 유지된다
   );
 
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: /이번 주/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /학기/ })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await expectNoSeriousAccessibilityViolations(page);
+
+  await page.goto(`/dashboard/grades?term=${process.env.E2E_GRADE_TERM ?? "2026-fall"}`);
+  await expect(page.getByRole("heading", { name: "내 성적" })).toBeVisible();
+  const courseRow = page.getByRole("article").filter({ hasText: "검증 강의" });
+  await expect(courseRow).toContainText("B+");
+  await courseRow.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(courseRow.getByRole("button", { name: "저장됨" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await expectNoSeriousAccessibilityViolations(page);
 

@@ -26,6 +26,7 @@ const RequestBody = z.object({
         name: z.string().min(1).max(80),
         professor: z.string().max(40).nullable().optional(),
         location: z.string().max(120).nullable().optional(),
+        credits: z.number().min(0.5).max(30).multipleOf(0.5).nullable().optional(),
         slots: z.array(Slot).min(1).max(14),
       }),
     )
@@ -70,6 +71,7 @@ export async function POST(
       name: c.name,
       professor: c.professor ?? null,
       location: c.location ?? null,
+      credits: c.credits ?? null,
       slots: c.slots,
     })),
   });

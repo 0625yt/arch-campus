@@ -1,0 +1,485 @@
+.page {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  width: min(1180px, 100%);
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 30px 24px 72px;
+}
+
+.ambient {
+  position: absolute;
+  z-index: -1;
+  top: -160px;
+  right: -120px;
+  width: 460px;
+  height: 460px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(74 110 211 / 0.14), transparent 66%);
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.backLink {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-apple-muted);
+  font-size: 12px;
+}
+
+.backLink:hover {
+  color: var(--color-accent);
+}
+.eyebrow,
+.sectionKicker {
+  margin-top: 18px;
+  color: var(--color-accent);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+}
+.header h1 {
+  margin-top: 7px;
+  color: var(--color-apple-ink);
+  font-size: clamp(34px, 5vw, 62px);
+  font-weight: 730;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+.description {
+  max-width: 560px;
+  margin-top: 14px;
+  color: var(--color-apple-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.termSelect,
+.addButton {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 12px;
+  background: var(--color-bg);
+}
+.termSelect select {
+  min-height: 44px;
+  padding: 0 34px 0 14px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-apple-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+.addButton {
+  gap: 7px;
+  padding: 0 16px;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 34px;
+}
+.summaryCard {
+  position: relative;
+  overflow: hidden;
+  min-height: 174px;
+  padding: 22px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+  box-shadow: 0 22px 55px -42px rgb(22 39 84 / 0.45);
+}
+.summaryAccent {
+  border-color: rgb(71 105 199 / 0.34);
+  background: linear-gradient(145deg, rgb(62 91 174 / 0.13), var(--color-bg) 58%);
+}
+.summaryIcon {
+  display: grid;
+  width: 35px;
+  height: 35px;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.summaryCard > p {
+  margin-top: 18px;
+  color: var(--color-apple-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+.summaryCard > strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-apple-ink);
+  font-size: 36px;
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+}
+.summaryCard > strong small {
+  font-size: 13px;
+  font-weight: 550;
+  letter-spacing: 0;
+}
+.summaryCard > span {
+  display: block;
+  margin-top: 7px;
+  color: var(--color-apple-muted);
+  font-size: 11px;
+}
+
+.gradeSection,
+.addForm {
+  margin-top: 14px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 20px;
+  background: var(--color-bg);
+}
+.gradeSection {
+  padding: 24px;
+}
+.sectionHead {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.sectionKicker {
+  margin-top: 0;
+}
+.sectionHead h2 {
+  margin-top: 5px;
+  color: var(--color-apple-ink);
+  font-size: 21px;
+  letter-spacing: -0.025em;
+}
+.sectionHead > span {
+  color: var(--color-apple-muted);
+  font-size: 12px;
+}
+.courseList {
+  margin-top: 18px;
+}
+.tableHead,
+.courseRow {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 110px 110px 110px;
+  gap: 12px;
+  align-items: center;
+}
+.tableHead {
+  padding: 0 12px 8px;
+  color: var(--color-apple-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.courseRow {
+  min-height: 72px;
+  padding: 11px 12px;
+  border-top: 1px solid var(--color-line);
+}
+.courseIdentity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+.courseIdentity > span {
+  width: 4px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+}
+.courseIdentity div {
+  min-width: 0;
+}
+.courseIdentity strong {
+  display: block;
+  overflow: hidden;
+  color: var(--color-apple-ink);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.courseIdentity p {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--color-apple-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.courseRow select,
+.addForm input,
+.addForm select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+  outline: 0;
+  background: var(--color-surface-strong);
+  color: var(--color-apple-ink);
+  font-size: 13px;
+}
+.courseRow select {
+  padding: 0 9px;
+}
+.courseRow select:focus,
+.addForm input:focus,
+.addForm select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+.saveButton {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 12px;
+  font-weight: 650;
+}
+.saveButton:disabled {
+  opacity: 0.55;
+}
+
+.addForm {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.55fr auto;
+  align-items: end;
+  gap: 12px;
+  padding: 22px;
+}
+.addForm > div:first-child {
+  grid-column: 1 / -1;
+}
+.addForm > div:first-child p {
+  margin-top: 0;
+  color: var(--color-accent);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+}
+.addForm h2 {
+  margin-top: 5px;
+  color: var(--color-apple-ink);
+  font-size: 19px;
+}
+.addForm label > span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--color-apple-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+.addForm input {
+  padding: 0 12px;
+}
+.formActions {
+  display: flex;
+  gap: 6px;
+}
+.formActions button {
+  min-height: 42px;
+  padding: 0 15px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.formActions button:first-child {
+  border: 1px solid var(--color-line-strong);
+  color: var(--color-apple-muted);
+}
+.formActions button:last-child {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.formError {
+  grid-column: 1 / -1;
+  color: var(--color-urgent);
+  font-size: 12px;
+}
+
+.empty {
+  display: flex;
+  min-height: 260px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+}
+.empty > svg {
+  color: var(--color-accent);
+}
+.empty h3 {
+  margin-top: 14px;
+  color: var(--color-apple-ink);
+  font-size: 17px;
+}
+.empty p {
+  max-width: 430px;
+  margin-top: 8px;
+  color: var(--color-apple-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.empty > div {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+.empty button,
+.empty a {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.empty button {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.empty a {
+  border: 1px solid var(--color-line-strong);
+  color: var(--color-apple-ink);
+}
+.footnote {
+  max-width: 760px;
+  margin: 18px 2px 0;
+  color: var(--color-apple-muted);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 20px 14px 92px;
+  }
+  .header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .headerActions {
+    width: 100%;
+  }
+  .termSelect {
+    flex: 1;
+  }
+  .termSelect select {
+    width: 100%;
+  }
+  .summaryGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .summaryCard:last-child {
+    grid-column: 1 / -1;
+    min-height: 145px;
+  }
+  .gradeSection {
+    padding: 17px 12px;
+  }
+  .tableHead {
+    display: none;
+  }
+  .courseRow {
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+    padding: 15px 4px;
+  }
+  .courseIdentity {
+    grid-column: 1 / -1;
+  }
+  .saveButton {
+    grid-column: 1 / -1;
+  }
+  .addForm {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+  .addForm > div:first-child,
+  .formError {
+    grid-column: auto;
+  }
+  .formActions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 420px) {
+  .summaryGrid {
+    gap: 8px;
+    margin-top: 28px;
+  }
+  .summaryCard {
+    min-height: 150px;
+    padding: 17px;
+    border-radius: 17px;
+  }
+  .summaryCard:last-child {
+    min-height: 124px;
+  }
+  .summaryCard > strong {
+    font-size: 31px;
+  }
+  .summaryCard > p {
+    margin-top: 14px;
+  }
+  .headerActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .addButton {
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .summaryCard {
+    animation: grade-card-in 420ms both;
+  }
+  .summaryCard:nth-child(2) {
+    animation-delay: 55ms;
+  }
+  .summaryCard:nth-child(3) {
+    animation-delay: 110ms;
+  }
+  @keyframes grade-card-in {
+    from {
+      transform: translateY(9px);
+    }
+  }
+}

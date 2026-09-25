@@ -42,7 +42,17 @@ try {
   }
   const [a, b] = clients;
   for (const [table, data] of [
-    ["courses", { name: "Security fixture" }],
+    [
+      "courses",
+      {
+        name: "Security fixture",
+        category: "semester",
+        semester_year: 2026,
+        semester_term: "fall",
+        credits: 3,
+        grade: "A+",
+      },
+    ],
     ["materials", { title: "Security fixture", type: "lecture" }],
     ["events", { title: "Security fixture", kind: "etc", starts_at: new Date().toISOString() }],
     [
@@ -63,6 +73,21 @@ try {
       .single();
     if (inserted.error) throw inserted.error;
     check(`${table}: owner create`, Boolean(inserted.data.id));
+    if (table === "courses") {
+      const academic = await a
+        .from("courses")
+        .select("semester_year, semester_term, credits, grade")
+        .eq("id", inserted.data.id)
+        .single();
+      check(
+        "courses: semester grade fields round-trip",
+        !academic.error &&
+          academic.data.semester_year === 2026 &&
+          academic.data.semester_term === "fall" &&
+          Number(academic.data.credits) === 3 &&
+          academic.data.grade === "A+",
+      );
+    }
     const other = await b.from(table).select("id").eq("id", inserted.data.id);
     check(`${table}: cross-user read denied`, !other.error && other.data.length === 0);
     const removed = await b.from(table).delete().eq("id", inserted.data.id).select("id");

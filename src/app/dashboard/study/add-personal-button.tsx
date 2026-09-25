@@ -38,7 +38,7 @@ export function AddPersonalButton({ variant = "primary" }: { variant?: "primary"
       setName("");
       // 사이드바·페이지 새로고침
       router.refresh();
-      router.push(`/dashboard/study/${encodeURIComponent(json.course.name)}`);
+      router.push(`/dashboard/study/${json.course.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "네트워크 오류");
     } finally {
