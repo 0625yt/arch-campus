@@ -42,6 +42,7 @@ export function parseScheduleString(s: string): ParsedSlot | null {
   const sm = Number.parseInt(m[3], 10);
   const eh = Number.parseInt(m[4], 10);
   const em = Number.parseInt(m[5], 10);
+  if (sh > 23 || eh > 23 || sm > 59 || em > 59) return null;
   const startMinute = sh * 60 + sm;
   const endMinute = eh * 60 + em;
   if (endMinute <= startMinute) return null;

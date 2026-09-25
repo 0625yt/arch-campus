@@ -15,7 +15,7 @@ import { getBrowserSupabase } from "@/lib/supabase/client";
  *
  * 보안:
  *   - 1차 로그인은 여전히 매직링크. MFA는 2nd factor (선택).
- *   - 강제 정책은 별도 sprint — 일반 학생에겐 옵트인.
+ *   - 등록은 선택이며, 등록한 계정은 서버와 로그인 경로에서 AAL2를 요구한다.
  */
 export function MfaSection({ className }: { className?: string }) {
   const supabase = getBrowserSupabase();
@@ -23,7 +23,6 @@ export function MfaSection({ className }: { className?: string }) {
     "loading",
   );
   const [factorId, setFactorId] = useState<string | null>(null);
-  const [challengeId, setChallengeId] = useState<string | null>(null);
   const [qrSvg, setQrSvg] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
   const [code, setCode] = useState("");
@@ -79,7 +78,6 @@ export function MfaSection({ className }: { className?: string }) {
       setStatus("enrolling");
       return;
     }
-    setChallengeId(ch.data.id);
     const v = await supabase.auth.mfa.verify({
       factorId,
       challengeId: ch.data.id,
@@ -132,8 +130,8 @@ export function MfaSection({ className }: { className?: string }) {
           className="mt-3 text-[13.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          1Password·Authy·Google Authenticator 같은 앱이 6자리 코드를 생성합니다. 매직링크 이메일이
-          탈취돼도 이 코드 없이는 로그인 불가.
+          1Password·Authy·Google Authenticator 같은 앱이 6자리 코드를 생성합니다. 2단계 인증을 켜면
+          로그인 후 인증 코드를 확인해야 학습 자료에 접근할 수 있어요.
         </p>
 
         {status === "off" && (
@@ -153,7 +151,16 @@ export function MfaSection({ className }: { className?: string }) {
           <div className="mt-6 flex flex-col gap-5">
             {qrSvg && (
               <div className="flex flex-col items-center gap-3 rounded-[12px] border border-[var(--color-apple-hairline)] bg-white p-5">
-                <div className="h-[180px] w-[180px]" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+                <img
+                  width={180}
+                  height={180}
+                  alt="인증 앱에 등록할 QR 코드"
+                  src={
+                    qrSvg.startsWith("data:image/svg+xml;")
+                      ? qrSvg
+                      : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`
+                  }
+                />
                 {secret && (
                   <div className="text-center">
                     <p
@@ -171,12 +178,15 @@ export function MfaSection({ className }: { className?: string }) {
             )}
             <div>
               <label
+                htmlFor="mfa-enrollment-code"
                 className="block text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
                 style={{ letterSpacing: "0.06em" }}
               >
                 앱이 보여주는 6자리 코드
               </label>
               <input
+                id="mfa-enrollment-code"
+                autoComplete="one-time-code"
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
@@ -198,7 +208,15 @@ export function MfaSection({ className }: { className?: string }) {
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
+                  if (factorId) {
+                    const { error } = await supabase.auth.mfa.unenroll({ factorId });
+                    if (error) {
+                      setError("등록 취소에 실패했어요. 다시 시도해주세요.");
+                      return;
+                    }
+                  }
+                  setFactorId(null);
                   setStatus("off");
                   setQrSvg(null);
                   setSecret(null);
@@ -232,7 +250,7 @@ export function MfaSection({ className }: { className?: string }) {
               className="text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.022em" }}
             >
-              MFA를 해제하면 매직링크만으로 로그인할 수 있어요. 이메일 탈취 시 2차 보호가 사라져요.
+              MFA를 해제하면 비밀번호 또는 Google 로그인 후 추가 코드 확인이 사라져요.
             </p>
             <div className="mt-4 flex gap-2">
               <button
@@ -266,8 +284,8 @@ export function MfaSection({ className }: { className?: string }) {
       </div>
 
       <div className="mt-4 px-2 text-[11.5px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]">
-        ⚠ 휴대폰 분실 대비 백업 코드는 별도 sprint에서 추가 예정. 지금은 MFA 켰는데 휴대폰
-        잃어버리면 가입한 이메일로 문의해 주세요.
+        인증 키를 안전한 곳에 백업해주세요. 휴대폰을 분실하면 백업한 키로 인증 앱을 복원해야 합니다.
+        별도 복구 코드는 아직 제공하지 않습니다.
       </div>
     </section>
   );

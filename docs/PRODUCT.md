@@ -1,5 +1,7 @@
 # PRODUCT.md — 대학생 AI 학기 운영 OS 통합기획서 v2.0
 
+> **2026-09-25 구분:** 이 파일은 제품 목표와 과거 전략 가설을 포함한다. 현재 구현 판정은 [STATUS.md](STATUS.md), 실측은 [최신 점검 보고서](audit/2026-09-25-semester-gradebook.md)를 따른다. 학기별 과목 성적·평점은 구현했고, 친구 초대·합격/코호트 성과 통계·FSRS·푸시·양방향 캘린더 동기화·결제는 아직 미구현이다. 사용자 수·성장률·경쟁 우위·가격·가치평가 관련 단정은 현재 검증된 사실이 아니다. 자료별 문제 생성 입력 상한은 현재 50이며, 기존 30 표기는 당시 사양이다.
+
 > **사람이 읽는 기획서.** 코드 규칙은 [/CLAUDE.md](../CLAUDE.md). 코딩 중 "이 작업이 범위 안인가?" 의심되면 §3 MVP 범위부터 확인.
 > 원본 기획서 v2.0(2026-05-01) 전문을 함축. 다음 검토: Phase 0 종료 시점(2026-06-01).
 >
@@ -76,8 +78,8 @@ P0 핵심 5개 + P1 결정 동력 3개. 나머지는 Phase 2 이후.
 **구체 사양**:
 - 지원 포맷: PDF, HWPX, PPTX, DOCX, TXT, MD (HWP는 변환 안내)
 - **자료 종류 분기**: 업로드 시 모달에서 "강의자료(기본) / 기출문제" 선택. 종류에 따라 이후 동선 분기.
-  - 강의자료: AI가 요약 + 문제 자동 생성 (Sonnet 4.6, 1~30문제, 난이도 3단계, 객관식·단답형·서술형)
-  - 기출문제: 본문에 실린 문제·정답·해설을 그대로 추출 (Haiku 4.5, 새 생성 X — 치팅 라인 가드)
+  - 강의자료: AI가 요약 + 문제 자동 생성 (Gemini 3.5 Flash-Lite + 강화 파이프라인, 1~30문제, 난이도 3단계, 객관식·단답형·서술형)
+  - 기출문제: 본문에 실린 문제·정답·해설을 그대로 추출 (Gemini 3.5 Flash-Lite, 새 생성 X — 치팅 라인 가드)
 - 요약 출력: 핵심 개념 표 + 3줄 요약 + 단원별 키워드 + 페이지 출처 인용
 - 문제 생성 폼: 난이도·문제수·종류(객·단·서)·출제 범위·추가 요청(함정·계산·정의 등)
 - 출처 근거 표시: 각 문제마다 evidence 필드에 자료 본문 substring 매칭 검증
@@ -329,32 +331,31 @@ P0 핵심 5개 + P1 결정 동력 3개. 나머지는 Phase 2 이후.
 | DOCX·Office 파싱 | — | `mammoth` · `officeparser` · `exceljs` |
 | HWPX 파싱 | python-hwpx | 별도 LibreOffice 변환 서비스 (services/hwp-converter) |
 | 임베딩 | OpenAI text-embedding-3-small | **미사용** (RAG는 키워드 기반 청크 hint) |
-| 생성 모델 (저비용) | GPT-4.1 mini | **Claude Haiku 4.5** |
-| 생성 모델 (고품질) | Claude Sonnet 4.6 | **Claude Sonnet 4.6** |
-| A/B 대안 모델 | — | **Gemini 2.5 Flash** (dev/preview only, evidence 매칭 미통과로 prod 차단) |
-| 벡터 DB | Supabase pgvector | **미사용** |
+| 생성 모델 (저비용·대부분) | GPT-4.1 mini | **Gemini 3.5 Flash-Lite** (2026-07-24 전면 전환) |
+| 생성 모델 (위저드) | Claude Sonnet 4.6 | **Gemini 3.6 Flash** |
+| 생성 모델 (Vision 추출) | Claude Sonnet 4.6 | **Gemini 3.1 Pro** (thinking 512) |
+| Claude(원복 안전판) | — | **Haiku·Sonnet** — 라우팅 미사용, env로만 원복 |
+| 벡터 DB | Supabase pgvector | **미사용** (단 quiz 의미 dedup은 gemini-embedding-001 런타임 코사인) |
 | 문서 저장 | R2 / S3 | **Supabase Storage** |
 | 백엔드 | Next.js + Supabase 또는 FastAPI | **Next.js 16 + Supabase** |
 | AI 호출 | — | **Vercel AI SDK v6** (직접 사용, Gateway 미사용) + `@ai-sdk/anthropic` + `@ai-sdk/google` |
 | 레이트리밋 | — | **Upstash Redis** |
 | 프론트엔드 | Next.js — 반응형 1급 (Mobile · iPad · Desktop) | 동일 |
 
-> OpenAI 계열(GPT-4.1·임베딩)은 결국 채택하지 않고 **Claude 단일 벤더 기본 + Google은 A/B 옵션**으로 갔다. 비용·라우팅은 Haiku/Sonnet 2종으로 통제.
+> **2026-07-24 전면 Gemini 전환**: Anthropic 크레딧 소진 반복 + Gemini 현세대 품질 실측 통과로 **Claude를 라우팅에서 완전히 걷어냄**. Claude(Haiku·Sonnet)는 env 원복 안전판으로만 코드에 남김. 상세 근거는 [MODEL-OPTIONS.md §3-A](MODEL-OPTIONS.md), 실측 A/B는 [COST.md §9](COST.md).
 
-### 3-3. 모델 라우팅 전략 (실제)
+### 3-3. 모델 라우팅 전략 (실제 — 2026-07-24 전면 Gemini)
 
-코드 기준 매핑은 [src/lib/claude.ts](../src/lib/claude.ts) `TOOL_MODEL`.
+코드 기준 매핑은 [src/lib/claude.ts](../src/lib/claude.ts) `TOOL_MODEL` + `resolveModel()`. 실제 라우팅 단일 출처는 [COST.md §1](COST.md).
 
 | 작업 | 모델 | 이유 |
 |---|---|---|
-| 문서요약 · 자연어 파싱 · 챗 | Claude Haiku 4.5 | 비용·빈도 |
-| 문제 생성(퀴즈) | Claude Sonnet 4.6 | 품질 |
-| 발표 · 리포트 구조 · 벼락치기 위저드 | Claude Sonnet 4.6 | 품질 |
-| 강의계획서 추출 | Claude Sonnet 4.6 (2026-05-28 Haiku→Sonnet, env `SYLLABUS_MODEL`) | 추출 정확도 |
-| 시간표 추출 (Vision) | Claude Sonnet 4.6 | 표 격자 정확도 |
-| 기출 추출 | Claude Haiku 4.5 (env로 Sonnet 승격 가능) | 추출만 |
+| 요약 · 자연어 파싱 · 챗 · 기출풀이 · 채점 · 검수 · OCR · 리포트구조 | **Gemini 3.5 Flash-Lite** | 텍스트 판정·풀이·요약 전부 실측 통과. 최저가 |
+| 문제 생성(퀴즈) | **Gemini 3.5 Flash-Lite** | prod 비용 79.9%. 강화 파이프라인이 약점 보완. −82% |
+| 발표 · 리포트 · 벼락치기 위저드 | **Gemini 3.6 Flash** | 슬라이드 분량·산문 품질. Flash-Lite는 structure 얇게 만드는 약점 |
+| 강의계획서 · 시간표 추출 (Vision) | **Gemini 3.1 Pro** (thinking 512) | 시간표 요일 오추출=신뢰 붕괴. Flash-Lite 8.5/9 → Pro 9/9 |
 
-→ **무분별한 Sonnet 사용 시 무료 사용자 1인당 월 5,000원 적자 발생 가능**. 라우팅 필수. 도구별 env override(`QUIZ_MODEL` 등)로 실험 가능.
+→ **prod env `LLM_VENDOR=""` 확인**(2026-07-24) → 코드 기본값이 그대로 prod 라우팅. 도구별 env override(`QUIZ_MODEL_VENDOR=anthropic` 등)로 원복 가능.
 
 ### 3-4. 데이터 자산 보호 설계
 | 자산 | 정책 |

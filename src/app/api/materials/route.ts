@@ -45,7 +45,7 @@ export async function runSummarizeJob(opts: {
   intentNote?: string;
 }): Promise<void> {
   try {
-    await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId });
+    if (!(await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId }))) return;
     const result = await runSummarize({
       ownerId: opts.ownerId,
       materialId: opts.materialId,
@@ -88,12 +88,13 @@ export async function runQuizJob(opts: {
   fullText: string;
   sanitizedText: string;
   pageCount: number | null;
+  mimeType?: string | null;
   parserWarnings: string[];
   difficulty: Difficulty;
   requestedCount: number;
 }): Promise<void> {
   try {
-    await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId });
+    if (!(await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId }))) return;
     const result = await runQuizGeneration({
       ownerId: opts.ownerId,
       courseId: opts.courseId,
@@ -104,6 +105,7 @@ export async function runQuizJob(opts: {
           type: opts.type,
           fullText: opts.sanitizedText,
           pageCount: opts.pageCount,
+          mimeType: opts.mimeType ?? null,
         },
       ],
       parserWarnings: opts.parserWarnings,
@@ -117,7 +119,7 @@ export async function runQuizJob(opts: {
     await markJobDone({
       jobId: opts.jobId,
       ownerId: opts.ownerId,
-      result: { quizId: result.quizId },
+      result: { quizId: result.quizId, quality: result.quality },
       modelId: result.modelId,
       usage: result.usage,
       costUsd: result.costUsd,

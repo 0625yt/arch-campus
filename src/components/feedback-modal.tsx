@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Modal } from "@/components/modal";
 import {
   type FeedbackTargetType,
   QUIZ_ITEM_CATEGORIES,
@@ -64,14 +65,8 @@ export function FeedbackModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal open onClose={onClose} title="결과 피드백" size="sm" chromeless>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <h2 className="text-lg font-bold">이 결과 어땠어요?</h2>
         <p className="mt-1 text-sm text-neutral-500">
           별점·분류·한 줄 의견을 남겨주세요. 관리자만 봅니다.
@@ -152,6 +147,6 @@ export function FeedbackModal({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

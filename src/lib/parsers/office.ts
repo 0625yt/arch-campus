@@ -68,7 +68,7 @@ export async function parsePptx(input: ParseInput): Promise<ParsedDocument> {
   if (bytes.byteLength === 0) throw new ParserRejectedError("빈 pptx", "empty");
   const buffer: Buffer = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) as Buffer;
   const ast = await parseOffice(buffer, { includeRawContent: false });
-  const text = typeof ast.toText === "function" ? ast.toText() : "";
+  const text = (await ast.to("text")).value;
   return {
     text,
     mimeType:

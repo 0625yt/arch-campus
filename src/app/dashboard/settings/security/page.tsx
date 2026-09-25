@@ -5,20 +5,7 @@ import { AccountSection } from "./account-section";
 import { MfaSection } from "./mfa-section";
 import { SessionsSection } from "./sessions-section";
 
-/**
- * 보안 설정 — 2026-05 보안 리서치 단기 항목 (MFA·활성 세션).
- *
- * 두 섹션:
- *   1. MfaSection — TOTP 두 번째 인증 enroll·해제. 1Password·Authy 같은 앱이 필요함.
- *   2. SessionsSection — 다른 기기에 로그인된 세션 목록·강제 로그아웃. 1Password 식.
- *
- * Supabase 내장 API 사용:
- *   - supabase.auth.mfa.enroll / challenge / verify / unenroll
- *   - supabase.auth.admin.listSessions (server-only, service-role)
- *   - supabase.auth.signOut('global') (모든 세션 종료)
- *
- * RLS 우회 안 함. 세션 목록은 본인 user_id로 service-role 호출 후 owner_id 재검증.
- */
+/** TOTP enrollment, global sign-out, and account deletion. Per-device sessions are not implemented. */
 export const dynamic = "force-dynamic";
 
 export default async function SecuritySettingsPage() {
@@ -48,7 +35,7 @@ export default async function SecuritySettingsPage() {
           className="mt-4 max-w-[560px] text-[14px] leading-[1.6] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.022em" }}
         >
-          매직링크 이메일이 탈취돼도 계정을 지키도록 두 번째 인증과 활성 세션 목록을 제공해요.
+          인증 앱 등록, 모든 기기 로그아웃, 계정 삭제를 관리해요.
         </p>
       </header>
 

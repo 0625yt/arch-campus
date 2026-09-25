@@ -9,8 +9,8 @@
 //   - 사전 검증 SELECT + BEGIN/COMMIT 주석으로 사용자가 단계 실행 가능.
 //   - 출력 SQL을 사용자가 Supabase SQL Editor에서 직접 실행 (CLAUDE.md §6).
 
-import { createClient } from "@supabase/supabase-js";
 import { readFileSync, writeFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
 
 const env = {};
 for (const line of readFileSync(".env.local", "utf8").split("\n")) {

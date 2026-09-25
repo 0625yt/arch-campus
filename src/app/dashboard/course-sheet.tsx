@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  academicTermLabel,
+  COURSE_CREDIT_OPTIONS,
+  COURSE_GRADES,
+  type CourseGrade,
+} from "@/lib/academic";
 import type { CourseListItem } from "@/lib/data/materials";
 import { parseScheduleString, type Weekday, weekdayKoShort } from "@/lib/timetable-grid";
 
@@ -47,7 +53,7 @@ export function CourseSheet({
 
   // 새 course 열릴 때 편집 모드 reset
   useEffect(() => {
-    setEditing(false);
+    if (course) setEditing(false);
   }, [course]);
 
   if (!course) return null;
@@ -56,7 +62,7 @@ export function CourseSheet({
     .map(parseScheduleString)
     .filter((s): s is NonNullable<typeof s> => s !== null);
 
-  const courseHref = `/dashboard/study/${encodeURIComponent(course.name)}`;
+  const courseHref = `/dashboard/study/${course.id}`;
   const dotColor = course.color ?? "#0071e3";
 
   return (
@@ -154,9 +160,9 @@ export function CourseSheet({
                 <section className="sheet-item-in">
                   <SectionLabel>강의 시간</SectionLabel>
                   <ul className="mt-3 flex flex-col gap-1.5">
-                    {slots.map((s, i) => (
+                    {slots.map((s) => (
                       <li
-                        key={`${s.weekday}-${s.startMinute}-${i}`}
+                        key={`${s.weekday}-${s.startMinute}-${s.endMinute}`}
                         className="flex items-baseline justify-between rounded-[10px] bg-[var(--color-apple-pearl)] px-4 py-2.5"
                       >
                         <span
@@ -186,6 +192,37 @@ export function CourseSheet({
                   >
                     {course.location}
                   </p>
+                </section>
+              )}
+
+              {course.category === "semester" && (
+                <section className="sheet-item-in">
+                  <SectionLabel>학기·성적</SectionLabel>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <CourseMetric
+                      label="학기"
+                      value={
+                        course.semesterYear && course.semesterTerm
+                          ? academicTermLabel(course.semesterYear, course.semesterTerm).replace(
+                              "년 ",
+                              "\n",
+                            )
+                          : "미입력"
+                      }
+                    />
+                    <CourseMetric
+                      label="학점"
+                      value={course.credits !== null ? `${course.credits}` : "—"}
+                    />
+                    <CourseMetric label="등급" value={course.grade ?? "미입력"} />
+                  </div>
+                  <Link
+                    href={`/dashboard/grades${course.semesterYear && course.semesterTerm ? `?term=${course.semesterYear}-${course.semesterTerm}` : ""}`}
+                    onClick={onClose}
+                    className="mt-3 inline-flex min-h-10 items-center text-[12px] wght-620 text-[var(--color-apple-action)] hover:underline"
+                  >
+                    성적표에서 한번에 관리하기 ›
+                  </Link>
                 </section>
               )}
 
@@ -226,7 +263,7 @@ export function CourseSheet({
                   <span aria-hidden>›</span>
                 </Link>
                 <Link
-                  href={`/dashboard/study/${encodeURIComponent(course.name)}#upload-zone`}
+                  href={`/dashboard/study/${course.id}#upload-zone`}
                   onClick={onClose}
                   className="spring-press inline-flex h-[48px] flex-1 items-center justify-center rounded-full border border-[var(--color-apple-hairline)] bg-white px-5 text-[14px] wght-560 text-[var(--color-apple-ink)] transition-colors hover:bg-[var(--color-apple-pearl)]"
                   style={{ letterSpacing: "-0.012em" }}
@@ -274,9 +311,15 @@ function EditForm({
   onSaved: () => void;
 }) {
   const [name, setName] = useState(course.name);
+  const [professor, setProfessor] = useState(course.professor ?? "");
   const [location, setLocation] = useState(course.location ?? "");
-  const [slots, setSlots] = useState<SlotDraft[]>(
-    initialSlots.length > 0 ? initialSlots : [{ weekday: "MON", start: "09:00", end: "10:50" }],
+  const [credits, setCredits] = useState(String(course.credits ?? 3));
+  const [grade, setGrade] = useState<CourseGrade | "">(course.grade ?? "");
+  const [slots, setSlots] = useState<(SlotDraft & { id: string })[]>(() =>
+    (initialSlots.length > 0
+      ? initialSlots
+      : [{ weekday: "MON" as const, start: "09:00", end: "10:50" }]
+    ).map((slot) => ({ ...slot, id: crypto.randomUUID() })),
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -288,7 +331,10 @@ function EditForm({
     setSlots((prev) => prev.filter((_, i) => i !== idx));
   };
   const addSlot = () => {
-    setSlots((prev) => [...prev, { weekday: "MON", start: "09:00", end: "10:50" }]);
+    setSlots((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), weekday: "MON", start: "09:00", end: "10:50" },
+    ]);
   };
 
   const save = async () => {
@@ -320,8 +366,18 @@ function EditForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name: trimmedName !== course.name ? trimmedName : undefined,
+          professor:
+            professor.trim() !== (course.professor ?? "") ? professor.trim() || null : undefined,
           location:
             location.trim() !== (course.location ?? "") ? location.trim() || null : undefined,
+          credits:
+            course.category === "semester" && Number(credits) !== course.credits
+              ? Number(credits)
+              : undefined,
+          grade:
+            course.category === "semester" && (grade || null) !== course.grade
+              ? grade || null
+              : undefined,
           schedule,
         }),
       });
@@ -351,6 +407,17 @@ function EditForm({
         />
       </Field>
 
+      <Field label="교수명 (선택)">
+        <input
+          type="text"
+          value={professor}
+          onChange={(e) => setProfessor(e.target.value)}
+          placeholder="예: 김지훈"
+          className="w-full rounded-[10px] border border-[var(--color-apple-hairline)] bg-white px-3.5 py-2.5 text-[14px] wght-560 text-[var(--color-apple-ink)] outline-none transition-colors focus:border-[var(--color-apple-action)] placeholder:text-[var(--color-apple-muted)]/60"
+          maxLength={60}
+        />
+      </Field>
+
       <Field label="강의실 (선택)">
         <input
           type="text"
@@ -362,6 +429,45 @@ function EditForm({
           maxLength={120}
         />
       </Field>
+
+      {course.category === "semester" && (
+        <div>
+          <SectionLabel>학기·성적</SectionLabel>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <label className="sr-only" htmlFor={`credits-${course.id}`}>
+              이수학점
+            </label>
+            <select
+              id={`credits-${course.id}`}
+              value={credits}
+              onChange={(e) => setCredits(e.target.value)}
+              className="h-10 rounded-[9px] border border-[var(--color-apple-hairline)] bg-white px-3 text-[13px] text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)]"
+            >
+              {COURSE_CREDIT_OPTIONS.map((value) => (
+                <option key={value} value={value}>
+                  {value}학점
+                </option>
+              ))}
+            </select>
+            <label className="sr-only" htmlFor={`grade-${course.id}`}>
+              등급
+            </label>
+            <select
+              id={`grade-${course.id}`}
+              value={grade}
+              onChange={(e) => setGrade(e.target.value as CourseGrade | "")}
+              className="h-10 rounded-[9px] border border-[var(--color-apple-hairline)] bg-white px-3 text-[13px] text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)]"
+            >
+              <option value="">등급 미입력</option>
+              {COURSE_GRADES.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       <div>
         <div className="flex items-baseline justify-between">
@@ -378,7 +484,7 @@ function EditForm({
         <ul className="mt-3 flex flex-col gap-2">
           {slots.map((s, idx) => (
             <li
-              key={idx}
+              key={s.id}
               className="flex items-center gap-2 rounded-[10px] bg-[var(--color-apple-pearl)] px-2.5 py-2"
             >
               <select
@@ -463,6 +569,17 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function CourseMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[11px] bg-[var(--color-apple-pearl)] px-3 py-3">
+      <p className="text-[10px] wght-650 text-[var(--color-apple-muted)]">{label}</p>
+      <p className="mt-1 whitespace-pre-line text-[13px] leading-[1.35] wght-680 text-[var(--color-apple-ink)]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
 function timeToMin(t: string): number {
   const [h, m] = t.split(":").map(Number);
   return (h || 0) * 60 + (m || 0);
@@ -484,6 +601,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function CloseIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden fill="none">
+      <title>아이콘</title>
       <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
@@ -492,6 +610,7 @@ function CloseIcon() {
 function PencilIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden fill="none">
+      <title>아이콘</title>
       <path
         d="M2 12l1-3 7-7 2 2-7 7-3 1z"
         stroke="currentColor"

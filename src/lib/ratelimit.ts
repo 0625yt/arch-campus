@@ -18,8 +18,7 @@ import { NextResponse } from "next/server";
  *      여러 개로 스케일아웃되면 인스턴스 수만큼 한도가 곱해진다 — 완벽한 분산 제한은
  *      Upstash가 있어야 함. 폴백은 최후 방어선이지 정식 대체가 아니다.)
  *
- * ★ fail-open 원칙: rate limit은 "있으면 좋은 방어선"이지 서비스 중단 사유가 아니다.
- *   Upstash 장애·폴백 로직 throw 시엔 요청을 통과시킨다 (서비스 가용성 > 완벽한 제한).
+ * 제한 저장소 오류 시 503을 반환한다. 비용이 발생하는 작업을 무제한 허용하지 않는다.
  *
  * 키:
  *   - 우선 user_id (인증된 케이스), 없으면 IP — 한국 통신사 NAT IP 충돌 줄이려고 user_id 우선
@@ -81,6 +80,7 @@ function getRedis(): Redis | null {
  * 호출마다 윈도우 밖 항목을 잘라내고, 남은 수가 정책 토큰 이상이면 차단.
  * 메모리 무한 증식 방지: 비어버린 key는 즉시 삭제, 전체 key 수가 상한 넘으면 정리. */
 const memHits = new Map<string, number[]>();
+const memExpires = new Map<string, number>();
 const MEM_KEY_CAP = 50_000;
 
 function windowMs(window: LimiterConfig["window"]): number {
@@ -94,6 +94,15 @@ function memLimit(kind: string, identifier: string): RateLimitResult {
   const span = windowMs(policy.window);
   const now = Date.now();
   const key = `${kind}:${identifier}`;
+  if (!memHits.has(key) && memHits.size >= MEM_KEY_CAP) {
+    for (const [entry, expiry] of memExpires) {
+      if (expiry <= now) {
+        memHits.delete(entry);
+        memExpires.delete(entry);
+      }
+    }
+    if (memHits.size >= MEM_KEY_CAP) return unavailableLimit();
+  }
   const prior = memHits.get(key) ?? [];
   // 윈도우 밖(만료) 타임스탬프 제거
   const fresh = prior.filter((t) => now - t < span);
@@ -117,12 +126,7 @@ function memLimit(kind: string, identifier: string): RateLimitResult {
 
   fresh.push(now);
   memHits.set(key, fresh);
-  // 메모리 청소: key가 너무 많아지면 만료된 것부터 솎아낸다(저비용 best-effort).
-  if (memHits.size > MEM_KEY_CAP) {
-    for (const [k, ts] of memHits) {
-      if (ts.every((t) => now - t >= span)) memHits.delete(k);
-    }
-  }
+  memExpires.set(key, now + span);
   return {
     success: true,
     headers: {
@@ -150,6 +154,7 @@ function getLimiter(kind: string): Ratelimit | null {
 
 export interface RateLimitResult {
   success: boolean;
+  unavailable?: boolean;
   /** 응답에 박을 headers — 429일 때 Retry-After 등 */
   headers: Record<string, string>;
 }
@@ -160,22 +165,19 @@ export interface RateLimitResult {
  *   - kind: POLICIES 키
  *
  * Upstash env 미설정 시 인메모리 폴백(단일 인스턴스 sliding window)으로 동작.
- * 폴백 로직이 예외를 던지면 fail-open(success=true) — 서비스 가용성 우선.
+ * 저장소 및 폴백 오류는 작업을 시작하지 않고 503으로 재시도를 안내한다.
  */
+function unavailableLimit(): RateLimitResult {
+  return { success: false, unavailable: true, headers: { "Retry-After": "30" } };
+}
+
 export async function checkRateLimit(
   kind: keyof typeof POLICIES | string,
   identifier: string,
 ): Promise<RateLimitResult> {
-  const lim = getLimiter(kind);
-  if (!lim) {
-    // Upstash 미설정 — 인메모리 폴백. throw 시엔 통과(fail-open).
-    try {
-      return memLimit(kind, identifier);
-    } catch {
-      return { success: true, headers: {} };
-    }
-  }
   try {
+    const lim = getLimiter(kind);
+    if (!lim) return memLimit(kind, identifier);
     const { success, limit, remaining, reset } = await lim.limit(identifier);
     const headers: Record<string, string> = {
       "X-RateLimit-Limit": String(limit),
@@ -188,8 +190,7 @@ export async function checkRateLimit(
     }
     return { success, headers };
   } catch {
-    // Upstash 일시 장애(네트워크·타임아웃) — 서비스를 막지 않는다(fail-open).
-    return { success: true, headers: {} };
+    return unavailableLimit();
   }
 }
 
@@ -235,7 +236,7 @@ export async function guardRateLimit(
   kind: keyof typeof POLICIES | string,
   identifier: string,
 ): Promise<NextResponse<RateLimitErrBody> | null> {
-  const { success, headers } = await checkRateLimit(kind, identifier);
+  const { success, headers, unavailable } = await checkRateLimit(kind, identifier);
   if (success) return null;
   // kind를 error 메시지·body에 포함 — 클라이언트가 어떤 limit에 걸렸는지 분기 가능
   const friendlyKind =
@@ -249,8 +250,10 @@ export async function guardRateLimit(
   const body: RateLimitErrBody = {
     ok: false,
     kind: String(kind),
-    error: `${friendlyKind} 횟수가 한도를 넘었어요. 잠시 후 다시 시도해주세요.`,
+    error: unavailable
+      ? "요청 제한을 확인하지 못했어요. 잠시 후 다시 시도해주세요."
+      : `${friendlyKind} 횟수가 한도를 넘었어요. 잠시 후 다시 시도해주세요.`,
     retryAfterSec: Number(headers["Retry-After"] ?? 60),
   };
-  return NextResponse.json(body, { status: 429, headers });
+  return NextResponse.json(body, { status: unavailable ? 503 : 429, headers });
 }

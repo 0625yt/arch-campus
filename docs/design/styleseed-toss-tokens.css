@@ -4,7 +4,7 @@
   --font-size: 16px;
 
   /* === CUSTOMIZE: Brand Colors === */
-  --brand: #721FE5;
+  --brand: #721fe5;
   --primary: #030213;
   --primary-foreground: oklch(1 0 0);
 
@@ -27,26 +27,26 @@
   /* === Status Colors === */
   --destructive: #d4183d;
   --destructive-foreground: #ffffff;
-  --success: #6B9B7A;
+  --success: #6b9b7a;
   --success-foreground: #ffffff;
-  --warning: #D97706;
+  --warning: #d97706;
   --warning-foreground: #ffffff;
-  --info: #3B82F6;
+  --info: #3b82f6;
   --info-foreground: #ffffff;
 
   /* === Text Hierarchy === */
-  --text-primary: #3C3C3C;
-  --text-secondary: #6A6A6A;
-  --text-tertiary: #7A7A7A;
-  --text-disabled: #9B9B9B;
-  --icon-default: #4A5568;
+  --text-primary: #3c3c3c;
+  --text-secondary: #6a6a6a;
+  --text-tertiary: #7a7a7a;
+  --text-disabled: #9b9b9b;
+  --icon-default: #4a5568;
 
   /* === Surface Colors === */
-  --surface-page: #FAFAFA;
-  --surface-subtle: #FAFAF9;
-  --surface-muted: #E8E6E1;
-  --brand-tint: #F0E8FF;
-  --alert-badge: #FF4444;
+  --surface-page: #fafafa;
+  --surface-subtle: #fafaf9;
+  --surface-muted: #e8e6e1;
+  --brand-tint: #f0e8ff;
+  --alert-badge: #ff4444;
 
   /* === Borders & Inputs === */
   --border: rgba(0, 0, 0, 0.1);
@@ -72,11 +72,11 @@
   --radius: 0.625rem;
 
   /* === Shadows === */
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.04);
-  --shadow-button: 0 1px 3px rgba(0,0,0,0.06);
-  --shadow-card-hover: 0 2px 4px rgba(0,0,0,0.08);
-  --shadow-elevated: 0 4px 12px rgba(0,0,0,0.08);
-  --shadow-modal: 0 8px 24px rgba(0,0,0,0.12);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-button: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.12);
 
   /* === Motion / Animation === */
   --duration-fast: 100ms;
@@ -102,15 +102,15 @@
 .dark {
   /* === Background & Surface (brightness order: page < card < subtle) === */
   --background: #121212;
-  --foreground: #E0E0E0;
-  --card: #1E1E1E;
-  --card-foreground: #E0E0E0;
+  --foreground: #e0e0e0;
+  --card: #1e1e1e;
+  --card-foreground: #e0e0e0;
   --popover: #252525;
-  --popover-foreground: #E0E0E0;
+  --popover-foreground: #e0e0e0;
 
   /* === Text Hierarchy (dark) === */
-  --text-primary: #E0E0E0;
-  --text-secondary: #A0A0A0;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
   --text-tertiary: #808080;
   --text-disabled: #555555;
   --icon-default: #909090;
@@ -120,25 +120,25 @@
   --surface-subtle: #252525;
   --surface-muted: rgba(255, 255, 255, 0.08);
   --brand-tint: rgba(155, 95, 255, 0.15);
-  --alert-badge: #FF5C5C;
+  --alert-badge: #ff5c5c;
 
   /* === Key Color & Status (brightened for dark mode) === */
-  --brand: #9B5FFF;
-  --primary: #E0E0E0;
+  --brand: #9b5fff;
+  --primary: #e0e0e0;
   --primary-foreground: #121212;
   --secondary: #252525;
-  --secondary-foreground: #E0E0E0;
+  --secondary-foreground: #e0e0e0;
   --muted: #252525;
   --muted-foreground: #808080;
   --accent: #252525;
-  --accent-foreground: #E0E0E0;
-  --destructive: #FF5C5C;
+  --accent-foreground: #e0e0e0;
+  --destructive: #ff5c5c;
   --destructive-foreground: #121212;
-  --success: #8FBF9A;
+  --success: #8fbf9a;
   --success-foreground: #121212;
-  --warning: #FFB347;
+  --warning: #ffb347;
   --warning-foreground: #121212;
-  --info: #64B5F6;
+  --info: #64b5f6;
   --info-foreground: #121212;
 
   /* === Border & Input === */
@@ -160,12 +160,12 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #1E1E1E;
-  --sidebar-foreground: #E0E0E0;
-  --sidebar-primary: #9B5FFF;
-  --sidebar-primary-foreground: #E0E0E0;
+  --sidebar: #1e1e1e;
+  --sidebar-foreground: #e0e0e0;
+  --sidebar-primary: #9b5fff;
+  --sidebar-primary-foreground: #e0e0e0;
   --sidebar-accent: #252525;
-  --sidebar-accent-foreground: #E0E0E0;
+  --sidebar-accent-foreground: #e0e0e0;
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: #555555;
 }

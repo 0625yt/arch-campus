@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { MfaRequiredError, requiresMfa } from "../mfa";
 import type { Database } from "./types";
 
 export async function getServerSupabase() {
@@ -31,5 +32,6 @@ export async function getCurrentUser() {
   const supabase = await getServerSupabase();
   const { data, error } = await supabase.auth.getUser();
   if (error) return null;
+  if (data.user && (await requiresMfa(supabase, data.user))) throw new MfaRequiredError();
   return data.user;
 }

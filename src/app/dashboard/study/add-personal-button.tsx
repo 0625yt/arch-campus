@@ -38,7 +38,7 @@ export function AddPersonalButton({ variant = "primary" }: { variant?: "primary"
       setName("");
       // 사이드바·페이지 새로고침
       router.refresh();
-      router.push(`/dashboard/study/${encodeURIComponent(json.course.name)}`);
+      router.push(`/dashboard/study/${json.course.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "네트워크 오류");
     } finally {
@@ -55,8 +55,8 @@ export function AddPersonalButton({ variant = "primary" }: { variant?: "primary"
         onClick={() => setOpen(true)}
         className={
           variant === "primary"
-            ? "inline-flex h-[40px] items-center gap-1 rounded-full bg-[var(--color-apple-ink)] px-4 text-[13px] wght-560 text-white transition-all hover:opacity-90 active:scale-[0.97]"
-            : "inline-flex h-[36px] items-center gap-1 rounded-full border border-dashed border-[var(--color-apple-hairline)] px-4 text-[12.5px] wght-450 text-[var(--color-apple-muted)] transition-all hover:border-[var(--color-apple-ink)] hover:text-[var(--color-apple-ink)]"
+            ? "inline-flex h-11 items-center gap-1 rounded-full bg-[var(--color-apple-ink)] px-4 text-[13px] wght-560 text-white transition-all hover:opacity-90 active:scale-[0.97]"
+            : "inline-flex h-11 items-center gap-1 rounded-full border border-dashed border-[var(--color-apple-hairline)] px-4 text-[12.5px] wght-450 text-[var(--color-apple-muted)] transition-all hover:border-[var(--color-apple-ink)] hover:text-[var(--color-apple-ink)]"
         }
         style={{ letterSpacing: "-0.012em" }}
       >
@@ -80,7 +80,6 @@ export function AddPersonalButton({ variant = "primary" }: { variant?: "primary"
             onChange={(e) => setName(e.target.value)}
             placeholder="예: 정보처리기사 / TOEIC / 개인 사이드 프로젝트"
             maxLength={60}
-            autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter" && canSubmit) handleCreate();
             }}
@@ -94,7 +93,7 @@ export function AddPersonalButton({ variant = "primary" }: { variant?: "primary"
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="h-[40px] rounded-full px-4 text-[13px] wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
+            className="h-11 rounded-full px-4 text-[13px] wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-ink)]"
           >
             취소
           </button>
@@ -102,7 +101,7 @@ export function AddPersonalButton({ variant = "primary" }: { variant?: "primary"
             type="button"
             onClick={handleCreate}
             disabled={!canSubmit}
-            className="inline-flex h-[40px] items-center justify-center rounded-full bg-[var(--color-apple-action)] px-5 text-[13px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)] disabled:opacity-40"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--color-apple-action)] px-5 text-[13px] wght-560 text-white transition-all hover:bg-[var(--color-apple-action-hover)] disabled:opacity-40"
             style={{ letterSpacing: "-0.012em" }}
           >
             {submitting ? "만드는 중…" : "주제 만들기 →"}

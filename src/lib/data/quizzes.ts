@@ -1,5 +1,12 @@
 import "server-only";
 import { z } from "zod";
+import type { SemesterTerm } from "@/lib/academic";
+import {
+  attemptActivityTime,
+  parseAttemptResults,
+  reconcileAttemptTotals,
+} from "@/lib/attempt-results";
+import { listWrongItems } from "@/lib/data/attempts";
 import { ExamExtractedQuestion, type ExamExtractedQuestionT, QuizQuestion } from "@/lib/schemas";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
@@ -9,6 +16,13 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
  */
 
 const QuestionsArray = z.array(QuizQuestion);
+const GenerationQuality = z.object({
+  requested: z.number().int().positive(),
+  generated: z.number().int().positive(),
+  dropped: z.number().int().nonnegative(),
+  limitedBySource: z.boolean(),
+  reason: z.enum(["complete", "source-limited", "generation-limited"]),
+});
 
 export interface QuizSolveView {
   id: string;
@@ -42,6 +56,7 @@ export interface QuizSolveView {
       }
   >;
   total: number;
+  generationQuality: z.infer<typeof GenerationQuality> | null;
 }
 
 export async function getQuizForSolving(opts: {
@@ -53,7 +68,9 @@ export async function getQuizForSolving(opts: {
   const admin = getAdminSupabase();
   const { data, error } = await admin
     .from("quizzes")
-    .select("id, material_id, course_id, title, difficulty, watermark, questions, question_count")
+    .select(
+      "id, material_id, course_id, title, difficulty, watermark, questions, question_count, generation_id",
+    )
     .eq("id", opts.quizId)
     .eq("owner_id", opts.ownerId)
     .maybeSingle();
@@ -80,6 +97,18 @@ export async function getQuizForSolving(opts: {
       .eq("owner_id", opts.ownerId)
       .maybeSingle();
     courseName = c?.name ?? null;
+  }
+
+  let generationQuality: z.infer<typeof GenerationQuality> | null = null;
+  if (data.generation_id) {
+    const { data: generation } = await admin
+      .from("generations")
+      .select("payload")
+      .eq("id", data.generation_id)
+      .eq("owner_id", opts.ownerId)
+      .maybeSingle();
+    const parsedQuality = GenerationQuality.safeParse(generation?.payload?.quality);
+    if (parsedQuality.success) generationQuality = parsedQuality.data;
   }
 
   return {
@@ -114,6 +143,7 @@ export async function getQuizForSolving(opts: {
           },
     ),
     total: filtered.length,
+    generationQuality,
   };
 }
 
@@ -132,6 +162,8 @@ export interface QuizListItem {
   materialId: string | null;
   courseName: string | null;
   courseColor: string | null;
+  semesterYear: number | null;
+  semesterTerm: SemesterTerm | null;
   difficulty: "쉬움" | "보통" | "어려움";
   questionCount: number;
   createdAt: string;
@@ -139,40 +171,73 @@ export interface QuizListItem {
   attemptCount: number;
   /** 가장 최근 시도 점수 (없으면 null) */
   lastScore: number | null;
-  /**
-   * 지금 "틀린 채로 남은" 문제 수 — wrong_items_v 뷰에서 quizId별 집계.
-   * questionCount - lastScore 빼셈을 쓰면 부분 풀이(안 푼 문제)까지 오답으로 세므로
-   * 반드시 뷰 기준 실제 오답 수를 쓴다. 다시 맞히면 0이 된다.
-   */
+  /** 가장 최근 시도에서 실제로 채점한 문제 수. 부분 풀이를 전체 문제 수로 보이지 않게 한다. */
+  lastAttemptTotal: number | null;
+  /** 지금 틀린 채로 남은 문제 수. 문제별 gradedAt의 최신 판정이 정답이면 빠진다. */
   wrongCount: number;
 }
 
+interface QuizAttemptRow {
+  quiz_id: string;
+  score: number;
+  total: number;
+  created_at: string;
+  results: unknown;
+}
+
+interface QuizAttemptAggregate {
+  count: number;
+  lastScore: number | null;
+  lastAttemptTotal: number | null;
+  lastAttemptedAt: string | null;
+}
+
+/** 이어 푼 오래된 attempt도 실제 마지막 채점 시각을 기준으로 최신 점수로 잡는다. */
+function aggregateAttempts(rows: QuizAttemptRow[]): Map<string, QuizAttemptAggregate> {
+  const aggregated = new Map<string, QuizAttemptAggregate>();
+
+  for (const row of rows) {
+    const results = parseAttemptResults(row.results);
+    const totals = reconcileAttemptTotals(row.score, row.total, results);
+    const attemptedAt = attemptActivityTime(row.created_at, results);
+    const current = aggregated.get(row.quiz_id) ?? {
+      count: 0,
+      lastScore: null,
+      lastAttemptTotal: null,
+      lastAttemptedAt: null,
+    };
+    current.count += 1;
+
+    if (
+      current.lastAttemptedAt === null ||
+      Date.parse(attemptedAt) > Date.parse(current.lastAttemptedAt)
+    ) {
+      current.lastScore = totals.score;
+      current.lastAttemptTotal = totals.total;
+      current.lastAttemptedAt = attemptedAt;
+    }
+    aggregated.set(row.quiz_id, current);
+  }
+
+  return aggregated;
+}
+
 /**
- * quizId별 "지금 틀린 채로 남은" 문제 수 — wrong_items_v 뷰에서 집계.
- *
- * 뷰는 0024 이후 "(owner,quiz,question)별 가장 최근 시도가 오답인 것"만 한 row씩
- * 가지므로, quiz_id로 묶어 row 수를 세면 그게 곧 실제 오답 문제 수다.
- * (questionCount - lastScore 빼셈은 부분 풀이 시 안 푼 문제까지 세므로 쓰지 않는다.)
+ * quizId별 "지금 틀린 채로 남은" 문제 수.
+ * questionCount - lastScore는 부분 풀이에서 안 푼 문제까지 오답으로 만들므로 쓰지 않는다.
  *
  * 시간 필터(sinceDays)는 의도적으로 안 건다 — 카드는 "이 퀴즈에 남은 오답"을
  * 보여줘야 하므로 오래된 오답도 다시 안 맞혔으면 그대로 카운트.
  */
-async function countWrongByQuiz(
-  admin: ReturnType<typeof getAdminSupabase>,
-  ownerId: string,
-  quizIds: string[],
-): Promise<Map<string, number>> {
+async function countWrongByQuiz(ownerId: string, quizIds: string[]): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
   if (quizIds.length === 0) return counts;
 
-  const { data } = await admin
-    .from("wrong_items_v")
-    .select("quiz_id")
-    .eq("owner_id", ownerId)
-    .in("quiz_id", quizIds);
-
-  for (const row of data ?? []) {
-    counts.set(row.quiz_id, (counts.get(row.quiz_id) ?? 0) + 1);
+  const allowed = new Set(quizIds);
+  const items = await listWrongItems({ ownerId, sinceDays: null, limit: 5000 });
+  for (const item of items) {
+    if (!allowed.has(item.quizId)) continue;
+    counts.set(item.quizId, (counts.get(item.quizId) ?? 0) + 1);
   }
   return counts;
 }
@@ -200,15 +265,28 @@ export async function listGeneratedQuizzes(opts: {
   const courseIds = Array.from(
     new Set(quizzes.map((q) => q.course_id).filter((id): id is string => id !== null)),
   );
-  const courseMap = new Map<string, { name: string; color: string | null }>();
+  const courseMap = new Map<
+    string,
+    {
+      name: string;
+      color: string | null;
+      semesterYear: number | null;
+      semesterTerm: SemesterTerm | null;
+    }
+  >();
   if (courseIds.length > 0) {
     const { data: courses } = await admin
       .from("courses")
-      .select("id, name, color")
+      .select("id, name, color, semester_year, semester_term")
       .eq("owner_id", opts.ownerId)
       .in("id", courseIds);
     for (const c of courses ?? []) {
-      courseMap.set(c.id, { name: c.name, color: c.color });
+      courseMap.set(c.id, {
+        name: c.name,
+        color: c.color,
+        semesterYear: c.semester_year,
+        semesterTerm: c.semester_term,
+      });
     }
   }
 
@@ -218,35 +296,37 @@ export async function listGeneratedQuizzes(opts: {
   const [{ data: attempts }, wrongByQuiz] = await Promise.all([
     admin
       .from("quiz_attempts")
-      .select("quiz_id, score, created_at")
+      .select("quiz_id, score, total, created_at, results")
       .eq("owner_id", opts.ownerId)
       .in("quiz_id", quizIds)
       .order("created_at", { ascending: false }),
-    countWrongByQuiz(admin, opts.ownerId, quizIds),
+    countWrongByQuiz(opts.ownerId, quizIds),
   ]);
 
-  const attemptAgg = new Map<string, { count: number; lastScore: number | null }>();
-  for (const a of attempts ?? []) {
-    const cur = attemptAgg.get(a.quiz_id) ?? { count: 0, lastScore: null };
-    cur.count += 1;
-    if (cur.lastScore === null) cur.lastScore = a.score; // order desc — 첫 만남이 최신
-    attemptAgg.set(a.quiz_id, cur);
-  }
+  const attemptAgg = aggregateAttempts(attempts ?? []);
 
   return quizzes.map((q) => {
     const course = q.course_id ? courseMap.get(q.course_id) : null;
-    const agg = attemptAgg.get(q.id) ?? { count: 0, lastScore: null };
+    const agg = attemptAgg.get(q.id) ?? {
+      count: 0,
+      lastScore: null,
+      lastAttemptTotal: null,
+      lastAttemptedAt: null,
+    };
     return {
       id: q.id,
       title: q.title,
       materialId: q.material_id,
       courseName: course?.name ?? null,
       courseColor: course?.color ?? null,
+      semesterYear: course?.semesterYear ?? null,
+      semesterTerm: course?.semesterTerm ?? null,
       difficulty: q.difficulty,
       questionCount: q.question_count,
       createdAt: q.created_at,
       attemptCount: agg.count,
       lastScore: agg.lastScore,
+      lastAttemptTotal: agg.lastAttemptTotal,
       wrongCount: wrongByQuiz.get(q.id) ?? 0,
     };
   });
@@ -273,7 +353,8 @@ export async function listQuizzesForMaterial(opts: {
     createdAt: string;
     attemptCount: number;
     lastScore: number | null;
-    /** wrong_items_v 기준 실제 남은 오답 수 — 빼셈 금지. QuizListItem.wrongCount와 동일 의미. */
+    lastAttemptTotal: number | null;
+    /** 문제별 최신 판정 기준 실제 남은 오답 수. QuizListItem.wrongCount와 동일 의미. */
     wrongCount: number;
   }>
 > {
@@ -295,23 +376,22 @@ export async function listQuizzesForMaterial(opts: {
   const [{ data: attempts }, wrongByQuiz] = await Promise.all([
     admin
       .from("quiz_attempts")
-      .select("quiz_id, score, created_at")
+      .select("quiz_id, score, total, created_at, results")
       .eq("owner_id", opts.ownerId)
       .in("quiz_id", quizIds)
       .order("created_at", { ascending: false }),
-    countWrongByQuiz(admin, opts.ownerId, quizIds),
+    countWrongByQuiz(opts.ownerId, quizIds),
   ]);
 
-  const attemptAgg = new Map<string, { count: number; lastScore: number | null }>();
-  for (const a of attempts ?? []) {
-    const cur = attemptAgg.get(a.quiz_id) ?? { count: 0, lastScore: null };
-    cur.count += 1;
-    if (cur.lastScore === null) cur.lastScore = a.score;
-    attemptAgg.set(a.quiz_id, cur);
-  }
+  const attemptAgg = aggregateAttempts(attempts ?? []);
 
   return quizzes.map((q) => {
-    const agg = attemptAgg.get(q.id) ?? { count: 0, lastScore: null };
+    const agg = attemptAgg.get(q.id) ?? {
+      count: 0,
+      lastScore: null,
+      lastAttemptTotal: null,
+      lastAttemptedAt: null,
+    };
     return {
       id: q.id,
       title: q.title,
@@ -320,6 +400,7 @@ export async function listQuizzesForMaterial(opts: {
       createdAt: q.created_at,
       attemptCount: agg.count,
       lastScore: agg.lastScore,
+      lastAttemptTotal: agg.lastAttemptTotal,
       wrongCount: wrongByQuiz.get(q.id) ?? 0,
     };
   });
@@ -331,8 +412,9 @@ export async function listQuizzesForMaterial(opts: {
  * 용도: 중복 출제 방지 — 같은 자료에서 N번 quiz를 생성할 때 모델에게
  * "이런 stem은 이미 만들었다, 다른 각도로 출제해라" 힌트로 박는다.
  *
- * 최근 quiz 5개 × 평균 10문제 = ~50개 stem 정도가 적정. 그 이상이면 프롬프트가
- * 비대해지고 cache miss 비용이 늘어남. 너무 많으면 모델이 stem 비교에 토큰 낭비.
+ * 프롬프트에는 서비스 레이어가 일부만 노출하지만, 반환값 전체는 생성 후 결정론적
+ * 중복 검사에도 사용한다. 오래 사용한 학생에게 예전 문제가 되살아나지 않도록 최근
+ * 50개 quiz까지 조회하고, 비정상적으로 큰 호출은 100개로 제한한다.
  */
 export async function listPreviousQuizStems(opts: {
   ownerId: string;
@@ -341,7 +423,7 @@ export async function listPreviousQuizStems(opts: {
 }): Promise<string[]> {
   if (opts.materialIds.length === 0) return [];
   const admin = getAdminSupabase();
-  const limit = opts.limit ?? 5;
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
 
   const { data, error } = await admin
     .from("quizzes")

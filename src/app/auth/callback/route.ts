@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { safeAuthRedirect } from "@/lib/auth-redirect";
 import { getProfile } from "@/lib/data/profile";
+import { requiresMfa } from "@/lib/mfa";
 import { getServerSupabase } from "@/lib/supabase/server";
 
 /**
@@ -11,7 +13,7 @@ import { getServerSupabase } from "@/lib/supabase/server";
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? "/dashboard";
+  const next = safeAuthRedirect(url.searchParams.get("next"));
   const errorParam = url.searchParams.get("error_description") ?? url.searchParams.get("error");
 
   if (errorParam) {
@@ -36,6 +38,9 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  if (await requiresMfa(supabase, data.user)) {
+    return NextResponse.redirect(new URL(`/auth/mfa?next=${encodeURIComponent(next)}`, url.origin));
+  }
   const profile = await getProfile(data.user.id);
   const target = profile?.onboarded ? next : "/onboarding";
   return NextResponse.redirect(new URL(target, url.origin));

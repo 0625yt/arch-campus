@@ -1,5 +1,6 @@
 "use client";
 
+import { MessageCircle } from "lucide-react";
 import { useState } from "react";
 import type { FeedbackTargetType } from "@/lib/schemas/feedback";
 import { FeedbackModal } from "./feedback-modal";
@@ -27,21 +28,10 @@ export function FeedbackTriggerButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`spring-press inline-flex items-center gap-1 rounded-full border border-[var(--color-apple-hairline)] bg-white px-2.5 py-1 text-[11.5px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)] ${className}`}
-        style={{ letterSpacing: "-0.012em" }}
+        className={`spring-press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[var(--color-apple-hairline)] bg-white px-3 text-[11.5px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)] ${className}`}
+        style={{ letterSpacing: 0 }}
       >
-        <svg
-          aria-hidden
-          viewBox="0 0 24 24"
-          className="h-3 w-3"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
+        <MessageCircle aria-hidden size={14} strokeWidth={1.8} />
         {label}
       </button>
       {open && (

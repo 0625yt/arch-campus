@@ -30,7 +30,7 @@ export function CalendarSection() {
                 자료 → 일정 추출
               </span>
               <span
-                className="text-[10px] wght-560 uppercase tracking-[0.08em] opacity-60"
+                className="text-[10px] wght-560 uppercase tracking-[0.08em]"
                 style={{ color: "var(--color-landing-text-muted)" }}
               >
                 예시
@@ -47,6 +47,7 @@ export function CalendarSection() {
 
               {/* 화살표 */}
               <svg width="36" height="24" viewBox="0 0 36 24" fill="none" aria-hidden>
+                <title>아이콘</title>
                 <path
                   className="line-draw"
                   d="M2 12 L30 12 M22 4 L30 12 L22 20"
@@ -117,6 +118,7 @@ function FileChip({ name }: { name: string }) {
       }}
     >
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+        <title>아이콘</title>
         <path d="M3 1h4l2 2v8H3V1z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
       </svg>
       {name}

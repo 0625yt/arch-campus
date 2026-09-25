@@ -1,6 +1,7 @@
 // stuck job 진단 — pending/running으로 오래 멈춘 job을 찾는다. (읽기 전용)
-import { createClient } from "@supabase/supabase-js";
+
 import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
 
 // .env.local 직접 파싱 (dotenv 의존성 없이)
 const env = {};
@@ -13,7 +14,9 @@ const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE
 
 const { data: active, error } = await supabase
   .from("jobs")
-  .select("id, owner_id, material_id, tool, status, error_message, created_at, started_at, finished_at")
+  .select(
+    "id, owner_id, material_id, tool, status, error_message, created_at, started_at, finished_at",
+  )
   .in("status", ["pending", "running"])
   .order("created_at", { ascending: false });
 

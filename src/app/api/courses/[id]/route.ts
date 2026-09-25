@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { COURSE_GRADES } from "@/lib/academic";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
@@ -13,6 +14,7 @@ function bustCourseCache() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/study", "layout");
   revalidatePath("/dashboard/calendar");
+  revalidatePath("/dashboard/grades");
 }
 
 interface OkResponse {
@@ -39,14 +41,15 @@ const PatchBody = z
       .nullable()
       .optional(),
     target_grade: z.enum(["A+", "A", "B+", "B"]).nullable().optional(),
+    credits: z.number().min(0).max(30).multipleOf(0.5).nullable().optional(),
+    grade: z.enum(COURSE_GRADES).nullable().optional(),
     // 인라인 시간표 편집 — slots 통째 교체. null이면 schedule 비움.
     schedule: z.array(z.string().regex(SLOT_RE)).max(10).nullable().optional(),
   })
   .strict();
 
 /**
- * 강의 일부 속성 수정. 시간표(slots)·학기·category는 여기서 손대지 않음 —
- * 그건 시간표 재업로드 흐름이 책임진다.
+ * 강의 이름·교수·강의실·시간·학점·등급을 소유자 범위에서 수정한다.
  */
 export async function PATCH(
   req: Request,
@@ -88,6 +91,8 @@ export async function PATCH(
   }
   if (body.color !== undefined) update.color = body.color;
   if (body.target_grade !== undefined) update.target_grade = body.target_grade;
+  if (body.credits !== undefined) update.credits = body.credits;
+  if (body.grade !== undefined) update.grade = body.grade;
   if (body.schedule !== undefined) {
     update.schedule = body.schedule === null ? null : body.schedule;
   }
@@ -98,19 +103,43 @@ export async function PATCH(
 
   const admin = getAdminSupabase();
 
-  // 이름 변경 시 같은 owner의 다른 활성 강의와 충돌 막기
+  const { data: current } = await admin
+    .from("courses")
+    .select("category, semester_year, semester_term")
+    .eq("id", id)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+  if (!current) {
+    return NextResponse.json({ ok: false, error: "강의를 찾을 수 없어요" }, { status: 404 });
+  }
+
+  // 같은 학기 안에서만 이름 충돌을 막는다. 다른 학기의 동일 과목은 별도 성적 이력으로 보존한다.
   if (typeof update.name === "string") {
-    const { data: dup } = await admin
+    const nextName = update.name;
+    let duplicateQuery = admin
       .from("courses")
       .select("id")
       .eq("owner_id", ownerId)
-      .eq("name", update.name)
+      .eq("name", nextName)
       .eq("archived", false)
-      .neq("id", id)
-      .maybeSingle();
+      .eq("category", current.category)
+      .neq("id", id);
+    if (current.category === "semester") {
+      const nextYear = current.semester_year;
+      const nextTerm = current.semester_term;
+      duplicateQuery =
+        nextYear === null
+          ? duplicateQuery.is("semester_year", null)
+          : duplicateQuery.eq("semester_year", nextYear);
+      duplicateQuery =
+        nextTerm === null
+          ? duplicateQuery.is("semester_term", null)
+          : duplicateQuery.eq("semester_term", nextTerm);
+    }
+    const { data: dup } = await duplicateQuery.limit(1).maybeSingle();
     if (dup) {
       return NextResponse.json(
-        { ok: false, error: `"${update.name}" 같은 이름의 강의가 이미 있어요` },
+        { ok: false, error: `이 학기에 "${nextName}" 과목이 이미 있어요` },
         { status: 409 },
       );
     }

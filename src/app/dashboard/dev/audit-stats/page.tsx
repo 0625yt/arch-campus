@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
+import { keyedItems } from "@/lib/keyed-items";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 /**
@@ -113,11 +114,11 @@ export default async function AuditStatsPage() {
                 </td>
               </tr>
             )}
-            {rows.map((r, i) => {
+            {keyedItems(rows).map(({ item: r, key: contentKey0 }) => {
               const suspicious = r.distinct_ip_count > 3;
               return (
                 <tr
-                  key={i}
+                  key={contentKey0}
                   className={`border-t border-[var(--color-apple-hairline)] ${suspicious ? "bg-[var(--color-urgent)]/5" : ""}`}
                 >
                   <Td>{r.day.slice(0, 10)}</Td>

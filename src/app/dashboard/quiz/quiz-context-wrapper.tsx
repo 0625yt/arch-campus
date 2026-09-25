@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContextMenu, type ContextMenuItem, useContextMenu } from "@/components/context-menu";
+import { Modal } from "@/components/modal";
 
 /**
  * 퀴즈 카드 우클릭/long-press/⋯ 버튼 → 컨텍스트 메뉴.
@@ -200,17 +201,13 @@ function RequestMoreDialog({
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4"
-      onClick={submitting ? undefined : onClose}
-      role="presentation"
+    <Modal
+      open={open}
+      onClose={submitting ? () => {} : onClose}
+      title="문제 생성 추가 요청"
+      chromeless
     >
-      <div
-        className="w-full max-w-[420px] rounded-t-[20px] bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] sm:rounded-[20px]"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
+      <div className="w-full max-w-[420px] rounded-t-[20px] bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] sm:rounded-[20px]">
         <p className="text-[11px] wght-700 uppercase tracking-[0.06em] text-[var(--color-apple-action)]">
           추가 요청
         </p>
@@ -275,6 +272,6 @@ function RequestMoreDialog({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

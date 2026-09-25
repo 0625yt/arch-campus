@@ -77,7 +77,7 @@ export async function POST(
     weekday: "long",
   }).format(today);
 
-  let result;
+  let result: Awaited<ReturnType<typeof generate>>;
   try {
     result = await generate({
       tool: "event-parse",

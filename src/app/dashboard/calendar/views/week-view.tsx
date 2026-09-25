@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Repeat2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { EventView } from "@/lib/data/events";
 import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
+import { weekdayOfDateKey } from "@/lib/kst";
 import { useIsDark } from "../../use-mobile";
 import { eventColorThemed } from "../calendar-board";
 import {
   ALL_DAY_ROW_PX,
+  eventOccursOnDateKey,
   formatHourLabel,
   getNowKstMinutes,
   HOUR_HEIGHT_PX,
@@ -51,6 +54,7 @@ export function WeekView({
   onSelectEmpty,
 }: WeekViewProps) {
   const isDark = useIsDark();
+  const horizontalRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [nowMin, setNowMin] = useState(-1);
@@ -69,10 +73,28 @@ export function WeekView({
     const target =
       viewMode === "timetable" ? 0 : Math.max(0, (8 - startHourForScroll) * HOUR_HEIGHT_PX - 24);
     scrollRef.current.scrollTop = target;
-  }, [mounted, weekStart, viewMode, startHourForScroll]);
+  }, [mounted, viewMode, startHourForScroll]);
 
-  const dateKeys = weekDateKeys(weekStart);
+  const dateKeys = useMemo(() => weekDateKeys(weekStart), [weekStart]);
   const todayKey = isoToKstDateKey(new Date().toISOString());
+
+  // 모바일 주간표는 한 칸을 읽을 수 있는 너비로 유지해 가로 스크롤한다. 첫 진입 때
+  // 일요일에 고정되면 오늘이 화면 밖에 숨으므로, 오늘 컬럼을 가능한 한 중앙에 둔다.
+  useEffect(() => {
+    if (!mounted || !horizontalRef.current) return;
+    if (!window.matchMedia("(max-width: 639px)").matches) return;
+    const todayIndex = dateKeys.indexOf(todayKey);
+    if (todayIndex < 0) return;
+    const frame = window.requestAnimationFrame(() => {
+      const scroller = horizontalRef.current;
+      const content = scroller?.firstElementChild as HTMLElement | null;
+      if (!scroller || !content) return;
+      const dayWidth = (content.scrollWidth - TIME_AXIS_WIDTH_WEEK) / 7;
+      const dayCenter = TIME_AXIS_WIDTH_WEEK + (todayIndex + 0.5) * dayWidth;
+      scroller.scrollLeft = Math.max(0, dayCenter - scroller.clientWidth / 2);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [dateKeys, mounted, todayKey]);
 
   // viewMode 필터
   const filtered = viewMode === "timetable" ? events.filter((e) => e.kind === "class") : events;
@@ -81,11 +103,13 @@ export function WeekView({
   const byDate = new Map<string, { allDay: EventView[]; timed: EventView[] }>();
   for (const key of dateKeys) byDate.set(key, { allDay: [], timed: [] });
   for (const e of filtered) {
-    const key = isoToKstDateKey(e.startsAt);
-    const bucket = byDate.get(key);
-    if (!bucket) continue;
-    if (e.allDay) bucket.allDay.push(e);
-    else bucket.timed.push(e);
+    if (e.allDay) {
+      for (const key of dateKeys) {
+        if (eventOccursOnDateKey(e, key)) byDate.get(key)?.allDay.push(e);
+      }
+      continue;
+    }
+    byDate.get(isoToKstDateKey(e.startsAt))?.timed.push(e);
   }
 
   // allDay 띠 높이 — 7컬럼 중 최대 allDay 개수만큼
@@ -102,14 +126,17 @@ export function WeekView({
     //   - 외부 mt-4 + overflow-x-auto: 페이지 폭 넘어가지 않고 내부에서만 가로 스크롤.
     //   - 내부 min-w-[560px]: 시간축 56 + day 72×7 ≈ 560px 보장 → 짜부시키지 않음.
     // sm+: min-w 해제(자동 flex-1) + overflow-hidden.
-    <div className="mt-4 -mx-1 overflow-x-auto overflow-y-hidden sm:mx-0 sm:overflow-x-hidden">
+    <div
+      ref={horizontalRef}
+      className="mt-4 -mx-1 overflow-x-auto overflow-y-hidden sm:mx-0 sm:overflow-x-hidden"
+    >
       <div className="min-w-[560px] overflow-hidden rounded-[10px] border border-[var(--color-apple-hairline)] bg-white sm:min-w-0">
         {/* 헤더: 시간축 placeholder + 요일·날짜 (macOS 톤 "17일 (일)" 한 줄) */}
         <div className="flex border-b border-[var(--color-apple-hairline)] bg-white">
           <div style={{ width: TIME_AXIS_WIDTH_WEEK }} className="shrink-0" />
           {dateKeys.map((key) => {
-            const d = new Date(`${key}T00:00:00+09:00`);
-            const dow = d.getDay();
+            const day = Number(key.slice(8, 10));
+            const dow = weekdayOfDateKey(key);
             const isToday = key === todayKey;
             return (
               <div key={key} className="flex flex-1 items-baseline justify-center gap-1.5 py-2.5">
@@ -121,7 +148,7 @@ export function WeekView({
                   }`}
                   style={{ letterSpacing: "-0.012em" }}
                 >
-                  {d.getDate()}일
+                  {day}일
                 </span>
                 <span
                   className={`text-[12px] wght-450 ${
@@ -304,22 +331,12 @@ export function WeekView({
                             {formatEventCompact(event)}
                           </span>
                           {isRecurring && (
-                            <svg
+                            <Repeat2
                               aria-hidden
-                              width="10"
-                              height="10"
-                              viewBox="0 0 24 24"
-                              fill="none"
+                              size={10}
+                              strokeWidth={2}
                               className="mt-[3px] shrink-0 opacity-70"
-                            >
-                              <path
-                                d="M17 2l4 4-4 4M3 11v-1a4 4 0 014-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 01-4 4H3"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
+                            />
                           )}
                         </div>
                         {heightPx >= 36 && event.endsAt && (

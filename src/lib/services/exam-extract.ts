@@ -1,5 +1,5 @@
 import "server-only";
-import { estimateCost, generate, getModelVendor } from "@/lib/claude";
+import { estimateCost, generate, getModelIdFor, getModelVendor } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
 import {
   type ExamExtractedQuestionT,
@@ -112,7 +112,7 @@ export async function runExamExtract(input: ExamExtractInput): Promise<ExamExtra
     await logGeneration({
       ownerId: input.ownerId,
       materialId: input.materialId,
-      modelId: "claude-haiku-4-5",
+      modelId: getModelIdFor("exam-extract"),
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });

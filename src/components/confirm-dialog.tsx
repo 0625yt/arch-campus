@@ -61,18 +61,9 @@ export function ConfirmDialog({
     }
   }
 
-  // Enter = confirm. 단 textarea·input 안에서는 무시.
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key !== "Enter") return;
-    const t = e.target as HTMLElement;
-    if (t.tagName === "TEXTAREA" || t.tagName === "INPUT") return;
-    e.preventDefault();
-    handleConfirm();
-  }
-
   return (
     <Modal open={open} onClose={busy ? () => {} : onClose} title={title}>
-      <div className="flex flex-col gap-5" onKeyDown={handleKeyDown}>
+      <div className="flex flex-col gap-5">
         {description && (
           <p
             className="whitespace-pre-wrap text-[14px] wght-450 leading-[1.55] text-[var(--color-apple-muted)]"

@@ -1,30 +1,35 @@
+import { ArrowUpRight, BarChart3, CalendarPlus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import {
+  academicTermKey,
+  academicTermLabel,
+  calculateGpa,
+  compareAcademicTerms,
+  inferAcademicTerm,
+  isCourseInTerm,
+  parseAcademicTermKey,
+  recentAcademicTerms,
+  type SemesterTerm,
+} from "@/lib/academic";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listUpcomingEvents } from "@/lib/data/events";
 import { listCoursesGrouped } from "@/lib/data/materials";
 import { getProfile } from "@/lib/data/profile";
 import { getSemesterSafetySnapshot } from "@/lib/data/semester-safety";
-import { inferSemester } from "@/lib/semester";
+import { buildTimetable } from "@/lib/timetable-grid";
+import styles from "./campus.module.css";
 import { DashboardClient } from "./dashboard-client";
+import { SemesterSwitcher } from "./semester-switcher";
 
 export const dynamic = "force-dynamic";
 
-/**
- * 내 캠퍼스 — 한 화면에 다 들어오는 hero.
- *
- * 구조:
- *   ┌─ TopChrome (학기 라벨 + 시간표 다시 올리기)
- *   ├─ DashboardClient
- *   │   ├─ TimetableHeading (이름 + 진행 중/다음 강의)
- *   │   ├─ TimetableHero (시간표 — 남은 공간 다)
- *   │   └─ BottomCards (긴급 / 다음 일정 / 강의 진척)
- *   └─ ─── (스크롤 없음)
- *
- * dashboard layout이 main을 overflow-y-auto로 잡고 있지만,
- * 우리는 페이지 내부에서 h-full + overflow-hidden으로 fix.
- */
-export default async function DashboardHomePage() {
+/** Fit registered timetables to the workspace; let first-use guidance scroll naturally. */
+export default async function DashboardHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ term?: string }>;
+}) {
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
 
@@ -35,21 +40,43 @@ export default async function DashboardHomePage() {
     getSemesterSafetySnapshot(ownerId),
   ]);
 
-  const semester = inferSemester();
-  const allCourses = [...grouped.semester, ...grouped.personal];
+  const inferred = inferAcademicTerm();
+  const requested = parseAcademicTermKey((await searchParams).term);
+  const selected = requested ?? inferred;
+  const selectedKey = academicTermKey(selected.year, selected.term);
+  const semesterCourses = grouped.semester.filter((course) =>
+    isCourseInTerm(course, selected.year, selected.term),
+  );
+  const termMap = new Map<string, { year: number; term: SemesterTerm }>();
+  for (const value of [...recentAcademicTerms(), inferred, selected]) {
+    termMap.set(academicTermKey(value.year, value.term), value);
+  }
+  for (const course of grouped.semester) {
+    if (!course.semesterYear || !course.semesterTerm) continue;
+    const value = { year: course.semesterYear, term: course.semesterTerm };
+    termMap.set(academicTermKey(value.year, value.term), value);
+  }
+  const terms = [...termMap.values()].sort(compareAcademicTerms);
+  const visibleCourses = [...semesterCourses, ...grouped.personal];
+  const hasTimetable = buildTimetable(semesterCourses).slots.length > 0;
+  const semesterGpa = calculateGpa(semesterCourses);
+  const cumulativeGpa = calculateGpa(grouped.semester);
 
   return (
-    // 모바일: 한 화면 고정(overflow-hidden) 풀고 자연 스크롤 → 시간표·하단카드가
-    // 잘리지 않는다. 데스크톱(sm+): 기존 한 화면 hero(고정) 유지.
-    <div className="flex min-h-0 flex-col sm:h-full sm:overflow-hidden">
-      <div className="mx-auto flex w-full min-h-0 max-w-[1440px] flex-1 flex-col gap-3 px-5 pt-4 pb-4 sm:gap-4 sm:overflow-hidden sm:px-8 sm:pt-6 sm:pb-5 md:px-10 xl:px-14">
-        <TopChrome semesterLabel={semester.label} />
-        <div className="flex min-h-0 flex-1 flex-col sm:overflow-hidden">
+    <div className={`${styles.page} ${hasTimetable ? styles.fittedPage : ""}`}>
+      <div className={styles.container}>
+        <TopChrome terms={terms} selectedKey={selectedKey} hasCourses={hasTimetable} />
+        <div className={`flex min-h-0 flex-1 flex-col ${hasTimetable ? "sm:overflow-hidden" : ""}`}>
           <DashboardClient
-            courses={allCourses}
+            initialNow={new Date().toISOString()}
+            courses={visibleCourses}
+            hasTimetable={hasTimetable}
             studentName={profile?.displayName ?? null}
             signals={safety.signals}
             events={upcoming}
+            semesterGpa={semesterGpa}
+            cumulativeGpa={cumulativeGpa}
+            semesterLabel={academicTermLabel(selected.year, selected.term)}
           />
         </div>
       </div>
@@ -58,38 +85,33 @@ export default async function DashboardHomePage() {
 }
 
 /* 상단 chrome — 학기 + 시간표 업로드 진입. */
-function TopChrome({ semesterLabel }: { semesterLabel: string }) {
+function TopChrome({
+  terms,
+  selectedKey,
+  hasCourses,
+}: {
+  terms: Array<{ year: number; term: SemesterTerm }>;
+  selectedKey: string;
+  hasCourses: boolean;
+}) {
   return (
-    <header className="fade-up flex items-center justify-between gap-3">
-      <p
-        className="text-[11px] wght-700 uppercase text-[var(--color-apple-action)]"
-        style={{ letterSpacing: "0.08em" }}
-      >
-        {semesterLabel}
-      </p>
-      <Link
-        href="/dashboard/calendar/import?kind=timetable"
-        className="btn-ink group spring-press inline-flex items-center gap-2 rounded-full bg-[var(--color-apple-ink)] px-4 py-2 text-[12.5px] wght-620 text-white shadow-[0_6px_18px_-8px_rgba(0,0,0,0.35)] transition-all hover:-translate-y-px hover:shadow-[0_10px_24px_-8px_rgba(0,0,0,0.4)]"
-        style={{ letterSpacing: "-0.012em" }}
-      >
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
-          <title>시간표 수정</title>
-          <path
-            d="M8 11V3.5M8 3.5l-2.5 2.5M8 3.5l2.5 2.5"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M3 11.5v.5c0 .8.7 1.5 1.5 1.5h7c.8 0 1.5-.7 1.5-1.5v-.5"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-          />
-        </svg>
-        시간표 수정
-      </Link>
+    <header className={styles.topline}>
+      <SemesterSwitcher terms={terms} selectedKey={selectedKey} />
+      <div className={styles.topActions}>
+        <Link href="/dashboard/today" className={styles.todayLink}>
+          오늘 할 일 <ArrowUpRight size={14} aria-hidden />
+        </Link>
+        <Link href={`/dashboard/grades?term=${selectedKey}`} className={styles.todayLink}>
+          <BarChart3 size={14} aria-hidden /> 성적
+        </Link>
+        <Link
+          href={`/dashboard/calendar/import?kind=timetable&term=${selectedKey}`}
+          className={styles.editTimetable}
+        >
+          <CalendarPlus size={15} aria-hidden />
+          {hasCourses ? "시간표 수정" : "시간표 등록"}
+        </Link>
+      </div>
     </header>
   );
 }

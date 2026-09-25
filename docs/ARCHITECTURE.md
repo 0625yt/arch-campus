@@ -1,149 +1,94 @@
-# 아키텍처 — MVP 청사진
+# 실제 아키텍처 — 2026-09-25
 
-> **이 문서는 "이렇게 만들 것"의 가이드.** 새 도구 만들 때 이 청사진(4-Layer·RLS·검증·파이프라인)을 그대로 따른다.
-> 4-Layer 패턴·RLS·AI 호출·위저드 4종은 **이미 실제 구현됨** — 무엇이 살아있는지는 [docs/STATUS.md](STATUS.md).
-> 단 RAG 파이프라인의 임베딩·pgvector(아래 §)는 **채택하지 않았다** — 실제 RAG는 풀텍스트 기반이고 임베딩 의존성은 없다.
+이 문서는 구현을 설명한다. 예정 기능은 [NEXT-STEPS.md](NEXT-STEPS.md), 제품 의도는 [PRODUCT.md](PRODUCT.md), 검증 범위는 [점검 보고서](audit/2026-09-22-hardening.md)를 따른다.
 
-## 1. 멀티테넌시 [미구현]
+## 1. 앱과 데이터 경계
 
-학생은 `profiles.university_id` + `profiles.department_id`로 학과에 속한다. 모든 자료·생성물은 `user_id` 스코프, 친구 초대 viral은 `course_id` 스코프.
+Next.js App Router에서 서버 페이지가 데이터를 조회하고 클라이언트 컴포넌트가 검색·탭·편집을 담당한다. 개인 데이터 페이지는 동적이다. 공개 랜딩은 개인 세션 조회를 기다리지 않는다.
 
-**원칙**: userId/courseId는 **반드시 `getSession()`** ([src/lib/auth.ts](../src/lib/auth.ts))에서. 클라이언트가 보낸 ID 절대 신뢰 X.
+- `src/proxy.ts`: 세션 갱신·페이지 접근 가드. 공개 경로와 API 예외가 있으므로 이 파일만으로 API 권한을 보장하지 않는다.
+- `src/lib/supabase/server.ts`: 쿠키 기반 서버 클라이언트, `getCurrentUser()`는 `auth.getUser()`로 검증.
+- `src/lib/auth.ts`: `getOwnerId()` / `tryGetOwnerId()`. 개발 fallback은 운영에서 사용하지 않는다.
+- `src/lib/supabase/admin.ts`: service-role. RLS를 우회하므로 호출 코드에 owner 검증이 필요하다.
+- `src/lib/data/*`: 사용자 범위 쿼리·화면용 결과 매핑. 일부 조회는 오류를 빈 결과로 바꾸므로 장애와 진짜 빈 상태를 분리하는 개선 여지가 있다.
 
-## 2. 4-Layer 패턴 (★ 새 도구 추가 시 그대로 복제)
+학과/조직 단위 멀티테넌트 권한은 없다. 현재 경계는 사용자 owner이며, 문서에만 존재하던 `enrollments`/`user_personas` 구조를 실제 스키마처럼 취급하지 않는다.
 
-1. **프롬프트 룰** — `src/prompts/<tool>.md`. 캐시되는 시스템 프롬프트.
-2. **API 라우트** — `src/app/api/<tool>/route.ts`. 순서:
-   - `getSession()` → null이면 401
-   - `sanitize()` ([src/lib/sanitize.ts](../src/lib/sanitize.ts)) + 길이 제한 ([src/lib/input-limits.ts](../src/lib/input-limits.ts))
-   - `rateLimit()` ([src/lib/rate-limit.ts](../src/lib/rate-limit.ts))
-   - `loadPersona()` — 학과·학년 페르소나
-   - Anthropic 메시지: `system: [{cached rules}, {dynamic context}]`
-   - `logUsage()` — 토큰·비용 기록
-   - `saveGeneration()` — try/catch, DB 실패해도 사용자 응답은 막지 않음 (단 §3 주의)
-3. **대시보드 페이지** — `src/app/dashboard/<tool>/page.tsx`. 위저드 5단계 입력, 우측 결과, `<HistorySidebar>`.
-4. **History sidebar 등록** — [src/components/history-sidebar.tsx](../src/components/history-sidebar.tsx)에 도구명 + 색상.
+## 2. 새 생성 기능의 구성
 
-**4개 중 하나라도 빠지면 도구는 작동하지 않는다.**
+1. `src/prompts/<tool>.md`: 공통 규칙과 합쳐지는 프롬프트.
+2. `src/lib/schemas.ts` 및 도구별 스키마: 입력/출력 검증.
+3. `src/lib/services/*`: 모델 호출·후처리·생성 기록.
+4. `src/app/api/*/route.ts`: 사용자·입력·소유권·호출 제한 검증, 실행/작업 생성.
+5. `src/app/dashboard/*`: 입력·진행·결과·재시도. 필요하면 `wizard-history`와 결과 재방문 렌더러 등록.
 
-## 3. Tool enum — 세 곳 + SQL
+도구 식별자를 추가할 때 `ToolKind`, 프롬프트, 라우트, 결과 렌더러, jobs/generations SQL 제약을 **실제 파일에서** 확인한다. 존재하지 않는 `api/history`를 등록 대상으로 사용하지 않는다.
 
-`Tool` 타입은 [src/lib/history.ts](../src/lib/history.ts), 검증은 [src/app/api/history/route.ts](../src/app/api/history/route.ts), DB CHECK 제약은 `public.generations`에.
+## 3. AI 라우팅
 
-도구 추가 시 새 idempotent 마이그레이션 (`supabase/migrations/000N_<tool>_enum.sql`)으로 CHECK drop & re-add. **SQL 안 돌리면 `saveGeneration`이 23514 에러를 삼키고 history 저장이 조용히 실패.** 이전 프로젝트에서 반나절 디버깅한 함정.
+`src/lib/claude.ts`는 파일명과 달리 Anthropic과 Google SDK 모두를 사용한다. `getModelIdFor()`가 `resolveModel()`의 환경 분기를 포함한다. 모델 ID·vendor·tier·가격 표를 같이 검토한다.
 
-## 4. 인증 + RLS
+- 주요 기본 경로: Gemini 3.5 Flash-Lite(요약/문제/챗 등), 3.6 Flash(위저드), 3.1 Pro Preview(Vision).
+- `LLM_VENDOR`, 도구별 vendor/tier 설정이 영향을 준다. 모든 도구가 똑같은 override를 지원한다고 가정하지 않는다.
+- Anthropic prompt caching 옵션을 Google 요청에도 그대로 적용하지 않는다.
+- AI Gateway 환경변수가 있어도 실제 요청은 현재 SDK 직접 경로다.
+- 모델 API에서 메타데이터를 조회할 수 있다는 사실은 생성 정확도·비용 평가를 대신하지 않는다.
 
-- Supabase Auth on edge (`@supabase/ssr`). 세션 쿠키는 [src/lib/supabase/server.ts](../src/lib/supabase/server.ts).
-- **service-role 어드민 클라이언트** ([src/lib/supabase/admin.ts](../src/lib/supabase/admin.ts))는 RLS 우회용.
-- RLS 정책: `users`, `courses`, `enrollments`, `generations`, `materials`. `admin` role만 전체 조회.
+## 4. 사용자 격리와 입력 검증
 
-### 4-1. service-role 사용 체크리스트 (신규 라우트마다)
+service-role을 사용하는 신규 경로는 다음을 유지한다.
 
-`getAdminSupabase()`는 RLS를 우회한다. 가드 빠지면 다른 사용자 데이터 노출. 신규 API 라우트·server action에서 admin client를 쓸 때 다음 4개 모두 통과해야 한다:
+- 함수 진입 시 검증된 사용자 ID 획득.
+- 조회/수정/삭제에 `owner_id` 제한; profiles는 `id` 제한.
+- 사용자가 준 course/material/quiz ID의 소유권 검증.
+- 저장소 경로는 소유권을 확인한 DB row 또는 서버에서 만든 `<ownerId>/...`를 사용.
+- 자유 입력은 길이·형식 제한, 프롬프트 경계 태그 중립화와 출력 스키마 검증.
+- 로그인 `next`는 `src/lib/auth-redirect.ts`로 내부 경로만 허용.
 
-- [ ] **세션 확인**: 함수 첫 줄에서 `const ownerId = await getOwnerId()` (또는 `tryGetOwnerId()` + 401 분기)
-- [ ] **owner 격리 쿼리**: 모든 `select`/`update`/`delete`에 `.eq("owner_id", ownerId)` (또는 `profiles`는 `.eq("id", ownerId)`)
-- [ ] **insert도 검증**: 새 row의 `owner_id` 필드 = 세션 ownerId. 클라이언트가 보낸 값 신뢰 X
-- [ ] **Storage**: path prefix 항상 `<ownerId>/...` 형태. 사용자 입력 path를 그대로 `download/remove`에 넘기지 X — 먼저 DB에서 owner 매칭 row 조회해 그 `storage_path`를 사용
+`/auth/mfa`와 proxy·getCurrentUser의 AAL2 검증으로 등록한 계정의 화면/API 접근을 보호한다. redirect 시 갱신 쿠키를 보존한다. 0027 restrictive policy도 운영 DB에 적용해 검증 factor가 있는 계정의 AAL1 직접 접근을 막고 AAL2만 허용한다. 전체 로그아웃은 refresh token 폐기이며 이미 발급된 access token의 남은 유효기간을 고려해야 한다.
 
-참고 패턴: [src/app/api/materials/[id]/route.ts](../src/app/api/materials/[id]/route.ts) `DELETE` 핸들러 — owner 매칭 row 조회 → storage_path 추출 → 삭제 순서.
+## 5. 업로드·문서 파싱
 
-코드 리뷰 시 admin client 호출처에 위 4개 중 하나라도 빠지면 머지 차단.
-
-## 5. 페르소나 기반 생성
-
-모든 프롬프트는 학생 페르소나(전공·학년·이번 학기 과목·목표 학점·관심 자격증·동아리/알바 시간)로 파라미터화. `user_personas` (JSONB) 테이블.
-**결과물이 generic하면 프롬프트 룰을 의심하기 전에 페르소나 빈 값 먼저 확인.**
-
-## 6. 프롬프트 인젝션 방어
-
-사용자 자유 입력은 `<user_input>` 태그로 user-role 메시지에 넣고, 시스템 프롬프트엔 직접 concat 금지. [src/lib/sanitize.ts](../src/lib/sanitize.ts) 경유.
-
-## 7. 학습 루프 검증 파이프라인 (★ 신뢰의 핵심)
-
-문제 생성 후 노출 전 서버 검증:
-
-```
-문제 생성
-  → 출처 근거 span이 원문에 실제 존재? (substring match)
-  → 정답이 보기 안에 있나?
-  → 보기 중복 없나?
-  → 객관식이면 정답 1개·오답 N-1개 명확?
-통과한 것만 노출
+```text
+파일 선택 → 자료 종류 확인 → 업로드 URL → Storage 업로드 → finalize
+→ 포맷별 텍스트 추출/OCR → 요약/문제 생성 작업 → 검증 → 저장/표시
 ```
 
-이 검증 우회하는 PR 받지 않는다.
+| 형식/역할 | 실제 구현 |
+|---|---|
+| PDF | unpdf/pdfjs 기반, 필요 시 모델 OCR (`lib/parsers/pdf.ts`) |
+| DOCX | mammoth |
+| XLSX/XLSM | exceljs |
+| PPTX | officeparser |
+| TXT/MD | 텍스트 파서 |
+| 이미지 | 모델 Vision |
+| HWP/HWPX | `lib/parsers/hwp.ts`, 외부 변환 서비스가 필요한 조건부 경로 |
+| 저장 | Supabase Storage |
 
-## 8. 강의계획서 파싱 — 80% 자동 + 20% 확인
+PyMuPDF/PaddleOCR/pgvector/R2는 현재 파이프라인의 구성요소가 아니다. 자료 챗은 본문과 키워드 기반 관련 부분 hint를 사용한다. quiz 의미 중복 제거는 임베딩을 일시적으로 사용하며 벡터 DB에 저장하지 않는다.
 
-100% 자동은 함정. 신뢰도 점수 표시:
+## 6. 생성 검증과 비동기 실행
 
-- ≥ 80%: 자동 등록, 토스트 "X건 자동 등록됨, 클릭해 확인"
-- < 80%: 한 화면에서 사용자가 빠르게 confirm/edit (체크박스 UX)
+퀴즈는 스키마·보기/정답·출처 근거·중복·검수 후 노출한다. 일부 짧은 정답은 규칙 채점, 필요한 경우 모델 채점을 사용한다. 자료별 생성 API의 입력 상한(50)과 DB 저장 제약(100)을 구분한다.
 
-확신 없는 추출을 자동 등록하면 사용자가 시험을 놓친다.
+`after()` + jobs 테이블 + Realtime/폴링으로 긴 작업의 진행 상태를 표시한다. 8분 이상 stale 작업은 복구 가능한 실패로 처리한다. 이 구조는 서버 중단 뒤 자동 재개하는 내구성 워크플로와 다르다. pending→running 조건부 갱신으로 한 worker만 선점하며 늦은 오류가 done을 덮어쓰지 않는다. enqueue 충돌은 기존 active 작업을 반환한다. 단계 체크포인트·자동 재시도는 후속 개선 대상이다.
 
----
+SSE 소비자는 `src/lib/chat-client.ts`에서 UTF-8/이벤트 경계, 서버 오류, 완료 신호를 처리한다. 부분 응답 뒤 오류도 사용자에게 표시한다.
 
-## 9. 데이터·AI 파이프라인
+## 7. 일정과 복습
 
-```
-파일 업로드 → 포맷 판별 → 텍스트 추출/OCR → 블록 정규화 →
-청킹 → 임베딩 → pgvector 저장 → RAG 검색 →
-요약/문제/일정/위저드 결과 생성 → 검증 → 사용자 노출
-```
+시간표/강의계획서 결과는 confidence와 함께 확인·수정 후 confirm API로 저장한다. 높은 confidence만으로 확인 단계를 건너뛰는 ‘자동 등록’을 완료 기능으로 적지 않는다.
 
-| 영역 | 선택 | 비고 |
-|---|---|---|
-| 디지털 PDF | PyMuPDF + pdfplumber | 서버리스 함수 또는 Vercel Sandbox |
-| 스캔 OCR | PaddleOCR (PP-StructureV3) | 비용 큼 — 무료 티어 제한 |
-| HWPX | python-hwpx | HWP는 변환 안내 |
-| 임베딩 | text-embedding-3-small | $0.02/1M tokens |
-| 벡터 DB | Supabase pgvector | $25/mo부터 |
-| 파일 저장 | Vercel Blob 또는 Cloudflare R2 | 사용자 업로드 비공개 기본값 |
+`courses.semester_year`/`semester_term`이 학기 식별자이며 `credits`/`grade`로 성적을 저장한다. 시간표 확정 시 이 값과 강의실·시간을 함께 저장한다. 과목 화면은 UUID 주소를 기본으로 사용해 다른 학기의 같은 과목명을 구분하고, 기존 이름 주소는 호환한다. 평점은 4.5 만점 학점 가중 평균이며 P/NP는 평점 분모에서 제외한다.
 
-사용자 업로드 자료는 비공개 기본값. 학습 재사용 옵트인 분리.
+오답은 최신 풀이와 문제 ID를 기준으로 모아 재풀이한다. FSRS due 계산, 푸시 전송, 외부 캘린더 동기화는 미구현이다. `reminder_minutes`는 데이터 필드다.
 
----
+## 8. 운영·검증
 
-## 10. 디자인 검증 워크플로 (UI 작업 끝낼 때마다)
-
-**왜**: PRODUCT.md §2 반응형 1급 정책. 데스크톱에서만 잘 보이는 거 100% 막아야 함.
-
-**단계**:
-1. `npm run build` 통과 (타입 + 정적 생성)
-2. `npm run dev` 띄우고 `curl localhost:3000/<route>` 200
-3. 3 viewport 확인 — xl 1440, desktop 1280, iPad 820, iPhone 14
-
-**Playwright 스크립트** (`/tmp/shoot.mjs` 패턴):
-```js
-import { chromium, devices } from 'playwright';
-const URL = 'http://localhost:3000/dashboard/today';
-const targets = [
-  { name: 'xl-1440', viewport: { width: 1440, height: 900 } },
-  { name: 'desktop-1280', viewport: { width: 1280, height: 900 } },
-  { name: 'ipad-820', viewport: { width: 820, height: 1180 } },
-  { name: 'mobile-iphone14', device: 'iPhone 14' },
-];
-const browser = await chromium.launch();
-for (const t of targets) {
-  const ctx = await browser.newContext(
-    t.device ? devices[t.device] : { viewport: t.viewport, deviceScaleFactor: 2 }
-  );
-  const page = await ctx.newPage();
-  await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(800);
-  await page.screenshot({ path: `/tmp/screenshots/${t.name}.png`, fullPage: true });
-  await ctx.close();
-}
-await browser.close();
-```
-
-**합격 기준**:
-- 4개 viewport 모두 한국어 깨짐 0건
-- 모바일에서 콘텐츠가 사이드바·탭바와 겹치지 않음
-- 첫 화면(스크롤 없는 viewport) 안에 핵심 정보 가시
-- 호버 액션이 모바일에서 영구 노출 X
-
-**주의**: `.next/` 캐시가 globals.css 변경을 못 받으면 `rm -rf .next && npm run dev` 재시작.
+- Upstash가 없으면 인메모리 sliding window; 저장소 오류 시 503으로 거절. 월 사용량 과금/쿼터와 다르다.
+- 마이그레이션 파일은 0001~0028. 0028은 학기·학점·등급 필드와 제약·인덱스를 추가했으며 2026-09-25 운영 이력과 일치한다.
+- `verify:env`는 키 비공개·생성 없는 연결 검사. `--models`는 모델 메타데이터 확인.
+- Vitest: 로직/경계 검증. 외부 모델 평가는 opt-in.
+- Playwright/axe: 모바일 390·태블릿 834·노트북 1280. 개발 fixture/네트워크 모의와 실제 계정 테스트를 분리.
+- 전체 Biome 검사 실패는 현재 잔여 작업이며 무시하거나 ‘전체 통과’로 보고하지 않는다.
+- 사용자별 캐시·auth 검증 비용 최적화는 사용자 경계를 보존한 상태에서 프로파일링 후 적용한다.

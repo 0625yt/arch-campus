@@ -4,6 +4,7 @@ import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { prepareChatHistory, readChatResponse } from "@/lib/chat-client";
 
 type Role = "user" | "assistant";
 
@@ -12,6 +13,7 @@ type Message = {
   role: Role;
   text: string;
   pending?: boolean;
+  error?: string;
 };
 
 export function ChatView() {
@@ -22,6 +24,7 @@ export function ChatView() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [inputError, setInputError] = useState<string | null>(null);
   // iOS Safari: position:sticky bottom:0은 layout viewport 기준이라 키보드 올라오면 가려짐.
   // visualViewport로 keyboard 차지한 만큼 transform 보정.
   const [keyboardOffset, setKeyboardOffset] = useState(0);
@@ -29,30 +32,7 @@ export function ChatView() {
   const listEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const submittedInitial = useRef(false);
-
-  // 마운트 시 강제 reset.
-  //
-  // 진짜 원인: Next.js App Router에서 다른 페이지 갔다 챗 페이지로 돌아왔을 때,
-  // 브라우저 bfcache 또는 React/Next 캐시 때문에 useState 초기값이 다시 안 박힘.
-  // user 메시지·pending 상태 그대로 — typing dots가 도는 듯 보임.
-  // → 컴포넌트 마운트마다 명시적으로 한 번 다 비움. deps [] 라서 매 새 인스턴스에 1회.
-  // `?q=` 자동 send는 다음 useEffect가 같은 마운트 사이클에서 처리.
-  useEffect(() => {
-    setDraft("");
-    setMessages([]);
-    setSubmitting(false);
-    submittedInitial.current = false;
-  }, []);
-
-  // `?q=...`로 진입 시 1회 자동 send + 즉시 URL에서 q 제거.
-  useEffect(() => {
-    if (submittedInitial.current) return;
-    if (!initialQ) return;
-    submittedInitial.current = true;
-    router.replace("/dashboard/chat", { scroll: false });
-    void send(initialQ);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialQ]);
+  const inFlight = useRef(false);
 
   // bfcache 복원 시에도 동일하게 비우기.
   useEffect(() => {
@@ -68,7 +48,12 @@ export function ChatView() {
   }, []);
 
   useLayoutEffect(() => {
-    listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (!messages.length) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    listEndRef.current?.scrollIntoView({
+      behavior: messages.at(-1)?.pending || reduceMotion ? "auto" : "smooth",
+      block: "end",
+    });
   }, [messages]);
 
   // 모바일 가상 키보드가 입력창을 가리지 않도록 visualViewport 보정.
@@ -95,23 +80,26 @@ export function ChatView() {
     const el = inputRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+    if (draft) el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [draft]);
 
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || submitting) return;
+      if (!trimmed || inFlight.current) return;
+      if (trimmed.length > 2000) {
+        setDraft(text);
+        setInputError("질문은 2,000자 이내로 적어 주세요.");
+        return;
+      }
+      setInputError(null);
 
       const uid = crypto.randomUUID();
       const aid = crypto.randomUUID();
 
-      // history = 지금 화면에 떠있는 user+assistant 페어. 새 user 메시지는 별도로 보냄.
-      // pending 중인 assistant 메시지는 제외.
-      const historyForApi: { role: "user" | "assistant"; content: string }[] = messages
-        .filter((m) => !m.pending && m.text.length > 0)
-        .map((m) => ({ role: m.role, content: m.text }));
+      const historyForApi = prepareChatHistory(messages);
 
+      inFlight.current = true;
       setMessages((prev) => [
         ...prev,
         { id: uid, role: "user", text: trimmed },
@@ -129,74 +117,39 @@ export function ChatView() {
 
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? "답변을 받지 못했어요. 다시 시도해 주세요.");
+        }
+
+        const accumulated = await readChatResponse(res, (snapshot) => {
           setMessages((prev) =>
-            prev.map((m) =>
-              m.id === aid
-                ? {
-                    ...m,
-                    text: `오류 (${res.status}) — ${body.error ?? "다시 시도해 주세요"}`,
-                    pending: false,
-                  }
-                : m,
-            ),
+            prev.map((m) => (m.id === aid ? { ...m, text: snapshot, pending: true } : m)),
           );
-          return;
-        }
-
-        if (!res.body) return;
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let accumulated = "";
-
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          // toUIMessageStreamResponse SSE 라인 파싱 — 자료 챗 panel과 동일 패턴
-          const lines = chunk.split("\n");
-          for (const line of lines) {
-            if (!line) continue;
-            if (line.startsWith("data: ")) {
-              const payload = line.slice(6).trim();
-              if (payload === "[DONE]") continue;
-              try {
-                const obj = JSON.parse(payload) as {
-                  type?: string;
-                  delta?: string;
-                  textDelta?: string;
-                };
-                const delta = obj.textDelta ?? obj.delta;
-                if (typeof delta === "string") accumulated += delta;
-              } catch {
-                if (!payload.startsWith("{")) accumulated += payload;
-              }
-            } else {
-              accumulated += line;
-            }
-            const snapshot = accumulated;
-            setMessages((prev) =>
-              prev.map((m) => (m.id === aid ? { ...m, text: snapshot, pending: true } : m)),
-            );
-          }
-        }
+        });
 
         // stream 완료
         setMessages((prev) =>
           prev.map((m) => (m.id === aid ? { ...m, text: accumulated, pending: false } : m)),
         );
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "네트워크 오류";
+        const msg = e instanceof Error ? e.message : "연결이 끊겼어요. 다시 시도해 주세요.";
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === aid ? { ...m, text: `네트워크 오류 — ${msg}`, pending: false } : m,
-          ),
+          prev.map((m) => (m.id === aid ? { ...m, error: msg, pending: false } : m)),
         );
       } finally {
+        inFlight.current = false;
         setSubmitting(false);
       }
     },
-    [submitting, messages],
+    [messages],
   );
+
+  // The ref prevents Strict Mode's repeated effect setup from sending the question twice.
+  useEffect(() => {
+    if (submittedInitial.current || !initialQ) return;
+    submittedInitial.current = true;
+    router.replace("/dashboard/chat", { scroll: false });
+    void send(initialQ);
+  }, [initialQ, router, send]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,9 +218,16 @@ export function ChatView() {
               <textarea
                 ref={inputRef}
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  setInputError(null);
+                }}
                 onKeyDown={onKeyDown}
                 rows={1}
+                maxLength={2000}
+                aria-label="코치에게 질문하기"
+                aria-invalid={Boolean(inputError)}
+                aria-describedby={inputError ? "chat-input-error" : undefined}
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
@@ -284,6 +244,15 @@ export function ChatView() {
                 <SendIcon />
               </button>
             </div>
+            {inputError && (
+              <p
+                id="chat-input-error"
+                role="alert"
+                className="mt-2 text-sm text-[var(--color-urgent)]"
+              >
+                {inputError}
+              </p>
+            )}
             <p
               className="mt-3 text-center text-[11px] wght-450 text-[var(--color-apple-muted)]"
               style={{ letterSpacing: "-0.012em" }}
@@ -343,7 +312,7 @@ function UserBubble({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
       <div
-        className="max-w-[88%] rounded-[18px] bg-[var(--color-apple-action)] px-4 py-2.5 text-[14.5px] leading-[1.55] wght-450 text-white sm:max-w-[78%]"
+        className="max-w-[88%] whitespace-pre-wrap break-words rounded-[18px] bg-[var(--color-apple-action)] px-4 py-2.5 text-[14.5px] leading-[1.55] wght-450 text-white sm:max-w-[78%]"
         style={{ letterSpacing: "-0.012em" }}
       >
         {text}
@@ -357,14 +326,19 @@ function AssistantBubble({ m }: { m: Message }) {
     <div className="flex gap-3">
       <AssistantAvatar />
       <div className="min-w-0 flex-1 pt-0.5">
-        {m.pending ? (
+        {m.pending && !m.text ? (
           <TypingDots />
-        ) : (
+        ) : m.text ? (
           <p
-            className="whitespace-pre-wrap text-[15px] leading-[1.65] wght-450 text-[var(--color-apple-ink)] sm:text-[15.5px]"
+            className="whitespace-pre-wrap break-words text-[15px] leading-[1.65] wght-450 text-[var(--color-apple-ink)] sm:text-[15.5px]"
             style={{ letterSpacing: "-0.012em" }}
           >
             {m.text}
+          </p>
+        ) : null}
+        {m.error && (
+          <p role="alert" className="mt-2 text-[13px] leading-relaxed text-[var(--color-urgent)]">
+            {m.error}
           </p>
         )}
       </div>
@@ -393,7 +367,7 @@ function AssistantAvatar() {
 
 function TypingDots() {
   return (
-    <span aria-label="답변 작성 중" className="inline-flex items-center gap-1 py-2">
+    <span role="status" aria-label="답변 작성 중" className="inline-flex items-center gap-1 py-2">
       <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-apple-muted)] pulse-dot" />
       <span
         className="h-1.5 w-1.5 rounded-full bg-[var(--color-apple-muted)] pulse-dot"
@@ -409,7 +383,7 @@ function TypingDots() {
 
 function SendIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path
         d="M8 13V3M8 3L4 7M8 3l4 4"
         stroke="currentColor"

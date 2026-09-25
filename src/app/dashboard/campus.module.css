@@ -1,0 +1,521 @@
+.page {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.container {
+  display: flex;
+  width: 100%;
+  max-width: 1440px;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 auto;
+  padding: 18px 24px 24px;
+}
+
+.topline,
+.topActions,
+.semester,
+.todayLink,
+.editTimetable {
+  display: flex;
+  align-items: center;
+}
+
+.topline {
+  justify-content: space-between;
+  gap: 12px;
+}
+.topActions {
+  gap: 8px;
+}
+.semester {
+  gap: 7px;
+  color: var(--color-apple-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.semester svg {
+  color: var(--color-accent);
+}
+.semesterSwitcher {
+  position: relative;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-apple-ink);
+  transition:
+    border-color 180ms,
+    box-shadow 180ms;
+}
+.semesterSwitcher:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+.semesterSwitcher > svg:first-child {
+  color: var(--color-accent);
+}
+.semesterSwitcher > svg:last-child {
+  pointer-events: none;
+  color: var(--color-apple-muted);
+}
+.semesterSwitcher select {
+  appearance: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.todayLink,
+.editTimetable {
+  min-height: 44px;
+  gap: 7px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    background 180ms,
+    color 180ms;
+}
+.todayLink {
+  color: var(--color-apple-muted);
+}
+.todayLink:hover {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.editTimetable {
+  color: var(--color-apple-ink);
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-bg);
+}
+.editTimetable:hover {
+  background: var(--color-surface-strong);
+}
+
+.heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 5px;
+}
+.title {
+  color: var(--color-apple-ink);
+  font-size: clamp(28px, 3.1vw, 44px);
+  font-weight: 700;
+  font-variation-settings: "wght" 700;
+  line-height: 1.16;
+  letter-spacing: -0.045em;
+  overflow-wrap: anywhere;
+}
+.subtitle {
+  margin-top: 9px;
+  color: var(--color-apple-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+.summary {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 22px;
+  padding-bottom: 4px;
+  color: var(--color-apple-muted);
+  font-size: 12px;
+}
+.summary strong {
+  margin-right: 4px;
+  color: var(--color-apple-ink);
+  font-size: 25px;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.welcome {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 400px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-line);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.welcomeMain {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: 1.15fr 0.85fr;
+  align-items: center;
+  gap: 32px;
+  padding: 30px clamp(28px, 4vw, 64px);
+}
+.eyebrow {
+  color: var(--color-apple-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+}
+.welcomeTitle {
+  margin-top: 23px;
+  color: var(--color-apple-ink);
+  font-size: clamp(29px, 3.3vw, 45px);
+  font-variation-settings: "wght" 700;
+  letter-spacing: -0.045em;
+  line-height: 1.27;
+  word-break: keep-all;
+}
+.welcomeTitle > span {
+  color: var(--color-accent);
+}
+.welcomeDescription {
+  margin-top: 18px;
+  color: var(--color-apple-muted);
+  font-size: 13px;
+  line-height: 1.85;
+  word-break: keep-all;
+}
+.primaryAction {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 24px;
+  margin-top: 27px;
+  padding: 0 20px;
+  border-radius: 9px;
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+  font-size: 13px;
+  font-weight: 650;
+  transition:
+    transform 220ms var(--ease-out),
+    background 220ms;
+}
+.primaryAction:hover {
+  background: var(--color-accent-strong);
+  transform: translateY(-2px);
+}
+.primaryAction:active {
+  transform: scale(0.98);
+}
+.primaryAction svg {
+  transition: transform 220ms var(--ease-out);
+}
+.primaryAction:hover svg {
+  transform: translateX(4px);
+}
+.secondaryAction {
+  display: flex;
+  width: fit-content;
+  min-height: 44px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--color-apple-muted);
+  font-size: 12px;
+}
+.secondaryAction:hover {
+  color: var(--color-accent);
+}
+
+.scheduleArt {
+  position: relative;
+  width: min(100%, 280px);
+  aspect-ratio: 1.06;
+  justify-self: center;
+  margin: 20px 0;
+}
+.paperBack {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-surface-strong);
+  transform: rotate(-7deg);
+}
+.paper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: 0 14px 35px -20px rgba(25, 36, 70, 0.28);
+  transform: rotate(3deg);
+  transition: transform 450ms var(--ease-out);
+}
+.scheduleArt:hover .paper {
+  transform: rotate(0deg) translateY(-4px);
+}
+.paperHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--color-apple-ink);
+}
+.paperDays {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-top: 1px solid var(--color-line);
+  padding: 10px 0;
+  color: var(--color-apple-muted);
+  text-align: center;
+  font-size: 9px;
+}
+.paperGrid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: 5px;
+  background: repeating-linear-gradient(to bottom, var(--color-line) 0 1px, transparent 1px 20%);
+}
+.paperClass {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  border-radius: 4px;
+  background: var(--color-accent-soft);
+}
+.paperClass:nth-child(2n) {
+  background: var(--color-surface-strong);
+  color: var(--color-apple-muted);
+}
+.paperFooter {
+  margin-top: 12px;
+  color: var(--color-apple-muted);
+  font-size: 8px;
+  letter-spacing: 0.09em;
+}
+.paperNote {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  right: -12px;
+  bottom: 18px;
+  min-height: 42px;
+  padding: 0 13px;
+  border-radius: 7px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  box-shadow: 0 8px 22px -12px rgba(29, 78, 216, 0.5);
+  font-size: 11px;
+  transform: rotate(-4deg);
+}
+
+.startSteps {
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+.startStep {
+  display: flex;
+  min-height: 105px;
+  align-items: center;
+  gap: 14px;
+  padding: 21px 24px;
+  transition: background 200ms;
+}
+.startStep + .startStep {
+  border-left: 1px solid var(--color-line);
+}
+.startStep:hover {
+  background: var(--color-accent-soft);
+}
+.stepNumber {
+  align-self: flex-start;
+  padding-top: 4px;
+  color: var(--color-apple-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.stepContent {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+}
+.stepTitle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-apple-ink);
+  font-size: 13px;
+  font-weight: 650;
+  word-break: keep-all;
+}
+.stepTitle svg {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+.stepDescription {
+  color: var(--color-apple-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+.stepArrow {
+  flex-shrink: 0;
+  color: var(--color-apple-muted);
+  transition: transform 220ms;
+}
+.startStep:hover .stepArrow {
+  color: var(--color-accent);
+  transform: translate(2px, -2px);
+}
+
+@media (min-width: 640px) and (min-height: 700px) {
+  .fittedPage {
+    height: 100%;
+    min-height: 740px;
+  }
+  .fittedPage .container {
+    overflow: hidden;
+  }
+}
+@media (min-width: 768px) {
+  .container {
+    padding: 20px 40px 24px;
+    gap: 18px;
+  }
+}
+@media (min-width: 1280px) {
+  .container {
+    padding-right: 56px;
+    padding-left: 56px;
+  }
+}
+@media (max-width: 1023px) {
+  .welcomeMain {
+    gap: 24px;
+    padding: 32px;
+  }
+  .welcomeTitle {
+    font-size: 32px;
+  }
+  .startStep {
+    gap: 10px;
+    padding: 18px 16px;
+  }
+  .stepNumber {
+    display: none;
+  }
+  .stepTitle {
+    font-size: 12px;
+  }
+  .stepArrow {
+    display: none;
+  }
+}
+@media (max-width: 639px) {
+  .container {
+    padding: 10px 20px 24px;
+    gap: 14px;
+  }
+  .topline {
+    gap: 4px;
+  }
+  .semester {
+    font-size: 10px;
+    gap: 5px;
+  }
+  .semester svg {
+    display: none;
+  }
+  .topActions {
+    gap: 0;
+  }
+  .todayLink,
+  .editTimetable {
+    gap: 4px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+  .editTimetable svg {
+    display: none;
+  }
+  .heading {
+    align-items: flex-start;
+  }
+  .subtitle {
+    font-size: 12px;
+  }
+  .summary {
+    gap: 10px;
+    font-size: 10px;
+  }
+  .summary strong {
+    font-size: 18px;
+  }
+  .welcome {
+    min-height: 0;
+    border-radius: 14px;
+  }
+  .welcomeMain {
+    display: block;
+    padding: 28px 24px 24px;
+  }
+  .welcomeTitle {
+    margin-top: 16px;
+    font-size: 30px;
+  }
+  .welcomeDescription {
+    margin-top: 14px;
+    font-size: 12px;
+  }
+  .primaryAction {
+    margin-top: 22px;
+    min-height: 46px;
+  }
+  .scheduleArt {
+    display: none;
+  }
+  .startSteps {
+    grid-template-columns: 1fr;
+  }
+  .startStep {
+    min-height: 81px;
+    padding: 17px 24px;
+  }
+  .startStep + .startStep {
+    border-left: 0;
+    border-top: 1px solid var(--color-line);
+  }
+  .stepNumber,
+  .stepArrow {
+    display: block;
+  }
+  .stepNumber {
+    margin-right: 4px;
+  }
+  .stepTitle {
+    font-size: 13px;
+  }
+}

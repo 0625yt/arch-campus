@@ -1,6 +1,7 @@
 // 특정 퀴즈의 실제 questions JSON 조회 — 피드백 대조용. (읽기 전용)
-import { createClient } from "@supabase/supabase-js";
+
 import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
 
 const env = {};
 for (const line of readFileSync(".env.local", "utf8").split("\n")) {
@@ -28,12 +29,16 @@ for (const t of targets) {
     continue;
   }
   console.log(`\n\n══════════ ${data.title} ══════════`);
-  console.log(`mode=${data.mode} difficulty=${data.difficulty} count=${data.question_count} id=${quizId}`);
+  console.log(
+    `mode=${data.mode} difficulty=${data.difficulty} count=${data.question_count} id=${quizId}`,
+  );
   const qs = Array.isArray(data.questions) ? data.questions : [];
   const wanted = qNumRaw ? Number(qNumRaw) : null; // 1-based
   for (const q of qs) {
     if (wanted && q.id !== wanted) continue;
-    console.log(`\n── Q${q.id} [${q.kind ?? "multiple-choice"}] (${q.difficulty ?? "?"}) topic=${q.topic ?? "-"}`);
+    console.log(
+      `\n── Q${q.id} [${q.kind ?? "multiple-choice"}] (${q.difficulty ?? "?"}) topic=${q.topic ?? "-"}`,
+    );
     console.log(`stem: ${q.stem}`);
     if (q.choices) {
       for (const c of q.choices) console.log(`   ${c.key}. ${c.text}`);

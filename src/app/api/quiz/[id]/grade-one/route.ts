@@ -15,10 +15,10 @@ export const runtime = "nodejs";
  * 동작:
  *   1) quizId 인증 + 본인 소유 확인
  *   2) 요청에 담긴 questionId 하나만 gradeQuiz로 채점
- *   3) attempt 기록은 만들지 X — 풀이가 끝나면 클라이언트가 모은 답으로 /submit 한 번 더 호출.
- *      여기서 INSERT하면 30문제마다 attempt가 30개 쌓여 점수·복습 큐가 망가짐.
+ *   3) 첫 문제에서 attempt 하나를 만들고 이후 결과는 같은 attempt에 문제별로 누적.
+ *      중간에 나가도 푼 문제의 오답은 남고, 문제마다 attempt가 늘어나지는 않는다.
  *
- * AI 호출 없음(순수 함수) — rate limit 미부착. /submit과 동일 정책.
+ * 단답형 의미 등가 판정이 필요할 때만 보조 모델을 호출. /submit과 동일 정책.
  */
 const Body = z.object({
   answer: z.union([
@@ -55,6 +55,8 @@ interface OkResponse {
     whyWrong?: string;
     /** 정확 매칭 실패였는데 LLM이 의미 등가로 정답 인정 (단답형). 최종 제출과 동일 판정. */
     llmPromoted?: boolean;
+    /** 서술형을 모범답안 기준으로 의미 채점한 경우. */
+    llmGraded?: boolean;
   };
   /** 이 풀이 세션의 attempt id — 클라이언트가 이후 채점에 이어쓰기 위해 들고 다님. */
   attemptId: string;
@@ -104,7 +106,14 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "문제를 찾을 수 없어요" }, { status: 404 });
   }
 
-  const questions = z.array(QuizQuestion).parse(quiz.questions);
+  const parsedQuestions = z.array(QuizQuestion).safeParse(quiz.questions);
+  if (!parsedQuestions.success) {
+    return NextResponse.json(
+      { ok: false, error: "문제 데이터가 손상되어 채점할 수 없어요." },
+      { status: 500 },
+    );
+  }
+  const questions = parsedQuestions.data;
   // 해당 questionId만 추출 — gradeQuiz는 questions 배열 + answers 배열 받으니 single로 좁힘
   const target = questions.find((q) => q.id === body.answer.questionId);
   if (!target) {
@@ -125,18 +134,22 @@ export async function POST(
 
   // ★ 푼 즉시 attempt에 반영 — 1문제 풀고 나가도 오답 큐가 갱신된다.
   // attemptId 없으면 새로 만들고, 있으면 그 attempt에 이 문제 결과를 병합한다.
-  // 저장 실패해도 채점 결과는 그대로 반환(사용자 풀이 흐름 안 끊김).
   const saved = await upsertAttemptResults({
     ownerId,
     quizId,
     newResults: [r],
     attemptId: body.attemptId ?? null,
   });
-  const attemptId = saved?.attemptId ?? body.attemptId ?? "";
+  if (!saved) {
+    return NextResponse.json(
+      { ok: false, error: "채점 결과를 저장하지 못했어요. 잠시 후 다시 눌러주세요." },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({
     ok: true,
-    attemptId,
+    attemptId: saved.attemptId,
     result: {
       questionId: r.questionId,
       kind: r.kind,
@@ -150,6 +163,7 @@ export async function POST(
       partial: r.partial,
       whyWrong: r.whyWrong,
       llmPromoted: r.llmPromoted,
+      llmGraded: r.llmGraded,
     },
   });
 }

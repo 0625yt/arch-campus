@@ -51,7 +51,9 @@ for (const tool of TOOLS) {
   if (pro) proCount++;
   // Pro면 thinkingBudget:2048(ON), 그 외 Gemini면 0(OFF), Anthropic이면 thinking 분기 안 탐
   const thinking = !gemini ? "(N/A · Anthropic)" : pro ? "ON (2048)" : "OFF (0)";
-  console.log(`${tool.padEnd(20)}  ${id.padEnd(18)}  ${(gemini ? "google" : "anthropic").padEnd(6)}  ${thinking}`);
+  console.log(
+    `${tool.padEnd(20)}  ${id.padEnd(18)}  ${(gemini ? "google" : "anthropic").padEnd(6)}  ${thinking}`,
+  );
 }
 
 console.log("─".repeat(64));
@@ -65,5 +67,9 @@ process.env.QUIZ_MODEL_VENDOR = "google";
 process.env.SUMMARY_MODEL_VENDOR = "google";
 const id = getModelIdFor("quiz");
 const ok = !isGemini(id) || isPro(id); // quiz는 vendor=google이면 Pro여야
-console.log(ok ? "\x1b[32m✓\x1b[0m quiz vendor=google → Pro 라우팅 확인" : "\x1b[31m✗\x1b[0m quiz가 Pro로 안 감 — fix 점검 필요");
+console.log(
+  ok
+    ? "\x1b[32m✓\x1b[0m quiz vendor=google → Pro 라우팅 확인"
+    : "\x1b[31m✗\x1b[0m quiz가 Pro로 안 감 — fix 점검 필요",
+);
 process.exit(ok ? 0 : 1);

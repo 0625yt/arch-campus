@@ -12,8 +12,8 @@
 //
 // 출력: 오염/정상/판별불가 건수 + 오염 샘플 + owner·course 분포. SQL은 출력만, 실행 X.
 
-import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
 
 const env = {};
 for (const line of readFileSync(".env.local", "utf8").split("\n")) {
@@ -45,11 +45,7 @@ function kstHHMM(iso) {
  * 각 항목의 첫 시각이 시작 시각.
  */
 function parseScheduleStarts(schedule) {
-  const items = Array.isArray(schedule)
-    ? schedule
-    : typeof schedule === "string"
-      ? [schedule]
-      : [];
+  const items = Array.isArray(schedule) ? schedule : typeof schedule === "string" ? [schedule] : [];
   const out = [];
   for (const item of items) {
     if (typeof item !== "string") continue;

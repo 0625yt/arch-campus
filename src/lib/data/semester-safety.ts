@@ -124,7 +124,7 @@ export async function getSemesterSafetySnapshot(ownerId: string): Promise<Semest
         risk,
         score,
         reasons: reasons.length > 0 ? reasons.slice(0, 3) : ["놓친 신호 없음"],
-        actionHref: `/dashboard/study/${encodeURIComponent(course.name)}`,
+        actionHref: `/dashboard/study/${course.id}`,
         actionLabel: risk === "safe" ? "자료 보기" : "지금 정리",
         counts: {
           unreadMaterials,
@@ -261,8 +261,8 @@ function buildSignals({
       evidence: event.notes
         ? `유의: ${event.notes}`
         : "유의: 제출 형식·범위·장소를 직접 확인하세요",
-      href: "/dashboard",
-      cta: "지금 시작",
+      href: "/dashboard/calendar",
+      cta: "일정 확인",
     });
   }
 

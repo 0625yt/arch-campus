@@ -128,27 +128,40 @@ function hslToRgb(h: number, s: number, l: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
+function mixRgb(base: RGB, tint: RGB, amount: number): RGB {
+  const keep = 1 - amount;
+  return {
+    r: Math.round(base.r * keep + tint.r * amount),
+    g: Math.round(base.g * keep + tint.g * amount),
+    b: Math.round(base.b * keep + tint.b * amount),
+  };
+}
+
+const DARK_TONAL_SURFACE: RGB = { r: 34, g: 39, b: 50 };
+
+function darkHueAdjust(h: number): number {
+  if (h >= 70 && h <= 200) return -6; // green~cyan is perceived brighter.
+  if (h >= 40 && h < 70) return -8; // yellow/butter blooms quickly in dark mode.
+  if (h >= 210 && h <= 290) return 5; // blue~violet needs a little lift.
+  return 0;
+}
+
+function darkTonalRgb(name: string, color?: string | null, amount = 0.18): RGB {
+  const { h, s } = rgbToHsl(courseRgb(name, color));
+  if (s < 6) return DARK_TONAL_SURFACE;
+  const accent = hslToRgbVals(h, 52, 54 + darkHueAdjust(h));
+  return mixRgb(DARK_TONAL_SURFACE, accent, amount);
+}
+
 /**
  * 다크 모드 시간표 셀 — 강의색 hue만 유지하고 채도·명도를 다크 전용으로 재구성.
  *
- * 라이트 파스텔(채도 13~22%·명도 95+)을 "곱하기/섞기"로 다크화하면 채도가 죽어
- * 전부 휘도 ~140의 회갈색 한 덩어리로 수렴한다("진흙"). 대신 hue만 뽑아
- * 채도 44%·명도 ~31%로 **다시 칠한다** → Apple Calendar 다크처럼 또렷하되 차분.
- *
- * 명도는 hue band별 지각 보정(녹/청록/노랑은 밝게 보여 낮추고, 청/보라는 어두워 올림)으로
- * 9개 강의가 고르게 보이게. 흰 텍스트 대비 7:1+ 확보(WCAG AA, 큰 텍스트 AAA).
+ * 직접 색면을 칠하면 다크 화면에서 수업 셀이 발광해 보인다. Apple/Material 다크처럼
+ * 중립 surface(#222732)에 과목 hue를 10%만 섞어, 과목 구분은 남기고 화면 전체는 차분하게.
  */
 export function courseTintDark(name: string, color?: string | null): string {
-  const { h } = rgbToHsl(courseRgb(name, color));
-  const lAdjust =
-    h >= 70 && h <= 200
-      ? -5 // green~cyan (눈에 밝음)
-      : h >= 40 && h < 70
-        ? -6 // yellow/butter
-        : h >= 210 && h <= 290
-          ? 4 // blue~violet (눈에 어두움)
-          : 0; // red/pink/orange 기준
-  return hslToRgb(h, 44, 31 + lAdjust);
+  const { r, g, b } = darkTonalRgb(name, color, 0.1);
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 /** hover 액센트 — 한 단 진하게 (그래도 연함). */
@@ -165,6 +178,13 @@ export function courseInkColor(name: string, color?: string | null): string {
   // 라이트 톤 RGB라서 0.4 정도 어둡게 + 채도 보존 (단순 0.65 곱하기보다 명확).
   const dim = (v: number) => Math.max(0, Math.floor(v * 0.42));
   return `rgb(${dim(r)}, ${dim(g)}, ${dim(b)})`;
+}
+
+/** 작은 과목 라벨용 다크 잉크. hue는 유지하되 어두운 카드에서 AA 대비가 나도록 재구성. */
+export function courseInkColorDark(name: string, color?: string | null): string {
+  const { h, s } = rgbToHsl(courseRgb(name, color));
+  if (s < 6) return hslToRgb(h, 6, 74);
+  return hslToRgb(h, 55, 72 + darkHueAdjust(h) * 0.5);
 }
 
 /**
@@ -211,17 +231,25 @@ export function courseLinearGradient(name: string, color?: string | null, alpha 
 }
 
 /**
- * 다크 카드 좌→우 wash — 강의 hue 기반 진한 색을 좌측에서 풍부하게, 우측으로 풀어
+ * 다크 카드 좌→우 wash — 강의 hue 기반 색을 좌측에서 풍부하게, 우측으로 풀어
  * 거의 검정인 다크 카드에 강의 색 정체성을 입힌다.
  *
- * 라이트용 courseLinearGradient는 파스텔 alpha 0.28 → 검정 카드 위에선 안 보여
- * 모든 카드가 같은 회색으로 죽음. 셀(courseTintDark)과 동일 철학으로 hue만 뽑아
- * 채도 높은 색(S40·L26)을 alpha로 좌측 0.9 → 우측 0으로 흘려 "한 방울 떨군 잉크".
+ * ⚠️ 이전 버전(S40·L26, hue보정 없음, alpha 0.85)은 "진흙" 문제가 있었다:
+ *   어두운 저채도 색을 alpha로 검정 배경(#202024)에 블렌딩하면 채도가 죽어
+ *   회갈색으로 수렴한다(글로컬영어=갈색, 노작교육=진흙보라). courseTintDark 주석이
+ *   경고한 바로 그 현상인데, 셀은 불투명으로 피했지만 카드는 여전히 alpha였다.
+ *
+ * 해결: 셀(courseTintDark)과 **동일한 또렷한 색**(S44·L31 + hue band별 지각 보정)을
+ *   기반으로, 좌측을 거의 불투명(0.92)하게 깔아 검정과의 블렌딩을 최소화한다.
+ *   우측으로만 풀어 "한 방울 떨군 잉크" 호흡은 유지. hue 보정으로 보라·청록도 균일.
  */
 export function courseLinearGradientDark(name: string, color?: string | null): string {
-  const { h } = rgbToHsl(courseRgb(name, color));
-  const { r, g, b } = hslToRgbVals(h, 40, 26);
-  return `linear-gradient(90deg, rgba(${r}, ${g}, ${b}, 0.85) 0%, rgba(${r}, ${g}, ${b}, 0.32) 38%, rgba(${r}, ${g}, ${b}, 0) 100%)`;
+  const { h, s } = rgbToHsl(courseRgb(name, color));
+  if (s < 6) {
+    return "linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 45%, rgba(255, 255, 255, 0) 100%)";
+  }
+  const { r, g, b } = hslToRgbVals(h, 54, 54 + darkHueAdjust(h));
+  return `linear-gradient(100deg, rgba(${r}, ${g}, ${b}, 0.2) 0%, rgba(${r}, ${g}, ${b}, 0.08) 42%, rgba(${r}, ${g}, ${b}, 0) 82%)`;
 }
 
 /**
@@ -236,9 +264,9 @@ export function hexTintDark(hex: string, bg = true): string {
   const parsed = parseHex(hex) ?? { r: 122, g: 166, b: 214 };
   const { h } = rgbToHsl(parsed);
   if (bg) {
-    const lAdjust =
-      h >= 70 && h <= 200 ? -5 : h >= 40 && h < 70 ? -6 : h >= 210 && h <= 290 ? 4 : 0;
-    return hslToRgb(h, 44, 31 + lAdjust);
+    const accent = hslToRgbVals(h, 52, 54 + darkHueAdjust(h));
+    const { r, g, b } = mixRgb(DARK_TONAL_SURFACE, accent, 0.1);
+    return `rgb(${r}, ${g}, ${b})`;
   }
   return hslToRgb(h, 55, 58);
 }

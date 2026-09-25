@@ -9,13 +9,21 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:quiz-quality": "vitest run src/lib/validate-quiz.test.ts src/lib/prompt-safety.test.ts src/lib/eval/quiz-metrics.test.ts src/lib/eval/quiz-prompt-contract.test.ts",
+    "test:e2e": "playwright test",
+    "test:quality": "npm run typecheck && npm run test && npm run test:e2e",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "format": "biome format --write .",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "verify:env": "node --env-file=.env.local scripts/verify-env.mjs",
-    "prepare": "husky"
+    "verify:env": "node --import tsx --env-file=.env.local scripts/verify-env.mjs",
+    "prepare": "husky",
+    "check:docs": "node scripts/check-docs.mjs",
+    "test:db-security": "node --env-file=.env.local scripts/test-db-security.mjs",
+    "test:live-auth": "node --import tsx --env-file=.env.local scripts/test-live-auth.mjs",
+    "test:authenticated-browser": "node --env-file=.env.local scripts/test-authenticated-browser.mjs",
+    "test:live-ai": "RUN_LLM_EVAL=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run src/lib/eval/quiz-grading.integration.test.ts src/lib/eval/quiz-verifier.integration.test.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.76",
@@ -30,8 +38,8 @@
     "file-type": "^22.0.1",
     "lucide-react": "^1.14.0",
     "mammoth": "^1.12.0",
-    "next": "16.2.4",
-    "officeparser": "^6.1.1",
+    "next": "16.3.3",
+    "officeparser": "8.0.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.296",
     "react": "19.2.4",
@@ -43,15 +51,23 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@biomejs/biome": "^2.4.14",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "husky": "^9.1.7",
+    "pg": "^8.23.0",
     "tailwindcss": "^4",
     "tsx": "^4.22.3",
     "typescript": "^5",
-    "vitest": "^4.1.5"
+    "vitest": "4.1.11"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
   }
 }

@@ -1,22 +1,15 @@
 "use client";
 
+import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
-/**
- * Cmd+K 팔레트 진입 버튼.
- * 실제 팔레트는 layout 레벨에서 글로벌 단축키로 열림.
- * 이 버튼은 키보드를 모르는 사용자를 위한 보조 진입점.
- *
- * 두 variant:
- * - sidebar — 사이드바 안쪽에 들어가는 input 형태 (placeholder + ⌘K)
- * - icon    — 모바일 상단바용 아이콘만
- */
+/** The same command palette is reachable by mouse, touch, and keyboard. */
 export function SearchTrigger({
   variant = "sidebar",
   className,
 }: {
-  variant?: "sidebar" | "icon";
+  variant?: "sidebar" | "icon" | "compact";
   className?: string;
 }) {
   const [isMac, setIsMac] = useState(false);
@@ -24,16 +17,17 @@ export function SearchTrigger({
     setIsMac(/Mac|iPod|iPhone|iPad/.test(navigator.platform));
   }, []);
 
+  const shortcut = isMac ? "⌘K" : "Ctrl+K";
   const open = () => {
-    // 글로벌 ⌘K 핸들러를 트리거하기 위한 합성 이벤트
-    const ev = new KeyboardEvent("keydown", {
-      key: "k",
-      code: "KeyK",
-      metaKey: isMac,
-      ctrlKey: !isMac,
-      bubbles: true,
-    });
-    window.dispatchEvent(ev);
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "k",
+        code: "KeyK",
+        metaKey: isMac,
+        ctrlKey: !isMac,
+        bubbles: true,
+      }),
+    );
   };
 
   if (variant === "icon") {
@@ -41,13 +35,33 @@ export function SearchTrigger({
       <button
         type="button"
         onClick={open}
-        aria-label="검색 (⌘K)"
+        aria-label={`검색 (${shortcut})`}
         className={cn(
-          "inline-flex h-9 w-9 items-center justify-center rounded-[8px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
+          "inline-flex h-11 w-11 items-center justify-center rounded-[9px] text-fg-muted transition-colors hover:bg-surface-strong hover:text-fg",
           className,
         )}
       >
-        <SearchIcon />
+        <Search aria-hidden size={18} strokeWidth={1.7} />
+      </button>
+    );
+  }
+
+  if (variant === "compact") {
+    return (
+      <button
+        type="button"
+        onClick={open}
+        aria-label={`검색 (${shortcut})`}
+        className={cn(
+          "inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-[9px] px-2.5 text-fg-muted transition-colors hover:bg-surface-strong hover:text-fg xl:border xl:border-line xl:px-3",
+          className,
+        )}
+      >
+        <Search aria-hidden size={17} strokeWidth={1.7} />
+        <span className="hidden text-[12px] wght-560 xl:inline">검색</span>
+        <kbd aria-hidden className="ml-3 hidden text-[10px] wght-450 text-fg-muted xl:inline">
+          {shortcut}
+        </kbd>
       </button>
     );
   }
@@ -56,35 +70,20 @@ export function SearchTrigger({
     <button
       type="button"
       onClick={open}
+      aria-label={`검색 (${shortcut})`}
       className={cn(
-        "group flex w-full items-center gap-2 rounded-[10px] border border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)] px-3 py-2 text-left transition-colors hover:bg-white",
+        "group flex min-h-11 w-full items-center gap-2 rounded-[9px] border border-line bg-surface px-3 py-2 text-left transition-colors hover:bg-surface-strong",
         className,
       )}
-      style={{ letterSpacing: "-0.012em" }}
     >
-      <span className="text-[var(--color-apple-muted)]">
-        <SearchIcon />
-      </span>
-      <span className="flex-1 text-[12.5px] wght-450 text-[var(--color-apple-muted)]">
-        검색하거나 어디로 갈지
-      </span>
-      <span className="hidden items-center gap-0.5 text-[10px] wght-560 text-[var(--color-apple-muted)] sm:inline-flex">
-        <kbd className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-[4px] border border-[var(--color-apple-hairline)] bg-white px-1 wght-560 text-[var(--color-apple-muted)]">
-          {isMac ? "⌘" : "Ctrl"}
-        </kbd>
-        <kbd className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-[4px] border border-[var(--color-apple-hairline)] bg-white px-1 wght-560 text-[var(--color-apple-muted)]">
-          K
-        </kbd>
-      </span>
+      <Search aria-hidden size={16} strokeWidth={1.7} className="shrink-0 text-fg-muted" />
+      <span className="flex-1 text-[12.5px] wght-450 text-fg-muted">자료와 페이지 검색</span>
+      <kbd
+        aria-hidden
+        className="hidden rounded-[4px] border border-line bg-bg px-1.5 py-0.5 text-[10px] wght-560 text-fg-muted sm:inline-flex"
+      >
+        {shortcut}
+      </kbd>
     </button>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0">
-      <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth={1.3} />
-      <path d="M9.3 9.3L12 12" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" />
-    </svg>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { keyedItems } from "@/lib/keyed-items";
 
 export interface ChatBubble {
   id: string;
@@ -76,9 +77,9 @@ function Bubble({
 
         {message.citations.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {message.citations.map((c, i) => (
+            {keyedItems(message.citations).map(({ item: c, key: contentKey0 }) => (
               <button
-                key={i}
+                key={contentKey0}
                 type="button"
                 onClick={() => onJumpPage(c.page)}
                 title={c.quote}

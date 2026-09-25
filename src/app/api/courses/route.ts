@@ -1,5 +1,7 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { COURSE_GRADES, SEMESTER_TERMS } from "@/lib/academic";
 import { tryGetOwnerId } from "@/lib/auth";
 import { type CourseListItem, listCoursesWithMaterialCount } from "@/lib/data/materials";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -32,21 +34,34 @@ export async function GET(): Promise<NextResponse<OkResponse | ErrResponse>> {
 
 const PALETTE = ["#7aa6d6", "#cca06b", "#7fb38c", "#a08bc4", "#e0445e", "#5b8a8a"] as const;
 
-const CreateBody = z.object({
-  name: z.string().min(1).max(60),
-  /** 정규 강의 추가는 시간표 업로드로 — POST는 personal 전용 */
-  category: z.literal("personal").default("personal"),
-  color: z
-    .string()
-    .regex(/^#[0-9a-fA-F]{6}$/)
-    .optional(),
-});
+const CreateBody = z
+  .object({
+    name: z.string().min(1).max(60),
+    category: z.enum(["semester", "personal"]).default("personal"),
+    professor: z.string().max(60).nullable().optional(),
+    location: z.string().max(120).nullable().optional(),
+    semesterYear: z.number().int().min(2000).max(2100).nullable().optional(),
+    semesterTerm: z.enum(SEMESTER_TERMS).nullable().optional(),
+    credits: z.number().min(0).max(30).multipleOf(0.5).nullable().optional(),
+    grade: z.enum(COURSE_GRADES).nullable().optional(),
+    color: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/)
+      .optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.category !== "semester") return;
+    if (!value.semesterYear) {
+      ctx.addIssue({ code: "custom", path: ["semesterYear"], message: "학기 연도가 필요해요" });
+    }
+    if (!value.semesterTerm) {
+      ctx.addIssue({ code: "custom", path: ["semesterTerm"], message: "학기가 필요해요" });
+    }
+  });
 
 /**
- * 개인 공부 주제 (자격증·토익·공무원·개인 프로젝트) 직접 생성.
- *
- * 정규 강의는 시간표/강의계획서 업로드 경로에서만 만들어진다.
- * 그래서 이 엔드포인트는 category='personal' 만 허용.
+ * 개인 공부 주제와 직접 입력하는 학기 강의를 생성.
+ * 시간표 파일이 없어도 성적·학점 관리를 시작할 수 있다.
  */
 export async function POST(req: Request): Promise<NextResponse<CreateOk | ErrResponse>> {
   const ownerId = await tryGetOwnerId();
@@ -70,17 +85,29 @@ export async function POST(req: Request): Promise<NextResponse<CreateOk | ErrRes
   }
 
   const admin = getAdminSupabase();
-  const { data: existing } = await admin
+  let duplicateQuery = admin
     .from("courses")
     .select("id")
     .eq("owner_id", ownerId)
     .eq("name", name)
     .eq("archived", false)
-    .maybeSingle();
+    .eq("category", body.category);
+  if (body.category === "semester") {
+    duplicateQuery = duplicateQuery
+      .eq("semester_year", body.semesterYear as number)
+      .eq("semester_term", body.semesterTerm!);
+  }
+  const { data: existing } = await duplicateQuery.limit(1).maybeSingle();
 
   if (existing) {
     return NextResponse.json(
-      { ok: false, error: `"${name}" 같은 이름의 주제가 이미 있어요` },
+      {
+        ok: false,
+        error:
+          body.category === "semester"
+            ? `이 학기에 "${name}" 과목이 이미 있어요`
+            : `"${name}" 같은 이름의 주제가 이미 있어요`,
+      },
       { status: 409 },
     );
   }
@@ -102,6 +129,12 @@ export async function POST(req: Request): Promise<NextResponse<CreateOk | ErrRes
       name,
       category: body.category,
       color,
+      professor: body.professor?.trim() || null,
+      location: body.location?.trim() || null,
+      semester_year: body.category === "semester" ? body.semesterYear : null,
+      semester_term: body.category === "semester" ? body.semesterTerm : null,
+      credits: body.category === "semester" ? (body.credits ?? 3) : null,
+      grade: body.category === "semester" ? (body.grade ?? null) : null,
     })
     .select("id, name")
     .single();
@@ -113,5 +146,8 @@ export async function POST(req: Request): Promise<NextResponse<CreateOk | ErrRes
     );
   }
 
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/grades");
+  revalidatePath("/dashboard/study", "layout");
   return NextResponse.json({ ok: true, course: { id: created.id, name: created.name } });
 }

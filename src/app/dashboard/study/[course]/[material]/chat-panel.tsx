@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { readChatResponse } from "@/lib/chat-client";
 import { ChatComposer } from "./chat-composer";
 import { ChatEmptyState } from "./chat-empty-state";
 import { type ChatBubble, ChatMessageList } from "./chat-message-list";
@@ -19,8 +20,7 @@ import { ChatThreadMenu, type ChatThreadSummary } from "./chat-thread-menu";
  *
  * 인용 chip 클릭 → 부모(`MaterialView`)의 page state 변경 (onJumpPage prop).
  *
- * 스트리밍: useChat 훅 대신 fetch + ReadableStream 직접 처리 — toUIMessageStreamResponse는
- * 클라이언트 useChat에 잘 맞는데, MVP는 raw text stream으로 단순화. 첫 토큰 즉시 표시.
+ * 스트리밍: 공용 reader로 AI SDK SSE를 파싱하고 첫 토큰부터 표시.
  */
 export function ChatPanel({
   open,
@@ -168,6 +168,7 @@ export function ChatPanel({
 
   // 새 메시지 들어올 때마다 스크롤 내림
   useEffect(() => {
+    if (!messages.length && !pendingAssistant) return;
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
@@ -175,7 +176,7 @@ export function ChatPanel({
 
   const send = useCallback(
     async (text: string) => {
-      if (busy) return;
+      if (busy || !hydrated) return;
       setError(null);
       setBusy(true);
 
@@ -228,6 +229,7 @@ export function ChatPanel({
       };
       setMessages((prev) => [...prev, optimisticUser]);
       setPendingAssistant("");
+      let accumulated = "";
 
       try {
         const res = await fetch(`/api/chat/threads/${useThreadId}/messages`, {
@@ -238,74 +240,27 @@ export function ChatPanel({
 
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string };
-          setError(body.error ?? `오류 (${res.status})`);
-          // optimistic user 메시지는 남겨둠 (재시도 단서)
-          setBusy(false);
-          return;
+          throw new Error(body.error ?? "답변을 받지 못했어요. 다시 시도해 주세요.");
         }
 
-        // toUIMessageStreamResponse SSE — 파싱: data: {"type":"text-delta","textDelta":"..."}
-        // 또는 단순 text stream. MVP는 둘 다 받게 관대하게 처리.
-        if (!res.body) {
-          setBusy(false);
-          return;
-        }
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let accumulated = "";
-
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          // AI SDK v6 UIMessage stream 포맷: 각 line이 SSE event
-          // 각 라인이 "data: {...}\n\n" 또는 "0:\"text\"\n" 형태일 수 있음
-          // 가장 안전: chunk 전체를 누적해 보이고, 클라이언트에서 JSON 토큰 파싱은 응답 완료 후
-          const lines = chunk.split("\n");
-          for (const line of lines) {
-            if (!line) continue;
-            // data: {...} 또는 plain text — 안의 textDelta 또는 raw 텍스트
-            if (line.startsWith("data: ")) {
-              const payload = line.slice(6).trim();
-              if (payload === "[DONE]") continue;
-              try {
-                const obj = JSON.parse(payload) as {
-                  type?: string;
-                  delta?: string;
-                  textDelta?: string;
-                };
-                const delta = obj.textDelta ?? obj.delta;
-                if (typeof delta === "string") accumulated += delta;
-              } catch {
-                // payload가 raw text면 그냥 추가
-                if (!payload.startsWith("{")) accumulated += payload;
-              }
-            } else {
-              // raw 텍스트 stream (toTextStreamResponse 모드)
-              accumulated += line;
-            }
-            setPendingAssistant(accumulated);
-          }
-        }
+        accumulated = await readChatResponse(res, (snapshot) => {
+          accumulated = snapshot;
+          setPendingAssistant(snapshot);
+        });
 
         // stream 완료 — 인용 토큰 파싱
-        const { body: cleanBody, citations } = parseClientCitations(accumulated);
-        const assistantBubble: ChatBubble = {
-          id: `tmp-asst-${Date.now()}`,
-          role: "assistant",
-          content: cleanBody,
-          citations,
-          created_at: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, assistantBubble]);
-        setPendingAssistant("");
+        setMessages((prev) => [...prev, createAssistantBubble(accumulated)]);
       } catch (e) {
+        if (accumulated) {
+          setMessages((prev) => [...prev, createAssistantBubble(accumulated)]);
+        }
         setError(e instanceof Error ? e.message : "네트워크 오류");
       } finally {
+        setPendingAssistant("");
         setBusy(false);
       }
     },
-    [busy, materialId, threadId],
+    [busy, hydrated, materialId, threadId],
   );
 
   if (!open) return null;
@@ -313,7 +268,9 @@ export function ChatPanel({
   return (
     <>
       {/* 모바일 backdrop (md 미만에서만 표시) */}
-      <div
+      <button
+        type="button"
+        aria-label="자료 챗 닫기"
         className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm md:hidden"
         onClick={onClose}
       />
@@ -352,7 +309,7 @@ export function ChatPanel({
               ✕
             </button>
           </div>
-          <div className="mt-2 flex justify-end">
+          <fieldset disabled={busy} className="mt-2 flex justify-end disabled:opacity-50">
             <ChatThreadMenu
               threads={threads}
               currentId={threadId}
@@ -361,7 +318,7 @@ export function ChatPanel({
               onRename={renameThread}
               onDelete={deleteThread}
             />
-          </div>
+          </fieldset>
         </header>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
@@ -383,10 +340,18 @@ export function ChatPanel({
               onJumpPage={onJumpPage}
             />
           )}
+          {busy && !pendingAssistant && (
+            <p role="status" className="mt-4 text-[12px] text-[var(--color-apple-muted)]">
+              자료를 살펴보고 있어요…
+            </p>
+          )}
         </div>
 
         {error && (
-          <div className="border-t border-[var(--color-apple-hairline)] bg-[var(--color-urgent)]/5 px-5 py-2">
+          <div
+            role="alert"
+            className="border-t border-[var(--color-apple-hairline)] bg-[var(--color-urgent)]/5 px-5 py-2"
+          >
             <p
               className="text-[12px] wght-450 text-[var(--color-urgent)]"
               style={{ letterSpacing: "-0.012em" }}
@@ -396,10 +361,21 @@ export function ChatPanel({
           </div>
         )}
 
-        <ChatComposer disabled={busy} onSubmit={send} />
+        <ChatComposer disabled={busy || !hydrated} onSubmit={send} />
       </aside>
     </>
   );
+}
+
+function createAssistantBubble(text: string): ChatBubble {
+  const { body, citations } = parseClientCitations(text);
+  return {
+    id: `tmp-asst-${crypto.randomUUID()}`,
+    role: "assistant",
+    content: body,
+    citations,
+    created_at: new Date().toISOString(),
+  };
 }
 
 // 클라이언트 사이드 인용 토큰 파서 (서비스의 parseChatResponse와 동일 형식).
