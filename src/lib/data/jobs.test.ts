@@ -42,7 +42,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
-import { getLatestJob, markJobDone, markJobError, markJobRunning } from "./jobs";
+import { canAutoRetry, getLatestJob, markJobDone, markJobError, markJobRunning } from "./jobs";
 
 beforeEach(() => {
   state.row = { id: "job", owner_id: "owner", status: "pending" };
@@ -81,6 +81,23 @@ describe("job state transitions", () => {
     await expect(
       markJobError({ jobId: "job", ownerId: "owner", errorMessage: "failure" }),
     ).rejects.toThrow();
+  });
+});
+
+describe("stale automatic retry policy", () => {
+  const stale = {
+    tool: "summarize",
+    status: "running" as const,
+    retry_count: 0,
+    created_at: "2020-01-01T00:00:00Z",
+    started_at: "2020-01-01T00:00:00Z",
+  };
+  it("retries a stale summary once", () => {
+    expect(canAutoRetry(stale)).toBe(true);
+    expect(canAutoRetry({ ...stale, retry_count: 1 })).toBe(false);
+  });
+  it("keeps unsupported tools on the manual recovery path", () => {
+    expect(canAutoRetry({ ...stale, tool: "presentation" })).toBe(false);
   });
 });
 

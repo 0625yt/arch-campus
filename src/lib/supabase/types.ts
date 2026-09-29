@@ -317,6 +317,7 @@ export interface Database {
           cache_creation_tokens: number;
           cost_usd: number;
           generation_id: string | null;
+          retry_count: number;
           created_at: string;
           started_at: string | null;
           finished_at: string | null;
@@ -337,6 +338,7 @@ export interface Database {
           cache_creation_tokens?: number;
           cost_usd?: number;
           generation_id?: string | null;
+          retry_count?: number;
           started_at?: string | null;
           finished_at?: string | null;
         };

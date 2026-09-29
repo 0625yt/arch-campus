@@ -46,6 +46,7 @@ export interface JobView {
   cacheCreationTokens: number;
   costUsd: number;
   generationId: string | null;
+  retryCount: number;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
@@ -68,10 +69,64 @@ function mapJob(row: JobRow): JobView {
     cacheCreationTokens: row.cache_creation_tokens,
     costUsd: row.cost_usd,
     generationId: row.generation_id,
+    retryCount: row.retry_count,
     createdAt: row.created_at,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
   };
+}
+
+export function canAutoRetry(
+  row: Pick<JobRow, "tool" | "status" | "retry_count" | "created_at" | "started_at">,
+): boolean {
+  return (
+    (row.tool === "summarize" || row.tool === "quiz") &&
+    (row.status === "pending" || row.status === "running") &&
+    row.retry_count === 0 &&
+    isStale(row)
+  );
+}
+
+/**
+ * 멈춘 핵심 자료 작업을 한 번만 재시도 상태로 선점한다.
+ * status+retry_count 조건부 갱신이 여러 탭·인스턴스의 중복 재실행을 막는다.
+ */
+export async function claimStaleMaterialJobsForRetry(opts: {
+  ownerId: string;
+}): Promise<JobView[]> {
+  const admin = getAdminSupabase();
+  const { data, error } = await admin
+    .from("jobs")
+    .select("*")
+    .eq("owner_id", opts.ownerId)
+    .in("status", ["pending", "running"])
+    .in("tool", ["summarize", "quiz"])
+    .eq("retry_count", 0)
+    .order("created_at", { ascending: true });
+  if (error || !data) return [];
+
+  const claimed: JobView[] = [];
+  for (const row of data) {
+    if (!canAutoRetry(row)) continue;
+    const now = new Date().toISOString();
+    const { data: retried, error: retryError } = await admin
+      .from("jobs")
+      .update({
+        status: "pending",
+        retry_count: 1,
+        started_at: now,
+        finished_at: null,
+        error_message: null,
+      })
+      .eq("id", row.id)
+      .eq("owner_id", opts.ownerId)
+      .eq("status", row.status)
+      .eq("retry_count", 0)
+      .select("*")
+      .maybeSingle();
+    if (!retryError && retried) claimed.push(mapJob(retried));
+  }
+  return claimed;
 }
 
 /**
@@ -177,8 +232,10 @@ export async function getLatestJob(opts: {
     .maybeSingle();
   if (!latest) return null;
   // stale pending/running이면 자료 페이지가 "요약/추출 중"에 영구 멈추지 않게
-  // error로 닫아서 그 상태로 돌려준다. (다른 도구 stale 정리와 동일 정책)
+  // 요약·문제 첫 실패는 active-jobs 폴링이 한 번 자동 복구할 수 있게 유지한다.
+  // 나머지는 error로 닫아서 그 상태로 돌려준다. (다른 도구 stale 정리와 동일 정책)
   if ((latest.status === "pending" || latest.status === "running") && isStale(latest)) {
+    if (canAutoRetry(latest)) return mapJob(latest);
     const errorMessage = "작업이 중단돼 자동 정리됐어요. 다시 시도해 주세요.";
     const { data: closed, error: closeError } = await admin
       .from("jobs")

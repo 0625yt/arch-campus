@@ -1,9 +1,11 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { listActiveJobs } from "@/lib/data/jobs";
+import { claimStaleMaterialJobsForRetry, listActiveJobs } from "@/lib/data/jobs";
+import { runRecoveredMaterialJob } from "@/lib/services/recover-material-job";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const TOOL_LABEL: Record<string, string> = {
   summarize: "요약",
@@ -33,6 +35,12 @@ export async function GET(): Promise<NextResponse> {
     throw e;
   }
 
+  const recoveries = await claimStaleMaterialJobsForRetry({ ownerId });
+  if (recoveries.length > 0) {
+    after(async () => {
+      for (const job of recoveries) await runRecoveredMaterialJob(job);
+    });
+  }
   const jobs = await listActiveJobs({ ownerId });
   if (jobs.length === 0) {
     return NextResponse.json({ ok: true, jobs: [] });
