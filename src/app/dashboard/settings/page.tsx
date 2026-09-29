@@ -1,4 +1,4 @@
-import { ArrowUpRight, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Download, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppleShell } from "@/components/apple-shell";
@@ -151,6 +151,45 @@ export default async function SettingsPage() {
             size={17}
             className="shrink-0 text-[var(--color-apple-muted)] transition-colors group-hover:text-[var(--color-apple-action)]"
           />
+        </Link>
+      </section>
+
+      <section className="mt-5 grid gap-3 fade-up fade-up-3 sm:grid-cols-2">
+        <Link
+          href="/api/export/calendar"
+          download
+          className="elev-1 group flex items-center gap-4 rounded-[18px] bg-white px-6 py-6 transition-transform hover:-translate-y-0.5"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#edf4ff] text-[var(--color-apple-action)]">
+            <CalendarDays aria-hidden size={20} strokeWidth={1.8} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] wght-650 text-[var(--color-apple-ink)]">
+              캘린더 내보내기
+            </span>
+            <span className="mt-1 block text-[11.5px] leading-[1.5] text-[var(--color-apple-muted)]">
+              Google·Apple 캘린더에서 여는 ICS 파일
+            </span>
+          </span>
+          <Download aria-hidden size={17} className="text-[var(--color-apple-muted)]" />
+        </Link>
+        <Link
+          href="/api/export/archive"
+          download
+          className="elev-1 group flex items-center gap-4 rounded-[18px] bg-white px-6 py-6 transition-transform hover:-translate-y-0.5"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#f4f1ff] text-[#6d55b8]">
+            <Download aria-hidden size={20} strokeWidth={1.8} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] wght-650 text-[var(--color-apple-ink)]">
+              내 데이터 받기
+            </span>
+            <span className="mt-1 block text-[11.5px] leading-[1.5] text-[var(--color-apple-muted)]">
+              과목·성적·일정·문제·복습 기록 JSON
+            </span>
+          </span>
+          <Download aria-hidden size={17} className="text-[var(--color-apple-muted)]" />
         </Link>
       </section>
     </AppleShell>

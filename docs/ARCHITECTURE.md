@@ -85,6 +85,8 @@ SSE 소비자는 `src/lib/chat-client.ts`에서 UTF-8/이벤트 경계, 서버 �
 
 오답은 최신 풀이와 문제 ID를 기준으로 모아 재풀이한다. 채점된 문제는 `review_cards`로 연결되고 `ts-fsrs`가 다시·어려움·보통·쉬움 평가에 따라 기억 상태와 `due_at`을 계산한다. `review_logs`는 평가 이력을 보존하며 오늘 복습 전용 풀이 화면은 도래한 문제만 연다. 푸시 전송과 외부 캘린더 동기화는 미구현이다. `reminder_minutes`는 데이터 필드다.
 
+`/api/export/calendar`는 사용자의 일정을 RFC 5545 계열 ICS로 직렬화해 외부 캘린더에서 수동 가져오기할 수 있게 한다. `/api/export/archive`는 과목·성적·자료 텍스트·문제·풀이·복습·챗을 소유자 조건으로 모아 JSON 아카이브를 만든다. 두 경로 모두 private/no-store 다운로드이며 양방향 동기화와는 구분한다.
+
 ## 8. 운영·검증
 
 - Upstash가 없으면 인메모리 sliding window를 사용한다. AI 요청은 `generations`와 자료 챗 비용을 0030 RPC로 합산한다. `AI_MONTHLY_BUDGET_USD`가 설정되면 0031 RPC가 사용자별 잠금 안에서 실제 비용과 진행 중 예약액을 함께 검사해 월 상한을 지킨다. 요청당 예약액은 `AI_REQUEST_RESERVE_USD`(기본 $0.10)이며 실제 비용 기록 시 오래된 예약부터 자동 차감되고 30분 뒤 만료된다.

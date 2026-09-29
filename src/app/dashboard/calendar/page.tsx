@@ -1,3 +1,5 @@
+import { Download } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { type EventView, listEventsBetween, listUpcomingEvents } from "@/lib/data/events";
@@ -85,6 +87,13 @@ function Header() {
           이번 학기 일정
         </h1>
       </div>
+      <Link
+        href="/api/export/calendar"
+        download
+        className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--color-apple-hairline)] bg-white px-4 text-[12.5px] wght-620 text-[var(--color-apple-ink)] transition-all hover:-translate-y-0.5 hover:shadow-sm"
+      >
+        <Download size={15} aria-hidden /> 일정 내보내기
+      </Link>
     </header>
   );
 }
