@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   kstMonthWindow,
+  readAiRequestReserveUsd,
   readMonthlyBudgetUsd,
   secondsUntilReset,
   summarizeMonthlyAiUsage,
@@ -56,6 +57,14 @@ describe("AI 월간 사용량", () => {
     expect(readMonthlyBudgetUsd("free")).toBeNull();
     expect(readMonthlyBudgetUsd("-1")).toBeNull();
     expect(readMonthlyBudgetUsd("3")).toBe(3);
+  });
+
+  it("요청 예약액은 안전한 기본값을 쓰고 유효한 설정만 허용한다", () => {
+    expect(readAiRequestReserveUsd()).toBe(0.1);
+    expect(readAiRequestReserveUsd("0.25")).toBe(0.25);
+    expect(readAiRequestReserveUsd("0")).toBe(0.1);
+    expect(readAiRequestReserveUsd("expensive")).toBe(0.1);
+    expect(readAiRequestReserveUsd("11")).toBe(0.1);
   });
 
   it("초기화까지 남은 시간을 초 단위로 올림한다", () => {

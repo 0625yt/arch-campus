@@ -57,6 +57,14 @@ export function readMonthlyBudgetUsd(raw = process.env.AI_MONTHLY_BUDGET_USD): n
   return parsed;
 }
 
+/** 요청 하나가 시작되기 전에 잡아두는 보수적 예상 비용. 실제 비용 기록 시 자동 정산된다. */
+export function readAiRequestReserveUsd(raw = process.env.AI_REQUEST_RESERVE_USD): number {
+  if (!raw?.trim()) return 0.1;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0.001 || parsed > 10) return 0.1;
+  return parsed;
+}
+
 export function kstMonthWindow(now = new Date()): {
   label: string;
   startsAt: string;

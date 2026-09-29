@@ -66,10 +66,43 @@ export interface Database {
           cost_usd: number;
         }>;
       };
+      reserve_monthly_ai_budget: {
+        Args: {
+          p_owner_id: string;
+          p_start: string;
+          p_end: string;
+          p_budget_usd: number;
+          p_reserve_usd: number;
+          p_expires_at: string;
+        };
+        Returns: Array<{
+          allowed: boolean;
+          spent_usd: number;
+          reserved_usd: number;
+        }>;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
     Tables: {
+      ai_budget_reservations: {
+        Row: {
+          id: string;
+          owner_id: string;
+          amount_usd: number;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          amount_usd: number;
+          expires_at: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ai_budget_reservations"]["Insert"]>;
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;

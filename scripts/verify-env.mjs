@@ -53,6 +53,10 @@ async function main() {
   process.stdout.write(
     `사용자별 월 AI 비용 상한: ${Number.isFinite(monthlyBudget) && monthlyBudget > 0 ? `$${monthlyBudget.toFixed(2)}` : "미설정 — 사용량만 집계"}\n`,
   );
+  const requestReserve = Number(env.AI_REQUEST_RESERVE_USD || 0.1);
+  process.stdout.write(
+    `AI 요청당 비용 예약: $${Number.isFinite(requestReserve) && requestReserve >= 0.001 && requestReserve <= 10 ? requestReserve.toFixed(3) : "0.100 (기본값)"}\n`,
+  );
   let base;
   try {
     base = new URL(env.NEXT_PUBLIC_SUPABASE_URL);

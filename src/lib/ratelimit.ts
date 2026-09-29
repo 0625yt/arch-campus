@@ -3,7 +3,7 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
 import { readMonthlyBudgetUsd, secondsUntilReset } from "@/lib/ai-budget";
-import { getMonthlyAiUsage } from "@/lib/data/ai-usage";
+import { reserveMonthlyAiBudget } from "@/lib/data/ai-usage";
 
 /**
  * Upstash 기반 rate limit — 라우트별 limiter를 미리 정의해 한 곳에서 관리.
@@ -243,22 +243,22 @@ export async function guardRateLimit(
   if (success) {
     if (kind !== "ai" || readMonthlyBudgetUsd() === null) return null;
     try {
-      const usage = await getMonthlyAiUsage({ ownerId: identifier });
-      if (!usage.limitReached) return null;
-      const retryAfterSec = secondsUntilReset(usage.resetsAt);
+      const reservation = await reserveMonthlyAiBudget({ ownerId: identifier });
+      if (reservation.allowed) return null;
+      const retryAfterSec = secondsUntilReset(reservation.resetsAt);
       return NextResponse.json(
         {
           ok: false,
           kind: "ai-monthly",
           error: "이번 달 AI 사용 한도에 도달했어요. 다음 달 1일에 다시 사용할 수 있어요.",
           retryAfterSec,
-          resetAt: usage.resetsAt,
+          resetAt: reservation.resetsAt,
         },
         {
           status: 429,
           headers: {
             "Retry-After": String(retryAfterSec),
-            "X-AI-Budget-Reset": usage.resetsAt,
+            "X-AI-Budget-Reset": reservation.resetsAt,
           },
         },
       );
