@@ -4,6 +4,7 @@ import { MobileTabBar, MobileTopbar } from "@/components/mobile-nav";
 import type { CourseListItem } from "@/lib/data/materials";
 import styles from "../../dashboard/campus.module.css";
 import { DashboardClient } from "../../dashboard/dashboard-client";
+import { ReplaceFailedMaterial } from "../../dashboard/study/[course]/[material]/replace-failed-material";
 import { UploadZone } from "../../dashboard/study/[course]/upload-zone";
 import { StudyWorkspace } from "../../dashboard/study/study-workspace";
 import { TodayOverview } from "../../dashboard/today/today-overview";
@@ -155,6 +156,20 @@ export default async function CampusPreviewPage({
       <main className="mx-auto max-w-[800px] px-6 py-12">
         <h1 className="mb-6 text-xl">개발용 업로드 복구 확인</h1>
         <UploadZone courseId="preview-course" />
+      </main>
+    );
+  }
+  if (view === "replace") {
+    return (
+      <main className="mx-auto max-w-[760px] px-6 py-12">
+        <h1 className="mb-6 text-xl">개발용 실패 자료 교체 확인</h1>
+        <ReplaceFailedMaterial
+          materialId="11111111-1111-4111-8111-111111111111"
+          courseId="22222222-2222-4222-8222-222222222222"
+          courseRouteKey="22222222-2222-4222-8222-222222222222"
+          title="운영체제 4주차"
+          materialType="lecture"
+        />
       </main>
     );
   }

@@ -65,3 +65,59 @@ test("파일 합치기 연결 실패 후 같은 파일을 다시 선택할 수 �
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("button", { name: "2개 올리기", exact: true })).toBeVisible();
 });
+
+test("요약 실패 화면에서 새 파일을 등록한 뒤 기존 자료를 정리한다", async ({ page }) => {
+  const newMaterialId = "33333333-3333-4333-8333-333333333333";
+  let finalizedBody: Record<string, unknown> | null = null;
+  let oldMaterialDeleted = false;
+
+  await page.route("**/api/materials/upload-url", async (route) => {
+    await route.fulfill({
+      json: {
+        ok: true,
+        signedUrl: "http://localhost:3010/mock-replace-storage",
+        storagePath: `test/${newMaterialId}.pdf`,
+        materialId: newMaterialId,
+        token: "test",
+      },
+    });
+  });
+  await page.route("**/mock-replace-storage", (route) => route.fulfill({ status: 200, body: "" }));
+  await page.route("**/api/materials/finalize", async (route) => {
+    finalizedBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({ json: { ok: true, materialId: newMaterialId } });
+  });
+  await page.route("**/api/materials/11111111-1111-4111-8111-111111111111", async (route) => {
+    oldMaterialDeleted = route.request().method() === "DELETE";
+    await route.fulfill({ json: { ok: true } });
+  });
+
+  await page.goto("/dev/campus-preview?view=replace");
+  await page.getByLabel("교체할 파일 선택").setInputFiles({
+    name: "운영체제-수정본.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("replacement lecture material"),
+  });
+  await expect(page.getByText("운영체제-수정본.pdf", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "새 파일로 교체", exact: true }).click();
+
+  await expect(page).toHaveURL(new RegExp(`${newMaterialId}$`));
+  expect(finalizedBody).toMatchObject({
+    materialId: newMaterialId,
+    courseId: "22222222-2222-4222-8222-222222222222",
+    title: "운영체제 4주차",
+    type: "lecture",
+  });
+  expect(oldMaterialDeleted).toBe(true);
+});
+
+test("요약 실패 교체 칸은 지원하지 않는 파일을 즉시 안내한다", async ({ page }) => {
+  await page.goto("/dev/campus-preview?view=replace");
+  await page.getByLabel("교체할 파일 선택").setInputFiles({
+    name: "강의자료.hwp",
+    mimeType: "application/x-hwp",
+    buffer: Buffer.from("unsupported"),
+  });
+  await expect(page.getByText(/PDF, DOCX, PPTX, XLSX, TXT/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "새 파일로 교체" })).toBeDisabled();
+});

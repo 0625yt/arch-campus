@@ -36,7 +36,7 @@ function detectCompatibility(files: File[]): "pdf" | "text-concat" | "incompatib
   return "text-concat";
 }
 
-/** 브라우저가 file.type 비워 보내는 경우(특히 .hwpx·.md) 확장자로 추정. */
+/** 브라우저가 file.type을 비워 보내는 경우 확장자로 추정. */
 function guessMimeFromName(name: string): string {
   const ext = name.toLowerCase().split(".").pop() ?? "";
   if (ext === "pdf") return "application/pdf";
@@ -44,6 +44,10 @@ function guessMimeFromName(name: string): string {
     return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   if (ext === "pptx")
     return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  if (ext === "xlsx" || ext === "xlsm")
+    return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (["png", "webp", "gif", "heic"].includes(ext)) return `image/${ext}`;
   if (ext === "txt") return "text/plain";
   if (ext === "md") return "text/markdown";
   if (ext === "hwpx" || ext === "hwp") return "application/x-hwp";
@@ -532,7 +536,7 @@ export function UploadZone({ courseId }: { courseId: string }) {
           id="upload"
           type="file"
           multiple
-          accept=".pdf,.hwp,.hwpx,.pptx,.docx,.txt,.md"
+          accept=".pdf,.pptx,.docx,.xlsx,.xlsm,.txt,.md,.jpg,.jpeg,.png,.webp,.gif,.heic,.hwp,.hwpx"
           disabled={busy}
           className="sr-only"
           onChange={(e) => {
@@ -670,13 +674,13 @@ export function UploadZone({ courseId }: { courseId: string }) {
               className="mt-1.5 text-[13px] wght-450 text-[var(--color-apple-muted)]"
               style={{ letterSpacing: "-0.022em" }}
             >
-              여러 개 한 번에 OK · PDF · HWPX · PPTX · DOCX · TXT · MD
+              여러 개 한 번에 OK · PDF · PPTX · DOCX · XLSX · 이미지
             </p>
             <p
               className="mt-3 text-[11px] wght-450 text-[var(--color-apple-muted)]"
               style={{ letterSpacing: "-0.012em" }}
             >
-              HWP 변환 안내 · 본인만 볼 수 있어요 · 60초 안에 첫 결과
+              HWP는 변환 안내 · 본인만 볼 수 있어요 · 파일당 최대 60MB
             </p>
           </>
         )}

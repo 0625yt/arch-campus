@@ -20,6 +20,7 @@ import { ExtractExamView } from "./extract-exam-view";
 import { GenerateButton, type SiblingMaterialOption } from "./generate-button";
 import { MaterialTabs } from "./material-tabs";
 import { MaterialView } from "./material-view";
+import { ReplaceFailedMaterial } from "./replace-failed-material";
 import { ResummarizePanel } from "./resummarize-panel";
 import { SummarizeWithStyles } from "./summarize-with-styles";
 import { SummaryLoading } from "./summary-loading";
@@ -48,10 +49,7 @@ export default async function MaterialDetailPage({
   const courseLabel = detail.course?.name ?? courseSlug;
   const dotColor = detail.course?.color ?? "var(--color-apple-action)";
 
-  // mime 분기:
-  //   - PDF + signed URL OK → MaterialView (split iframe + summary)
-  //   - 그 외 (이미지·텍스트 등 PDF 아님)  → SummaryArticle (요약만)
-  // Office/HWP는 finalize에서 422로 차단되어 여기 도달하지 않음 (2026-05-31 CloudConvert 제거).
+  // PDF는 원문과 요약을 함께 보여주고, Office·이미지·텍스트는 추출된 요약을 보여준다.
   const isPdf = detail.mimeType === "application/pdf";
   let pdfUrl: string | null = null;
   if (isPdf && detail.storagePath) {
@@ -152,6 +150,9 @@ export default async function MaterialDetailPage({
           <SummaryErrorCard
             materialId={detail.id}
             filename={detail.title}
+            courseId={detail.course?.id ?? null}
+            courseRouteKey={detail.course?.id ?? courseSlug}
+            materialType={detail.type}
             summarizeError={summarizeError}
             defaultStyles={defaultStyles}
             className="mt-6 fade-up fade-up-3 sm:mt-8"
@@ -396,12 +397,18 @@ function EmptySummary({
 function SummaryErrorCard({
   materialId,
   filename,
+  courseId,
+  courseRouteKey,
+  materialType,
   summarizeError,
   defaultStyles,
   className,
 }: {
   materialId: string;
   filename: string;
+  courseId: string | null;
+  courseRouteKey: string;
+  materialType: MaterialDetail["type"];
   summarizeError: string | null;
   defaultStyles: SummaryStyle[];
   className?: string;
@@ -441,6 +448,13 @@ function SummaryErrorCard({
             다른 자료 올리러 가기
           </Link>
         </div>
+        <ReplaceFailedMaterial
+          materialId={materialId}
+          courseId={courseId}
+          courseRouteKey={courseRouteKey}
+          title={filename}
+          materialType={materialType}
+        />
         <p
           className="mt-4 text-[11px] wght-450 text-[var(--color-apple-muted)]"
           style={{ letterSpacing: "-0.012em" }}

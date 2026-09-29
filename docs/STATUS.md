@@ -1,4 +1,4 @@
-# 기능 구현 현황 — 2026-09-25
+# 기능 구현 현황 — 2026-09-29
 
 현재 코드 기준의 단일 현황 문서. [점검 보고서](audit/2026-09-22-hardening.md)에 테스트 결과·수정·제약을 기록한다. 제품 목표는 [PRODUCT.md](PRODUCT.md), 다음 작업은 [NEXT-STEPS.md](NEXT-STEPS.md).
 
@@ -23,8 +23,8 @@
 | 학기 성적·평점 | 구현 | `dashboard/grades`, `lib/academic.ts`; 무학점 과목을 포함한 0.5 단위 학점·등급, 4.5 만점 학기/누적 평점, P/NP 제외 |
 | 오늘의 우선순위 | 구현 | `dashboard/today/page.tsx`; 실제 safety 신호+다가오는 일정. 9월 15일 누락 라우트 복구 |
 | 공부 과목 검색·분류 | 구현 | `study/study-workspace.tsx`; 과목·교수·강의실, 학기·개인 공부 |
-| 자료 업로드·이동·삭제·진행 표시 | 구현 | `study/[course]/upload-zone.tsx`, `materials-grid.tsx`, `api/materials/*`; 검색·요약 필터·실패 복구 테스트 |
-| 요약·출처·분할 PDF 보기 | 구현 | `study/[course]/[material]`; PDF별 원문 추출 정확도·큰 파일 품질은 별도 |
+| 자료 업로드·이동·삭제·진행 표시 | 구현 | `study/[course]/upload-zone.tsx`, `materials-grid.tsx`, `api/materials/*`; PDF·DOCX·PPTX·XLSX·이미지·텍스트, 검색·요약 필터·실패 복구 테스트. HWP 계열은 변환 안내 |
+| 요약·출처·분할 PDF 보기 | 구현 | `study/[course]/[material]`; 요약 실패 화면에서 파일 즉시 교체 가능. PDF별 원문 추출 정확도·큰 파일 품질은 별도 |
 | 자료 챗·자유 챗 | 구현 | `api/chat/*`, `lib/chat-client.ts`; 스트림 조각/오류 복구 테스트 |
 | 문제 생성·기출 추출·채점·오답 | 구현 | `api/quiz/*`, `api/materials/[id]/*`, `dashboard/review`; 자료별 생성 입력 상한 50, DB 제약 상한 100은 별개 |
 | 간격 반복 복습(FSRS) | 미구현 | 현재 오답 묶음·재풀이이며 복습 시점 계산/리뷰 스케줄 모델 없음 |
@@ -47,7 +47,7 @@
 
 - 사용자 확인은 `getCurrentUser()` → `getOwnerId()`/`tryGetOwnerId()`; 서비스 역할 쿼리는 owner 조건을 별도로 유지한다.
 - Auth 연결·anon 4개 테이블 0행·Storage 연결 확인. 임시 인증 사용자 2개로 과목·자료·일정·문제 조회/삭제/위조 소유자 삽입 차단, 학기 성적 필드 왕복, 실제 TOTP를 검사해 23개 통과했다. 모든 테이블의 모든 작업 검증을 뜻하지 않는다.
-- 운영 스키마 이력은 0001~0028이 로컬과 일치한다. 0028 적용 후 기존 정규 강의 28개의 학기 식별자가 누락 없이 이전됐고 학기·학점·등급 제약 5개를 확인했다.
+- 운영 스키마 이력은 0001~0029가 로컬과 일치한다. 0028 적용 후 기존 정규 강의 28개의 학기 식별자가 누락 없이 이전됐고, 0029에서 0학점 과목을 허용했다.
 - Upstash 미설정 시 메모리 sliding window. 제한 저장소 장애 시 503으로 작업 시작을 거절한다. 멀티인스턴스 비용 보호를 보장하지 않는다.
 - 서버 개발 모드에서는 fallback 사용자가 있으므로 개발 화면이 열린다는 사실만으로 실제 로그인이 검증되지 않는다.
 

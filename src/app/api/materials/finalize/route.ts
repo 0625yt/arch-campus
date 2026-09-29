@@ -10,18 +10,8 @@ import type { Difficulty } from "@/lib/services/quiz";
 import { downloadMaterialFile } from "@/lib/storage";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
-/** Office/HWP 등 PDF 변환이 필요한 확장자 — 업로드 차단 후 사용자에게 PDF 변환 안내. */
-const REJECT_EXTENSIONS = new Set([
-  "pptx",
-  "ppt",
-  "doc",
-  "docx",
-  "hwp",
-  "hwpx",
-  "odt",
-  "odp",
-  "rtf",
-]);
+/** 현재 파서가 읽지 못하는 구형 Office/HWP 계열. 최신 OOXML은 직접 추출한다. */
+const REJECT_EXTENSIONS = new Set(["ppt", "doc", "xls", "hwp", "hwpx", "odt", "odp", "rtf"]);
 function shouldRejectExt(filename: string): boolean {
   const dot = filename.lastIndexOf(".");
   if (dot === -1) return false;
@@ -123,13 +113,13 @@ export async function POST(
     );
   }
 
-  // Office/HWP 등은 우리가 직접 못 읽음. PDF 변환 후 다시 올리도록 안내 (CloudConvert 제거 2026-05-31).
+  // 구형 Office/HWP는 외부 변환기 없이 본문을 안정적으로 읽을 수 없다.
   if (shouldRejectExt(body.filename)) {
     return NextResponse.json(
       {
         ok: false,
         error:
-          "PPTX·DOCX·HWP는 자동 변환을 지원하지 않아요. 파일을 PDF로 저장(또는 PPT→파일→내보내기→PDF)한 뒤 다시 올려주세요.",
+          "구형 Office·HWP 파일은 바로 읽을 수 없어요. DOCX·PPTX·XLSX 또는 PDF로 저장한 뒤 다시 올려주세요.",
       },
       { status: 422 },
     );
@@ -200,8 +190,8 @@ export async function POST(
     }),
   ]);
 
-  // 3) 무거운 작업 전부 백그라운드: download → parseDocument(Gemini OCR) → summarize/quiz
-  //    Office/HWP는 위에서 이미 422 차단. 여기 도달한 자료는 PDF·이미지·텍스트뿐.
+  // 3) 무거운 작업 전부 백그라운드: download → parseDocument → summarize/quiz
+  //    PDF·최신 Office·이미지·텍스트를 여기서 직접 추출한다.
   after(async () => {
     let bytes: Uint8Array;
     try {
