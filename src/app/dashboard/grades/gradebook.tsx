@@ -29,17 +29,21 @@ import {
   type SemesterTerm,
 } from "@/lib/academic";
 import type { CourseListItem } from "@/lib/data/materials";
+import type { SemesterGoal } from "@/lib/data/semester-goals";
 import styles from "./grades.module.css";
 
 export function Gradebook({
   initialCourses,
   selectedKey,
+  initialGoal,
 }: {
   initialCourses: CourseListItem[];
   selectedKey: string;
+  initialGoal?: SemesterGoal;
 }) {
   const router = useRouter();
   const [courses, setCourses] = useState(initialCourses);
+  const goal = initialGoal ?? { targetGpa: null, targetCredits: null, reflection: null };
   const [adding, setAdding] = useState(false);
   useEffect(() => setCourses(initialCourses), [initialCourses]);
 
@@ -50,6 +54,12 @@ export function Gradebook({
   );
   const semester = calculateGpa(termCourses);
   const cumulative = calculateGpa(courses);
+  const projected = calculateGpa(
+    termCourses.map((course) => ({
+      ...course,
+      grade: course.grade ?? targetToGrade(course.targetGrade),
+    })),
+  );
 
   return (
     <main className={styles.page}>
@@ -109,7 +119,23 @@ export function Gradebook({
           unit="학점"
           detail={`${semester.earnedCredits}학점 취득`}
         />
+        <SummaryCard
+          icon={<Sparkles size={18} />}
+          label="목표 기준 예상"
+          value={projected.gpa?.toFixed(2) ?? "—"}
+          detail={
+            goal.targetGpa === null ? "학기 목표를 정해보세요" : `목표 ${goal.targetGpa.toFixed(2)}`
+          }
+        />
       </section>
+
+      <SemesterGoalPanel
+        year={selected.year}
+        term={selected.term}
+        initialGoal={goal}
+        currentGpa={semester.gpa}
+        projectedGpa={projected.gpa}
+      />
 
       {adding && (
         <AddCourseForm
@@ -139,7 +165,8 @@ export function Gradebook({
             <div className={styles.tableHead} aria-hidden>
               <span>과목</span>
               <span>학점</span>
-              <span>등급</span>
+              <span>목표</span>
+              <span>현재</span>
               <span />
             </div>
             {termCourses.map((course) => (
@@ -217,6 +244,9 @@ function GradeRow({
 }) {
   const [credits, setCredits] = useState(String(course.credits ?? 3));
   const [grade, setGrade] = useState<CourseGrade | "">(course.grade ?? "");
+  const [targetGrade, setTargetGrade] = useState<"A+" | "A" | "B+" | "B" | "">(
+    course.targetGrade ?? "",
+  );
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   async function save() {
@@ -225,11 +255,20 @@ function GradeRow({
       const res = await fetch(`/api/courses/${course.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ credits: Number(credits), grade: grade || null }),
+        body: JSON.stringify({
+          credits: Number(credits),
+          grade: grade || null,
+          target_grade: targetGrade || null,
+        }),
       });
       const result = (await res.json()) as { ok: boolean; error?: string };
       if (!res.ok || !result.ok) throw new Error(result.error ?? "저장 실패");
-      onSaved({ ...course, credits: Number(credits), grade: grade || null });
+      onSaved({
+        ...course,
+        credits: Number(credits),
+        grade: grade || null,
+        targetGrade: targetGrade || null,
+      });
       setStatus("saved");
       window.setTimeout(() => setStatus("idle"), 1800);
     } catch {
@@ -254,6 +293,20 @@ function GradeRow({
           {COURSE_CREDIT_OPTIONS.map((value) => (
             <option key={value} value={value}>
               {value}학점
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span className="sr-only">{course.name} 목표 등급</span>
+        <select
+          value={targetGrade}
+          onChange={(event) => setTargetGrade(event.target.value as "A+" | "A" | "B+" | "B" | "")}
+        >
+          <option value="">미설정</option>
+          {(["A+", "A", "B+", "B"] as const).map((value) => (
+            <option key={value} value={value}>
+              {value}
             </option>
           ))}
         </select>
@@ -289,6 +342,117 @@ function GradeRow({
       </button>
     </article>
   );
+}
+
+function SemesterGoalPanel({
+  year,
+  term,
+  initialGoal,
+  currentGpa,
+  projectedGpa,
+}: {
+  year: number;
+  term: SemesterTerm;
+  initialGoal: SemesterGoal;
+  currentGpa: number | null;
+  projectedGpa: number | null;
+}) {
+  const [targetGpa, setTargetGpa] = useState(initialGoal.targetGpa?.toFixed(2) ?? "");
+  const [targetCredits, setTargetCredits] = useState(String(initialGoal.targetCredits ?? ""));
+  const [reflection, setReflection] = useState(initialGoal.reflection ?? "");
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const goalValue = targetGpa === "" ? null : Number(targetGpa);
+  const comparison =
+    (currentGpa ?? projectedGpa) !== null && goalValue !== null
+      ? Math.round(((currentGpa ?? projectedGpa ?? 0) - goalValue) * 100) / 100
+      : null;
+
+  async function save() {
+    setStatus("saving");
+    try {
+      const response = await fetch("/api/academic-goals", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          year,
+          term,
+          targetGpa: goalValue,
+          targetCredits: targetCredits === "" ? null : Number(targetCredits),
+          reflection: reflection || null,
+        }),
+      });
+      const result = (await response.json()) as { ok: boolean; error?: string };
+      if (!response.ok || !result.ok) throw new Error(result.error ?? "저장 실패");
+      setStatus("saved");
+      window.setTimeout(() => setStatus("idle"), 1800);
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  return (
+    <section className={styles.goalPanel}>
+      <div className={styles.goalIntro}>
+        <p>SEMESTER TARGET</p>
+        <h2>이번 학기 목표</h2>
+        <span>
+          {comparison === null
+            ? "목표 평점과 과목별 목표 등급을 입력하면 예상치를 보여드려요."
+            : comparison >= 0
+              ? `현재 예상이 목표보다 ${comparison.toFixed(2)} 높아요.`
+              : `목표까지 ${Math.abs(comparison).toFixed(2)} 남았어요.`}
+        </span>
+      </div>
+      <label>
+        <span>목표 평점</span>
+        <input
+          type="number"
+          min="0"
+          max="4.5"
+          step="0.01"
+          value={targetGpa}
+          onChange={(event) => setTargetGpa(event.target.value)}
+          placeholder="4.00"
+        />
+      </label>
+      <label>
+        <span>목표 취득학점</span>
+        <input
+          type="number"
+          min="0"
+          max="30"
+          step="0.5"
+          value={targetCredits}
+          onChange={(event) => setTargetCredits(event.target.value)}
+          placeholder="18"
+        />
+      </label>
+      <label className={styles.reflectionField}>
+        <span>학기 메모·회고</span>
+        <textarea
+          value={reflection}
+          onChange={(event) => setReflection(event.target.value)}
+          maxLength={2000}
+          placeholder="이번 학기의 목표와 다음에 바꿀 점을 남겨보세요."
+        />
+      </label>
+      <button type="button" onClick={save} disabled={status === "saving"}>
+        {status === "saving"
+          ? "저장 중…"
+          : status === "saved"
+            ? "저장됨"
+            : status === "error"
+              ? "다시 저장"
+              : "목표 저장"}
+      </button>
+    </section>
+  );
+}
+
+function targetToGrade(target: CourseListItem["targetGrade"]): CourseGrade | null {
+  if (target === "A") return "A0";
+  if (target === "B") return "B0";
+  return target ?? null;
 }
 
 function AddCourseForm({

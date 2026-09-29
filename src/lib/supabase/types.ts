@@ -177,6 +177,32 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["courses"]["Insert"]>;
         Relationships: [];
       };
+      semester_goals: {
+        Row: {
+          id: string;
+          owner_id: string;
+          semester_year: number;
+          semester_term: "spring" | "summer" | "fall" | "winter";
+          target_gpa: number | null;
+          target_credits: number | null;
+          reflection: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          semester_year: number;
+          semester_term: "spring" | "summer" | "fall" | "winter";
+          target_gpa?: number | null;
+          target_credits?: number | null;
+          reflection?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["semester_goals"]["Insert"]>;
+        Relationships: [];
+      };
       events: {
         Row: {
           id: string;

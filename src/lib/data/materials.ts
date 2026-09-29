@@ -74,6 +74,7 @@ export interface CourseListItem {
   semesterTerm: SemesterTerm | null;
   credits: number | null;
   grade: CourseGrade | null;
+  targetGrade?: "A+" | "A" | "B+" | "B" | null;
 }
 
 interface MaterialDetailRaw {
@@ -249,7 +250,7 @@ export async function listCoursesWithMaterialCount(opts: {
   const { data: courses, error } = await admin
     .from("courses")
     .select(
-      "id, name, professor, color, category, schedule, location, semester_year, semester_term, credits, grade",
+      "id, name, professor, color, category, schedule, location, semester_year, semester_term, credits, grade, target_grade",
     )
     .eq("owner_id", opts.ownerId)
     .eq("archived", false)
@@ -272,6 +273,7 @@ export async function listCoursesWithMaterialCount(opts: {
       semesterTerm: c.semester_term as SemesterTerm | null,
       credits: c.credits,
       grade: c.grade as CourseGrade | null,
+      targetGrade: c.target_grade,
     }));
   }
 
@@ -302,6 +304,7 @@ export async function listCoursesWithMaterialCount(opts: {
     semesterTerm: c.semester_term as SemesterTerm | null,
     credits: c.credits,
     grade: c.grade as CourseGrade | null,
+    targetGrade: c.target_grade,
   }));
 }
 

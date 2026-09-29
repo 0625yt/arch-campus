@@ -99,7 +99,7 @@
 
 .summaryGrid {
   display: grid;
-  grid-template-columns: 1.15fr 1fr 1fr;
+  grid-template-columns: 1.15fr 1fr 1fr 1fr;
   gap: 12px;
   margin-top: 34px;
 }
@@ -153,11 +153,72 @@
 }
 
 .gradeSection,
-.addForm {
+.addForm,
+.goalPanel {
   margin-top: 14px;
   border: 1px solid var(--color-line-strong);
   border-radius: 20px;
   background: var(--color-bg);
+}
+.goalPanel {
+  display: grid;
+  grid-template-columns: 1.3fr 130px 150px 1.5fr auto;
+  align-items: end;
+  gap: 12px;
+  padding: 22px;
+}
+.goalIntro p {
+  color: var(--color-accent);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+}
+.goalIntro h2 {
+  margin-top: 5px;
+  color: var(--color-apple-ink);
+  font-size: 19px;
+}
+.goalIntro > span {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-apple-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.goalPanel label > span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--color-apple-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+.goalPanel input,
+.goalPanel textarea {
+  width: 100%;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+  outline: none;
+  background: var(--color-surface-strong);
+  color: var(--color-apple-ink);
+  font-size: 12px;
+}
+.goalPanel input {
+  min-height: 42px;
+  padding: 0 10px;
+}
+.goalPanel textarea {
+  min-height: 58px;
+  padding: 10px;
+  resize: vertical;
+}
+.goalPanel button {
+  min-height: 42px;
+  padding: 0 15px;
+  border-radius: 10px;
+  background: var(--color-apple-ink);
+  color: var(--color-bg);
+  font-size: 12px;
+  font-weight: 650;
 }
 .gradeSection {
   padding: 24px;
@@ -187,7 +248,7 @@
 .tableHead,
 .courseRow {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 110px 110px 110px;
+  grid-template-columns: minmax(200px, 1fr) 100px 100px 100px 100px;
   gap: 12px;
   align-items: center;
 }
@@ -405,10 +466,15 @@
   .summaryGrid {
     grid-template-columns: 1fr 1fr;
   }
-  .summaryCard:last-child {
-    grid-column: 1 / -1;
-    min-height: 145px;
+  .goalPanel {
+    grid-template-columns: 1fr 1fr;
   }
+  .goalIntro,
+  .reflectionField,
+  .goalPanel button {
+    grid-column: 1 / -1;
+  }
+  .summaryCard { min-height: 145px; }
   .gradeSection {
     padding: 17px 12px;
   }
