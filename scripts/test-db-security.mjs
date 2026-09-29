@@ -57,7 +57,7 @@ try {
   `);
   check(
     "MFA migration is fully installed",
-    installedState.rows[0].function_exists && installedState.rows[0].policy_count === 15,
+    installedState.rows[0].function_exists && installedState.rows[0].policy_count === 16,
   );
   const a = randomUUID(),
     b = randomUUID();

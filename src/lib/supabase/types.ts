@@ -434,6 +434,34 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["quiz_attempts"]["Insert"]>;
         Relationships: [];
       };
+      attempt_reflections: {
+        Row: {
+          id: string;
+          owner_id: string;
+          attempt_id: string;
+          readiness: number;
+          satisfaction: number;
+          causes: string[];
+          next_action: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          attempt_id: string;
+          readiness: number;
+          satisfaction: number;
+          causes?: string[];
+          next_action?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["attempt_reflections"]["Insert"]>;
+        Relationships: [];
+      };
       review_cards: {
         Row: {
           id: string;
