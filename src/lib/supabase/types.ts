@@ -408,6 +408,72 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["quiz_attempts"]["Insert"]>;
         Relationships: [];
       };
+      review_cards: {
+        Row: {
+          id: string;
+          owner_id: string;
+          quiz_id: string;
+          question_id: number;
+          due_at: string;
+          stability: number;
+          difficulty: number;
+          scheduled_days: number;
+          learning_steps: number;
+          reps: number;
+          lapses: number;
+          state: number;
+          last_review_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          quiz_id: string;
+          question_id: number;
+          due_at?: string;
+          stability?: number;
+          difficulty?: number;
+          scheduled_days?: number;
+          learning_steps?: number;
+          reps?: number;
+          lapses?: number;
+          state?: number;
+          last_review_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["review_cards"]["Insert"]>;
+        Relationships: [];
+      };
+      review_logs: {
+        Row: {
+          id: string;
+          owner_id: string;
+          card_id: string;
+          rating: number;
+          previous_state: number;
+          previous_due_at: string;
+          reviewed_at: string;
+          scheduled_days: number;
+          stability: number;
+          difficulty: number;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          card_id: string;
+          rating: number;
+          previous_state: number;
+          previous_due_at: string;
+          reviewed_at?: string;
+          scheduled_days: number;
+          stability: number;
+          difficulty: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["review_logs"]["Insert"]>;
+        Relationships: [];
+      };
       /** 0018: 자료 기반 RAG 챗 스레드. material_full_text는 thread 생성 시 동결. */
       chat_threads: {
         Row: {

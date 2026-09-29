@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { upsertAttemptResults } from "@/lib/data/attempts";
+import { ensureReviewCards } from "@/lib/data/reviews";
 import { QuizQuestion } from "@/lib/schemas";
 import { gradeQuiz, type SubmittedAnswer } from "@/lib/services/grade-quiz";
 import { gradeWithLlmAssist } from "@/lib/services/grade-quiz-llm";
@@ -146,6 +147,10 @@ export async function POST(
       { status: 500 },
     );
   }
+
+  // 채점된 문제는 모두 복습 카드 후보가 된다. 사용자가 체감 난이도를 누르면
+  // FSRS 일정이 확정되고, 누르지 않아도 복습 큐에서 다시 만날 수 있다.
+  await ensureReviewCards({ ownerId, quizId, questionIds: [r.questionId] });
 
   return NextResponse.json({
     ok: true,

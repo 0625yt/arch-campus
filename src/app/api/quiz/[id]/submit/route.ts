@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
 import { getAttemptResults, upsertAttemptResults } from "@/lib/data/attempts";
+import { ensureReviewCards } from "@/lib/data/reviews";
 import { QuizQuestion } from "@/lib/schemas";
 import { gradeQuiz, type SubmittedAnswer } from "@/lib/services/grade-quiz";
 import { gradeWithLlmAssist } from "@/lib/services/grade-quiz-llm";
@@ -178,6 +179,13 @@ export async function POST(
     attemptId: body.attemptId ?? null,
     durationMs: body.durationMs ?? null,
   });
+  if (saved) {
+    await ensureReviewCards({
+      ownerId,
+      quizId,
+      questionIds: saved.results.map((result) => result.questionId),
+    });
+  }
 
   if (!saved) {
     return NextResponse.json(

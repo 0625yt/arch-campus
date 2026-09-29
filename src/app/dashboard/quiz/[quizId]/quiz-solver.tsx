@@ -663,7 +663,17 @@ function SolveSection({
           )}
 
           {/* 채점 결과 — 확인 후에만 등장. correct·answer·explanation·evidence를 한 카드에. */}
-          {isReviewing && currentGraded && <GradeFeedback graded={currentGraded} />}
+          {isReviewing && currentGraded && (
+            <>
+              <GradeFeedback graded={currentGraded} />
+              <ReviewRatingControl
+                key={`${quiz.id}:${currentQuestion.id}:${currentGraded.submitted}`}
+                quizId={quiz.id}
+                questionId={currentQuestion.id}
+                correct={currentGraded.correct}
+              />
+            </>
+          )}
 
           {stepError && (
             <p className="mt-4 text-[12.5px] wght-450 text-[var(--color-urgent)]">{stepError}</p>
@@ -909,6 +919,97 @@ function GradeFeedback({ graded }: { graded: StepGradeResult }) {
         >
           {graded.gradingNote}
         </p>
+      )}
+    </div>
+  );
+}
+
+function ReviewRatingControl({
+  quizId,
+  questionId,
+  correct,
+}: {
+  quizId: string;
+  questionId: number;
+  correct: boolean;
+}) {
+  const [selected, setSelected] = useState<number | null>(null);
+  const [saving, setSaving] = useState<number | null>(null);
+  const [ratingError, setRatingError] = useState<string | null>(null);
+  const options = [
+    { rating: 1, label: "다시", hint: "곧 다시" },
+    { rating: 2, label: "어려움", hint: "짧게" },
+    { rating: 3, label: "보통", hint: "적정 간격" },
+    { rating: 4, label: "쉬움", hint: "더 길게" },
+  ] as const;
+
+  async function rate(rating: 1 | 2 | 3 | 4) {
+    if (saving !== null || selected !== null) return;
+    setSaving(rating);
+    setRatingError(null);
+    try {
+      const response = await fetch("/api/review/rate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ quizId, questionId, rating }),
+      });
+      const json = (await response.json()) as { ok: boolean; error?: string };
+      if (!json.ok) throw new Error(json.error ?? "복습 일정을 저장하지 못했어요.");
+      setSelected(rating);
+    } catch (error) {
+      setRatingError(error instanceof Error ? error.message : "복습 일정을 저장하지 못했어요.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  return (
+    <div className="mt-3 rounded-[18px] border border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)]/55 p-4 print:hidden">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-[13px] wght-620 text-[var(--color-apple-ink)]">
+          답을 떠올리기 어땠나요?
+        </p>
+        <p className="text-[11.5px] text-[var(--color-apple-muted)]">
+          {selected
+            ? "다음 복습 일정에 반영했어요"
+            : correct
+              ? "기억 난이도를 골라주세요"
+              : "틀렸다면 ‘다시’를 권장해요"}
+        </p>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {options.map((option) => (
+          <button
+            key={option.rating}
+            type="button"
+            onClick={() => rate(option.rating)}
+            disabled={saving !== null || selected !== null}
+            aria-pressed={selected === option.rating}
+            className={[
+              "min-h-12 rounded-[14px] border px-2 py-2 text-center transition-all disabled:cursor-default",
+              selected === option.rating
+                ? "border-[var(--color-apple-action)] bg-[var(--color-apple-action)] text-white"
+                : "border-[var(--color-apple-hairline)] bg-white text-[var(--color-apple-ink)] hover:-translate-y-0.5 hover:border-[color:rgba(59,130,246,0.28)]",
+              saving === option.rating ? "opacity-60" : "",
+            ].join(" ")}
+          >
+            <span className="block text-[12.5px] wght-620">
+              {saving === option.rating ? "저장 중…" : option.label}
+            </span>
+            <span
+              className={
+                selected === option.rating
+                  ? "text-[10.5px] text-white/75"
+                  : "text-[10.5px] text-[var(--color-apple-muted)]"
+              }
+            >
+              {option.hint}
+            </span>
+          </button>
+        ))}
+      </div>
+      {ratingError && (
+        <p className="mt-2 text-[11.5px] text-[var(--color-urgent)]">{ratingError}</p>
       )}
     </div>
   );
