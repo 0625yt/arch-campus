@@ -2,6 +2,8 @@ import "server-only";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
+import { readMonthlyBudgetUsd, secondsUntilReset } from "@/lib/ai-budget";
+import { getMonthlyAiUsage } from "@/lib/data/ai-usage";
 
 /**
  * Upstash 기반 rate limit — 라우트별 limiter를 미리 정의해 한 곳에서 관리.
@@ -230,6 +232,7 @@ export interface RateLimitErrBody {
   kind: string;
   error: string;
   retryAfterSec: number;
+  resetAt?: string;
 }
 
 export async function guardRateLimit(
@@ -237,7 +240,40 @@ export async function guardRateLimit(
   identifier: string,
 ): Promise<NextResponse<RateLimitErrBody> | null> {
   const { success, headers, unavailable } = await checkRateLimit(kind, identifier);
-  if (success) return null;
+  if (success) {
+    if (kind !== "ai" || readMonthlyBudgetUsd() === null) return null;
+    try {
+      const usage = await getMonthlyAiUsage({ ownerId: identifier });
+      if (!usage.limitReached) return null;
+      const retryAfterSec = secondsUntilReset(usage.resetsAt);
+      return NextResponse.json(
+        {
+          ok: false,
+          kind: "ai-monthly",
+          error: "이번 달 AI 사용 한도에 도달했어요. 다음 달 1일에 다시 사용할 수 있어요.",
+          retryAfterSec,
+          resetAt: usage.resetsAt,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(retryAfterSec),
+            "X-AI-Budget-Reset": usage.resetsAt,
+          },
+        },
+      );
+    } catch {
+      return NextResponse.json(
+        {
+          ok: false,
+          kind: "ai-monthly",
+          error: "월간 사용 한도를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
+          retryAfterSec: 30,
+        },
+        { status: 503, headers: { "Retry-After": "30" } },
+      );
+    }
+  }
   // kind를 error 메시지·body에 포함 — 클라이언트가 어떤 limit에 걸렸는지 분기 가능
   const friendlyKind =
     kind === "ai"

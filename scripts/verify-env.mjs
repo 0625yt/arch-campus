@@ -49,6 +49,10 @@ async function main() {
   process.stdout.write(
     `분산 호출 제한: ${env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN ? "설정됨" : "미설정 — 인스턴스별 메모리 제한 사용"}\n`,
   );
+  const monthlyBudget = Number(env.AI_MONTHLY_BUDGET_USD);
+  process.stdout.write(
+    `사용자별 월 AI 비용 상한: ${Number.isFinite(monthlyBudget) && monthlyBudget > 0 ? `$${monthlyBudget.toFixed(2)}` : "미설정 — 사용량만 집계"}\n`,
+  );
   let base;
   try {
     base = new URL(env.NEXT_PUBLIC_SUPABASE_URL);

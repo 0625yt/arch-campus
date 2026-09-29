@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getServerSupabase } from "@/lib/supabase/server";
@@ -19,12 +20,13 @@ export default async function SecuritySettingsPage() {
   return (
     <div className="mx-auto w-full max-w-[820px] px-6 pb-24 pt-10 sm:px-10 sm:pt-14">
       <header>
-        <p
-          className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
+        <Link
+          href="/dashboard/settings"
+          className="text-[12px] wght-450 text-[var(--color-apple-muted)] hover:text-[var(--color-apple-action)]"
           style={{ letterSpacing: "-0.012em" }}
         >
-          설정
-        </p>
+          설정 ‹
+        </Link>
         <h1
           className="mt-2 text-[32px] leading-[1.08] wght-620 text-[var(--color-apple-ink)] sm:text-[40px]"
           style={{ letterSpacing: "-0.012em" }}

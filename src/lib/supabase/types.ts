@@ -49,7 +49,24 @@ export interface Database {
         Relationships: [];
       };
     };
-    Functions: Record<string, never>;
+    Functions: {
+      get_monthly_ai_usage: {
+        Args: {
+          p_owner_id: string;
+          p_start: string;
+          p_end: string;
+        };
+        Returns: Array<{
+          tool: string;
+          call_count: number;
+          input_tokens: number;
+          output_tokens: number;
+          cache_read_tokens: number;
+          cache_creation_tokens: number;
+          cost_usd: number;
+        }>;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
     Tables: {
