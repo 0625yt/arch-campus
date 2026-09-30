@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import { markJobDone, markJobError, markJobRunning, recordJobCheckpoint } from "@/lib/data/jobs";
 import { type Difficulty, runQuizGeneration } from "@/lib/services/quiz";
 import { runSummarize } from "@/lib/services/summarize";
 
@@ -46,6 +46,12 @@ export async function runSummarizeJob(opts: {
 }): Promise<void> {
   try {
     if (!(await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId }))) return;
+    await recordJobCheckpoint({
+      jobId: opts.jobId,
+      ownerId: opts.ownerId,
+      stage: "generating-summary",
+      progress: 45,
+    });
     const result = await runSummarize({
       ownerId: opts.ownerId,
       materialId: opts.materialId,
@@ -61,6 +67,12 @@ export async function runSummarizeJob(opts: {
       await markJobError({ jobId: opts.jobId, ownerId: opts.ownerId, errorMessage: result.error });
       return;
     }
+    await recordJobCheckpoint({
+      jobId: opts.jobId,
+      ownerId: opts.ownerId,
+      stage: "verifying-output",
+      progress: 85,
+    });
     await markJobDone({
       jobId: opts.jobId,
       ownerId: opts.ownerId,
@@ -95,6 +107,12 @@ export async function runQuizJob(opts: {
 }): Promise<void> {
   try {
     if (!(await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId }))) return;
+    await recordJobCheckpoint({
+      jobId: opts.jobId,
+      ownerId: opts.ownerId,
+      stage: "generating-quiz",
+      progress: 45,
+    });
     const result = await runQuizGeneration({
       ownerId: opts.ownerId,
       courseId: opts.courseId,
@@ -116,6 +134,12 @@ export async function runQuizJob(opts: {
       await markJobError({ jobId: opts.jobId, ownerId: opts.ownerId, errorMessage: result.error });
       return;
     }
+    await recordJobCheckpoint({
+      jobId: opts.jobId,
+      ownerId: opts.ownerId,
+      stage: "verifying-output",
+      progress: 85,
+    });
     await markJobDone({
       jobId: opts.jobId,
       ownerId: opts.ownerId,

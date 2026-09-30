@@ -47,6 +47,10 @@ export interface JobView {
   costUsd: number;
   generationId: string | null;
   retryCount: number;
+  checkpointStage: string;
+  checkpointProgress: number;
+  checkpointMessage: string | null;
+  checkpointUpdatedAt: string;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
@@ -70,10 +74,34 @@ function mapJob(row: JobRow): JobView {
     costUsd: row.cost_usd,
     generationId: row.generation_id,
     retryCount: row.retry_count,
+    checkpointStage: row.checkpoint_stage,
+    checkpointProgress: row.checkpoint_progress,
+    checkpointMessage: row.checkpoint_message,
+    checkpointUpdatedAt: row.checkpoint_updated_at,
     createdAt: row.created_at,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
   };
+}
+
+/** 실행 중 작업의 세부 단계를 원자적으로 기록한다. 종료된 작업은 변경하지 않는다. */
+export async function recordJobCheckpoint(opts: {
+  jobId: string;
+  ownerId: string;
+  stage: string;
+  progress: number;
+  message?: string | null;
+}): Promise<boolean> {
+  const admin = getAdminSupabase();
+  const { data, error } = await admin.rpc("record_job_checkpoint", {
+    p_job_id: opts.jobId,
+    p_owner_id: opts.ownerId,
+    p_stage: opts.stage,
+    p_progress: opts.progress,
+    p_message: opts.message ?? null,
+  });
+  if (error) throw new Error("작업 진행 단계를 저장하지 못했어요.");
+  return data;
 }
 
 export function canAutoRetry(

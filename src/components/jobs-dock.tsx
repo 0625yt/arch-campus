@@ -55,7 +55,8 @@ export function JobsDock() {
 
 function JobRow({ job }: { job: ActiveJobRow }) {
   const href = jobHref(job);
-  const subtitle = job.materialTitle ?? null;
+  const subtitle = checkpointLabel(job.checkpointStage) ?? job.materialTitle ?? null;
+  const progress = Math.max(0, Math.min(100, job.checkpointProgress ?? 0));
   const inner = (
     <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[var(--color-apple-pearl)]">
       <Spinner />
@@ -74,6 +75,12 @@ function JobRow({ job }: { job: ActiveJobRow }) {
             {subtitle}
           </p>
         )}
+        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--color-apple-hairline-soft)]">
+          <div
+            className="h-full rounded-full bg-[var(--color-apple-action)] transition-[width] duration-500"
+            style={{ width: `${Math.max(progress, job.status === "running" ? 15 : 4)}%` }}
+          />
+        </div>
       </div>
       <span className="shrink-0 text-[10.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
         {job.status === "pending" ? "대기" : "진행"}
@@ -81,6 +88,21 @@ function JobRow({ job }: { job: ActiveJobRow }) {
     </div>
   );
   return href ? <Link href={href}>{inner}</Link> : inner;
+}
+
+function checkpointLabel(stage?: string): string | null {
+  if (!stage) return null;
+  return (
+    {
+      queued: "작업 순서를 기다리는 중",
+      "retry-queued": "자동 복구를 준비하는 중",
+      processing: "입력을 준비하는 중",
+      "rebuilding-input": "저장된 입력을 복구하는 중",
+      "generating-summary": "요약을 만드는 중",
+      "generating-quiz": "문제를 만드는 중",
+      "verifying-output": "결과를 확인하고 저장하는 중",
+    }[stage] ?? null
+  );
 }
 
 function jobHref(job: ActiveJobRow): string | null {

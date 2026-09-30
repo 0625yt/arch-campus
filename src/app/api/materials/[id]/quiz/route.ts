@@ -1,7 +1,13 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import {
+  enqueueJob,
+  markJobDone,
+  markJobError,
+  markJobRunning,
+  recordJobCheckpoint,
+} from "@/lib/data/jobs";
 import { guardRateLimit } from "@/lib/ratelimit";
 import { runQuizGeneration } from "@/lib/services/quiz";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -114,6 +120,12 @@ export async function POST(
   after(async () => {
     try {
       if (!(await markJobRunning({ jobId: job.id, ownerId }))) return;
+      await recordJobCheckpoint({
+        jobId: job.id,
+        ownerId,
+        stage: "generating-quiz",
+        progress: 45,
+      });
       const result = await runQuizGeneration({
         ownerId,
         courseId: primary.course_id ?? null,
@@ -137,6 +149,13 @@ export async function POST(
         await markJobError({ jobId: job.id, ownerId, errorMessage: result.error });
         return;
       }
+
+      await recordJobCheckpoint({
+        jobId: job.id,
+        ownerId,
+        stage: "verifying-output",
+        progress: 85,
+      });
 
       await markJobDone({
         jobId: job.id,

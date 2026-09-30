@@ -11,6 +11,9 @@ export interface ActiveJobRow {
   materialId: string | null;
   materialTitle: string | null;
   courseId: string | null;
+  checkpointStage?: string;
+  checkpointProgress?: number;
+  checkpointMessage?: string | null;
   createdAt: string;
   startedAt: string | null;
 }

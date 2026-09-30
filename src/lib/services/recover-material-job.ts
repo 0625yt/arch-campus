@@ -1,6 +1,12 @@
 import "server-only";
 import { reserveMonthlyAiBudget } from "@/lib/data/ai-usage";
-import { type JobView, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import {
+  type JobView,
+  markJobDone,
+  markJobError,
+  markJobRunning,
+  recordJobCheckpoint,
+} from "@/lib/data/jobs";
 import { STYLE_ORDER, type SummaryStyle } from "@/lib/material-policy";
 import { runQuizGeneration } from "@/lib/services/quiz";
 import { runSummarize } from "@/lib/services/summarize";
@@ -28,6 +34,13 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
       return;
     }
     if (!(await markJobRunning({ jobId: job.id, ownerId: job.ownerId }))) return;
+    await recordJobCheckpoint({
+      jobId: job.id,
+      ownerId: job.ownerId,
+      stage: "rebuilding-input",
+      progress: 25,
+      message: "저장된 입력으로 작업을 복구하고 있어요.",
+    });
     if (!job.materialId) throw new Error("재시도할 자료 정보가 없어요.");
 
     const admin = getAdminSupabase();
@@ -43,6 +56,12 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
     if (!primary?.full_text?.trim()) throw new Error("재시도할 자료 본문이 비어 있어요.");
 
     if (job.tool === "summarize") {
+      await recordJobCheckpoint({
+        jobId: job.id,
+        ownerId: job.ownerId,
+        stage: "generating-summary",
+        progress: 45,
+      });
       const styles = stringsFrom(job.inputParams.styles).filter((style): style is SummaryStyle =>
         (STYLE_ORDER as readonly string[]).includes(style),
       );
@@ -60,6 +79,12 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
           typeof job.inputParams.intentNote === "string" ? job.inputParams.intentNote : undefined,
       });
       if (!result.ok) throw new Error(result.error);
+      await recordJobCheckpoint({
+        jobId: job.id,
+        ownerId: job.ownerId,
+        stage: "verifying-output",
+        progress: 85,
+      });
       await markJobDone({
         jobId: job.id,
         ownerId: job.ownerId,
@@ -84,6 +109,12 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
       (kind): kind is (typeof KINDS)[number] => (KINDS as readonly string[]).includes(kind),
     );
     const materialsInOrder = [primary, ...data.filter((item) => item.id !== primary.id)];
+    await recordJobCheckpoint({
+      jobId: job.id,
+      ownerId: job.ownerId,
+      stage: "generating-quiz",
+      progress: 45,
+    });
     const result = await runQuizGeneration({
       ownerId: job.ownerId,
       courseId: primary.course_id,
@@ -103,6 +134,12 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
       intentNote: typeof job.inputParams.intentNote === "string" ? job.inputParams.intentNote : "",
     });
     if (!result.ok) throw new Error(result.error);
+    await recordJobCheckpoint({
+      jobId: job.id,
+      ownerId: job.ownerId,
+      stage: "verifying-output",
+      progress: 85,
+    });
     await markJobDone({
       jobId: job.id,
       ownerId: job.ownerId,

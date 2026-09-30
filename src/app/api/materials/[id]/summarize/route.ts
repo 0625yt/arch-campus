@@ -1,6 +1,12 @@
 import { after, NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import {
+  enqueueJob,
+  markJobDone,
+  markJobError,
+  markJobRunning,
+  recordJobCheckpoint,
+} from "@/lib/data/jobs";
 import { MAX_STYLES_PER_REQUEST, STYLE_ORDER, type SummaryStyle } from "@/lib/material-policy";
 import { guardRateLimit } from "@/lib/ratelimit";
 import { runSummarize } from "@/lib/services/summarize";
@@ -113,6 +119,12 @@ export async function POST(
   after(async () => {
     try {
       if (!(await markJobRunning({ jobId: job.id, ownerId }))) return;
+      await recordJobCheckpoint({
+        jobId: job.id,
+        ownerId,
+        stage: "generating-summary",
+        progress: 45,
+      });
       const result = await runSummarize({
         ownerId,
         materialId: material.id,
@@ -130,6 +142,13 @@ export async function POST(
         await markJobError({ jobId: job.id, ownerId, errorMessage: result.error });
         return;
       }
+
+      await recordJobCheckpoint({
+        jobId: job.id,
+        ownerId,
+        stage: "verifying-output",
+        progress: 85,
+      });
 
       await markJobDone({
         jobId: job.id,

@@ -75,6 +75,9 @@ export async function GET(): Promise<NextResponse> {
         materialId: j.materialId,
         materialTitle: meta?.title ?? null,
         courseId: meta?.courseId ?? null,
+        checkpointStage: j.checkpointStage,
+        checkpointProgress: j.checkpointProgress,
+        checkpointMessage: j.checkpointMessage,
         createdAt: j.createdAt,
         startedAt: j.startedAt,
       };

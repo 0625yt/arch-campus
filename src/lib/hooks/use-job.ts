@@ -12,6 +12,9 @@ export interface ClientJobView {
   materialId: string | null;
   result: Record<string, unknown> | null;
   errorMessage: string | null;
+  checkpointStage: string;
+  checkpointProgress: number;
+  checkpointMessage: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   cost?: number;
@@ -131,6 +134,9 @@ export function useJob(jobId: string | null) {
               materialId: (r.material_id as string | null) ?? null,
               result: (r.result as Record<string, unknown> | null) ?? null,
               errorMessage: (r.error_message as string | null) ?? null,
+              checkpointStage: String(r.checkpoint_stage ?? "processing"),
+              checkpointProgress: Number(r.checkpoint_progress ?? 15),
+              checkpointMessage: (r.checkpoint_message as string | null) ?? null,
               startedAt: (r.started_at as string | null) ?? null,
               finishedAt: (r.finished_at as string | null) ?? null,
               cost: typeof r.cost_usd === "number" ? r.cost_usd : undefined,

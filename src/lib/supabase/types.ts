@@ -81,6 +81,16 @@ export interface Database {
           reserved_usd: number;
         }>;
       };
+      record_job_checkpoint: {
+        Args: {
+          p_job_id: string;
+          p_owner_id: string;
+          p_stage: string;
+          p_progress: number;
+          p_message?: string | null;
+        };
+        Returns: boolean;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -344,6 +354,11 @@ export interface Database {
           cost_usd: number;
           generation_id: string | null;
           retry_count: number;
+          checkpoint_stage: string;
+          checkpoint_progress: number;
+          checkpoint_message: string | null;
+          checkpoint_updated_at: string;
+          checkpoint_history: Json;
           created_at: string;
           started_at: string | null;
           finished_at: string | null;
@@ -365,6 +380,11 @@ export interface Database {
           cost_usd?: number;
           generation_id?: string | null;
           retry_count?: number;
+          checkpoint_stage?: string;
+          checkpoint_progress?: number;
+          checkpoint_message?: string | null;
+          checkpoint_updated_at?: string;
+          checkpoint_history?: Json;
           started_at?: string | null;
           finished_at?: string | null;
         };
