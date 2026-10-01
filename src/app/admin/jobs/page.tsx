@@ -1,4 +1,9 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { tryGetOwnerId } from "@/lib/auth";
+import { isAdminUserId } from "@/lib/auth/admin";
+import { lastProcessingCheckpoint, parseJobCheckpoints } from "@/lib/job-checkpoints";
+import { keyedItems } from "@/lib/keyed-items";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 
@@ -12,6 +17,8 @@ export default async function AdminJobsPage({
 }: {
   searchParams: Promise<{ status?: string; tool?: string }>;
 }) {
+  const ownerId = await tryGetOwnerId();
+  if (!isAdminUserId(ownerId)) notFound();
   const params = await searchParams;
   const status = STATUSES.includes(params.status as (typeof STATUSES)[number])
     ? (params.status as (typeof STATUSES)[number])
@@ -163,6 +170,11 @@ export default async function AdminJobsPage({
 
 function JobTableRow({ job }: { job: JobRow }) {
   const duration = durationMs(job);
+  const history = parseJobCheckpoints(job.checkpoint_history);
+  const interrupted =
+    job.status === "error" ? lastProcessingCheckpoint(job.checkpoint_history) : null;
+  const stage = interrupted?.stage ?? job.checkpoint_stage;
+  const progress = interrupted?.progress ?? job.checkpoint_progress;
   return (
     <tr className="align-top hover:bg-neutral-50/70">
       <td className="px-4 py-3">
@@ -174,19 +186,34 @@ function JobTableRow({ job }: { job: JobRow }) {
       </td>
       <td className="w-[230px] px-4 py-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="font-medium text-neutral-700">{stageLabel(job.checkpoint_stage)}</span>
-          <span className="tabular-nums text-neutral-400">{job.checkpoint_progress}%</span>
+          <span className="font-medium text-neutral-700">{stageLabel(stage)}</span>
+          <span className="tabular-nums text-neutral-400">{progress}%</span>
         </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-100">
           <div
             className={`h-full rounded-full ${job.status === "error" ? "bg-red-500" : "bg-blue-600"}`}
-            style={{ width: `${job.checkpoint_progress}%` }}
+            style={{ width: `${progress}%` }}
           />
         </div>
         {job.checkpoint_message && job.status !== "error" && (
           <p className="mt-1.5 line-clamp-2 text-[10px] leading-4 text-neutral-400">
             {job.checkpoint_message}
           </p>
+        )}
+        {history.length > 0 && (
+          <details className="mt-2 text-[10px] text-neutral-500">
+            <summary className="cursor-pointer">단계 이력 {history.length}개</summary>
+            <ol className="mt-2 space-y-1 border-l border-neutral-200 pl-2">
+              {keyedItems(history).map(({ item, key }) => (
+                <li key={key} className="flex justify-between gap-2">
+                  <span>{stageLabel(item.stage)}</span>
+                  <time dateTime={item.at} className="tabular-nums">
+                    {formatDate(item.at)}
+                  </time>
+                </li>
+              ))}
+            </ol>
+          </details>
         )}
       </td>
       <td className="max-w-[280px] px-4 py-3">
@@ -290,6 +317,7 @@ function formatDuration(ms: number | null): string {
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
     month: "numeric",
     day: "numeric",
     hour: "2-digit",

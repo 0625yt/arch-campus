@@ -59,7 +59,10 @@ export function AttemptReflectionCard({
   }
 
   return (
-    <section className="mb-6 overflow-hidden rounded-[24px] border border-[color:rgba(57,92,160,0.18)] bg-[linear-gradient(135deg,rgba(238,244,255,0.96),rgba(255,255,255,0.96)_55%,rgba(238,250,246,0.94))] shadow-[0_24px_70px_rgba(32,67,128,0.08)] fade-up">
+    <section
+      id="reflection"
+      className="scroll-mt-24 mb-6 overflow-hidden rounded-[24px] border border-[color:rgba(57,92,160,0.18)] bg-[linear-gradient(135deg,rgba(238,244,255,0.96),rgba(255,255,255,0.96)_55%,rgba(238,250,246,0.94))] shadow-[0_24px_70px_rgba(32,67,128,0.08)] fade-up"
+    >
       <div className="border-b border-[color:rgba(57,92,160,0.12)] p-6 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

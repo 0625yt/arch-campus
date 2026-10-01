@@ -373,14 +373,15 @@ export async function listActiveJobs(opts: { ownerId: string }): Promise<JobView
   if (error || !data) return [];
 
   const live: JobRow[] = [];
-  const staleIds: string[] = [];
+  const staleRows: JobRow[] = [];
   for (const row of data) {
-    if (isStale(row)) staleIds.push(row.id);
+    if (isStale(row)) staleRows.push(row);
     else live.push(row);
   }
-  // 죽은 작업 일괄 정리 — 다음 폴링부터 화면에서 빠짐. ownerId 가드로 본인 것만.
-  if (staleIds.length > 0) {
-    await admin
+  // Re-check the observed execution before closing it: a worker may have completed
+  // or another poller may have restarted it since the initial SELECT.
+  for (const row of staleRows) {
+    let close = admin
       .from("jobs")
       .update({
         status: "error",
@@ -388,7 +389,15 @@ export async function listActiveJobs(opts: { ownerId: string }): Promise<JobView
         finished_at: new Date().toISOString(),
       })
       .eq("owner_id", opts.ownerId)
-      .in("id", staleIds);
+      .eq("id", row.id)
+      .eq("status", row.status)
+      .eq("retry_count", row.retry_count);
+    close =
+      row.started_at === null
+        ? close.is("started_at", null)
+        : close.eq("started_at", row.started_at);
+    const { error: closeError } = await close;
+    if (closeError) throw new Error("중단된 작업 상태를 정리하지 못했어요.");
   }
 
   return live.map(mapJob);

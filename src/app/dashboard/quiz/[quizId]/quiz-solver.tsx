@@ -1192,6 +1192,7 @@ function ResultSection({
       materialId={quiz.materialId}
       courseName={quiz.courseName}
       quizId={quiz.id}
+      attemptId={result.attemptId}
       durationLabel={durationLabel}
     />
   );

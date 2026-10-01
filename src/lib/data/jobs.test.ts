@@ -10,6 +10,7 @@ const { state } = vi.hoisted(() => ({
 vi.mock("@/lib/supabase/admin", () => ({
   getAdminSupabase: () => ({
     from: () => {
+      let single = false;
       let patch: Record<string, unknown> = {},
         filters: ((row: Record<string, unknown>) => boolean)[] = [];
       const execute = () => {
@@ -17,7 +18,7 @@ vi.mock("@/lib/supabase/admin", () => ({
         if (state.error) return { data: null, error: { message: "database unavailable" } };
         if (!filters.every((f) => f(state.row))) return { data: null, error: null };
         Object.assign(state.row, patch);
-        return { data: { ...state.row }, error: null };
+        return { data: single ? { ...state.row } : [{ ...state.row }], error: null };
       };
       const query = Object.assign(Promise.resolve().then(execute), {
         update: (value: Record<string, unknown>) => {
@@ -32,17 +33,31 @@ vi.mock("@/lib/supabase/admin", () => ({
           filters.push((row) => values.includes(row[key]));
           return query;
         },
+        is: (key: string, value: unknown) => {
+          filters.push((row) => row[key] === value);
+          return query;
+        },
         select: () => query,
         order: () => query,
         limit: () => query,
-        maybeSingle: () => query,
+        maybeSingle: () => {
+          single = true;
+          return query;
+        },
       });
       return query;
     },
   }),
 }));
 
-import { canAutoRetry, getLatestJob, markJobDone, markJobError, markJobRunning } from "./jobs";
+import {
+  canAutoRetry,
+  getLatestJob,
+  listActiveJobs,
+  markJobDone,
+  markJobError,
+  markJobRunning,
+} from "./jobs";
 
 beforeEach(() => {
   state.row = { id: "job", owner_id: "owner", status: "pending" };
@@ -118,5 +133,19 @@ it("stale cleanup preserves a worker completion that won the race", async () => 
     tool: "summarize",
   });
   expect(result?.status).toBe("done");
+  expect(state.row.status).toBe("done");
+});
+
+it("active-list cleanup preserves a completion after the list was read", async () => {
+  state.row = {
+    id: "job",
+    owner_id: "owner",
+    status: "running",
+    retry_count: 1,
+    created_at: "2020-01-01T00:00:00Z",
+    started_at: "2020-01-01T00:00:00Z",
+  };
+  state.completeBeforeUpdate = true;
+  await listActiveJobs({ ownerId: "owner" });
   expect(state.row.status).toBe("done");
 });

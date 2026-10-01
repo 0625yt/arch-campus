@@ -23,7 +23,8 @@
     "test:db-security": "node --env-file=.env.local scripts/test-db-security.mjs",
     "test:live-auth": "node --import tsx --env-file=.env.local scripts/test-live-auth.mjs",
     "test:authenticated-browser": "node --env-file=.env.local scripts/test-authenticated-browser.mjs",
-    "test:live-ai": "RUN_LLM_EVAL=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run src/lib/eval/quiz-grading.integration.test.ts src/lib/eval/quiz-verifier.integration.test.ts"
+    "test:live-ai": "RUN_LLM_EVAL=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run src/lib/eval/quiz-grading.integration.test.ts src/lib/eval/quiz-verifier.integration.test.ts",
+    "test:learning-flows": "node --env-file=.env.local scripts/test-learning-flows.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.76",
