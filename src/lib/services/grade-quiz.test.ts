@@ -214,7 +214,9 @@ describe("gradeQuiz", () => {
       mkQ(1, "A", { kind: "short-answer", choices: null, answer: "どちら | どっち" }),
     ];
     expect(gradeQuiz(orQ, [{ questionId: 1, response: "どちら" }]).results[0].correct).toBe(true);
-    expect(gradeQuiz(orQ, [{ questionId: 1, response: "どちら" }]).results[0].partial).toBeUndefined();
+    expect(
+      gradeQuiz(orQ, [{ questionId: 1, response: "どちら" }]).results[0].partial,
+    ).toBeUndefined();
 
     // AND(&) 수정 형태: 둘 다 써야 정답, 하나만 쓰면 오답 + 부분 채점으로 "뭘 빠뜨렸는지" 노출.
     const andQ: Question[] = [
@@ -229,5 +231,28 @@ describe("gradeQuiz", () => {
     expect(partial.correct).toBe(false);
     expect(partial.partial?.matchedParts).toContain("どちら");
     expect(partial.partial?.missingParts).toContain("どっち");
+  });
+
+  it("정답의 짧은 접두어만 쓴 답은 정답으로 인정하지 않는다", () => {
+    const korean = [mkQ(1, "A", { kind: "short-answer", choices: null, answer: "정규화" })];
+    const numeric = [mkQ(1, "A", { kind: "short-answer", choices: null, answer: "10" })];
+
+    expect(gradeQuiz(korean, [{ questionId: 1, response: "정" }]).results[0].correct).toBe(false);
+    expect(gradeQuiz(numeric, [{ questionId: 1, response: "1" }]).results[0].correct).toBe(false);
+  });
+
+  it("영문 약어가 다른 단어의 일부인 경우를 오답으로 유지한다", () => {
+    const questions = [mkQ(1, "A", { kind: "short-answer", choices: null, answer: "OS" })];
+    expect(gradeQuiz(questions, [{ questionId: 1, response: "BIOS" }]).results[0].correct).toBe(
+      false,
+    );
+  });
+
+  it("완전한 정답 용어를 설명 문장 안에 쓴 경우는 인정한다", () => {
+    const questions = [mkQ(1, "A", { kind: "short-answer", choices: null, answer: "정규화" })];
+    expect(
+      gradeQuiz(questions, [{ questionId: 1, response: "정답은 정규화 입니다" }]).results[0]
+        .correct,
+    ).toBe(true);
   });
 });

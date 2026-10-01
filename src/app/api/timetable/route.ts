@@ -56,6 +56,17 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "file 필드가 비어있어요" }, { status: 400 });
   }
 
+  if (/\.xls$/i.test(file.name)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "구형 .xls는 셀 위치를 안전하게 읽을 수 없어요. Excel에서 .xlsx로 저장해 올려주세요.",
+      },
+      { status: 400 },
+    );
+  }
+
   const semesterHint = inferSemester().label;
 
   let uploaded: Awaited<ReturnType<typeof storeMaterialFile>>;
@@ -109,7 +120,7 @@ export async function POST(
   const mimeType = uploaded.mimeType;
   after(async () => {
     try {
-      await markJobRunning({ jobId: job.id, ownerId });
+      if (!(await markJobRunning({ jobId: job.id, ownerId }))) return;
 
       let parsed: Awaited<ReturnType<typeof parseDocument>>;
       try {
@@ -139,7 +150,12 @@ export async function POST(
         .eq("id", material.id)
         .eq("owner_id", ownerId);
 
-      if (parsed.sanitizedText.trim().length < 80) {
+      const directFileEligible =
+        mimeType === "application/pdf" ||
+        mimeType.startsWith("image/") ||
+        mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        /\.xlsx$/i.test(uploaded.filename);
+      if (parsed.sanitizedText.trim().length < 80 && !directFileEligible) {
         await markJobError({
           jobId: job.id,
           ownerId,
@@ -148,15 +164,16 @@ export async function POST(
         return;
       }
 
-      const visionEligible = mimeType === "application/pdf" || mimeType.startsWith("image/");
       const result = await runTimetableExtraction({
         ownerId,
         materialId: material.id,
         title,
+        filename: uploaded.filename,
         fullText: parsed.sanitizedText,
         semesterHint,
-        fileBytes: visionEligible ? bytesForExtract : undefined,
-        fileMediaType: visionEligible ? mimeType : undefined,
+        // PDF/이미지는 vision, XLSX는 셀 좌표 파서가 같은 원본 복사본을 사용한다.
+        fileBytes: directFileEligible ? bytesForExtract : undefined,
+        fileMediaType: directFileEligible ? mimeType : undefined,
       });
 
       if (!result.ok) {
@@ -173,6 +190,7 @@ export async function POST(
             termYear: result.output.termYear,
             termLabel: result.output.termLabel,
             courses: result.output.courses,
+            warnings: result.output.warnings,
             parser: parsed.source,
             pageCount: parsed.pageCount ?? null,
             usage: { costUsd: result.costUsd },

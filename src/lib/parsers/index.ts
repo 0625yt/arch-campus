@@ -67,7 +67,7 @@ export async function parseDocument(input: ParseInput): Promise<ParseResult> {
   const bytes = toUint8Array(input.bytes);
   if (bytes.byteLength > MAX_PARSE_BYTES) {
     throw new ParserRejectedError(
-      `파일이 너무 커요: ${(bytes.byteLength / 1_000_000).toFixed(1)}MB (최대 25MB)`,
+      `파일이 너무 커요: ${(bytes.byteLength / 1_000_000).toFixed(1)}MB (최대 60MB)`,
       "too-large",
     );
   }

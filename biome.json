@@ -6,12 +6,17 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["src/**", "*.ts", "*.tsx", "*.mts", "*.json"],
-    "experimentalScannerIgnores": [
-      ".next/**",
-      "node_modules/**",
-      "tsconfig.tsbuildinfo",
-      "public/**"
+    "includes": [
+      "**",
+      "!!**/.next",
+      "!!**/node_modules",
+      "!!**/tsconfig.tsbuildinfo",
+      "!!**/public",
+      "src/**",
+      "*.ts",
+      "*.tsx",
+      "*.mts",
+      "*.json"
     ]
   },
   "formatter": {
@@ -51,6 +56,9 @@
       "trailingCommas": "all",
       "arrowParentheses": "always"
     }
+  },
+  "css": {
+    "parser": { "tailwindDirectives": true }
   },
   "json": {
     "formatter": { "enabled": true },

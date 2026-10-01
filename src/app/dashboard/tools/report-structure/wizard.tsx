@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Kbd } from "@/components/primitives";
 import { WizardWatermark } from "@/components/wizard-shell";
 import { useJob } from "@/lib/hooks/use-job";
+import { keyedItems } from "@/lib/keyed-items";
 import type { ReportStructureOutputT } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 
@@ -577,10 +578,14 @@ function AdditionalRequestField({
 }) {
   return (
     <div className="mt-6 flex flex-col gap-2">
-      <label className="flex items-center gap-1.5 text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+      <label
+        htmlFor="additional-request"
+        className="flex items-center gap-1.5 text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
+      >
         추가 요청 사항 (선택)
       </label>
       <textarea
+        id="additional-request"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -760,8 +765,8 @@ export function ReportStructureResultCard({
                     className="mt-2 flex flex-col gap-1.5 text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-ink)]"
                     style={{ letterSpacing: "-0.012em" }}
                   >
-                    {s.keyQuestions.map((q, i) => (
-                      <li key={i} className="flex gap-2">
+                    {keyedItems(s.keyQuestions).map(({ item: q, key: contentKey0 }, i) => (
+                      <li key={contentKey0} className="flex gap-2">
                         <span className="shrink-0 wght-560 text-[var(--color-apple-action)]">
                           {i + 1}.
                         </span>
@@ -798,9 +803,9 @@ export function ReportStructureResultCard({
           본문 쓰기 전 체크
         </h3>
         <ul className="mt-4 flex flex-col gap-2.5">
-          {output.preWriteChecks.map((c, i) => (
+          {keyedItems(output.preWriteChecks).map(({ item: c, key: contentKey1 }) => (
             <li
-              key={i}
+              key={contentKey1}
               className="flex gap-2 text-[13.5px] wght-450 leading-[1.6] text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
@@ -822,9 +827,9 @@ export function ReportStructureResultCard({
           자주 빠지는 함정
         </h3>
         <ul className="mt-4 flex flex-col gap-2.5">
-          {output.commonPitfalls.map((p, i) => (
+          {keyedItems(output.commonPitfalls).map(({ item: p, key: contentKey2 }) => (
             <li
-              key={i}
+              key={contentKey2}
               className="flex gap-2 text-[13.5px] wght-450 leading-[1.6] text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
@@ -1021,6 +1026,7 @@ function CheckBox({ checked }: { checked: boolean }) {
     >
       {checked && (
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+          <title>아이콘</title>
           <path
             d="M1.5 5 L4 7.5 L8.5 2.5"
             stroke="currentColor"
@@ -1047,6 +1053,7 @@ function Spinner() {
 function CheckIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+      <title>아이콘</title>
       <path
         d="M2 5.2l2 2L8 3"
         stroke="currentColor"

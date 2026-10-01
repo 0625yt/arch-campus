@@ -33,6 +33,8 @@ const PERIOD_RE = /^(\d{1,2})교시$/;
 const TIME_RE = /^\[(\d{1,2}):(\d{2})~(\d{1,2}):(\d{2})\]$/;
 
 export interface TimetableGrid {
+  /** 시간표로 선택된 PDF 페이지 (1부터 시작) */
+  page: number;
   /** 헤더 row의 y 좌표 — 디버깅·로깅용 */
   headerY: number;
   /** 일/월/화/수/목/금/토 → 컬럼 경계 (left, right) x 좌표 */
@@ -61,9 +63,9 @@ export interface ExtractGridFailure {
 export async function extractTimetableGrid(
   bytes: ParseBytes,
 ): Promise<ExtractGridResult | ExtractGridFailure> {
-  let items: RawItem[];
+  let pages: RawItem[][];
   try {
-    items = await loadAllItems(bytes);
+    pages = await loadAllItemsByPage(bytes);
   } catch (e) {
     return {
       ok: false,
@@ -71,19 +73,45 @@ export async function extractTimetableGrid(
       message: e instanceof Error ? e.message : String(e),
     };
   }
-  if (items.length === 0) {
+  if (pages.every((items) => items.length === 0)) {
     return { ok: false, reason: "no-rows", message: "텍스트 조각을 못 찾음" };
   }
 
+  // PDF 페이지마다 좌표계 원점이 같다. 여러 페이지의 아이템을 한 배열에 합치면
+  // 1페이지의 (x=200,y=500) 텍스트가 152페이지 시간표의 같은 셀로 들어가는 심각한
+  // 오염이 생긴다. 각 페이지를 완전히 독립적으로 복원하고, 실제 수업 셀이 가장
+  // 풍부한 후보 하나만 선택한다.
+  const candidates = pages
+    .map((items, pageIndex) => buildTimetableCandidate(items, pageIndex + 1))
+    .filter((candidate): candidate is TimetableCandidate => candidate !== null)
+    .sort((a, b) => b.score - a.score || a.grid.page - b.grid.page);
+
+  const best = candidates[0];
+  if (best) {
+    return { ok: true, grid: best.grid, markdown: gridToMarkdown(best.grid) };
+  }
+
+  const hasHeader = pages.some((items) => findHeaderRow(items) !== null);
+  return hasHeader
+    ? { ok: false, reason: "no-rows", message: "요일 헤더는 찾았지만 수업 셀이 비어있음" }
+    : {
+        ok: false,
+        reason: "no-header",
+        message: "요일 헤더(일/월/화/수/목/금/토) 행을 못 찾음",
+      };
+}
+
+interface TimetableCandidate {
+  grid: TimetableGrid;
+  score: number;
+}
+
+function buildTimetableCandidate(items: RawItem[], page: number): TimetableCandidate | null {
+  if (items.length === 0) return null;
+
   // 1) 헤더 row 찾기 — 같은 y에 "일/월/화/수/목/금/토" 중 5개 이상 모인 줄
   const header = findHeaderRow(items);
-  if (!header) {
-    return {
-      ok: false,
-      reason: "no-header",
-      message: "요일 헤더(일/월/화/수/목/금/토) 행을 못 찾음",
-    };
-  }
+  if (!header) return null;
 
   // 2) 컬럼 경계 — 인접 헤더 사이 중점을 경계로
   const columns = buildColumns(header);
@@ -95,9 +123,7 @@ export async function extractTimetableGrid(
   //    행 경계는 **시간 라벨의 y**로 잡는다 (period 라벨은 셀 중앙에 가까워
   //    셀 안의 마지막 줄(강의명)이 다음 행으로 새는 사례가 잦음).
   const periods = extractPeriods(body, columns[0].left);
-  if (periods.length === 0) {
-    return { ok: false, reason: "no-rows", message: "교시 anchor를 못 찾음" };
-  }
+  if (periods.length === 0) return null;
 
   // 5) 각 period의 y 범위 안에 있는 데이터 셀을 컬럼별로 모은다.
   //    yTop = 시간 라벨 y (행의 진짜 윗변), yBottom = 다음 행의 시간 라벨 y.
@@ -148,37 +174,28 @@ export async function extractTimetableGrid(
       return true;
     });
 
-  if (rows.length === 0) {
-    return { ok: false, reason: "no-rows", message: "데이터 셀이 모두 비어있음" };
-  }
+  if (rows.length === 0) return null;
 
-  const grid: TimetableGrid = { headerY: header.y, columns, rows };
-  return { ok: true, grid, markdown: gridToMarkdown(grid) };
-}
+  // 안내서의 페이지 번호·범례가 우연히 "월 화 수" 아래 `24교시 / - 4 -`처럼
+  // 놓인 경우를 시간표로 오인하지 않는다. 적어도 한 셀에는 두 글자 이상의 실제
+  // 텍스트가 있어야 하고, 시간 라벨이 전혀 없다면 서로 다른 수업 행이 두 개는 필요하다.
+  const meaningfulCellTexts = rows
+    .flatMap((row) => Object.values(row.cells).flat())
+    .filter((text) => /\p{L}.*\p{L}/u.test(text.normalize("NFKC")));
+  const timedRows = rows.filter((row) => TIME_RE.test(row.time)).length;
+  if (meaningfulCellTexts.length === 0 || (timedRows === 0 && rows.length < 2)) return null;
 
-async function loadAllItems(bytes: ParseBytes): Promise<RawItem[]> {
-  const u8 = toUint8Array(bytes);
-  const pdf = await getDocumentProxy(u8);
-  const all: RawItem[] = [];
-  for (let i = 1; i <= pdf.numPages; i += 1) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    for (const it of content.items) {
-      if (!("str" in it) || typeof it.str !== "string") continue;
-      const s = it.str.trim();
-      if (s.length === 0) continue;
-      const t = it.transform as number[];
-      if (!Array.isArray(t) || t.length < 6) continue;
-      all.push({
-        str: s,
-        x: round1(t[4]),
-        y: round1(t[5]),
-        w: round1((it as { width?: number }).width ?? 0),
-        h: round1((it as { height?: number }).height ?? 0),
-      });
-    }
-  }
-  return all;
+  const populatedCells = rows.reduce(
+    (sum, row) => sum + Object.values(row.cells).filter((cell) => cell.length > 0).length,
+    0,
+  );
+  const cellTextCount = rows.reduce((sum, row) => sum + Object.values(row.cells).flat().length, 0);
+  const grid: TimetableGrid = { page, headerY: header.y, columns, rows };
+  return {
+    grid,
+    // 실제 채워진 셀을 가장 크게 보고, 행·요일 수·텍스트 양으로 동률을 깬다.
+    score: populatedCells * 100 + rows.length * 10 + columns.length * 3 + cellTextCount,
+  };
 }
 
 interface HeaderRow {
@@ -380,7 +397,8 @@ export async function extractPdfTablesByHeader(
 }
 
 async function loadAllItemsByPage(bytes: ParseBytes): Promise<RawItem[][]> {
-  const u8 = toUint8Array(bytes);
+  // pdfjs worker가 ArrayBuffer를 transfer해도 호출자가 보유한 바이트는 유지한다.
+  const u8 = Uint8Array.from(toUint8Array(bytes));
   const pdf = await getDocumentProxy(u8);
   const out: RawItem[][] = [];
   for (let i = 1; i <= pdf.numPages; i += 1) {

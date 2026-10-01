@@ -169,7 +169,6 @@ function ThreadRow({
       <div className="border-b border-[var(--color-apple-hairline)] px-3 py-2">
         <input
           type="text"
-          autoFocus
           value={renameText}
           maxLength={100}
           onChange={(e) => onChangeRename(e.target.value)}

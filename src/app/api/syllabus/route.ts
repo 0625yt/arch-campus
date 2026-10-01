@@ -110,7 +110,7 @@ export async function POST(
 
   after(async () => {
     try {
-      await markJobRunning({ jobId: job.id, ownerId });
+      if (!(await markJobRunning({ jobId: job.id, ownerId }))) return;
 
       let parsed: Awaited<ReturnType<typeof parseDocument>>;
       try {

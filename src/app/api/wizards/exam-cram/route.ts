@@ -86,7 +86,7 @@ export async function POST(req: Request): Promise<NextResponse> {
 
   after(async () => {
     try {
-      await markJobRunning({ jobId: job.id, ownerId });
+      if (!(await markJobRunning({ jobId: job.id, ownerId }))) return;
 
       // 선택한 자료와 연결된 오답을 끌어와 모델에 priority 신호로 전달.
       const allWrong = await listWrongItems({ ownerId, sinceDays: 60, limit: 200 });

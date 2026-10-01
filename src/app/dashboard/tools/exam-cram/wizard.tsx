@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { cloneElement, isValidElement, type ReactElement, useId, useMemo, useState } from "react";
 import { WizardWatermark } from "@/components/wizard-shell";
 import { useJob } from "@/lib/hooks/use-job";
+import { keyedItems } from "@/lib/keyed-items";
 import type { ExamCramOutputT } from "@/lib/schemas";
 
 export interface CourseOption {
@@ -227,7 +228,6 @@ function StepOne({
           placeholder="예: 운영체제 중간고사"
           className={inputClass}
           maxLength={120}
-          autoFocus
         />
       </Field>
 
@@ -544,9 +544,9 @@ export function ExamCramResultCard({
           단원 우선순위
         </h3>
         <ul className="mt-5 flex flex-col gap-4">
-          {output.topics.map((t, i) => (
+          {keyedItems(output.topics).map(({ item: t, key: contentKey0 }) => (
             <li
-              key={i}
+              key={contentKey0}
               className="border-b border-[var(--color-apple-hairline-soft)] pb-4 last:border-0 last:pb-0"
             >
               <div className="flex items-baseline gap-2">
@@ -562,9 +562,9 @@ export function ExamCramResultCard({
                 </span>
               </div>
               <ul className="mt-2.5 flex flex-col gap-1">
-                {t.mustReview.map((m, j) => (
+                {keyedItems(t.mustReview).map(({ item: m, key: contentKey1 }) => (
                   <li
-                    key={j}
+                    key={contentKey1}
                     className="flex gap-2 text-[13px] wght-450 leading-[1.55] text-[var(--color-apple-ink)]"
                     style={{ letterSpacing: "-0.012em" }}
                   >
@@ -581,9 +581,9 @@ export function ExamCramResultCard({
                     자주 헷갈리는 부분
                   </p>
                   <ul className="mt-1 flex flex-col gap-1">
-                    {t.commonMistakes.map((m, k) => (
+                    {keyedItems(t.commonMistakes).map(({ item: m, key: contentKey2 }) => (
                       <li
-                        key={k}
+                        key={contentKey2}
                         className="text-[12.5px] wght-450 leading-[1.55] text-[var(--color-urgent-strong)]"
                         style={{ letterSpacing: "-0.012em" }}
                       >
@@ -649,9 +649,9 @@ export function ExamCramResultCard({
           시험 직전 팁
         </h3>
         <ul className="mt-4 flex flex-col gap-2">
-          {output.finalTips.map((t, i) => (
+          {keyedItems(output.finalTips).map(({ item: t, key: contentKey3 }) => (
             <li
-              key={i}
+              key={contentKey3}
               className="flex gap-2 text-[13.5px] wght-450 leading-[1.6] text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
@@ -686,13 +686,16 @@ function Field({
   required?: boolean;
   children: React.ReactNode;
 }) {
+  const controlId = useId();
   return (
-    <label className="flex flex-col gap-2.5">
+    <label htmlFor={controlId} className="flex flex-col gap-2.5">
       <span className="flex items-center gap-1.5 text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
         {label}
         {required && <span className="text-[var(--color-urgent)]">*</span>}
       </span>
-      {children}
+      {isValidElement(children)
+        ? cloneElement(children as ReactElement<{ id?: string }>, { id: controlId })
+        : children}
     </label>
   );
 }
@@ -753,6 +756,7 @@ function CheckBox({ checked }: { checked: boolean }) {
     >
       {checked && (
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+          <title>아이콘</title>
           <path
             d="M1.5 5 L4 7.5 L8.5 2.5"
             stroke="currentColor"

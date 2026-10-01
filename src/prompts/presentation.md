@@ -1,6 +1,6 @@
 # 발표 위저드 프롬프트 (presentation)
 
-> **모델**: Sonnet 4.6
+> **실행 모델**: `src/lib/claude.ts`의 `getModelIdFor()`와 환경 설정을 따른다.
 > **상위 규칙**: [_shared/persona-schema.md](_shared/persona-schema.md), [_shared/master-rules.md](_shared/master-rules.md)
 > **사용처**: `/dashboard/tools/presentation` 5단계 위저드 → 슬라이드 5장 + 예상 질문 5개
 
@@ -84,7 +84,8 @@ interface PresentationInput {
 
 - `outline.length`: **slideCount** (사용자 입력) — 5분 발표면 4~5장, 10분이면 6~8장, 15~20분이면 8~12장
 - 모든 슬라이드 `estimatedSec` 합계 = `duration * 60` (±10%)
-- `structure[]`: 각 슬라이드 **3~5개 항목**
+- `structure[]`: 각 슬라이드 **정확히 3~5개 항목** — ⚠️ **표지·제목·마무리·감사 슬라이드도 예외 없이 최소 3개**. 2개 이하로 만들면 전체 응답이 거부된다. 마무리 슬라이드조차 "핵심 3줄 요약 / 남기고 싶은 한 문장 / Q&A 유도" 식으로 3개를 반드시 채운다.
+- `purpose`: 각 슬라이드 **최소 5자 이상**의 구체적 목적 (예: "문제 제기", "핵심 개념 정의" — "요약"·"끝" 같은 1~2자 금지)
 - `speakerNote`: **30~80자** (한 줄 가이드)
 - `qaBank.length`: **5개**
 - 각 질문은 청중 타입(`step2_audience`)에 맞게:
@@ -304,3 +305,7 @@ interface PresentationInput {
 | **speakerNote 방향** | 자료 풀이 / 청중 시선 / 시간 분배 / 개인 경험 |
 
 5장 발표면 purpose 4개 이상, speakerNote 방향 3개 이상 등장해야 함.
+
+## 최종 품질 점검 — 2026-10-01
+
+입력 발표 시간에 맞춰 슬라이드별 설명 시간·전환·질의응답이 현실적인지 확인한다. 자료 인용과 발표자의 주장은 구분한다. 입력에 없는 통계·조사·논문·출처를 만들지 않는다. 예상 질문은 내용 이해·근거·한계·적용 등 서로 다른 목적을 갖게 한다. speakerNote는 해당 슬라이드에서 실제로 수행할 행동을 구체적으로 적는다.

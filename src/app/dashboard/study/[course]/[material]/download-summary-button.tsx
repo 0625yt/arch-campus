@@ -76,6 +76,7 @@ export function DownloadSummaryButton({
       aria-label="요약을 PDF로 저장"
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <title>아이콘</title>
         <path
           d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"
           stroke="currentColor"

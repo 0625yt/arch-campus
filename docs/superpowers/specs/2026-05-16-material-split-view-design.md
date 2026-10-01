@@ -1,221 +1,175 @@
-# Material 상세 split-view + 자동 PDF 변환 — Design
+# Material 상세 PDF·요약 split-view — Current Design
 
-> 2026-05-16. 스프린트 다음 작업.
-> 사용자 요청: "자료 들어가면 좌측에 원본 + 우측에 요약, 페이지 번호 클릭하면 좌측 점프. Office 파일은 자동 PDF 변환."
+> 최초 작성 2026-05-16, 현재 구현 기준 갱신 2026-07-23.
+> 최초안의 CloudConvert 기반 Office 자동 변환은 2026-05-31 제거됐다. 이 문서는 현재 코드를 기준으로 하며, 같은 날짜의 implementation plan은 당시 검토 기록으로만 남긴다.
 
 ---
 
 ## 목적
 
-학생이 자료 페이지에서 **원본을 보면서 요약을 같이 읽도록**. 요약 안의 페이지 칩(`p.2`)을 누르면 좌측 PDF가 해당 페이지로 점프. 신뢰감↑, 자료 검증 시간↓.
+학생이 원문 PDF와 요약을 한 화면에서 대조하고, 요약의 출처 페이지에서 원문 근거로 바로 돌아가도록 한다. 읽은 뒤에는 같은 자료의 문제·오답으로 이어질 수 있어야 한다.
 
-PPTX·DOCX·HWPX 등 Office 파일은 업로드 시 **자동으로 PDF로 변환**하여 동일한 split-view 경험 제공.
-
----
-
-## 범위
+## 현재 지원 범위
 
 ### 포함
-- material 상세 페이지 (`/dashboard/study/[course]/[material]`) 데스크톱(≥md)에서 sticky 좌(PDF iframe) + 스크롤 우(요약) 레이아웃
-- 요약 블록(`h2`/`para`/`bullets`/`callout`) 각각 `sourcePage` 있을 때 `p.N` 칩 표시
-- 칩 클릭 → 데스크톱: iframe page fragment 갱신 / 모바일: `target="_blank"` 새 탭
-- 업로드 후 mime_type이 PDF가 아니면 CloudConvert API로 자동 PDF 변환 후 Storage 교체
-- 변환 진행 중 좌측 placeholder + client polling
-- 변환 실패 시 "원본 다운로드" fallback
 
-### 제외 (Phase 2)
-- PPT/DOCX 외 변환 (이미지·CSV·동영상)
-- Resizable split bar
-- PDF 페이지 썸네일 좌측 트레이
-- 메모·형광펜
-- Webhook 기반 변환 (현재는 poll)
+- `/dashboard/study/[course]/[material]`의 PDF 자료
+- 데스크톱(`md` 이상)에서 좌측 PDF + 우측 요약 분할 화면
+- `PDF만` / `5:5` / `요약만` 보기 전환
+- 분할 경계를 드래그해 20:80~80:20 범위에서 비율 조절
+- 분할 경계의 키보드 조절: `ArrowLeft`/`ArrowRight`, `Home`, `End`
+- 선택한 보기와 분할 비율을 `localStorage`에 저장
+- 요약 블록의 `sourcePage`를 `p.N` 버튼으로 표시
+- 데스크톱에서 `p.N` 클릭 시 같은 화면의 PDF 패널이 해당 페이지로 이동
+- 모바일에서 `p.N` 클릭 시 PDF를 새 탭으로 열기
+- 브라우저 인쇄 기능을 이용한 요약 PDF 저장
 
----
+### 제외 또는 제한
 
-## 의사결정 표
-
-| 결정 | 선택 | 근거 |
-|---|---|---|
-| 좌측 뷰어 | 브라우저 native `<iframe src#page=N>` | 의존성 0KB, 모든 모던 브라우저 지원, 페이지 fragment 동작 |
-| 변환 엔진 | CloudConvert API | LibreOffice/Vercel 미지원, 1000 conv/월 무료, 외부 의존이지만 검증된 서비스 |
-| 변환 시점 | 별도 `convert-pdf` job (after 콜백 병렬) | finalize 응답 즉시, UI는 폴링으로 자연 갱신 |
-| Signed URL TTL | 1h | 균형. 사용자 세션 길이 충분, 유출돼도 1h 후 자연 만료 |
-| 모바일 split | 안 함 — 단일 컬럼 + `target="_blank"` | iframe 모바일 UX 안 좋음, OS native PDF 뷰어가 더 나음 |
-| 데스크톱 분할 비율 | 고정 (좌 ~55%, 우 45%) | resizable 안 함 (Phase 2). max-w 풀고 전체 viewport 활용 |
+- PPTX·DOCX·HWP/HWPX의 자동 PDF 변환은 지원하지 않는다. 업로드 단계에서 PDF로 내보낸 뒤 다시 올리도록 안내한다.
+- 모바일은 분할 화면을 제공하지 않고 요약 단일 컬럼을 사용한다.
+- PDF 페이지 썸네일, 메모, 형광펜은 제공하지 않는다.
+- 현재 PDF 뷰어는 모든 페이지를 렌더한다. 페이지 수가 큰 자료의 가상화는 후속 최적화 범위다.
 
 ---
 
-## 아키텍처
+## 핵심 의사결정
 
-### 데이터 흐름
-
-```
-[브라우저] file drop (.pptx)
-  ↓
-[POST /api/materials/upload-url] signed upload URL + materialId
-  ↓
-[브라우저 → Supabase Storage] PUT (Vercel 함수 우회, 25MB 한도)
-  ↓
-[POST /api/materials/finalize]
-  1. owner-prefix 검증
-  2. Storage 다운로드 → parseDocument (텍스트 추출 — PPTX/DOCX 그대로 잘 됨)
-  3. materials INSERT (mime_type=원본, storage_path=원본)
-  4. enqueueJob × 3:
-     - summarize (텍스트 기반, PDF 안 기다림)
-     - quiz
-     - convert-pdf (이미 PDF면 skip)
-  5. after() → 3 잡 병렬 실행
-  6. 클라이언트에 materialId 즉시 응답
-  ↓
-[브라우저] router.push(/dashboard/study/[course]/[materialId])
-  ↓
-[server: page.tsx]
-  - getMaterialDetail()
-  - if mime_type=pdf → createSignedReadUrl() → MaterialView(pdfUrl, summary)
-  - if !pdf + summary 있음 + active convert-pdf job: SummaryColumn + 좌측 "PDF 변환 중" placeholder (client polling)
-  - if !pdf + 변환 실패: SummaryColumn + 좌측 "원본 다운로드" 카드
-
-[runConvertPdfJob (after 콜백 안에서 실행)]
-  1. CloudConvert에 원본 업로드 (storage_path으로 다운로드 후 재업로드)
-  2. PDF 변환 작업 생성 → status polling (5초 간격, 최대 5분)
-  3. 결과 PDF 다운로드
-  4. Storage에 <ownerId>/<materialId>.pdf로 PUT
-  5. materials UPDATE:
-       - original_storage_path = (구) storage_path
-       - storage_path = 새 PDF 경로
-       - mime_type = "application/pdf"
-  6. markJobDone
-
-[클라이언트: PdfConvertLoading (혹은 MaterialView 안 분기)]
-  - useActiveJobs로 이 materialId 앞 convert-pdf 잡 폴링
-  - active O → 좌측 placeholder + spinner
-  - active X (직전엔 있었음) → router.refresh → 서버가 새 storage_path로 다시 그림
-```
-
-### 컴포넌트 단위
-
-| 컴포넌트 | 타입 | 입력 | 책임 |
-|---|---|---|---|
-| `MaterialView` | client | `pdfUrl`, `summary`, `detail` | viewport 분기, page state, PageChip ↔ PdfViewer 연결 |
-| `PdfViewer` | client | `src`, `page` | `<iframe>` + `key={page}` remount로 fragment 점프 |
-| `SummaryColumn` | client | `summary`, `onPageClick` | 기존 SummaryArticle 본문 + 블록마다 PageChip |
-| `PageChip` | client | `page`, `onClick` | `p.N` 칩 시각 + 위임 |
-| `PdfConvertLoading` | client | `materialId` | active convert-pdf 잡 폴링 + 완료 시 refresh |
-| `createSignedReadUrl` | server | `storagePath`, `ttl` | service-role download signed URL |
-| `runConvertPdfJob` | server | `jobId`, `ownerId`, `materialId`, `storagePath`, `filename` | CloudConvert 호출, 결과 Storage 교체, DB 업데이트 |
-
-### DB 변경
-
-`jobs.tool`은 text + CHECK 제약 (0008_jobs.sql:11). 새 tool 추가하려면 CHECK 갱신 필요.
-
-```sql
--- supabase/migrations/0011_materials_pdf_convert.sql
-
--- 1) materials에 원본 경로 보존 컬럼
-alter table public.materials
-  add column if not exists original_storage_path text;
-
-comment on column public.materials.original_storage_path is
-  'Office → PDF 자동 변환 시 원본 파일 경로 보존. NULL이면 업로드 그대로가 storage_path.';
-
--- 2) jobs.tool CHECK 제약에 'convert-pdf' 추가
-alter table public.jobs drop constraint if exists jobs_tool_check;
-alter table public.jobs add constraint jobs_tool_check check (tool in (
-  'summarize', 'quiz', 'presentation',
-  'wizard-cram', 'wizard-assignment', 'wizard-exam',
-  'syllabus-extract', 'timetable-extract', 'post-mortem',
-  'convert-pdf'
-));
-```
-
-### 새 환경변수
-
-| Key | Where | Required |
+| 결정 | 현재 선택 | 근거 |
 |---|---|---|
-| `CLOUDCONVERT_API_KEY` | Vercel env (prod·preview), `.env.local` | yes (Office 변환에 필수) |
+| 좌측 뷰어 | `react-pdf` 기반 `PdfCanvasViewer` | PDF 내부 스크롤과 페이지 이동을 애플리케이션이 직접 제어한다. |
+| 데스크톱 기본 비율 | PDF 55% / 요약 45% | 원문 가독성을 확보하면서 요약을 함께 본다. |
+| 비율 조절 | 드래그 + 키보드, 20~80% 제한 | 포인터와 키보드 사용자 모두 조절할 수 있고 한쪽 내용이 사라질 만큼 좁아지는 것을 막는다. |
+| 빠른 보기 전환 | `PDF만` / `5:5` / `요약만` | 읽기 목적에 따라 한 번에 레이아웃을 바꾼다. |
+| 모바일 | 요약 단일 컬럼 + PDF 새 탭 | 작은 화면에서 두 컬럼을 억지로 유지하지 않는다. |
+| 출처 이동 | 요약 블록의 `sourcePage` | 요약의 근거를 원문 페이지와 연결한다. |
+| Office/HWP | 자동 변환 없음 | 서버 변환 의존성을 제거했다. 지원 형식은 업로드 UI와 finalize 검증을 따른다. |
 
-### 클라이언트 흐름 분기 (`page.tsx`)
+---
 
+## 데이터와 화면 흐름
+
+```text
+[PDF 업로드]
+  → Storage 저장 + materials 생성
+  → 텍스트 추출/OCR
+  → 요약 생성(sourcePage 포함)
+  → 상세 페이지 진입
+  → owner 검증 후 짧은 수명의 signed read URL 발급
+  → MaterialView(pdfUrl, summary)
+
+[데스크톱]
+  → PdfCanvasViewer | SummaryColumn
+  → p.N 선택
+  → PDF 패널 내부 스크롤만 해당 페이지로 이동
+
+[모바일]
+  → SummaryColumn
+  → p.N 선택
+  → signed PDF URL의 해당 페이지를 새 탭으로 열기
 ```
-if (!detail.summary)
-  → SummaryLoading (기존, 그대로)
 
-if (detail.summary && mimeType === 'application/pdf')
-  → MaterialView(pdfUrl, summary)   // 신규 split-view
+Office/HWP 계열 파일은 finalize에서 거절하며, 자동 변환 작업이나 `convert-pdf` job을 만들지 않는다.
 
-if (detail.summary && mimeType !== 'application/pdf' && convertPdfJobActive)
-  → SummaryColumn + PdfConvertLoading placeholder
+---
 
-if (detail.summary && mimeType !== 'application/pdf' && !convertPdfJobActive)
-  → SummaryColumn + "원본 다운로드 (변환 못 함)" 카드
-```
+## 컴포넌트 책임
 
-### Edge cases
-
-| 케이스 | 대응 |
+| 컴포넌트 | 책임 |
 |---|---|
-| summary 아직 없음 | 기존 SummaryLoading 그대로 (이번 spec 안 건드림) |
-| 원본 이미 PDF | convert-pdf 잡 큐잉 안 함 (finalize에서 skip) |
-| storage_path null | "파일을 못 찾았어요" 카드 |
-| iframe 로드 실패 | "PDF 다운로드" 링크 fallback |
-| CloudConvert 실패 (API 오류·timeout) | job error → UI에 "변환 실패, 원본 다운로드만 가능" |
-| Signed URL 1h 만료 (탭 오래 열어둠) | 페이지 새로고침으로 회복. Phase 2에서 client 갱신 |
-| 모바일에서 PDF 보고 싶을 때 | `p.N` 칩 → `target="_blank"` → OS native PDF 뷰어 |
-| 변환 중 사용자가 이미 잘 안 들어옴 | polling이 자동 router.refresh로 처리 |
-
-### Risk / 트레이드오프
-
-- **CloudConvert 외부 의존**: ZDR 옵션 켜고 변환 후 30일 자동 삭제 정책 따름. 자료 잠시 외부 가지만 학생 자료 = 교수 강의자료라 PII 위험 낮음. PRODUCT.md §5 컴플라이언스 라인 안 침범.
-- **변환 무료 한도 1000건/월**: 사용자 약 160명까지 무료 (학생 1인 20자료 × 30% Office). 초과 후 ~$0.01/건 — Phase 2 결제 도입 시 가격 모델에 반영.
-- **iframe fragment remount 깜빡임**: 같은 URL의 `#page=N`만 바꿔도 Chrome이 가끔 점프 안 함 → `key={page}` 강제 remount로 안정성↑, 깜빡임↓ 트레이드오프.
-- **변환 평균 10~30초**: 첫 진입 시 사용자가 좌측 placeholder 봐야 함. 비동기 잡으로 잘라서 UI 즉시 표시 + polling으로 자연 갱신.
+| `MaterialDetailPage` | 소유자 확인, 자료·요약 조회, PDF 여부 판별, signed URL 발급, 화면 분기 |
+| `MaterialView` | 데스크톱/모바일 분기, 보기 모드, 분할 비율, 페이지 상태, 채팅 패널 연결 |
+| `SplitControl` | `PDF만` / `5:5` / `요약만` 보기 선택과 선택값 저장 |
+| `PdfCanvasViewer` | PDF 페이지 렌더링, 패널 너비 대응, PDF 패널 내부 페이지 이동 |
+| `SummaryColumn` | 요약 블록과 출처 페이지 버튼 표시 |
+| `PageChip` | `p.N` 출처 이동 요청 전달 |
+| `DownloadSummaryButton` | 출력 대상만 분리해 브라우저 인쇄/PDF 저장 실행 |
 
 ---
 
-## 보안
+## 분할 상태와 접근성
 
-- service-role로 Storage·CloudConvert 호출 (서버 only)
-- `CLOUDCONVERT_API_KEY`는 `NEXT_PUBLIC_` 접두사 X — 클라이언트 번들 노출 금지
-- finalize·convert-pdf 모두 `<ownerId>/...` owner-prefix 검증 (ARCHITECTURE.md §4-1)
-- signed read URL은 storagePath까지 잠겨있어 다른 사용자 영역 침범 불가
-- CloudConvert에 보낼 때 원본 파일명 그대로 — 학번·이름 노출 위험 낮음 (학생이 직접 올린 자료)
+### 상태
 
----
+- 보기 모드 저장 키: `arch.material.splitView`
+- 분할 비율 저장 키: `arch.material.splitRatio`
+- SSR 첫 렌더는 기본값을 사용하고, 마운트 후 저장값을 읽는다.
+- 비율은 PDF 기준 `0.2`~`0.8`로 제한한다.
+- 경계를 더블클릭하면 5:5로 돌아간다.
 
-## 검증 (구현 후 §7 외부 영향 작업)
+### 키보드와 ARIA
 
-배포 후 프로덕션에서:
-1. PDF 자료 업로드 → split-view 즉시 표시, `p.N` 클릭 시 좌측 점프 확인
-2. PPTX 자료 업로드 → "PDF 변환 중" placeholder + 우측 요약 진행 → 변환 완료 후 자동으로 PDF 뷰어 표시
-3. DOCX 자료 업로드 → 같은 흐름
-4. 변환 실패 시뮬레이션 (API key 임시로 잘못 박기) → "원본 다운로드" fallback 표시
-5. 모바일 viewport → 칩 클릭 시 새 탭 동작
-
----
-
-## 작업 단위 (writing-plans skill로 넘기는 입력)
-
-대략 6~8h 추정. 다음 단위로 쪼개기 적합:
-
-1. **DB**: 마이그레이션 0011 (`original_storage_path` 컬럼) + 사용자에게 Supabase Dashboard 실행 안내
-2. **Storage helper**: `createSignedReadUrl()` in `src/lib/storage.ts`
-3. **CloudConvert client**: `src/lib/cloudconvert.ts` — API key·upload·convert·download·poll
-4. **convert-pdf job runner**: `runConvertPdfJob()` (materials/route.ts 안 또는 별도 services 파일)
-5. **finalize 라우트 수정**: non-pdf면 convert-pdf 잡 추가 큐잉
-6. **page.tsx 분기 변경**: mime_type 기반 4-way 분기
-7. **`MaterialView`**: 데스크톱 split layout + viewport 분기
-8. **`PdfViewer`**: `<iframe>` + key remount
-9. **`SummaryColumn`** + **`PageChip`**: 기존 SummaryArticle 확장
-10. **`PdfConvertLoading`**: 좌측 placeholder + active job 폴링
-11. **검증**: 프로덕션 배포 + 4가지 자료 타입 실측
+- 분할 보기에서 경계는 키보드 포커스를 받는 세로 `separator`로 노출한다. 한쪽만 보는 모드에서는 포커스 순서에서 제외한다.
+- `aria-valuemin=20`, `aria-valuemax=80`, `aria-valuenow`와 `aria-valuetext`로 PDF·요약 영역의 현재 비율을 알린다.
+- `ArrowLeft`/`ArrowRight`는 PDF 영역을 각각 5%p 줄이거나 늘린다.
+- `Home`은 PDF 20%, `End`는 PDF 80%로 이동한다.
+- 키보드 조절도 드래그와 동일하게 상태와 `localStorage`에 반영한다.
+- `prefers-reduced-motion: reduce`에서는 전역 부드러운 스크롤과 PDF 페이지 이동 애니메이션을 사용하지 않는다.
 
 ---
 
-## Phase 2 (이번 spec 제외, 미래)
+## 화면 분기
 
-- Webhook 기반 변환 트리거 (CloudConvert webhook → 우리 라우트가 callback)
-- Resizable split bar (react-resizable-panels)
-- PDF 페이지 썸네일 좌측 트레이
+```text
+if (type === "exam")
+  → 기출문제 추출 화면
+
+else if (!summary)
+  → 요약 작업 상태 또는 오류/빈 상태
+
+else if (mimeType === "application/pdf" && signedUrl 발급 성공)
+  → MaterialView
+
+else
+  → SummaryArticle
+```
+
+Office/HWP는 업로드 finalize 단계에서 차단되므로 상세 화면의 자동 변환 대기 상태는 없다.
+
+---
+
+## 예외 처리
+
+| 상황 | 처리 |
+|---|---|
+| 요약 생성 전 | 기존 요약 진행/오류 상태 표시 |
+| PDF signed URL 발급 실패 | PDF 분할 대신 요약만 표시 |
+| PDF 렌더 실패 | PDF 패널에 불러오기 실패 메시지 표시 |
+| 출처 페이지 없음 | `p.N` 버튼을 표시하지 않음 |
+| 요약만 보던 중 `p.N` 선택 | 데스크톱은 분할 보기로 전환한 뒤 해당 페이지로 이동 |
+| 모바일에서 `p.N` 선택 | `noopener` 새 탭으로 PDF 열기 |
+| 모션 감소 설정 | 즉시 스크롤, 전환·애니메이션 최소화 |
+
+---
+
+## 보안·개인정보 경계
+
+- 상세 페이지는 로그인한 사용자와 자료 소유자를 확인한다.
+- Storage 읽기는 서버에서 발급한 자료별 signed URL을 사용한다.
+- 다른 사용자에게 자료를 공개하는 기능은 없다.
+- 요약·문제 생성에는 서비스 제공에 필요한 자료 내용이 외부 AI 처리 시스템으로 전달될 수 있다. 이는 다른 사용자에게 공개하는 것과 구분해 안내한다.
+- 사용자는 본인이 이용 권한을 가진 자료만 업로드해야 한다.
+
+---
+
+## 검증 체크리스트
+
+1. 데스크톱에서 PDF와 요약이 기본 55:45로 표시되는지 확인한다.
+2. `PDF만` / `5:5` / `요약만` 전환과 새로고침 후 상태 복원을 확인한다.
+3. 마우스·터치 드래그로 분할 비율을 조절하고 20~80% 제한을 확인한다.
+4. 분할 경계에 포커스한 뒤 방향키와 `Home`/`End` 조절, ARIA 값을 확인한다.
+5. 서로 다른 `p.N`과 같은 `p.N` 재선택 모두 PDF 패널만 올바른 페이지로 이동하는지 확인한다.
+6. 모바일에서 요약 단일 컬럼과 PDF 새 탭 이동을 확인한다.
+7. 요약 PDF 저장 시 요약 영역만 출력되는지 확인한다.
+8. `prefers-reduced-motion`에서 부드러운 스크롤이 비활성화되는지 확인한다.
+9. PPTX·DOCX·HWP/HWPX 업로드가 자동 변환을 약속하지 않고 PDF 변환 안내를 보여주는지 확인한다.
+
+---
+
+## 후속 범위
+
+- 긴 PDF 가상화
+- 페이지 썸네일 트레이
 - 페이지별 메모·형광펜
-- 변환 큐 모니터링 대시보드 (관리자용)
-- Office 외 형식 (이미지·CSV·동영상)
+- signed URL 장기 탭 갱신
+- 지원 파일 형식 확장은 별도 보안·비용 검토 후 결정

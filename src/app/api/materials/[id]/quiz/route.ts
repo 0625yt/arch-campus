@@ -1,7 +1,13 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import { enqueueJob, markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import {
+  enqueueJob,
+  markJobDone,
+  markJobError,
+  markJobRunning,
+  recordJobCheckpoint,
+} from "@/lib/data/jobs";
 import { guardRateLimit } from "@/lib/ratelimit";
 import { runQuizGeneration } from "@/lib/services/quiz";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -72,7 +78,7 @@ export async function POST(
   const allIds = [materialId, ...body.extraMaterialIds.filter((id) => id !== materialId)];
   const { data: materialsData, error: fetchErr } = await admin
     .from("materials")
-    .select("id, course_id, title, type, full_text, page_count")
+    .select("id, course_id, title, type, full_text, page_count, mime_type")
     .in("id", allIds)
     .eq("owner_id", ownerId);
 
@@ -113,7 +119,13 @@ export async function POST(
 
   after(async () => {
     try {
-      await markJobRunning({ jobId: job.id, ownerId });
+      if (!(await markJobRunning({ jobId: job.id, ownerId }))) return;
+      await recordJobCheckpoint({
+        jobId: job.id,
+        ownerId,
+        stage: "generating-quiz",
+        progress: 45,
+      });
       const result = await runQuizGeneration({
         ownerId,
         courseId: primary.course_id ?? null,
@@ -123,6 +135,7 @@ export async function POST(
           type: m.type,
           fullText: m.full_text ?? "",
           pageCount: m.page_count ?? null,
+          mimeType: m.mime_type ?? null,
         })),
         parserWarnings: [],
         difficulty: body.difficulty,
@@ -137,10 +150,17 @@ export async function POST(
         return;
       }
 
+      await recordJobCheckpoint({
+        jobId: job.id,
+        ownerId,
+        stage: "verifying-output",
+        progress: 85,
+      });
+
       await markJobDone({
         jobId: job.id,
         ownerId,
-        result: { quizId: result.quizId },
+        result: { quizId: result.quizId, quality: result.quality },
         modelId: result.modelId,
         usage: result.usage,
         costUsd: result.costUsd,

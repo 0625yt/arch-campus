@@ -38,7 +38,7 @@ export function MaterialView({
   materialTitle: string;
   className?: string;
 }) {
-  const [page, setPage] = useState<number>(1);
+  const [pageRequest, setPageRequest] = useState({ page: 1, nonce: 0 });
   const [view, setView] = useSplitView();
   const [ratio, commitRatio] = useSplitRatio();
   const [chatOpen, setChatOpen] = useState(false);
@@ -57,7 +57,12 @@ export function MaterialView({
   }, [ratio]);
 
   function jumpDesktop(target: number) {
-    setPage(target);
+    // 같은 p.N을 다시 눌러도 사용자가 PDF를 수동으로 스크롤한 뒤
+    // 원문 위치로 돌아갈 수 있도록 요청 자체를 매번 새로 만든다.
+    setPageRequest((current) => ({
+      page: target,
+      nonce: current.nonce + 1,
+    }));
     if (view === "summary-only") setView("split");
   }
   function jumpMobile(target: number) {
@@ -121,7 +126,7 @@ export function MaterialView({
       if (!draggingRef.current) return;
       draggingRef.current = false;
       const handle = handleRef.current;
-      if (handle && handle.hasPointerCapture(e.pointerId)) {
+      if (handle?.hasPointerCapture(e.pointerId)) {
         handle.releasePointerCapture(e.pointerId);
       }
       if (rafRef.current != null) {
@@ -138,6 +143,36 @@ export function MaterialView({
       commitRatio(liveRatioRef.current);
     },
     [commitRatio],
+  );
+
+  const resizeFromKeyboard = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (view !== "split") return;
+
+      let next: number;
+      switch (event.key) {
+        case "ArrowLeft":
+          next = liveRatioRef.current - KEYBOARD_RATIO_STEP;
+          break;
+        case "ArrowRight":
+          next = liveRatioRef.current + KEYBOARD_RATIO_STEP;
+          break;
+        case "Home":
+          next = MIN_RATIO;
+          break;
+        case "End":
+          next = MAX_RATIO;
+          break;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+      const safe = clamp(next, MIN_RATIO, MAX_RATIO);
+      liveRatioRef.current = safe;
+      commitRatio(safe);
+    },
+    [commitRatio, view],
   );
 
   // unmount cleanup
@@ -181,23 +216,35 @@ export function MaterialView({
           }}
         >
           <div className="h-full w-full" id="arch-pdf-wrap">
-            <PdfCanvasViewer src={pdfUrl} page={page} />
+            <PdfCanvasViewer
+              src={pdfUrl}
+              page={pageRequest.page}
+              requestNonce={pageRequest.nonce}
+            />
           </div>
         </div>
 
         {/* 가운데 핸들 — 16px 폭. ::before로 ±8px hit-area. setPointerCapture로 드래그 안정성. */}
+        {/* biome-ignore lint/a11y/useSemanticElements: range-valued interactive separator는 자식 grip을 가질 수 없는 void 요소 <hr>로 표현할 수 없다. */}
         <div
           ref={handleRef}
           role="separator"
           aria-orientation="vertical"
-          aria-label="너비 조절"
+          aria-label="PDF와 요약 너비 조절"
+          aria-controls="arch-pdf-wrap arch-summary-wrap"
+          aria-valuemin={MIN_RATIO * 100}
+          aria-valuemax={MAX_RATIO * 100}
+          aria-valuenow={Math.round(ratio * 100)}
+          aria-valuetext={`PDF ${Math.round(ratio * 100)}%, 요약 ${Math.round((1 - ratio) * 100)}%`}
+          tabIndex={view === "split" ? 0 : -1}
+          onKeyDown={resizeFromKeyboard}
           onPointerDown={startDrag}
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
           onDoubleClick={() => commitRatio(0.5)}
-          title="드래그해서 너비 조절 · 더블클릭하면 5:5"
-          className={`group sticky top-4 z-20 h-[calc(100dvh-2rem)] w-4 shrink-0 cursor-col-resize touch-none select-none before:absolute before:inset-y-0 before:-left-2 before:-right-2 before:content-[''] ${
+          title="드래그하거나 방향키로 너비 조절 · 더블클릭하면 5:5"
+          className={`group sticky top-4 z-20 h-[calc(100dvh-2rem)] w-4 shrink-0 cursor-col-resize touch-none select-none rounded-[6px] outline-none before:absolute before:inset-y-0 before:-left-2 before:-right-2 before:content-[''] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-apple-action)] ${
             view === "split" ? "" : "pointer-events-none opacity-0"
           }`}
         >
@@ -215,6 +262,7 @@ export function MaterialView({
         {/* 우: 요약 */}
         <div
           ref={rightRef}
+          id="arch-summary-wrap"
           className="min-w-0 shrink-0 transition-[flex-basis,opacity] duration-300 ease-out"
           style={{
             flexBasis: rightBasis,
@@ -243,6 +291,7 @@ export function MaterialView({
           aria-label="이 자료 같이 보기"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <title>이 자료 같이 보기</title>
             <path
               d="M21 12a9 9 0 1 1-3.46-7.1L21 4l-1.1 3.46A8.96 8.96 0 0 1 21 12Z"
               stroke="currentColor"
@@ -285,6 +334,7 @@ export function PageChip({ page, onClick }: { page: number; onClick: () => void 
 const RATIO_STORAGE_KEY = "arch.material.splitRatio";
 const MIN_RATIO = 0.2; // PDF가 20% 미만으로 줄면 의미 없음
 const MAX_RATIO = 0.8; // 요약이 20% 미만이면 글자 잘림
+const KEYBOARD_RATIO_STEP = 0.05; // 방향키 한 번에 5%p
 
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));

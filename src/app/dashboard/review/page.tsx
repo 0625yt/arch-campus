@@ -4,6 +4,7 @@ import { AppleEmptyState } from "@/components/apple-empty";
 import { AppleShell } from "@/components/apple-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import { listWrongItems, type WrongItem } from "@/lib/data/attempts";
+import { listReviewQueue } from "@/lib/data/reviews";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
  * Today 카드·사이드바·시험 직전 모두 이 페이지로 들어와 다시 풀게 만든다.
  *
  * 정책:
- *   - 14일 vs 60일 두 탭은 다음 회차. 우선 60일(학기 기준)로 시작.
+ *   - 아직 다시 맞히지 않은 문제는 기간과 관계없이 유지. 학기 후반에도 초반 오답을 숨기지 않는다.
  *   - 같은 퀴즈에서 같은 문제를 여러 번 틀렸어도 그룹 카드에선 오답 수만 표시.
  *   - 각 카드 CTA는 "이 퀴즈 오답 N개 다시 풀기" → /dashboard/quiz/{id}/wrong
  */
@@ -23,7 +24,27 @@ export default async function ReviewPage() {
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
 
-  const items = await listWrongItems({ ownerId, sinceDays: 60, limit: 200 });
+  const [items, reviewQueue] = await Promise.all([
+    listWrongItems({ ownerId, sinceDays: null, limit: 5000 }),
+    listReviewQueue(ownerId),
+  ]);
+  const now = Date.now();
+  const dueItems = reviewQueue.filter((item) => new Date(item.dueAt).getTime() <= now);
+  const upcomingItems = reviewQueue.filter((item) => new Date(item.dueAt).getTime() > now);
+  const dueGroups = Array.from(
+    dueItems.reduce((map, item) => {
+      const existing = map.get(item.quizId);
+      if (existing) existing.count += 1;
+      else
+        map.set(item.quizId, {
+          quizId: item.quizId,
+          title: item.quizTitle,
+          count: 1,
+          dueAt: item.dueAt,
+        });
+      return map;
+    }, new Map<string, { quizId: string; title: string; count: number; dueAt: string }>()),
+  ).map(([, group]) => group);
   const groupsRaw = groupByQuiz(items);
   // 자료 상세 라우팅에 강의명 슬러그가 필요 — courseId 모아 한 번에 fetch (N+1 회피).
   // 종전: groupByQuiz가 courseName을 못 받아 ReviewCard에서 "자료" 하드코딩 → breadcrumb 깨짐.
@@ -78,13 +99,64 @@ export default async function ReviewPage() {
             className="mt-3 text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            최근 60일 틀린 {uniqueQuestions}문제 · 자주 틀린 자료부터
+            오늘 복습 {dueItems.length}문제 · 남은 오답 {uniqueQuestions}문제
           </p>
         </header>
 
-        {groups.length === 0 ? (
+        <section className="mt-7 grid grid-cols-3 gap-2 fade-up fade-up-2 sm:gap-3">
+          <ReviewStat
+            label="오늘"
+            value={`${dueItems.length}`}
+            accent="var(--color-apple-action)"
+          />
+          <ReviewStat
+            label="예정"
+            value={`${upcomingItems.length}`}
+            accent="var(--color-apple-success)"
+          />
+          <ReviewStat label="오답" value={`${uniqueQuestions}`} accent="var(--color-urgent)" />
+        </section>
+
+        {dueGroups.length > 0 && (
+          <section className="mt-8 fade-up fade-up-2">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-[14px] wght-620 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+                  오늘의 복습
+                </h2>
+                <p className="mt-2 text-[13px] text-[var(--color-apple-muted)]">
+                  기억 난이도에 맞춰 지금 복습할 문제만 모았어요.
+                </p>
+              </div>
+              <span className="rounded-full bg-[var(--color-apple-action-soft)] px-3 py-1.5 text-[12px] wght-620 text-[var(--color-apple-action)]">
+                {dueItems.length}문제
+              </span>
+            </div>
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {dueGroups.map((group) => (
+                <Link
+                  key={group.quizId}
+                  href={`/dashboard/quiz/${group.quizId}/review`}
+                  className="group relative overflow-hidden rounded-[18px] border border-[color:rgba(59,130,246,0.14)] bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(255,255,255,0.96)_62%)] p-5 shadow-[0_18px_55px_rgba(37,99,235,0.08)] transition-all hover:-translate-y-1 hover:shadow-[0_22px_65px_rgba(37,99,235,0.14)]"
+                >
+                  <p className="text-[11.5px] wght-620 text-[var(--color-apple-action)]">
+                    지금 복습 · {group.count}문제
+                  </p>
+                  <h3 className="mt-2 line-clamp-2 text-[17px] leading-[1.35] wght-700 text-[var(--color-apple-ink)]">
+                    {group.title}
+                  </h3>
+                  <p className="mt-5 text-[12.5px] wght-620 text-[var(--color-apple-action)]">
+                    복습 시작 →
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {groups.length === 0 && reviewQueue.length === 0 ? (
           <EmptyState />
-        ) : (
+        ) : groups.length > 0 ? (
           <>
             {/* 약점 단원 — 학생이 어디부터 다시 봐야 하는지 1차 신호.
                 3개 이상 있을 때만 의미 있음 (1~2개면 통계로서 약함) */}
@@ -124,7 +196,7 @@ export default async function ReviewPage() {
               </div>
             </section>
           </>
-        )}
+        ) : null}
 
         {totalWrong > 0 && (
           <footer
@@ -135,6 +207,17 @@ export default async function ReviewPage() {
           </footer>
         )}
       </AppleShell>
+    </div>
+  );
+}
+
+function ReviewStat({ label, value, accent }: { label: string; value: string; accent: string }) {
+  return (
+    <div className="rounded-[16px] border border-[var(--color-apple-hairline)] bg-white px-4 py-4 sm:px-5">
+      <p className="text-[11.5px] wght-560 text-[var(--color-apple-muted)]">{label}</p>
+      <p className="mt-1 text-[25px] leading-none wght-700 tabular-nums" style={{ color: accent }}>
+        {value}
+      </p>
     </div>
   );
 }

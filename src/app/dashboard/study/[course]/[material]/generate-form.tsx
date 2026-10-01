@@ -31,6 +31,43 @@ const INTENT_CHIPS = [
   "예문은 원어 그대로",
 ];
 
+const QUICK_PRESETS: Array<{
+  label: string;
+  difficulty: Difficulty;
+  count: number;
+  kinds: Kind[];
+  intentNote: string;
+}> = [
+  {
+    label: "시험 대비",
+    difficulty: "보통",
+    count: 10,
+    kinds: ["multiple-choice", "short-answer"],
+    intentNote: "핵심 개념과 헷갈리는 개념 비교 중심",
+  },
+  {
+    label: "빠르게",
+    difficulty: "쉬움",
+    count: 5,
+    kinds: ["multiple-choice"],
+    intentNote: "정의·용어 위주",
+  },
+  {
+    label: "함정 점검",
+    difficulty: "어려움",
+    count: 10,
+    kinds: ["multiple-choice"],
+    intentNote: "함정 선택지 강화",
+  },
+  {
+    label: "서술 대비",
+    difficulty: "어려움",
+    count: 5,
+    kinds: ["short-answer", "essay"],
+    intentNote: "개념의 이유와 비교를 직접 설명하도록",
+  },
+];
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface SiblingMaterialOption {
@@ -75,8 +112,18 @@ export function GenerateForm({
       const next = new Set(prev);
       if (next.has(k)) next.delete(k);
       else next.add(k);
+      // 아무것도 선택하지 않으면 서버가 객관식으로 폴백해 화면과 결과가 어긋난다.
+      // 마지막 한 종류는 항상 남겨 사용자의 선택을 그대로 보존한다.
+      if (next.size === 0) return prev;
       return next;
     });
+  }
+
+  function applyPreset(preset: (typeof QUICK_PRESETS)[number]) {
+    setDifficulty(preset.difficulty);
+    setCount(preset.count);
+    setKinds(new Set(preset.kinds));
+    setIntentNote(preset.intentNote);
   }
 
   const isReal = UUID_RE.test(materialId);
@@ -166,7 +213,39 @@ export function GenerateForm({
   return (
     <div>
       {!isExamMaterial && (
-        <FieldGroup label="난이도">
+        <FieldGroup label="빠른 설정" hint="나중에 아래에서 바꿀 수 있어요">
+          <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
+            {QUICK_PRESETS.map((preset) => {
+              const active =
+                difficulty === preset.difficulty &&
+                count === preset.count &&
+                intentNote.trim() === preset.intentNote &&
+                preset.kinds.length === kinds.size &&
+                preset.kinds.every((kind) => kinds.has(kind));
+              return (
+                <li key={preset.label}>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset(preset)}
+                    aria-pressed={active}
+                    className={cn(
+                      "rounded-full px-3 py-1.5 text-[12.5px] transition-colors",
+                      active
+                        ? "wght-560 bg-[var(--color-apple-action)] text-white"
+                        : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]",
+                    )}
+                  >
+                    {preset.label}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </FieldGroup>
+      )}
+
+      {!isExamMaterial && (
+        <FieldGroup label="난이도" className="mt-7">
           <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
             {(["쉬움", "보통", "어려움"] as Difficulty[]).map((d) => {
               const active = difficulty === d;
@@ -192,11 +271,7 @@ export function GenerateForm({
       )}
 
       {!isExamMaterial && (
-        <FieldGroup
-          label="문제 수"
-          hint={count >= 20 ? "1~2분 걸려요" : undefined}
-          className="mt-7"
-        >
+        <FieldGroup label="문제 수" hint={`${expectedGenerationTime(count)} 예상`} className="mt-7">
           <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
             {COUNT_OPTIONS.map((n) => {
               const active = count === n;
@@ -247,10 +322,7 @@ export function GenerateForm({
         <ul className="-mx-1 flex flex-wrap gap-x-1 gap-y-2">
           {isExamMaterial ? (
             <li>
-              <span
-                aria-pressed="true"
-                className="inline-flex items-baseline gap-1.5 rounded-full bg-[var(--color-apple-ink)] px-3 py-1.5 text-[12.5px] wght-560 text-white"
-              >
+              <span className="inline-flex items-baseline gap-1.5 rounded-full bg-[var(--color-apple-ink)] px-3 py-1.5 text-[12.5px] wght-560 text-white">
                 기출문제
                 <span className="text-[10.5px] wght-450 text-white/65">자료에 실린 그대로</span>
               </span>
@@ -400,7 +472,7 @@ export function GenerateForm({
         </p>
       )}
 
-      <div className="sticky bottom-0 -mx-5 -mb-5 mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-apple-hairline)] bg-white px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5">
+      <div className="-mx-5 -mb-5 mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-apple-hairline)] bg-white px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5">
         {doneQuizId && !isExamMaterial ? (
           <Link
             href={`/dashboard/quiz/${doneQuizId}`}
@@ -445,7 +517,7 @@ export function GenerateForm({
           <span className="ml-auto hidden items-center gap-1.5 text-[11px] wght-450 text-[var(--color-apple-muted)] sm:inline-flex">
             평균{" "}
             <span className="tabular-nums text-[var(--color-apple-ink)]">
-              {isExamMaterial ? "30~60초" : "15초"}
+              {isExamMaterial ? "30~60초" : expectedGenerationTime(count)}
             </span>{" "}
             소요
           </span>
@@ -453,6 +525,14 @@ export function GenerateForm({
       </div>
     </div>
   );
+}
+
+function expectedGenerationTime(count: number): string {
+  if (count <= 5) return "20~40초";
+  if (count <= 10) return "30~60초";
+  if (count <= 20) return "1~2분";
+  if (count <= 30) return "2~3분";
+  return "3~5분";
 }
 
 function Spinner() {

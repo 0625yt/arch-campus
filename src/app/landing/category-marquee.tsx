@@ -24,7 +24,10 @@ const CATEGORIES = [
   "자료구조",
 ];
 
-const CHIP_DOT_COLORS = ["#e0445e", "#7fb38c", "#7aa6d6", "#cca06b", "#a08bc4", "#d68b7a"];
+const MARQUEE_CATEGORIES = [
+  ...CATEGORIES.map((label) => ({ id: `${label}-first`, label })),
+  ...CATEGORIES.map((label) => ({ id: `${label}-second`, label })),
+];
 
 export function CategoryMarquee() {
   return (
@@ -52,20 +55,18 @@ export function CategoryMarquee() {
       />
 
       <div className="marquee-track gap-3">
-        {[...CATEGORIES, ...CATEGORIES].map((cat, i) => {
-          const dot = CHIP_DOT_COLORS[i % CHIP_DOT_COLORS.length];
+        {MARQUEE_CATEGORIES.map(({ id, label }) => {
           return (
             <span
-              key={`${cat}-${i}`}
-              className="inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12.5px] wght-560 backdrop-blur-md transition-opacity hover:opacity-100"
+              key={id}
+              className="inline-flex shrink-0 items-center rounded-[8px] border px-3.5 py-1.5 text-[12.5px] wght-560 backdrop-blur-md transition-opacity hover:opacity-100"
               style={{
                 borderColor: "var(--color-landing-hairline)",
                 background: "var(--color-landing-card)",
                 color: "var(--color-landing-text-muted)",
               }}
             >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
-              {cat}
+              {label}
             </span>
           );
         })}

@@ -21,7 +21,7 @@ export function sanitizeUserInput(raw: string): string {
   let cleaned = raw.slice(0, MAX_USER_INPUT);
   // NUL byte는 한국어·일반 본문에 정상적으로 등장하지 않음. 파서가 깨진 바이너리를
   // 흘려보냈을 때 LLM 프롬프트가 깨질 수 있어 명시적으로 제거.
-  cleaned = cleaned.replace(/\u0000/g, "");
+  cleaned = cleaned.replaceAll(String.fromCharCode(0), "");
   for (const [pattern, replacement] of INJECTION_PATTERNS) {
     cleaned = cleaned.replace(pattern, replacement);
   }

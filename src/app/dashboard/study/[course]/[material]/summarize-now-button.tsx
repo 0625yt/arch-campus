@@ -103,6 +103,7 @@ export function SummarizeNowButton({
 function Spinner() {
   return (
     <span
+      role="status"
       aria-label="진행 중"
       className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-[1.5px] border-white/40 border-t-white"
     />

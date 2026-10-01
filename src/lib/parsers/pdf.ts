@@ -66,13 +66,20 @@ const OCR_MAX_TOKENS = 32_768;
 const MAX_SPLIT_DEPTH = 4;
 
 export async function parsePdf(input: ParseInput): Promise<ParsedDocument> {
-  const bytes = toUint8Array(input.bytes);
-  if (bytes.byteLength === 0) {
+  const sourceBytes = toUint8Array(input.bytes);
+  if (sourceBytes.byteLength === 0) {
     throw new ParserRejectedError("빈 파일이에요", "empty");
   }
 
+  // unpdf/pdfjs는 worker로 ArrayBuffer를 transfer하면서 전달받은 Uint8Array를
+  // detach할 수 있다. 같은 바이트를 뒤이어 OCR에 넘기면 0바이트 PDF가 되는 실제
+  // 장애가 있었으므로, 두 소비자에게 소유권이 완전히 분리된 복사본을 준다.
+  // Uint8Array.from은 Buffer가 들어온 테스트/스크립트 환경에서도 진짜 Uint8Array를 만든다.
+  const unpdfBytes = Uint8Array.from(sourceBytes);
+  const ocrBytes = Uint8Array.from(sourceBytes);
+
   // 1) unpdf로 항상 먼저 — pageCount 메타와 OCR 폴백/비교용
-  const unpdfResult = await extractWithUnpdf(bytes);
+  const unpdfResult = await extractWithUnpdf(unpdfBytes);
 
   // 2) OCR 시도 여부 판단
   if (!shouldUseOcr()) {
@@ -80,7 +87,7 @@ export async function parsePdf(input: ParseInput): Promise<ParsedDocument> {
   }
 
   // 3) Gemini Flash OCR — 페이지 청크 분할로 잘림 회피
-  const ocr = await ocrPdfChunked(bytes, unpdfResult);
+  const ocr = await ocrPdfChunked(ocrBytes, unpdfResult);
   if (!ocr.ok) {
     return finalize(unpdfResult, input, [`[ocr-fallback] ${ocr.reason}`]);
   }

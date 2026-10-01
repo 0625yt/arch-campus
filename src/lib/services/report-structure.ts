@@ -1,5 +1,5 @@
 import "server-only";
-import { estimateCost, generate, getModelVendor } from "@/lib/claude";
+import { estimateCost, generate, getModelIdFor, getModelVendor } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
 import { parseModelJson, ReportStructureOutput, type ReportStructureOutputT } from "@/lib/schemas";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -94,7 +94,8 @@ export async function runReportStructure(
   } catch (e) {
     await logGeneration({
       ownerId: input.ownerId,
-      modelId: "claude-sonnet-4-6",
+      // 라우팅 실제 모델과 일치(2026-07-24 Flash-Lite로 변경됨). 하드코딩 금지.
+      modelId: getModelIdFor("report-structure"),
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });

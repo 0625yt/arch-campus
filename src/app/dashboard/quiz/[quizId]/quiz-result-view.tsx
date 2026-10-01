@@ -24,6 +24,8 @@ export interface ResultQuestion {
   };
   /** 단답형 오답일 때 내 답이 왜 틀렸는지. */
   whyWrong?: string;
+  /** 서술형을 모범답안 기준으로 의미 채점한 경우. */
+  llmGraded?: boolean;
 }
 
 export interface ResultViewProps {
@@ -38,6 +40,8 @@ export interface ResultViewProps {
   courseName?: string | null;
   /** 오답만 다시 풀기 버튼 — quizId 있어야 활성화 */
   quizId: string;
+  /** Persisted attempt for the post-exam reflection entry point. */
+  attemptId?: string;
   /** 화면에 들어왔을 때 스크롤 헤더 */
   showHero?: boolean;
   durationLabel?: string;
@@ -60,6 +64,7 @@ export function QuizResultView({
   materialId,
   courseName,
   quizId,
+  attemptId,
   showHero = true,
   durationLabel,
 }: ResultViewProps) {
@@ -123,6 +128,25 @@ export function QuizResultView({
             </div>
           )}
         </header>
+      )}
+
+      {attemptId && (
+        <Link
+          href={`/dashboard/quiz/${quizId}/result/${attemptId}#reflection`}
+          className="flex items-center justify-between gap-4 rounded-[20px] border border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)] p-5 transition hover:border-[var(--color-apple-action)]"
+        >
+          <div>
+            <p className="text-[14px] wght-620 text-[var(--color-apple-ink)]">
+              60초 풀이 회고 남기기
+            </p>
+            <p className="mt-1 text-[12px] text-[var(--color-apple-muted)]">
+              헷갈린 이유와 다음 복습에서 바꿀 한 가지를 기록해요.
+            </p>
+          </div>
+          <span aria-hidden className="text-[var(--color-apple-action)]">
+            ↗
+          </span>
+        </Link>
       )}
 
       <div className="flex flex-col gap-5">
@@ -213,6 +237,11 @@ function ResultCard({ q, idx }: { q: ResultQuestion; idx: number }) {
           {q.correct ? "정답" : q.submitted === null ? "미응답" : "오답"}
         </span>
       </div>
+      {q.llmGraded && (
+        <p className="mt-2 text-[11.5px] wght-450 text-[var(--color-apple-muted)]">
+          서술 기준과 자료 근거를 바탕으로 의미를 비교한 결과예요.
+        </p>
+      )}
       <p className="mt-3 text-[15px] leading-[1.55] wght-560 text-[var(--color-apple-ink)]">
         {q.stem}
       </p>

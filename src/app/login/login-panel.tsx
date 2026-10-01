@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { friendlyAuthError } from "@/lib/auth-errors";
+import { safeAuthRedirect } from "@/lib/auth-redirect";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
 /**
@@ -17,6 +18,7 @@ import { getBrowserSupabase } from "@/lib/supabase/client";
  */
 export function LoginPanel({ next, error }: { next?: string; error?: string }) {
   const router = useRouter();
+  const targetPath = safeAuthRedirect(next);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState<"none" | "email" | "google">("none");
@@ -38,7 +40,7 @@ export function LoginPanel({ next, error }: { next?: string; error?: string }) {
       return;
     }
     // 세션 쿠키가 박힘 — middleware가 next로 보내거나, 직접 push.
-    router.push(next ?? "/dashboard");
+    router.push(targetPath);
     router.refresh();
   }
 
@@ -48,7 +50,7 @@ export function LoginPanel({ next, error }: { next?: string; error?: string }) {
     setLoading("google");
     const supabase = getBrowserSupabase();
     const redirectTo = new URL("/auth/callback", window.location.origin);
-    if (next) redirectTo.searchParams.set("next", next);
+    if (next) redirectTo.searchParams.set("next", targetPath);
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: redirectTo.toString() },
@@ -163,7 +165,8 @@ export function LoginPanel({ next, error }: { next?: string; error?: string }) {
 
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <title>Google</title>
       <path
         fill="#4285F4"
         d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"
@@ -187,6 +190,7 @@ function GoogleIcon() {
 function Spinner({ light = false }: { light?: boolean }) {
   return (
     <span
+      role="status"
       aria-label="처리 중"
       className={`inline-block h-4 w-4 animate-spin rounded-full border-[1.5px] ${
         light

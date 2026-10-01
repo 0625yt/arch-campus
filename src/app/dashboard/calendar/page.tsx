@@ -1,7 +1,10 @@
+import { Download } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { type EventView, listEventsBetween, listUpcomingEvents } from "@/lib/data/events";
 import { listCoursesWithMaterialCount } from "@/lib/data/materials";
+import { kstDateKeyToIso, kstParts } from "@/lib/kst";
 import { CalendarBoard } from "./calendar-board";
 
 export const dynamic = "force-dynamic";
@@ -19,15 +22,18 @@ export default async function CalendarPage() {
   if (!ownerId) redirect("/login");
 
   // 이번 달 + 다음 달 한꺼번에 (내비게이션 시 클라이언트가 자체 fetch도 가능, 일단 SSR 한 달치)
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+  const now = kstParts(new Date());
+  const monthStart = monthDateKey(now.year, now.month - 2);
+  const monthEnd = monthDateKey(now.year, now.month + 1);
 
   const [monthEvents, upcoming, courses] = await Promise.all([
     listEventsBetween({
       ownerId,
-      fromIso: monthStart.toISOString(),
-      toIso: monthEnd.toISOString(),
+      fromIso: kstDateKeyToIso(monthStart),
+      toIso: kstDateKeyToIso(monthEnd),
+    }).catch((error) => {
+      console.error("[calendar] 초기 일정 조회 실패", error);
+      return [];
     }),
     listUpcomingEvents({ ownerId, limit: 10 }),
     listCoursesWithMaterialCount({ ownerId }),
@@ -57,6 +63,11 @@ export default async function CalendarPage() {
   );
 }
 
+function monthDateKey(year: number, zeroBasedMonth: number): string {
+  const date = new Date(Date.UTC(year, zeroBasedMonth, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
 function Header() {
   // 모바일에선 헤더 숨김 — 캘린더가 본문 전체를 차지하도록.
   // 월 라벨은 CalendarBoard 안에서 한 번 더 나오므로 정보 손실 없음.
@@ -76,6 +87,13 @@ function Header() {
           이번 학기 일정
         </h1>
       </div>
+      <Link
+        href="/api/export/calendar"
+        download
+        className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--color-apple-hairline)] bg-white px-4 text-[12.5px] wght-620 text-[var(--color-apple-ink)] transition-all hover:-translate-y-0.5 hover:shadow-sm"
+      >
+        <Download size={15} aria-hidden /> 일정 내보내기
+      </Link>
     </header>
   );
 }

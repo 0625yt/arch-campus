@@ -25,13 +25,13 @@ export function inferSemester(now: Date = new Date()): InferredSemester {
   const y = now.getFullYear();
 
   if (m >= 3 && m <= 8) {
-    // 봄학기: 3월 첫 월요일 ~ 6월 말 (시험 1주 포함). 확실치 않으면 살짝 더 길게.
+    // 3/1을 포함한 16개 수업 주. 요일별로 정확히 16회가 생성되도록 6/20에 닫는다.
     return {
       year: y,
       term: "spring",
       label: `${y} 봄학기`,
       termStart: `${y}-03-01`,
-      termEnd: `${y}-06-30`,
+      termEnd: `${y}-06-20`,
     };
   }
   if (m >= 9) {
@@ -40,7 +40,7 @@ export function inferSemester(now: Date = new Date()): InferredSemester {
       term: "fall",
       label: `${y} 가을학기`,
       termStart: `${y}-09-01`,
-      termEnd: `${y}-12-31`,
+      termEnd: `${y}-12-21`,
     };
   }
   // 1~2월 = 전년도 가을학기
@@ -49,6 +49,6 @@ export function inferSemester(now: Date = new Date()): InferredSemester {
     term: "fall",
     label: `${y - 1} 가을학기`,
     termStart: `${y - 1}-09-01`,
-    termEnd: `${y - 1}-12-31`,
+    termEnd: `${y - 1}-12-21`,
   };
 }

@@ -23,10 +23,7 @@ let failures = 0;
 console.log("\n── 0021 generations.model_provider ───────────");
 {
   // select 시도 — 컬럼 없으면 PGRST204
-  const { error } = await admin
-    .from("generations")
-    .select("id, model_provider")
-    .limit(1);
+  const { error } = await admin.from("generations").select("id, model_provider").limit(1);
   if (error) {
     fail("generations.model_provider 컬럼", error.message);
     failures++;
@@ -44,10 +41,7 @@ console.log("\n── 0021 generations.model_provider ────────�
 // 0022 — wrong_items_v.topic
 console.log("\n── 0022 wrong_items_v.topic ─────────────────");
 {
-  const { error } = await admin
-    .from("wrong_items_v")
-    .select("attempt_id, topic")
-    .limit(1);
+  const { error } = await admin.from("wrong_items_v").select("attempt_id, topic").limit(1);
   if (error) {
     fail("wrong_items_v.topic 컬럼", error.message);
     failures++;

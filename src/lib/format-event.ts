@@ -1,4 +1,5 @@
 import type { EventView } from "@/lib/data/events";
+import { addDaysToDateKey, dateKeyToDayNumber, kstDateKey, weekdayOfDateKey } from "@/lib/kst";
 
 /**
  * 일정 표기 규칙 — 어디서든 같은 룰로 보여야 헷갈리지 않음.
@@ -89,20 +90,20 @@ function formatBody(event: EventView): string {
  */
 function computeWeekNumber(event: EventView): number | null {
   if (!event.courseTermStart) return null;
-  const start = new Date(`${event.courseTermStart.slice(0, 10)}T00:00:00+09:00`);
-  const target = new Date(event.startsAt);
-  if (!Number.isFinite(start.getTime()) || !Number.isFinite(target.getTime())) return null;
-  if (target < start) return null;
+  const startKey = event.courseTermStart.slice(0, 10);
+  const targetKey = kstDateKey(event.startsAt);
+  const startDay = dateKeyToDayNumber(startKey);
+  const targetDayNumber = dateKeyToDayNumber(targetKey);
+  if (!Number.isFinite(startDay) || !Number.isFinite(targetDayNumber)) return null;
+  if (targetDayNumber < startDay) return null;
 
   // 같은 요일끼리 비교 — 학기 첫 같은 요일을 찾고 그 이후 7일 단위로 카운트
-  const targetDay = target.getDay();
-  const firstSameDay = new Date(start);
-  while (firstSameDay.getDay() !== targetDay) {
-    firstSameDay.setDate(firstSameDay.getDate() + 1);
-    if (firstSameDay > target) return null;
-  }
-  const diffMs = target.getTime() - firstSameDay.getTime();
-  const week = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
+  const targetWeekday = weekdayOfDateKey(targetKey);
+  const offset = (targetWeekday - weekdayOfDateKey(startKey) + 7) % 7;
+  const firstSameKey = addDaysToDateKey(startKey, offset);
+  const firstSameDay = dateKeyToDayNumber(firstSameKey);
+  if (firstSameDay > targetDayNumber) return null;
+  const week = Math.floor((targetDayNumber - firstSameDay) / 7) + 1;
   if (week < 1 || week > 30) return null;
   return week;
 }

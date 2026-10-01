@@ -49,10 +49,70 @@ export interface Database {
         Relationships: [];
       };
     };
-    Functions: Record<string, never>;
+    Functions: {
+      get_monthly_ai_usage: {
+        Args: {
+          p_owner_id: string;
+          p_start: string;
+          p_end: string;
+        };
+        Returns: Array<{
+          tool: string;
+          call_count: number;
+          input_tokens: number;
+          output_tokens: number;
+          cache_read_tokens: number;
+          cache_creation_tokens: number;
+          cost_usd: number;
+        }>;
+      };
+      reserve_monthly_ai_budget: {
+        Args: {
+          p_owner_id: string;
+          p_start: string;
+          p_end: string;
+          p_budget_usd: number;
+          p_reserve_usd: number;
+          p_expires_at: string;
+        };
+        Returns: Array<{
+          allowed: boolean;
+          spent_usd: number;
+          reserved_usd: number;
+        }>;
+      };
+      record_job_checkpoint: {
+        Args: {
+          p_job_id: string;
+          p_owner_id: string;
+          p_stage: string;
+          p_progress: number;
+          p_message?: string | null;
+        };
+        Returns: boolean;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
     Tables: {
+      ai_budget_reservations: {
+        Row: {
+          id: string;
+          owner_id: string;
+          amount_usd: number;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          amount_usd: number;
+          expires_at: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ai_budget_reservations"]["Insert"]>;
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
@@ -98,6 +158,10 @@ export interface Database {
           location: string | null;
           term_start: string | null;
           term_end: string | null;
+          semester_year: number | null;
+          semester_term: "spring" | "summer" | "fall" | "winter" | null;
+          credits: number | null;
+          grade: "A+" | "A0" | "B+" | "B0" | "C+" | "C0" | "D+" | "D0" | "F" | "P" | "NP" | null;
           /** 0010: semester=정규 강의, personal=자격증·개인 공부 */
           category: "semester" | "personal";
           created_at: string;
@@ -114,9 +178,39 @@ export interface Database {
           location?: string | null;
           term_start?: string | null;
           term_end?: string | null;
+          semester_year?: number | null;
+          semester_term?: "spring" | "summer" | "fall" | "winter" | null;
+          credits?: number | null;
+          grade?: "A+" | "A0" | "B+" | "B0" | "C+" | "C0" | "D+" | "D0" | "F" | "P" | "NP" | null;
           category?: "semester" | "personal";
         };
         Update: Partial<Database["public"]["Tables"]["courses"]["Insert"]>;
+        Relationships: [];
+      };
+      semester_goals: {
+        Row: {
+          id: string;
+          owner_id: string;
+          semester_year: number;
+          semester_term: "spring" | "summer" | "fall" | "winter";
+          target_gpa: number | null;
+          target_credits: number | null;
+          reflection: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          semester_year: number;
+          semester_term: "spring" | "summer" | "fall" | "winter";
+          target_gpa?: number | null;
+          target_credits?: number | null;
+          reflection?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["semester_goals"]["Insert"]>;
         Relationships: [];
       };
       events: {
@@ -259,6 +353,12 @@ export interface Database {
           cache_creation_tokens: number;
           cost_usd: number;
           generation_id: string | null;
+          retry_count: number;
+          checkpoint_stage: string;
+          checkpoint_progress: number;
+          checkpoint_message: string | null;
+          checkpoint_updated_at: string;
+          checkpoint_history: Json;
           created_at: string;
           started_at: string | null;
           finished_at: string | null;
@@ -279,6 +379,12 @@ export interface Database {
           cache_creation_tokens?: number;
           cost_usd?: number;
           generation_id?: string | null;
+          retry_count?: number;
+          checkpoint_stage?: string;
+          checkpoint_progress?: number;
+          checkpoint_message?: string | null;
+          checkpoint_updated_at?: string;
+          checkpoint_history?: Json;
           started_at?: string | null;
           finished_at?: string | null;
         };
@@ -343,8 +449,103 @@ export interface Database {
           total: number;
           duration_ms?: number | null;
           status?: "completed" | "abandoned";
+          created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["quiz_attempts"]["Insert"]>;
+        Relationships: [];
+      };
+      attempt_reflections: {
+        Row: {
+          id: string;
+          owner_id: string;
+          attempt_id: string;
+          readiness: number;
+          satisfaction: number;
+          causes: string[];
+          next_action: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          attempt_id: string;
+          readiness: number;
+          satisfaction: number;
+          causes?: string[];
+          next_action?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["attempt_reflections"]["Insert"]>;
+        Relationships: [];
+      };
+      review_cards: {
+        Row: {
+          id: string;
+          owner_id: string;
+          quiz_id: string;
+          question_id: number;
+          due_at: string;
+          stability: number;
+          difficulty: number;
+          scheduled_days: number;
+          learning_steps: number;
+          reps: number;
+          lapses: number;
+          state: number;
+          last_review_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          quiz_id: string;
+          question_id: number;
+          due_at?: string;
+          stability?: number;
+          difficulty?: number;
+          scheduled_days?: number;
+          learning_steps?: number;
+          reps?: number;
+          lapses?: number;
+          state?: number;
+          last_review_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["review_cards"]["Insert"]>;
+        Relationships: [];
+      };
+      review_logs: {
+        Row: {
+          id: string;
+          owner_id: string;
+          card_id: string;
+          rating: number;
+          previous_state: number;
+          previous_due_at: string;
+          reviewed_at: string;
+          scheduled_days: number;
+          stability: number;
+          difficulty: number;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          card_id: string;
+          rating: number;
+          previous_state: number;
+          previous_due_at: string;
+          reviewed_at?: string;
+          scheduled_days: number;
+          stability: number;
+          difficulty: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["review_logs"]["Insert"]>;
         Relationships: [];
       };
       /** 0018: 자료 기반 RAG 챗 스레드. material_full_text는 thread 생성 시 동결. */

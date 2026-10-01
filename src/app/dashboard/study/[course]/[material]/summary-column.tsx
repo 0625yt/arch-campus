@@ -2,6 +2,7 @@
 
 import { FeedbackTriggerButton } from "@/components/feedback-trigger-button";
 import { WizardWatermark } from "@/components/wizard-shell";
+import { keyedItems } from "@/lib/keyed-items";
 import type { SummarizeOutputT } from "@/lib/schemas";
 import { PageChip } from "./material-view";
 
@@ -43,8 +44,8 @@ export function SummaryColumn({
       </p>
 
       <div className="mt-8 flex flex-col gap-6">
-        {summary.blocks.map((block, i) => (
-          <BlockRow key={i} block={block} onPageClick={onPageClick} />
+        {keyedItems(summary.blocks).map(({ item: block, key: contentKey0 }) => (
+          <BlockRow key={contentKey0} block={block} onPageClick={onPageClick} />
         ))}
       </div>
 
@@ -54,8 +55,8 @@ export function SummaryColumn({
             복습 포인트
           </p>
           <ul className="mt-3 flex flex-col gap-3">
-            {summary.reviewSpots.map((spot, i) => (
-              <li key={i}>
+            {keyedItems(summary.reviewSpots).map(({ item: spot, key: contentKey1 }) => (
+              <li key={contentKey1}>
                 <p
                   className="text-[14px] wght-560 text-[var(--color-apple-ink)]"
                   style={{ letterSpacing: "-0.012em" }}
@@ -123,9 +124,9 @@ function BlockRow({
     return (
       <div>
         <ul className="flex flex-col gap-2">
-          {block.items.map((item, i) => (
+          {keyedItems(block.items).map(({ item, key: contentKey2 }) => (
             <li
-              key={i}
+              key={contentKey2}
               className="flex gap-2 text-[14.5px] leading-[1.6] wght-450 text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >

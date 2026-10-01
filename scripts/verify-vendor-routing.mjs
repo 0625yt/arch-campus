@@ -31,7 +31,9 @@ for (const [tool, expectedKey] of cases) {
   const expected = MODELS[expectedKey === "google" ? "geminiFlash" : expectedKey];
   const ok = id === expected;
   if (!ok) allOk = false;
-  console.log(`${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m"} ${tool.padEnd(20)} → ${id} ${ok ? "" : `(예상: ${expected})`}`);
+  console.log(
+    `${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m"} ${tool.padEnd(20)} → ${id} ${ok ? "" : `(예상: ${expected})`}`,
+  );
 }
 
 console.log("");

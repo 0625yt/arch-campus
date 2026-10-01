@@ -36,6 +36,29 @@ export interface ExtractXlsxGridFailure {
   message: string;
 }
 
+export interface XlsxLayoutSheet {
+  sheetName: string;
+  rowCount: number;
+  columnCount: number;
+  catalogLikeRows: number;
+}
+
+export interface ExtractXlsxLayoutResult {
+  ok: true;
+  /** 셀 주소와 병합 범위를 보존한 LLM용 텍스트 */
+  markdown: string;
+  sheets: XlsxLayoutSheet[];
+  /** 개인 시간표가 아니라 수강편람/전체 개설강좌 목록일 가능성이 매우 높음 */
+  likelyCourseCatalog: boolean;
+  truncated: boolean;
+}
+
+export interface ExtractXlsxLayoutFailure {
+  ok: false;
+  reason: "empty-workbook" | "exceljs-failed";
+  message: string;
+}
+
 export async function extractTimetableGridFromXlsx(
   bytes: ParseBytes,
   opts: {
@@ -70,6 +93,118 @@ export async function extractTimetableGridFromXlsx(
     return { ok: false, reason: "no-header", message: "헤더 키워드를 만족하는 표를 못 찾음" };
   }
   return { ok: true, grids };
+}
+
+/**
+ * 월~금 헤더 격자가 아닌 Excel도 셀 좌표를 잃지 않게 직렬화한다.
+ *
+ * 학교마다 `요일 | 실제 시간 | 과목 | 강의실 | 교수` 행 목록, 학년별 좌우 병렬표,
+ * 병합 셀 등 양식이 크게 다르다. 일반 텍스트 파서는 빈 셀과 열 위치를 버리므로
+ * 요일/강의가 뒤섞인다. 여기서는 `R8: A=월 | B=10:00~13:00 ...`처럼 주소를
+ * 보존하고 병합 범위도 별도 기록한다.
+ */
+export async function extractXlsxLayout(
+  bytes: ParseBytes,
+  opts: { maxRowsPerSheet?: number; maxChars?: number } = {},
+): Promise<ExtractXlsxLayoutResult | ExtractXlsxLayoutFailure> {
+  let workbook: ExcelJS.Workbook;
+  try {
+    const u8 = Uint8Array.from(toUint8Array(bytes));
+    workbook = new ExcelJS.Workbook();
+    const ab = u8.buffer as ArrayBuffer;
+    await workbook.xlsx.load(ab as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "exceljs-failed",
+      message: e instanceof Error ? e.message : String(e),
+    };
+  }
+
+  if (workbook.worksheets.length === 0) {
+    return { ok: false, reason: "empty-workbook", message: "시트가 없는 Excel 파일" };
+  }
+
+  const maxRows = opts.maxRowsPerSheet ?? 180;
+  const maxChars = opts.maxChars ?? 80_000;
+  const parts: string[] = ["# Excel 셀 좌표 구조"];
+  const sheets: XlsxLayoutSheet[] = [];
+  let length = parts[0].length;
+  let truncated = false;
+
+  for (const sheet of workbook.worksheets) {
+    let catalogLikeRows = 0;
+    sheet.eachRow({ includeEmpty: false }, (row) => {
+      const texts: string[] = [];
+      row.eachCell({ includeEmpty: false }, (cell) => {
+        const value = directCellText(cell);
+        if (value) texts.push(value);
+      });
+      if (looksLikeCatalogCourseRow(texts)) catalogLikeRows += 1;
+    });
+
+    sheets.push({
+      sheetName: sheet.name,
+      rowCount: sheet.actualRowCount,
+      columnCount: sheet.actualColumnCount,
+      catalogLikeRows,
+    });
+
+    const merges = ((sheet.model as { merges?: string[] }).merges ?? []).slice(0, 120);
+    const header = [
+      "",
+      `## 시트: ${escapeLayoutText(sheet.name)}`,
+      `크기: ${sheet.actualRowCount}행 x ${sheet.actualColumnCount}열`,
+      merges.length > 0 ? `병합 셀: ${merges.join(", ")}` : "병합 셀: 없음",
+    ];
+    for (const line of header) {
+      if (length + line.length + 1 > maxChars) {
+        truncated = true;
+        break;
+      }
+      parts.push(line);
+      length += line.length + 1;
+    }
+    if (truncated) break;
+
+    let emittedRows = 0;
+    sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (truncated) return;
+      if (emittedRows >= maxRows) {
+        truncated = true;
+        return;
+      }
+      const cells: string[] = [];
+      row.eachCell({ includeEmpty: false }, (cell) => {
+        const value = directCellText(cell);
+        if (!value) return;
+        const column = cell.address.replace(/\d+$/, "");
+        cells.push(`${column}="${escapeLayoutText(value)}"`);
+      });
+      if (cells.length === 0) return;
+      const line = `R${rowNumber}: ${cells.join(" | ")}`;
+      if (length + line.length + 1 > maxChars) {
+        truncated = true;
+        return;
+      }
+      parts.push(line);
+      length += line.length + 1;
+      emittedRows += 1;
+    });
+    if (truncated) break;
+  }
+
+  if (truncated) parts.push("[이하 생략 — 원본 행 수가 안전 한도를 초과함]");
+  const catalogRows = sheets.reduce((sum, sheet) => sum + sheet.catalogLikeRows, 0);
+  return {
+    ok: true,
+    markdown: parts.join("\n"),
+    sheets,
+    // 개인 시간표는 보통 5~20개 수업이다. 30개 이상의 '요일+교시' 강좌 행은
+    // 학과/대학 전체 개설 목록으로 보고 자동 등록하지 않는다.
+    likelyCourseCatalog: catalogRows >= 30,
+    truncated,
+  };
 }
 
 function scanSheet(
@@ -150,7 +285,20 @@ function cellText(cell: ExcelJS.Cell): string {
     if (result == null) return "";
     return String(result);
   }
-  return String(v);
+  if (typeof v === "boolean") return String(v);
+  // ExcelJS의 일부 깨진 병합 child는 MergeValue.toString()에서 예외를 던진다.
+  // 알 수 없는 객체를 억지로 문자열화하지 않아 파일 전체 파싱 실패를 막는다.
+  try {
+    return String(v);
+  } catch {
+    return "";
+  }
+}
+
+function directCellText(cell: ExcelJS.Cell): string {
+  const master = (cell as { master?: ExcelJS.Cell }).master;
+  if (cell.isMerged && master && master !== cell) return "";
+  return cellText(cell);
 }
 
 function mergedText(cell: ExcelJS.Cell): string {
@@ -162,6 +310,18 @@ function mergedText(cell: ExcelJS.Cell): string {
     return cellText(master);
   }
   return "";
+}
+
+function looksLikeCatalogCourseRow(cells: string[]): boolean {
+  if (cells.length < 4) return false;
+  return cells.some((value) => /(?:월|화|수|목|금|토|일)\s*\d|cyber|온라인/i.test(value));
+}
+
+function escapeLayoutText(value: string): string {
+  return value
+    .replace(/\s*\n\s*/g, " / ")
+    .replace(/"/g, "'")
+    .trim();
 }
 
 function gridToMarkdown(columns: XlsxGrid["columns"], rows: XlsxGrid["rows"]): string {

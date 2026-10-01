@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Kbd } from "@/components/primitives";
 import { WizardWatermark } from "@/components/wizard-shell";
 import { useJob } from "@/lib/hooks/use-job";
+import { keyedItems } from "@/lib/keyed-items";
 import type { PresentationOutputT } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 
@@ -594,10 +595,14 @@ function AdditionalRequestField({
 }) {
   return (
     <div className="mt-6 flex flex-col gap-2">
-      <label className="flex items-center gap-1.5 text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
+      <label
+        htmlFor="additional-request"
+        className="flex items-center gap-1.5 text-[11.5px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]"
+      >
         추가 요청 사항 (선택)
       </label>
       <textarea
+        id="additional-request"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -741,8 +746,8 @@ export function PresentationResultCard({
                   className="mt-3 flex flex-col gap-1.5 text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-ink)]"
                   style={{ letterSpacing: "-0.012em" }}
                 >
-                  {s.structure.map((line, i) => (
-                    <li key={i} className="flex gap-2">
+                  {keyedItems(s.structure).map(({ item: line, key: contentKey0 }) => (
+                    <li key={contentKey0} className="flex gap-2">
                       <span className="mt-[10px] h-1 w-1 shrink-0 rounded-full bg-[var(--color-apple-muted)]" />
                       <span>{line}</span>
                     </li>
@@ -774,9 +779,9 @@ export function PresentationResultCard({
           예상 질문
         </h3>
         <ul className="mt-5 flex flex-col gap-5">
-          {output.qaBank.map((q, i) => (
+          {keyedItems(output.qaBank).map(({ item: q, key: contentKey1 }, i) => (
             <li
-              key={i}
+              key={contentKey1}
               className="border-b border-[var(--color-apple-hairline-soft)] pb-5 last:border-0 last:pb-0"
             >
               <div className="flex items-baseline gap-2">
@@ -814,9 +819,9 @@ export function PresentationResultCard({
             발표 직전 팁
           </h3>
           <ul className="mt-4 flex flex-col gap-2.5">
-            {output.deliveryTips.map((t, i) => (
+            {keyedItems(output.deliveryTips).map(({ item: t, key: contentKey2 }) => (
               <li
-                key={i}
+                key={contentKey2}
                 className="flex gap-2 text-[13.5px] wght-450 leading-[1.6] text-[var(--color-apple-ink)]"
                 style={{ letterSpacing: "-0.012em" }}
               >
@@ -1014,6 +1019,7 @@ function CheckBox({ checked }: { checked: boolean }) {
     >
       {checked && (
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+          <title>아이콘</title>
           <path
             d="M1.5 5 L4 7.5 L8.5 2.5"
             stroke="currentColor"
@@ -1040,6 +1046,7 @@ function Spinner() {
 function CheckIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+      <title>아이콘</title>
       <path
         d="M2 5.2l2 2L8 3"
         stroke="currentColor"

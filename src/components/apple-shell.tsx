@@ -54,7 +54,7 @@ export function AppleShell({
 
   return (
     <div
-      className={`mx-auto w-full ${maxW} px-6 pt-8 sm:px-10 sm:pt-12 md:px-12 ${pbCls} ${className}`}
+      className={`mx-auto w-full min-w-0 ${maxW} px-5 pt-7 sm:px-8 sm:pt-10 md:px-12 ${pbCls} ${className}`}
     >
       {children}
     </div>

@@ -47,9 +47,8 @@ export default async function SignupPage({
             className="mx-auto mt-5 max-w-[300px] text-[14px] leading-[1.55] wght-450 text-[var(--color-apple-muted)]"
             style={{ letterSpacing: "-0.012em" }}
           >
-            가입은 30초.
-            <br />
-            바로 자료부터 올릴 수 있습니다.
+            구글 또는 이메일로 가입하고
+            <br />내 자료부터 바로 올려보세요
           </p>
         </header>
 

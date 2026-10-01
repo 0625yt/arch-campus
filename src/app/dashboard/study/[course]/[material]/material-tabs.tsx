@@ -91,6 +91,7 @@ function DocIcon() {
       aria-hidden
       className="shrink-0 opacity-80"
     >
+      <title>아이콘</title>
       <path
         d="M4.5 1.5h5L12 4v9.5a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1V2.5a1 1 0 0 1 1-1z"
         stroke="currentColor"

@@ -146,7 +146,7 @@ export function MaterialActionsMenu({
   const canMove = (courses?.length ?? 0) > 0;
 
   return (
-    <div ref={wrapRef} className="relative" onClick={stop} onPointerDown={stop}>
+    <div ref={wrapRef} className="relative">
       <button
         type="button"
         aria-label="자료 메뉴"
@@ -154,13 +154,15 @@ export function MaterialActionsMenu({
           stop(e);
           setOpen((v) => !v);
         }}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[14px] text-[var(--color-apple-muted)] transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[14px] text-[var(--color-apple-muted)] transition-colors"
       >
-        ⋯
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]">
+          ⋯
+        </span>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-8 z-30 min-w-[140px] rounded-[10px] border border-[var(--color-apple-hairline)] bg-white py-1 shadow-[var(--shadow-lift)]">
+        <div className="absolute right-0 top-11 z-30 min-w-[140px] rounded-[10px] border border-[var(--color-apple-hairline)] bg-white py-1 shadow-[var(--shadow-lift)]">
           <MenuItem
             label="이름 변경"
             onClick={() => {
@@ -197,8 +199,7 @@ export function MaterialActionsMenu({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={160}
-            autoFocus
-            className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[14px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+            className="h-11 w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 text-[14px] wght-560 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
           />
           {error && (
             <p className="rounded-[8px] bg-[var(--color-urgent)]/10 px-3 py-2 text-[12px] wght-560 text-[var(--color-urgent)]">
@@ -210,14 +211,14 @@ export function MaterialActionsMenu({
               type="button"
               onClick={() => setRenaming(false)}
               disabled={busy}
-              className="rounded-[8px] px-3.5 py-2 text-[13px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
+              className="min-h-11 rounded-[8px] px-3.5 text-[13px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="rounded-[8px] bg-[var(--color-apple-ink)] px-3.5 py-2 text-[13px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="min-h-11 rounded-[8px] bg-[var(--color-apple-ink)] px-3.5 text-[13px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "저장 중…" : "저장"}
             </button>
@@ -235,8 +236,7 @@ export function MaterialActionsMenu({
           <select
             value={targetCourse}
             onChange={(e) => setTargetCourse(e.target.value)}
-            autoFocus
-            className="w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 py-2 text-[14px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
+            className="h-11 w-full rounded-[8px] border border-[var(--color-apple-hairline)] bg-white px-3 text-[14px] wght-450 text-[var(--color-apple-ink)] focus:border-[var(--color-apple-action)] focus:outline-none"
           >
             <option value="">미분류 (강의 없음)</option>
             {(courses ?? []).map((c) => (
@@ -255,14 +255,14 @@ export function MaterialActionsMenu({
               type="button"
               onClick={() => setMoving(false)}
               disabled={busy}
-              className="rounded-[8px] px-3.5 py-2 text-[13px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
+              className="min-h-11 rounded-[8px] px-3.5 text-[13px] wght-560 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)] disabled:opacity-50"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="rounded-[8px] bg-[var(--color-apple-ink)] px-3.5 py-2 text-[13px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="min-h-11 rounded-[8px] bg-[var(--color-apple-ink)] px-3.5 text-[13px] wght-620 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "이동 중…" : "이동"}
             </button>
@@ -298,8 +298,8 @@ function MenuItem({
       onClick={onClick}
       className={
         destructive
-          ? "block w-full px-3.5 py-1.5 text-left text-[12.5px] wght-560 text-[var(--color-urgent)] hover:bg-[var(--color-urgent)]/10"
-          : "block w-full px-3.5 py-1.5 text-left text-[12.5px] wght-560 text-[var(--color-apple-ink)] hover:bg-[var(--color-apple-pearl)]"
+          ? "block min-h-11 w-full px-3.5 py-1.5 text-left text-[12.5px] wght-560 text-[var(--color-urgent)] hover:bg-[var(--color-urgent)]/10"
+          : "block min-h-11 w-full px-3.5 py-1.5 text-left text-[12.5px] wght-560 text-[var(--color-apple-ink)] hover:bg-[var(--color-apple-pearl)]"
       }
     >
       {label}

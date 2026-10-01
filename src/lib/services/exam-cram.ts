@@ -1,5 +1,5 @@
 import "server-only";
-import { estimateCost, generate, getModelVendor } from "@/lib/claude";
+import { estimateCost, generate, getModelIdFor, getModelVendor } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
 import {
   ExamCramOutput,
@@ -117,7 +117,7 @@ export async function runExamCram(input: ExamCramInput): Promise<ExamCramResult>
   } catch (e) {
     await logGeneration({
       ownerId: input.ownerId,
-      modelId: "claude-sonnet-4-6",
+      modelId: getModelIdFor("wizard-cram"),
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });

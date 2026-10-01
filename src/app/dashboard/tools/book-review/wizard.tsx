@@ -232,7 +232,7 @@ export function BookReviewWizard() {
       {/* 액션 */}
       <div className="mt-7 flex items-center justify-between gap-4">
         <p className="text-[11px] wght-450 text-[var(--color-apple-muted)]">
-          ⚠ AI 초안 — 본인 표현으로 다시 쓰지 않으면 표절 검사기에 잡혀요
+          AI 초안 — 본인 메모·원문과 비교해 검토하고 직접 수정해 주세요
         </p>
         <button
           type="submit"

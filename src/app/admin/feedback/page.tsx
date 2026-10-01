@@ -1,3 +1,6 @@
+import { notFound } from "next/navigation";
+import { tryGetOwnerId } from "@/lib/auth";
+import { isAdminUserId } from "@/lib/auth/admin";
 import type { FeedbackStatus } from "@/lib/schemas/feedback";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { FeedbackListClient } from "./feedback-list-client";
@@ -15,6 +18,8 @@ export default async function AdminFeedbackPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  const ownerId = await tryGetOwnerId();
+  if (!isAdminUserId(ownerId)) notFound();
   const sp = await searchParams;
   const status = (sp.status as FeedbackStatus) ?? "new";
 

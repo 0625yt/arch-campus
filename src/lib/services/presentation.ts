@@ -1,5 +1,5 @@
 import "server-only";
-import { estimateCost, generate, getModelVendor } from "@/lib/claude";
+import { estimateCost, generate, getModelIdFor, getModelVendor } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
 import {
   evidenceMatches,
@@ -21,8 +21,11 @@ import { breakdown } from "@/lib/tokens";
  *     인용이 substring 매칭 안 되면 환각이므로 reject.
  *   - estimatedSec 합계가 duration*60 ±15%.
  *
- * 모델: Sonnet 4.6 (TOOL_MODEL.presentation — claude.ts).
- *   학기당 발표는 학생당 2~5회 정도라 비싸도 OK. 결과 품질이 학생 만족의 사활.
+ * 모델: Gemini 3.6 Flash (TOOL_MODEL.presentation — claude.ts, 2026-07-24 전면 Gemini 전환).
+ *   학기당 발표는 학생당 2~5회 정도라 저빈도. 발표는 슬라이드 분량·산문 품질이 사활이라
+ *   최저가 Flash-Lite가 아닌 상위 3.6 Flash 사용(A/B 실측: Flash-Lite ~35% vs 3.6 Flash ~65%
+ *   validateOutput 통과 — COST.md §9). Flash-Lite는 제목/마무리 슬라이드 structure를 얇게 만드는 약점.
+ *   ⚠️ 3.6 Flash는 출력이 길다(최대 ~5200 토큰) → maxTokens는 넉넉히(6144). 4096이면 JSON 잘림.
  */
 
 export interface PresentationMaterialInput {
@@ -93,13 +96,14 @@ export async function runPresentation(input: PresentationInput): Promise<Present
       rulePrompt,
       dynamicContext,
       userInput,
-      maxTokens: 4096,
+      // 3.6 Flash는 발표 JSON 출력이 최대 ~5200토큰 → 6144로 잘림 방지(A/B 실측, COST.md §9).
+      maxTokens: 6144,
       temperature: 0.5,
     });
   } catch (e) {
     await logGeneration({
       ownerId: input.ownerId,
-      modelId: "claude-sonnet-4-6",
+      modelId: getModelIdFor("presentation"),
       status: "error",
       errorMessage: e instanceof Error ? e.message : String(e),
     });

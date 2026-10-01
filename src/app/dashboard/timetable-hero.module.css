@@ -1,0 +1,290 @@
+.timetable {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 18px;
+  background: var(--color-bg);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    0 12px 38px -26px rgb(35 57 112 / 0.24);
+}
+
+.card[hidden] {
+  display: none;
+}
+
+.cell {
+  border: 1px solid rgb(var(--tt-accent-rgb) / 0.25);
+  background-image: linear-gradient(140deg, rgb(255 255 255 / 0.28), transparent 65%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45);
+  transform-origin: center bottom;
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.cell:focus-visible,
+.agendaCourse:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  z-index: 30;
+}
+
+.cellLocation {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 3px;
+  margin-top: 4px;
+  color: var(--color-apple-ink);
+  font-size: 10.5px;
+  font-weight: 580;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.cellLocation > svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.cellLocation > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hint {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  padding: 8px 2px 0;
+  color: var(--color-apple-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.agenda {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 18px;
+  background: var(--color-bg);
+  animation: enter 260ms ease both;
+}
+
+.agendaDayTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: var(--color-apple-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.agendaDayTitle > span:not(.dayCount) {
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: 10px;
+}
+
+.agendaDayTitle[data-today="true"] {
+  color: var(--color-accent);
+}
+
+.dayCount {
+  margin-left: auto;
+  color: var(--color-apple-muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.agendaCourses {
+  display: grid;
+  gap: 8px;
+}
+
+.agendaCourse {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  overflow: hidden;
+  border: 1px solid rgb(var(--tt-accent-rgb) / 0.3);
+  border-radius: 12px;
+  background: linear-gradient(110deg, rgb(var(--tt-accent-rgb) / 0.11), transparent 90%);
+  text-align: left;
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.agendaCourse::before {
+  position: absolute;
+  inset: 16px auto 16px 0;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: rgb(var(--tt-accent-rgb));
+  content: "";
+}
+
+.agendaTime {
+  display: grid;
+  grid-template-columns: 12px auto;
+  align-items: center;
+  gap: 3px 5px;
+  flex-shrink: 0;
+  padding-top: 2px;
+  color: var(--color-apple-ink);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.agendaTime > span {
+  grid-column: 2;
+  color: var(--color-apple-muted);
+  font-size: 11px;
+  font-weight: 450;
+}
+
+.agendaDetails {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--color-apple-ink);
+}
+
+.agendaDetails > strong {
+  font-size: 14px;
+  font-weight: 680;
+  line-height: 1.4;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.agendaLocation {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.agendaLocation > svg {
+  flex-shrink: 0;
+}
+
+.agendaProfessor,
+.freeDay {
+  color: var(--color-apple-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.agendaArrow {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-apple-muted);
+  transition: transform 220ms ease;
+}
+
+.freeDay {
+  padding: 8px 0;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .cell:hover {
+    z-index: 25;
+    transform: perspective(600px) translateY(-3px) rotateX(2deg);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.45),
+      0 12px 24px -12px rgb(var(--tt-accent-rgb) / 0.6);
+  }
+
+  .agendaCourse:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -20px rgb(var(--tt-accent-rgb) / 0.65);
+  }
+
+  .agendaCourse:hover .agendaArrow {
+    transform: translate(2px, -2px);
+  }
+}
+
+@media (max-width: 639px) {
+  .cellLocation {
+    margin-top: 4px;
+    font-size: 9px;
+  }
+
+  .cellLocation > svg {
+    display: none;
+  }
+
+  .hint {
+    justify-content: flex-start;
+    font-size: 9px;
+  }
+
+  .agenda {
+    padding: 14px 10px;
+  }
+
+  .agendaCourse {
+    gap: 12px;
+    padding: 14px 12px;
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agenda {
+    animation: none;
+  }
+
+  .cell,
+  .agendaCourse,
+  .agendaArrow {
+    transition: none;
+  }
+}

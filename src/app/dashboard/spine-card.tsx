@@ -100,7 +100,7 @@ export function SpineCard({
   return (
     <div
       className={`course-wash relative flex items-center justify-between gap-3 overflow-hidden rounded-[20px] border border-[var(--color-apple-hairline-soft)] bg-[var(--color-apple-pearl)] elev-1 ${
-        isBar ? "h-[72px] pr-5 pl-5" : "h-24 py-3.5 pr-4 pl-4"
+        isBar ? "h-[72px] pr-5 pl-5" : idle ? "h-16 py-3 pr-4 pl-4" : "h-24 py-3.5 pr-4 pl-4"
       } ${className}`}
       style={washStyle}
     >

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { markJobDone, markJobError, markJobRunning } from "@/lib/data/jobs";
+import { markJobDone, markJobError, markJobRunning, recordJobCheckpoint } from "@/lib/data/jobs";
 import { type Difficulty, runQuizGeneration } from "@/lib/services/quiz";
 import { runSummarize } from "@/lib/services/summarize";
 
@@ -45,7 +45,13 @@ export async function runSummarizeJob(opts: {
   intentNote?: string;
 }): Promise<void> {
   try {
-    await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId });
+    if (!(await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId }))) return;
+    await recordJobCheckpoint({
+      jobId: opts.jobId,
+      ownerId: opts.ownerId,
+      stage: "generating-summary",
+      progress: 45,
+    });
     const result = await runSummarize({
       ownerId: opts.ownerId,
       materialId: opts.materialId,
@@ -61,6 +67,12 @@ export async function runSummarizeJob(opts: {
       await markJobError({ jobId: opts.jobId, ownerId: opts.ownerId, errorMessage: result.error });
       return;
     }
+    await recordJobCheckpoint({
+      jobId: opts.jobId,
+      ownerId: opts.ownerId,
+      stage: "verifying-output",
+      progress: 85,
+    });
     await markJobDone({
       jobId: opts.jobId,
       ownerId: opts.ownerId,
@@ -88,12 +100,19 @@ export async function runQuizJob(opts: {
   fullText: string;
   sanitizedText: string;
   pageCount: number | null;
+  mimeType?: string | null;
   parserWarnings: string[];
   difficulty: Difficulty;
   requestedCount: number;
 }): Promise<void> {
   try {
-    await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId });
+    if (!(await markJobRunning({ jobId: opts.jobId, ownerId: opts.ownerId }))) return;
+    await recordJobCheckpoint({
+      jobId: opts.jobId,
+      ownerId: opts.ownerId,
+      stage: "generating-quiz",
+      progress: 45,
+    });
     const result = await runQuizGeneration({
       ownerId: opts.ownerId,
       courseId: opts.courseId,
@@ -104,6 +123,7 @@ export async function runQuizJob(opts: {
           type: opts.type,
           fullText: opts.sanitizedText,
           pageCount: opts.pageCount,
+          mimeType: opts.mimeType ?? null,
         },
       ],
       parserWarnings: opts.parserWarnings,
@@ -114,10 +134,16 @@ export async function runQuizJob(opts: {
       await markJobError({ jobId: opts.jobId, ownerId: opts.ownerId, errorMessage: result.error });
       return;
     }
+    await recordJobCheckpoint({
+      jobId: opts.jobId,
+      ownerId: opts.ownerId,
+      stage: "verifying-output",
+      progress: 85,
+    });
     await markJobDone({
       jobId: opts.jobId,
       ownerId: opts.ownerId,
-      result: { quizId: result.quizId },
+      result: { quizId: result.quizId, quality: result.quality },
       modelId: result.modelId,
       usage: result.usage,
       costUsd: result.costUsd,

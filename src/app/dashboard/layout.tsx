@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CommandPalette } from "@/components/command-palette";
+import { DashboardScrollReset } from "@/components/dashboard-scroll-reset";
 import { GlobalTopbar } from "@/components/global-topbar";
 import { JobsDock } from "@/components/jobs-dock";
 import { MobileTabBar, MobileTopbar } from "@/components/mobile-nav";
@@ -25,7 +26,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </Suspense>
       <GlobalTopbar />
       <MobileTopbar />
-      <main className="dashboard-canvas flex-1 overflow-y-auto overscroll-contain">{children}</main>
+      <main
+        data-dashboard-scroll
+        className="dashboard-canvas flex-1 overflow-y-auto overscroll-contain"
+      >
+        <DashboardScrollReset />
+        {children}
+      </main>
       <MobileTabBar />
       <CommandPalette />
       <JobsDock />

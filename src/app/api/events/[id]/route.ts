@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { tryGetOwnerId } from "@/lib/auth";
+import { resolveSeriesOccurrenceTimes, resolveSingleEventTimes } from "@/lib/calendar-event-time";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 
@@ -10,7 +11,6 @@ import type { Database } from "@/lib/supabase/types";
 function bustCalendarCache() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/calendar");
-  revalidatePath("/dashboard");
   revalidatePath("/dashboard/study", "layout");
 }
 
@@ -36,18 +36,6 @@ function kstParts(iso: string): { dow: number; hour: number; minute: number } {
     hour: kst.getUTCHours(),
     minute: kst.getUTCMinutes(),
   };
-}
-
-/**
- * 어떤 ISO datetime의 시·분 부분만 newH:newM(KST 기준)으로 바꾼 새 ISO 반환.
- * 날짜·요일은 유지 — scope=all로 시간 변경 시 각 회차의 날짜는 그대로 둬야 한 날에 안 포개짐.
- */
-function shiftHourMinuteKst(iso: string, newH: number, newM: number): string {
-  const t = new Date(iso).getTime();
-  const kst = new Date(t + KST_OFFSET_MS);
-  // KST 기준 같은 날짜에 시/분만 교체
-  kst.setUTCHours(newH, newM, 0, 0);
-  return new Date(kst.getTime() - KST_OFFSET_MS).toISOString();
 }
 
 export const runtime = "nodejs";
@@ -84,8 +72,6 @@ const PatchBody = z
       .nullable()
       .optional(),
     location: z.string().max(200).nullable().optional(),
-    recurrence_rule: z.string().max(500).nullable().optional(),
-    reminder_minutes: z.number().int().min(0).max(10080).nullable().optional(),
     scope: z.enum(["this", "all"]).default("this"),
   })
   .strict();
@@ -130,9 +116,6 @@ export async function PATCH(
   if (body.color !== undefined) update.color = body.color;
   if (body.location !== undefined)
     update.location = body.location?.trim() ? body.location.trim() : null;
-  if (body.recurrence_rule !== undefined)
-    update.recurrence_rule = body.recurrence_rule?.trim() ? body.recurrence_rule.trim() : null;
-  if (body.reminder_minutes !== undefined) update.reminder_minutes = body.reminder_minutes;
 
   // 시간 변경: starts_at만 바꾸면 ends_at도 비례 이동시켜야 자연스러움
   // 단순화: 사용자가 시간 바꾸면 두 개 다 같이 보내라. 하나만 와도 받기는 함.
@@ -199,54 +182,47 @@ export async function PATCH(
 
     // 시간 변경(starts_at/ends_at)은 "전체 적용" 시 시간 부분만 옮긴다.
     // 날짜는 각 행의 원래 날짜 유지. (그렇지 않으면 모든 회차가 한 날에 포개짐)
-    const newStart = body.starts_at ? new Date(body.starts_at) : null;
-    const newEnd = body.ends_at ? new Date(body.ends_at) : null;
     const updatedRows: Array<{ id: string; starts_at?: string; ends_at?: string | null }> = [];
 
-    if (newStart || newEnd !== null) {
+    if (body.starts_at !== undefined || body.ends_at !== undefined) {
       // 행마다 starts_at·ends_at의 시·분 부분만 새 값으로 교체.
       // 클라가 보낸 newStart/newEnd는 사용자가 입력한 KST 시·분이 ISO로 직렬화된 것.
       // 각 회차의 날짜는 그대로 유지 (전체 회차가 한 날에 포개지지 않게).
       const matchedRows = (candidates ?? []).filter((r) => matchedIds.includes(r.id));
-      const newStartK = newStart ? kstParts(newStart.toISOString()) : null;
-      const newEndK = newEnd ? kstParts(newEnd.toISOString()) : null;
       for (const row of matchedRows) {
-        const next: { id: string; starts_at?: string; ends_at?: string | null } = { id: row.id };
-        if (newStartK) {
-          next.starts_at = shiftHourMinuteKst(row.starts_at, newStartK.hour, newStartK.minute);
+        const resolved = resolveSeriesOccurrenceTimes({
+          occurrenceStart: row.starts_at,
+          occurrenceEnd: row.ends_at,
+          selectedStart: original.starts_at,
+          selectedEnd: original.ends_at,
+          requestedStart: body.starts_at,
+          requestedEnd: body.ends_at,
+        });
+        if (!resolved.ok) {
+          return NextResponse.json({ ok: false, error: resolved.error }, { status: 400 });
         }
-        if (newEnd !== undefined) {
-          if (newEnd === null) {
-            next.ends_at = null;
-          } else if (newEndK) {
-            // 종료 시간 기준 — starts_at의 ISO 그대로에서 시·분만 변경
-            // (대부분 시작과 같은 날이라 안전. 새벽 자정 넘기는 수업은 드문 케이스)
-            next.ends_at = shiftHourMinuteKst(row.starts_at, newEndK.hour, newEndK.minute);
-          }
-        }
-        updatedRows.push(next);
+        updatedRows.push({ id: row.id, starts_at: resolved.startsAt, ends_at: resolved.endsAt });
       }
     }
 
-    // 시간 외 항목(제목·메모 등)은 한 번에 update
+    // 시간 외 항목(제목·메모 등)은 시간 변경이 모두 성공한 뒤 한 번에 반영한다.
+    // 먼저 바꾸면 뒤쪽 회차 시간 저장이 실패했을 때 제목만 전체 적용된 반쪽 상태가 된다.
     const otherUpdate: EventUpdate = { ...update };
     delete otherUpdate.starts_at;
     delete otherUpdate.ends_at;
-    if (Object.keys(otherUpdate).length > 0) {
-      const { error: upErr } = await admin
-        .from("events")
-        .update(otherUpdate)
-        .in("id", matchedIds)
-        .eq("owner_id", ownerId);
-      if (upErr) {
-        return NextResponse.json(
-          { ok: false, error: `일괄 수정 실패: ${upErr.message}` },
-          { status: 500 },
-        );
-      }
-    }
 
     // 시간 변경 — 행마다 다른 값이라 순차 update
+    const changedOriginalTimes: Array<{
+      id: string;
+      starts_at: string;
+      ends_at: string | null;
+    }> = [];
+    const originalTimes = new Map(
+      (candidates ?? []).map((row) => [
+        row.id,
+        { id: row.id, starts_at: row.starts_at, ends_at: row.ends_at },
+      ]),
+    );
     for (const r of updatedRows) {
       const upd: EventUpdate = {};
       if (r.starts_at !== undefined) upd.starts_at = r.starts_at;
@@ -258,8 +234,36 @@ export async function PATCH(
         .eq("id", r.id)
         .eq("owner_id", ownerId);
       if (upErr) {
+        const rollbackError = await restoreSeriesTimes(admin, ownerId, changedOriginalTimes);
         return NextResponse.json(
-          { ok: false, error: `시간 변경 실패: ${upErr.message}` },
+          {
+            ok: false,
+            error: rollbackError
+              ? `시간 변경 실패: ${upErr.message}. 일부 회차 복구도 실패했어요: ${rollbackError}`
+              : `시간 변경 실패: ${upErr.message}. 변경된 회차는 원래 시간으로 복구했어요.`,
+          },
+          { status: 500 },
+        );
+      }
+      const originalTime = originalTimes.get(r.id);
+      if (originalTime) changedOriginalTimes.push(originalTime);
+    }
+
+    if (Object.keys(otherUpdate).length > 0) {
+      const { error: upErr } = await admin
+        .from("events")
+        .update(otherUpdate)
+        .in("id", matchedIds)
+        .eq("owner_id", ownerId);
+      if (upErr) {
+        const rollbackError = await restoreSeriesTimes(admin, ownerId, changedOriginalTimes);
+        return NextResponse.json(
+          {
+            ok: false,
+            error: rollbackError
+              ? `일괄 수정 실패: ${upErr.message}. 시간 복구도 실패했어요: ${rollbackError}`
+              : `일괄 수정 실패: ${upErr.message}. 시간 변경은 원래대로 복구했어요.`,
+          },
           { status: 500 },
         );
       }
@@ -267,6 +271,22 @@ export async function PATCH(
 
     bustCalendarCache();
     return NextResponse.json({ ok: true, affected: matchedIds.length });
+  }
+
+  if (body.starts_at !== undefined || body.ends_at !== undefined) {
+    const resolved = resolveSingleEventTimes({
+      originalStart: original.starts_at,
+      originalEnd: original.ends_at,
+      requestedStart: body.starts_at,
+      requestedEnd: body.ends_at,
+    });
+    if (!resolved.ok) {
+      return NextResponse.json({ ok: false, error: resolved.error }, { status: 400 });
+    }
+    if (body.starts_at !== undefined) update.starts_at = resolved.startsAt;
+    if (body.ends_at !== undefined || (body.starts_at !== undefined && original.ends_at)) {
+      update.ends_at = resolved.endsAt;
+    }
   }
 
   // scope=this — 단건 update
@@ -281,6 +301,22 @@ export async function PATCH(
   }
   bustCalendarCache();
   return NextResponse.json({ ok: true, affected: count ?? 0 });
+}
+
+async function restoreSeriesTimes(
+  admin: ReturnType<typeof getAdminSupabase>,
+  ownerId: string,
+  rows: Array<{ id: string; starts_at: string; ends_at: string | null }>,
+): Promise<string | null> {
+  for (const row of rows) {
+    const { error } = await admin
+      .from("events")
+      .update({ starts_at: row.starts_at, ends_at: row.ends_at })
+      .eq("id", row.id)
+      .eq("owner_id", ownerId);
+    if (error) return error.message;
+  }
+  return null;
 }
 
 export async function DELETE(

@@ -1,6 +1,6 @@
 # 기출 풀이 프롬프트 (exam-solve)
 
-> **모델**: Sonnet 4.6 (Anthropic) / Gemini 2.5 Pro (Google) — 추론 강한 모델
+> **실행 모델**: `src/lib/claude.ts`의 `getModelIdFor()`와 환경 설정을 따른다.
 > **상위 규칙**: [_shared/persona-schema.md](_shared/persona-schema.md), [_shared/master-rules.md](_shared/master-rules.md)
 > **사용처**: 기출 추출(exam-extract) 직후, 본문에 정답이 없던 문제(answer=null)만 모아 직접 풀이
 > **사활**: CLAUDE.md §4 치팅 라인 — 이건 "본문에 답이 없는" 문제다. 모델이 푼 답은 **AI 추정**이며, 틀릴 수 있음을 학생에게 반드시 알린다.
@@ -124,3 +124,7 @@
 > 이 자료는 학습 보조용이며, AI가 추정한 답이라 반드시 본인이 검토·확인하세요.
 
 "이 자료는 학습 보조용이며" 부분이 없거나 변형되면 검증 실패로 본다 (CLAUDE.md §4).
+
+## 최종 품질 점검 — 2026-10-01
+
+수치·단위·부호·정의역·예외 조건을 확인한 뒤 계산한다. 계산 답은 대입이나 역산으로 한 번 점검하고 조건이 부족하거나 보기 여러 개가 맞으면 answer=null이다. 낮은 confidence로 임의 정답을 정당화하지 않는다. 알고 있는 일반 지식을 사용한 풀이와 자료에서 추출된 정답을 혼동하지 않는다.

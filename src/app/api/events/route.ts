@@ -2,6 +2,8 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { tryGetOwnerId } from "@/lib/auth";
+import { validateEventRange } from "@/lib/calendar-event-time";
+import { listEventsBetween } from "@/lib/data/events";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 
@@ -17,6 +19,53 @@ interface OkResponse {
 interface ErrResponse {
   ok: false;
   error: string;
+}
+
+const RangeQuery = z.object({
+  from: z.string().datetime(),
+  to: z.string().datetime(),
+});
+
+/** 일·주·월·년 보기 이동 시 필요한 범위만 다시 불러온다. */
+export async function GET(req: Request): Promise<NextResponse> {
+  const ownerId = await tryGetOwnerId();
+  if (!ownerId) {
+    return NextResponse.json({ ok: false, error: "로그인이 필요해요" }, { status: 401 });
+  }
+
+  const url = new URL(req.url);
+  const parsed = RangeQuery.safeParse({
+    from: url.searchParams.get("from"),
+    to: url.searchParams.get("to"),
+  });
+  if (!parsed.success) {
+    return NextResponse.json({ ok: false, error: "조회 날짜 범위가 잘못됐어요." }, { status: 400 });
+  }
+
+  const fromMs = Date.parse(parsed.data.from);
+  const toMs = Date.parse(parsed.data.to);
+  const maxRangeMs = 370 * 24 * 60 * 60 * 1000;
+  if (toMs <= fromMs || toMs - fromMs > maxRangeMs) {
+    return NextResponse.json(
+      { ok: false, error: "조회 범위는 1일 이상 370일 이하여야 해요." },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const events = await listEventsBetween({
+      ownerId,
+      fromIso: parsed.data.from,
+      toIso: parsed.data.to,
+    });
+    return NextResponse.json({ ok: true, events });
+  } catch (error) {
+    console.error("[events] 범위 조회 실패", error);
+    return NextResponse.json(
+      { ok: false, error: "일정을 불러오지 못했어요. 잠시 후 다시 시도해주세요." },
+      { status: 500 },
+    );
+  }
 }
 
 /**
@@ -37,15 +86,12 @@ const CreateBody = z
     ends_at: z.string().datetime().nullable().optional(),
     all_day: z.boolean().optional().default(false),
     weight_percent: z.number().min(0).max(100).nullable().optional(),
-    // 풍부화 필드 (모두 옵셔널) — DB 제약은 마이그레이션에서.
     color: z
       .string()
       .regex(/^#[0-9A-Fa-f]{6}$/, "색은 #RRGGBB 형식이어야 해요")
       .nullable()
       .optional(),
     location: z.string().max(200).nullable().optional(),
-    recurrence_rule: z.string().max(500).nullable().optional(),
-    reminder_minutes: z.number().int().min(0).max(10080).nullable().optional(),
   })
   .strict();
 
@@ -69,17 +115,27 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
   if (!title) {
     return NextResponse.json({ ok: false, error: "제목을 적어주세요" }, { status: 400 });
   }
+  const rangeError = validateEventRange(body.starts_at, body.ends_at ?? null);
+  if (rangeError) {
+    return NextResponse.json({ ok: false, error: rangeError }, { status: 400 });
+  }
 
   const admin = getAdminSupabase();
 
   // course_id 있으면 본인 소유 강의인지 확인
   if (body.course_id) {
-    const { data: course } = await admin
+    const { data: course, error } = await admin
       .from("courses")
       .select("id")
       .eq("id", body.course_id)
       .eq("owner_id", ownerId)
       .maybeSingle();
+    if (error) {
+      return NextResponse.json(
+        { ok: false, error: "강의 정보를 확인하지 못했어요. 잠시 후 다시 시도해주세요." },
+        { status: 500 },
+      );
+    }
     if (!course) {
       return NextResponse.json({ ok: false, error: "강의를 찾을 수 없어요" }, { status: 404 });
     }
@@ -98,8 +154,6 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     confirmed: true, // 사용자가 직접 입력 = 무조건 확정
     color: body.color ?? null,
     location: body.location?.trim() ? body.location.trim() : null,
-    recurrence_rule: body.recurrence_rule?.trim() ? body.recurrence_rule.trim() : null,
-    reminder_minutes: body.reminder_minutes ?? null,
   };
 
   const { data, error } = await admin.from("events").insert(insert).select("id, title").single();
@@ -115,6 +169,5 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
   // today는 "다가오는 일정"을 RSC로 그리므로 빠뜨리면 새 이벤트가 안 보임 (CRUD-2 결함).
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/calendar");
-  revalidatePath("/dashboard");
   return NextResponse.json({ ok: true, event: { id: data.id, title: data.title } });
 }

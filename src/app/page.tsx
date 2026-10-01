@@ -1,126 +1,86 @@
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { getCurrentUser } from "@/lib/supabase/server";
-import { CalendarSection } from "./landing/calendar-section";
-import { CategoryMarquee } from "./landing/category-marquee";
 import { LandingHero } from "./landing/hero";
-import { StudySection } from "./landing/study-section";
+import styles from "./landing/landing.module.css";
+import { MaterialWorkspaceSection } from "./landing/material-workspace-section";
+import { ProductShowcase } from "./landing/product-showcase";
 import { TodaySection } from "./landing/today-section";
 import { TrustSection } from "./landing/trust-section";
-import { WizardSection } from "./landing/wizard-section";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
 
-/**
- * 랜딩 — 7섹션, 다크/라이트 토글, 라이브 데모.
- *
- *   ┌─ TopNav (brand + nav + theme toggle + CTA)
- *   ├─ Hero (좌측 카피 + 우측 라이브 미니 시간표 카드)
- *   ├─ CategoryMarquee (강의명 chip 무한 가로 스크롤)
- *   ├─ TodaySection (Today 데모 — 카운트다운 + 일정 리스트)
- *   ├─ CalendarSection (자료→일정 시퀀스 데모)
- *   ├─ StudySection (PDF→요약→문제 흐름)
- *   ├─ WizardSection (위저드 미니 결과)
- *   ├─ TrustSection (신뢰 + CTA)
- *   └─ Footer
- *
- * 다크 모드 토큰 (globals.css html[data-theme="dark"]):
- *   --color-landing-bg, --color-landing-text-*, --color-landing-card-*, --color-landing-hairline
- */
-export default async function Home() {
-  const user = await getCurrentUser();
-  const startHref = user ? "/dashboard" : "/login?mode=signup";
-  const startLabel = user ? "내 캠퍼스 열기" : "시작해보세요";
-  const isSignedIn = Boolean(user);
+export default function Home() {
+  const startHref = "/signup";
+  const startLabel = "무료로 시작하기";
 
   return (
-    <main
-      className="min-h-screen overflow-x-hidden"
-      style={{
-        background: "var(--color-landing-bg)",
-        color: "var(--color-landing-text-strong)",
-      }}
-    >
-      <TopNav isSignedIn={isSignedIn} startHref={startHref} startLabel={startLabel} />
-      <LandingHero startHref={startHref} startLabel={startLabel} />
-      <CategoryMarquee />
-      <TodaySection />
-      <CalendarSection />
-      <StudySection />
-      <WizardSection />
-      <TrustSection startHref={startHref} startLabel={startLabel} />
+    <div className={`min-h-screen overflow-x-clip ${styles.page}`}>
+      <TopNav startHref={startHref} />
+      <main id="main-content">
+        <LandingHero startHref={startHref} startLabel={startLabel} />
+        <ProductShowcase startHref={startHref} startLabel={startLabel} />
+        <MaterialWorkspaceSection startHref={startHref} startLabel={startLabel} />
+        <TodaySection />
+        <TrustSection startHref={startHref} startLabel={startLabel} />
+      </main>
       <Footer />
-    </main>
+    </div>
   );
 }
 
-function TopNav({
-  isSignedIn,
-  startHref,
-  startLabel,
-}: {
-  isSignedIn: boolean;
-  startHref: string;
-  startLabel: string;
-}) {
+function TopNav({ startHref }: { startHref: string }) {
   return (
-    <header
-      className="sticky top-0 z-50 backdrop-blur-xl"
-      style={{
-        background: "color-mix(in oklab, var(--color-landing-bg) 78%, transparent)",
-        borderBottom: "1px solid var(--color-landing-hairline)",
-      }}
-    >
-      <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-4 px-5 py-3 sm:px-8">
+    <header className={`sticky top-0 z-50 backdrop-blur-xl ${styles.nav}`}>
+      <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-3 px-5 py-2.5 sm:px-8 lg:px-12">
         <Link
           href="/"
-          className="group inline-flex items-center gap-2 transition-opacity hover:opacity-80"
+          className="group inline-flex min-h-11 items-center transition-opacity hover:opacity-80"
+          aria-label="arch 홈"
         >
-          <BrandMark />
-          <span
-            className="text-[15px] wght-700"
-            style={{ color: "var(--color-landing-text-strong)" }}
-          >
-            arch
+          <span className={styles.brand}>arch</span>
+          <span className={styles.brandNote} aria-hidden>
+            MADE FOR
+            <br />
+            YOUR SEMESTER
           </span>
         </Link>
 
-        <nav className="flex items-center gap-1.5">
+        <nav className="flex items-center gap-1.5" aria-label="주요 메뉴">
           <a
-            href="#flow"
-            className="hidden rounded-full px-3 py-1.5 text-[13px] wght-560 transition-colors sm:inline-flex"
+            href="#product"
+            className="hidden min-h-11 items-center px-3 text-[13px] wght-560 transition-colors hover:opacity-75 sm:inline-flex"
             style={{ color: "var(--color-landing-text-muted)" }}
           >
-            흐름
+            실제 화면
           </a>
           <a
-            href="#features"
-            className="hidden rounded-full px-3 py-1.5 text-[13px] wght-560 transition-colors sm:inline-flex"
+            href="#material"
+            className="hidden min-h-11 items-center px-3 text-[13px] wght-560 transition-colors hover:opacity-75 sm:inline-flex"
             style={{ color: "var(--color-landing-text-muted)" }}
           >
-            기능
+            자료 정리
           </a>
           <a
             href="#trust"
-            className="hidden rounded-full px-3 py-1.5 text-[13px] wght-560 transition-colors sm:inline-flex"
+            className="hidden min-h-11 items-center px-3 text-[13px] wght-560 transition-colors hover:opacity-75 sm:inline-flex"
             style={{ color: "var(--color-landing-text-muted)" }}
           >
-            신뢰
+            안심하고 시작
           </a>
-          <ThemeToggle className="ml-1" />
+          <ThemeToggle className="sm:ml-1 !h-11 !w-11" />
           <Link
-            href={isSignedIn ? "/dashboard" : "/login"}
-            className="rounded-full px-3 py-1.5 text-[13px] wght-560 transition-colors"
+            href="/login"
+            className="inline-flex min-h-11 items-center px-2 text-[13px] wght-560 transition-colors hover:opacity-75 sm:px-3"
             style={{ color: "var(--color-landing-text-muted)" }}
           >
-            {isSignedIn ? "대시보드" : "로그인"}
+            로그인
           </Link>
           <Link
             href={startHref}
-            className="spring-press inline-flex h-9 items-center rounded-full bg-[var(--color-apple-action)] px-4 text-[13px] wght-620 text-white shadow-[0_10px_24px_-12px_rgba(0,113,227,0.6)] transition-all hover:bg-[var(--color-apple-action-hover)]"
-            style={{ letterSpacing: "-0.012em" }}
+            className="spring-press inline-flex min-h-11 items-center rounded-[10px] bg-[var(--color-landing-text-strong)] px-3 text-[12px] wght-700 transition-opacity hover:opacity-85 sm:px-4 sm:text-[13px]"
+            style={{ color: "var(--color-landing-bg)", letterSpacing: "-0.012em" }}
           >
-            {startLabel}
+            무료 시작
           </Link>
         </nav>
       </div>
@@ -156,21 +116,21 @@ function Footer() {
             arch
           </span>
           <span className="text-[12px]" style={{ color: "var(--color-landing-text-muted)" }}>
-            공부·일정·AI 한 화면.
+            일정부터 복습까지 한곳에
           </span>
         </div>
         <div className="flex items-center gap-4 text-[12px] wght-450">
           <Link
             href="/terms"
             style={{ color: "var(--color-landing-text-muted)" }}
-            className="hover:opacity-80"
+            className="inline-flex min-h-11 items-center hover:opacity-80"
           >
             이용약관
           </Link>
           <Link
             href="/privacy"
             style={{ color: "var(--color-landing-text-muted)" }}
-            className="hover:opacity-80"
+            className="inline-flex min-h-11 items-center hover:opacity-80"
           >
             개인정보
           </Link>

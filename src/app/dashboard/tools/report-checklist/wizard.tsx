@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { cloneElement, isValidElement, type ReactElement, useId, useState } from "react";
 import { WizardWatermark } from "@/components/wizard-shell";
 import { useJob } from "@/lib/hooks/use-job";
+import { keyedItems } from "@/lib/keyed-items";
 import type { ChecklistOutputT, ChecklistRequirementT } from "@/lib/schemas";
 
 type Step = 1 | 2;
@@ -181,7 +182,6 @@ function FormStep(props: {
           placeholder="예: 운영체제 1차 리포트"
           className={inputClass}
           maxLength={120}
-          autoFocus
         />
       </Field>
 
@@ -347,9 +347,9 @@ export function ReportChecklistResultCard({
           가장 먼저 챙길 것
         </h3>
         <ol className="mt-4 flex flex-col gap-3">
-          {output.topRisks.map((r, i) => (
+          {keyedItems(output.topRisks).map(({ item: r, key: contentKey0 }, i) => (
             <li
-              key={i}
+              key={contentKey0}
               className="flex gap-3 rounded-[12px] bg-[var(--color-urgent-soft)] px-4 py-3"
             >
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-urgent)] text-[11px] wght-700 tabular-nums text-white">
@@ -381,9 +381,9 @@ export function ReportChecklistResultCard({
                 {CATEGORY_LABEL[cat]}
               </p>
               <ul className="mt-2.5 flex flex-col gap-3">
-                {list.map((req, i) => (
+                {keyedItems(list).map(({ item: req, key: contentKey1 }) => (
                   <li
-                    key={i}
+                    key={contentKey1}
                     className="border-b border-[var(--color-apple-hairline-soft)] pb-3 last:border-0 last:pb-0"
                   >
                     <div className="flex items-baseline gap-2">
@@ -421,9 +421,9 @@ export function ReportChecklistResultCard({
           쓰기 전 스스로 답할 질문
         </h3>
         <ul className="mt-4 flex flex-col gap-2.5">
-          {output.selfQuestions.map((q, i) => (
+          {keyedItems(output.selfQuestions).map(({ item: q, key: contentKey2 }) => (
             <li
-              key={i}
+              key={contentKey2}
               className="flex gap-2 text-[13.5px] wght-450 leading-[1.6] text-[var(--color-apple-ink)]"
               style={{ letterSpacing: "-0.012em" }}
             >
@@ -445,9 +445,9 @@ export function ReportChecklistResultCard({
             교수님께 확인할 것
           </h3>
           <ul className="mt-4 flex flex-col gap-2.5">
-            {output.openQuestions.map((q, i) => (
+            {keyedItems(output.openQuestions).map(({ item: q, key: contentKey3 }) => (
               <li
-                key={i}
+                key={contentKey3}
                 className="flex gap-2 text-[13.5px] wght-450 leading-[1.6] text-[var(--color-apple-muted)]"
                 style={{ letterSpacing: "-0.012em" }}
               >
@@ -513,13 +513,16 @@ function Field({
   required?: boolean;
   children: React.ReactNode;
 }) {
+  const controlId = useId();
   return (
-    <label className="flex flex-col gap-2.5">
+    <label htmlFor={controlId} className="flex flex-col gap-2.5">
       <span className="flex items-center gap-1.5 text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
         {label}
         {required && <span className="text-[var(--color-urgent)]">*</span>}
       </span>
-      {children}
+      {isValidElement(children)
+        ? cloneElement(children as ReactElement<{ id?: string }>, { id: controlId })
+        : children}
     </label>
   );
 }

@@ -213,17 +213,8 @@ function ToolsPageInner() {
     <div>
       <AppleShell>
         <header className="fade-up flex items-baseline justify-between gap-3">
-          <p
-            className="text-[12px] wght-450 text-[var(--color-apple-muted)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            도구
-          </p>
-          <Link
-            href="/dashboard"
-            className="group inline-flex items-baseline text-[12px] wght-450 text-[var(--color-apple-action)]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
+          <p className="page-kicker">도구</p>
+          <Link href="/dashboard" className="page-rail-link group">
             <span className="border-b border-transparent group-hover:border-[var(--color-apple-action)]">
               내 캠퍼스
             </span>
@@ -231,22 +222,30 @@ function ToolsPageInner() {
           </Link>
         </header>
 
-        <header className="mt-6 fade-up fade-up-1 sm:mt-8">
-          <h1
-            className="max-w-[820px] text-[28px] leading-[1.08] wght-700 text-[var(--color-apple-ink)] sm:text-[36px] md:text-[42px]"
-            style={{ letterSpacing: "-0.022em" }}
-          >
-            막혔을 때 바로 쓰는 <span className="heading-dim">{LIVE_WIZARDS.length}개 도구</span>
-          </h1>
-          <p
-            className="mt-2 max-w-[600px] text-[13.5px] leading-[1.55] wght-450 text-[var(--color-apple-muted)] sm:text-[14.5px]"
-            style={{ letterSpacing: "-0.012em" }}
-          >
-            과제·시험·발표에서 막힐 때 꺼내는 도구
-          </p>
+        <header className="native-hero mt-6 px-5 py-5 fade-up fade-up-1 sm:mt-8 sm:px-7 sm:py-7">
+          <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="page-kicker">학업 도구</p>
+              <h1
+                className="mt-2 max-w-[760px] text-[30px] leading-[1.04] wght-700 text-[var(--color-apple-ink)] sm:text-[42px] md:text-[48px]"
+                style={{ letterSpacing: "-0.028em" }}
+              >
+                지금 필요한 도구
+              </h1>
+            </div>
+            <div className="native-metric w-fit px-3.5 py-2.5">
+              <p className="text-[10.5px] wght-560 text-[var(--color-apple-muted)]">사용 가능</p>
+              <p className="mt-1 text-[24px] leading-none wght-700 tabular-nums text-[var(--color-apple-ink)]">
+                {LIVE_WIZARDS.length}
+                <span className="ml-0.5 text-[12px] wght-450 text-[var(--color-apple-muted)]">
+                  개
+                </span>
+              </p>
+            </div>
+          </div>
         </header>
 
-        <div className="mt-5 max-w-[720px] fade-up fade-up-2">
+        <div className="mt-5 max-w-[760px] fade-up fade-up-2">
           <ToolsEntryCard />
         </div>
 
@@ -274,13 +273,13 @@ function ToolsPageInner() {
   );
 }
 
-/* ──────────── 이번 주 자주 막히는 순간 ──────────── */
+/* ──────────── 바로 시작하기 ──────────── */
 
 function UrgentBoard({ wizards, className }: { wizards: Wizard[]; className?: string }) {
   return (
     <section className={className}>
       <h2 className="text-[11px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
-        이번 주 자주 막히는 순간
+        바로 시작하기
       </h2>
       <div className="mt-6 grid gap-4 sm:grid-cols-3 sm:gap-5">
         {wizards.map((w) => (
@@ -301,7 +300,7 @@ function UrgentCard({ wizard }: { wizard: Wizard }) {
   return (
     <WizardLinkWrap
       wizard={wizard}
-      className="group elev-hover-2 flex min-h-[200px] flex-col justify-between rounded-[18px] bg-white p-7"
+      className="native-card group flex min-h-[188px] flex-col justify-between p-6"
     >
       <div>
         <div className="flex items-center justify-between gap-2">
@@ -369,10 +368,10 @@ function Filters({
                 onClick={() => onChange(f)}
                 aria-pressed={isActive}
                 className={
-                  isActive
-                    ? "inline-flex h-[32px] items-center gap-1.5 rounded-full bg-[var(--color-apple-ink)] px-3.5 text-[13px] wght-560 text-white"
-                    : "inline-flex h-[32px] items-center gap-1.5 rounded-full border border-[var(--color-apple-hairline-soft)] bg-white px-3.5 text-[13px] wght-450 text-[var(--color-apple-muted)] transition-colors hover:border-[var(--color-apple-hairline)] hover:text-[var(--color-apple-ink)]"
+                  "native-chip inline-flex h-[32px] items-center gap-1.5 px-3.5 text-[13px] " +
+                  (isActive ? "wght-560" : "wght-450")
                 }
+                data-active={isActive ? "true" : "false"}
                 style={{ letterSpacing: "-0.012em" }}
               >
                 {f}
@@ -418,7 +417,7 @@ function ToolCard({ wizard }: { wizard: Wizard }) {
   return (
     <WizardLinkWrap
       wizard={wizard}
-      className="group elev-hover-2 relative flex h-full flex-col overflow-hidden rounded-[12px] bg-white p-5 sm:p-6"
+      className="native-card group relative flex h-full flex-col p-5 sm:p-6"
     >
       {/* hover 시 우상단 미세한 컬러 워시 */}
       <span
@@ -545,7 +544,7 @@ function ReadyBadge({ wizard }: { wizard: Wizard }) {
   if (wizard.ready) {
     return (
       <span
-        className="inline-flex items-center gap-1 rounded-full bg-[var(--color-tint-class)] px-2 py-0.5 text-[10px] wght-620 text-[var(--color-tint-class-ink)]"
+        className="native-chip inline-flex items-center gap-1 px-2 py-0.5 text-[10px] wght-620 text-[var(--color-tint-class-ink)]"
         style={{ letterSpacing: "0.02em" }}
       >
         5분 흐름
@@ -555,7 +554,7 @@ function ReadyBadge({ wizard }: { wizard: Wizard }) {
   if (wizard.redirectTo) {
     return (
       <span
-        className="inline-flex items-center gap-1 rounded-full bg-[var(--color-apple-pearl)] px-2 py-0.5 text-[10px] wght-560 text-[var(--color-apple-muted)]"
+        className="native-chip inline-flex items-center gap-1 px-2 py-0.5 text-[10px] wght-560"
         style={{ letterSpacing: "0.02em" }}
       >
         연결
@@ -564,7 +563,7 @@ function ReadyBadge({ wizard }: { wizard: Wizard }) {
   }
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full border border-[var(--color-apple-hairline)] bg-white px-2 py-0.5 text-[10px] wght-560 text-[var(--color-apple-muted)]"
+      className="native-chip inline-flex items-center gap-1 px-2 py-0.5 text-[10px] wght-560"
       style={{ letterSpacing: "0.02em" }}
     >
       준비 중

@@ -10,6 +10,7 @@ import { loadPrompt } from "@/lib/prompts";
 import { SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
 import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
 import { buildPlaybookSection } from "@/lib/subject-playbook";
+import { groundSummaryCitations } from "@/lib/summary-grounding";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { breakdown } from "@/lib/tokens";
 
@@ -140,6 +141,7 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     result = await generate({
       tool: "summarize",
       rulePrompt,
+      responseSchema: SummarizeOutput,
       dynamicContext,
       userInput:
         input.sanitizedText.trim().length > 0
@@ -173,7 +175,7 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
   // 강의 슬라이드 자료에서 keywords 50개 초과 뱉어 모든 chunk가 throw하던 버그.)
   let summary: SummarizeOutputT;
   try {
-    summary = parseSummarizeWithCap(result.text);
+    summary = groundSummaryCitations(parseSummarizeWithCap(result.text), input.sanitizedText);
   } catch (e) {
     await logGeneration({
       ownerId: input.ownerId,
@@ -188,7 +190,7 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     return {
       ok: false,
       stage: "validation",
-      error: "요약 형식이 맞지 않았어요. 다시 시도해주세요.",
+      error: "요약 형식이나 원문 인용을 확인하지 못했어요. 다시 시도해주세요.",
     };
   }
 

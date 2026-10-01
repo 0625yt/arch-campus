@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { keyedItems } from "@/lib/keyed-items";
 
 export interface ContextMenuItem {
   /** "---" 한 줄이면 separator (group divider) */
@@ -194,22 +195,16 @@ export function ContextMenu({
       className="z-[100] min-w-[180px] overflow-hidden rounded-[12px] border border-[var(--color-apple-hairline-soft)] bg-white/92 p-1 shadow-[0_8px_28px_-6px_rgba(0,0,0,0.18),0_2px_6px_-2px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-xl backdrop-saturate-150"
       onContextMenu={(e) => e.preventDefault()}
     >
-      {items.map((it, i) => {
+      {keyedItems(items).map(({ item: it, key }) => {
         // Separator
         if (it.label === "---") {
           return (
-            <div
-              key={`sep-${i}`}
-              role="separator"
-              aria-hidden
-              className="my-1 h-px bg-[var(--color-apple-hairline-soft)]"
-            />
+            <hr key={key} aria-hidden className="my-1 h-px bg-[var(--color-apple-hairline-soft)]" />
           );
         }
         return (
           <button
-            // biome-ignore lint/suspicious/noArrayIndexKey: 같은 label 항목이 separator 사이에 반복 가능 — index가 진짜 unique 시그널
-            key={i}
+            key={key}
             type="button"
             role="menuitem"
             onClick={() => {

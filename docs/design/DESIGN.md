@@ -1,5 +1,7 @@
 # DESIGN.md — arch-campus 디자인 가이드
 
+> **2026-09-17 현재 기준:** [ARCH-CAMPUS-STYLE.md](ARCH-CAMPUS-STYLE.md)의 최신 구현 규칙을 우선한다. 본문의 Apple 톤·과거 PR 지침은 설계 이력이다. 현재 공부 화면에는 그래파이트·코발트·CSS 3D와 동작 줄이기를 적용하며, 새 모션은 진입 이후 hover를 덮지 않아야 한다. 접근성은 화면·상태별 테스트로 판단한다.
+
 > Current product-specific style command: [ARCH-CAMPUS-STYLE.md](ARCH-CAMPUS-STYLE.md)
 
 > **사람이 만든 것처럼 보이는** 깔끔한 UI/UX. ChatGPT·Claude·Linear·Granola 톤.

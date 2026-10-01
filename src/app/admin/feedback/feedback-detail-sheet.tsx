@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Modal } from "@/components/modal";
 import { FEEDBACK_STATUSES, type FeedbackStatus } from "@/lib/schemas/feedback";
 import type { FeedbackItem } from "./feedback-list-client";
 
@@ -40,14 +41,8 @@ export function FeedbackDetailSheet({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal open onClose={onClose} title="피드백 상세" size="md" chromeless>
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-amber-500">{"★".repeat(item.rating)}</span>
           <span className="text-neutral-400">·</span>
@@ -134,6 +129,6 @@ export function FeedbackDetailSheet({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

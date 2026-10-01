@@ -1,5 +1,5 @@
 import { generateText } from "ai";
-import { MODELS, modelInstance } from "../claude";
+import { getModelIdFor, modelInstance } from "../claude";
 import { type ParsedDocument, type ParseInput, ParserRejectedError, toUint8Array } from "./types";
 
 const OCR_PROMPT = `이 이미지에 적힌 글을 그대로 옮겨 적어요. 한국어/영어/수식 모두 보이는 대로.
@@ -18,7 +18,10 @@ export async function parseImage(input: ParseInput): Promise<ParsedDocument> {
   }
 
   const result = await generateText({
-    model: modelInstance(MODELS.haiku),
+    // 공통 모델 라우팅을 거쳐 운영 환경의 LLM_VENDOR와 PDF_OCR_VENDOR를 존중한다.
+    // Haiku를 직접 지정하면 나머지 기능이 Gemini를 쓰는 환경에서도 이미지 업로드만
+    // 오래된 Anthropic 키를 호출해 실패할 수 있다.
+    model: modelInstance(getModelIdFor("pdf-ocr")),
     maxOutputTokens: 4096,
     temperature: 0.1,
     messages: [

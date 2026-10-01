@@ -1,5 +1,12 @@
 import "server-only";
 import { z } from "zod";
+import {
+  attemptActivityTime,
+  latestQuestionResults,
+  mergeAttemptResults,
+  parseAttemptResults,
+  reconcileAttemptTotals,
+} from "@/lib/attempt-results";
 import { QuizQuestion } from "@/lib/schemas";
 import type { GradedResult } from "@/lib/services/grade-quiz";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -12,34 +19,11 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
  *
  * 의존: 0009_attempt_review.sql
  *   - quiz_attempts.results (jsonb) 컬럼
- *   - wrong_items_v 뷰
  *   - attempt_summary_v 뷰
  *
  * 0009 이전 attempt(results=[])는 다시보기에서 빈 결과로 보이고,
  * 오답 큐에는 안 잡힌다. 그게 의도 — 과거 데이터는 "되살릴 수 없는 채점 결과".
  */
-
-const GradedResultZ = z.object({
-  questionId: z.number().int(),
-  kind: z.enum(["multiple-choice", "short-answer", "essay"]).default("multiple-choice"),
-  correct: z.boolean(),
-  answer: z.string(),
-  submitted: z.string().nullable(),
-  explanation: z.string(),
-  evidence: z.string().optional().default(""),
-  evidencePage: z.number().int().nullable().optional(),
-  gradingNote: z.string().optional(),
-  partial: z
-    .object({
-      matchedParts: z.array(z.string()),
-      missingParts: z.array(z.string()),
-      requiredCount: z.number().int(),
-    })
-    .optional(),
-  whyWrong: z.string().optional(),
-});
-
-const ResultsArrayZ = z.array(GradedResultZ);
 
 /**
  * 풀이 결과를 attempt에 점진적으로 누적 — "푼 문제는 즉시 DB 반영".
@@ -74,6 +58,9 @@ export async function upsertAttemptResults(opts: {
 } | null> {
   const admin = getAdminSupabase();
 
+  // 답도 없고 이어 쓸 attempt도 없으면 0/1짜리 가짜 시도를 만들지 않는다.
+  if (!opts.attemptId && opts.newResults.length === 0) return null;
+
   // 1) 기존 results 로드 (이어쓰기) — attemptId가 본인 것인지 owner_id로 가드.
   let existing: GradedResult[] = [];
   if (opts.attemptId) {
@@ -82,22 +69,19 @@ export async function upsertAttemptResults(opts: {
       .select("results")
       .eq("id", opts.attemptId)
       .eq("owner_id", opts.ownerId)
+      .eq("quiz_id", opts.quizId)
       .maybeSingle();
     if (data) {
-      const parsed = ResultsArrayZ.safeParse(data.results);
-      if (parsed.success) existing = parsed.data as GradedResult[];
+      existing = parseAttemptResults(data.results);
     }
   }
 
   // 2) questionId 기준 병합 — 같은 문제를 다시 풀면 최신 결과로 교체.
-  const byId = new Map<number, GradedResult>();
-  for (const r of existing) byId.set(r.questionId, r);
-  for (const r of opts.newResults) byId.set(r.questionId, r);
-  const merged = [...byId.values()];
+  const merged = mergeAttemptResults(existing, opts.newResults, new Date().toISOString());
   const score = merged.filter((r) => r.correct).length;
   // total은 "실제 채점된 문제 수" — 부분 풀이(2문제만)도 "2문제 중 1개"로 정확하게.
   // sessionTotal(세션 전체)로 total을 잡으면 안 푼 문제가 오답처럼 보여 오해를 준다.
-  const total = Math.max(merged.length, 1);
+  const total = merged.length;
 
   const resultsJson = JSON.parse(JSON.stringify(merged));
 
@@ -109,11 +93,12 @@ export async function upsertAttemptResults(opts: {
         results: resultsJson,
         score,
         total,
-        duration_ms: opts.durationMs ?? null,
+        ...(opts.durationMs !== undefined ? { duration_ms: opts.durationMs } : {}),
         status: "completed",
       })
       .eq("id", opts.attemptId)
       .eq("owner_id", opts.ownerId)
+      .eq("quiz_id", opts.quizId)
       .select("id")
       .maybeSingle();
     if (error || !data) return null;
@@ -136,6 +121,28 @@ export async function upsertAttemptResults(opts: {
     .single();
   if (error || !data) return null;
   return { attemptId: data.id, score, total, results: merged };
+}
+
+/**
+ * 마지막 제출에서 이미 단건 채점한 같은 답을 다시 AI에 보내지 않기 위한 조회.
+ * attemptId뿐 아니라 ownerId·quizId를 모두 묶어 다른 퀴즈의 시도를 재사용하지 못하게 한다.
+ */
+export async function getAttemptResults(opts: {
+  ownerId: string;
+  quizId: string;
+  attemptId: string;
+}): Promise<GradedResult[] | null> {
+  const admin = getAdminSupabase();
+  const { data, error } = await admin
+    .from("quiz_attempts")
+    .select("results")
+    .eq("id", opts.attemptId)
+    .eq("owner_id", opts.ownerId)
+    .eq("quiz_id", opts.quizId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return parseAttemptResults(data.results);
 }
 
 /**
@@ -175,6 +182,8 @@ export interface AttemptSummary {
       requiredCount: number;
     };
     whyWrong?: string;
+    llmPromoted?: boolean;
+    llmGraded?: boolean;
   }>;
 }
 
@@ -198,11 +207,10 @@ export async function getAttemptSummary(opts: {
     return null;
   }
 
-  const resultsParsed = ResultsArrayZ.safeParse(data.results);
   // 0009 이전 데이터는 results=[] — questions만 살리고 결과는 빈 채로 매핑
-  const resultsByQid = new Map(
-    (resultsParsed.success ? resultsParsed.data : []).map((r) => [r.questionId, r]),
-  );
+  const parsedResults = parseAttemptResults(data.results);
+  const resultsByQid = new Map(parsedResults.map((r) => [r.questionId, r]));
+  const reconciled = reconcileAttemptTotals(data.score, data.total, parsedResults);
 
   return {
     attemptId: data.attempt_id,
@@ -211,37 +219,43 @@ export async function getAttemptSummary(opts: {
     courseId: data.course_id ?? null,
     quizTitle: data.quiz_title,
     difficulty: data.quiz_difficulty,
-    attemptedAt: data.attempted_at,
+    attemptedAt: attemptActivityTime(data.attempted_at, parsedResults),
     durationMs: data.duration_ms,
-    score: data.score,
-    total: data.total,
+    score: reconciled.score,
+    total: reconciled.total,
     watermark: data.watermark,
-    questions: questionsParsed.data.map((q) => {
-      const r = resultsByQid.get(q.id);
-      return {
-        id: q.id,
-        kind: q.kind ?? "multiple-choice",
-        topic: q.topic,
-        difficulty: q.difficulty,
-        stem: q.stem,
-        choices: q.choices ?? null,
-        answer: r?.answer ?? q.answer,
-        explanation: q.explanation,
-        evidence: q.evidence ?? "",
-        evidencePage: q.evidencePage ?? null,
-        submitted: r?.submitted ?? null,
-        correct: r?.correct ?? false,
-        gradingNote: r?.gradingNote,
-        partial: r?.partial,
-        whyWrong: r?.whyWrong,
-      };
-    }),
+    // 부분 풀이 attempt에는 실제로 채점한 문제만 보여준다. 결과가 없는 문제를
+    // correct=false로 꾸며 오답처럼 보이게 하면 점수·복습 신뢰가 깨진다.
+    questions: questionsParsed.data
+      .filter((q) => resultsByQid.has(q.id))
+      .map((q) => {
+        const r = resultsByQid.get(q.id);
+        return {
+          id: q.id,
+          kind: q.kind ?? "multiple-choice",
+          topic: q.topic,
+          difficulty: q.difficulty,
+          stem: q.stem,
+          choices: q.choices ?? null,
+          answer: r?.answer ?? q.answer,
+          explanation: q.explanation,
+          evidence: q.evidence ?? "",
+          evidencePage: q.evidencePage ?? null,
+          submitted: r?.submitted ?? null,
+          correct: r?.correct ?? false,
+          gradingNote: r?.gradingNote,
+          partial: r?.partial,
+          whyWrong: r?.whyWrong,
+          llmPromoted: r?.llmPromoted,
+          llmGraded: r?.llmGraded,
+        };
+      }),
   };
 }
 
 /**
- * 한 row = 한 오답 문제. 같은 문제를 여러 번 틀렸으면 row 여러 개.
- * Today·복습 큐가 사용. RLS는 view가 quiz_attempts에서 상속.
+ * 한 row = 한 (quiz, question)의 최신 오답. 다시 맞힌 문제는 결과에서 빠진다.
+ * Today·복습 큐가 사용하며, DB 뷰 버전과 무관하게 results[].gradedAt을 직접 비교한다.
  */
 export interface WrongItem {
   attemptId: string;
@@ -265,44 +279,57 @@ export interface WrongItem {
 
 export async function listWrongItems(opts: {
   ownerId: string;
-  /** 최근 N일 — 디폴트 14일 (학기 중 잊을만한 주기) */
-  sinceDays?: number;
+  /** 최근 N일. null이면 아직 해결하지 않은 오답 전체. 디폴트 14일. */
+  sinceDays?: number | null;
+  /** 한 퀴즈의 오답만 필요할 때 DB에서 먼저 좁힌다. */
+  quizId?: string;
   limit?: number;
 }): Promise<WrongItem[]> {
-  const admin = getAdminSupabase();
-  const sinceDays = opts.sinceDays ?? 14;
-  const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
+  const requestedLimit = Math.min(Math.max(opts.limit ?? 30, 1), 5000);
+  const attempts = await loadAttemptRows({ ownerId: opts.ownerId, quizId: opts.quizId });
+  if (!attempts) return [];
 
-  const { data, error } = await admin
-    .from("wrong_items_v")
-    .select("*")
-    .eq("owner_id", opts.ownerId)
-    .gte("attempted_at", since)
-    .order("attempted_at", { ascending: false })
-    .limit(opts.limit ?? 30);
+  const sinceDays = opts.sinceDays === undefined ? 14 : opts.sinceDays;
+  const sinceMs =
+    sinceDays === null ? Number.NEGATIVE_INFINITY : Date.now() - sinceDays * 86_400_000;
+  const latestWrong = latestQuestionResults(
+    attempts.map((attempt) => ({
+      attemptId: attempt.id,
+      quizId: attempt.quizId,
+      createdAt: attempt.createdAt,
+      results: attempt.results,
+    })),
+  )
+    .filter((activity) => !activity.result.correct && Date.parse(activity.attemptedAt) >= sinceMs)
+    .slice(0, requestedLimit);
 
-  if (error || !data) return [];
+  const quizMap = await loadQuizMetadata(
+    opts.ownerId,
+    Array.from(new Set(latestWrong.map((activity) => activity.quizId))),
+  );
 
-  return data.map((row) => ({
-    attemptId: row.attempt_id,
-    quizId: row.quiz_id,
-    materialId: row.material_id ?? null,
-    courseId: row.course_id ?? null,
-    quizTitle: row.quiz_title,
-    attemptedAt: row.attempted_at,
-    questionId: row.question_id,
-    submitted: typeof row.submitted === "string" ? row.submitted : null,
-    correctAnswer: typeof row.correct_answer === "string" ? row.correct_answer : "",
-    explanation: row.explanation,
-    evidence: row.evidence,
-    evidencePage: row.evidence_page,
-    // 0022 마이그레이션 적용 전이면 row에 topic 컬럼이 없음 → undefined → null로 정규화.
-    // Supabase 타입이 strict라 row.topic 직접 접근은 cast 필요.
-    topic:
-      typeof (row as { topic?: unknown }).topic === "string"
-        ? ((row as { topic?: string }).topic as string)
-        : null,
-  }));
+  return latestWrong.flatMap((activity): WrongItem[] => {
+    const quiz = quizMap.get(activity.quizId);
+    if (!quiz) return [];
+    const question = quiz.questions.find((item) => item.id === activity.result.questionId);
+    return [
+      {
+        attemptId: activity.attemptId,
+        quizId: activity.quizId,
+        materialId: quiz.materialId,
+        courseId: quiz.courseId,
+        quizTitle: quiz.title,
+        attemptedAt: activity.attemptedAt,
+        questionId: activity.result.questionId,
+        submitted: activity.result.submitted,
+        correctAnswer: activity.result.answer,
+        explanation: activity.result.explanation,
+        evidence: activity.result.evidence || null,
+        evidencePage: activity.result.evidencePage ?? null,
+        topic: question?.topic ?? null,
+      },
+    ];
+  });
 }
 
 /**
@@ -331,12 +358,11 @@ export async function getWrongStats(opts: {
   const items = await listWrongItems({
     ownerId: opts.ownerId,
     sinceDays: opts.sinceDays,
-    limit: 200,
+    limit: 5000,
   });
 
   // 전체 unique 오답 — (quizId, questionId) 조합으로 dedupe.
-  // 0024 이후 wrong_items_v가 이미 "문제당 최신 시도 1행"이라 사실상 중복이 안 들어오지만,
-  // 0024 적용 전 데이터·안전망으로 dedupe는 유지 (다시 맞힌 문제는 뷰에서 자동으로 빠짐).
+  // listWrongItems가 이미 "문제당 최신 판정 1행"만 주지만 집계 안전망으로 dedupe는 유지한다.
   const uniqueKeys = new Set<string>();
   for (const it of items) uniqueKeys.add(`${it.quizId}:${it.questionId}`);
 
@@ -392,25 +418,114 @@ export async function listRecentAttempts(opts: {
   ownerId: string;
   limit?: number;
 }): Promise<RecentAttempt[]> {
-  // Relationships 메타가 비어 있어서 nested select가 타입 추론을 깨뜨림.
-  // attempt_summary_v 한 select로 대체 — view가 quiz join까지 같이 들고 옴.
+  const attempts = await loadAttemptRows({ ownerId: opts.ownerId });
+  if (!attempts) return [];
+
+  const ordered = attempts
+    .map((attempt) => ({
+      ...attempt,
+      attemptedAt: attemptActivityTime(attempt.createdAt, attempt.results),
+      ...reconcileAttemptTotals(attempt.score, attempt.total, attempt.results),
+    }))
+    .sort((left, right) => Date.parse(right.attemptedAt) - Date.parse(left.attemptedAt));
+  const quizMap = await loadQuizMetadata(
+    opts.ownerId,
+    Array.from(new Set(ordered.map((attempt) => attempt.quizId))),
+  );
+
+  return ordered
+    .flatMap((attempt): RecentAttempt[] => {
+      const quiz = quizMap.get(attempt.quizId);
+      if (!quiz) return [];
+      return [
+        {
+          attemptId: attempt.id,
+          quizId: attempt.quizId,
+          materialId: quiz.materialId,
+          quizTitle: quiz.title,
+          score: attempt.score,
+          total: attempt.total,
+          attemptedAt: attempt.attemptedAt,
+        },
+      ];
+    })
+    .slice(0, opts.limit ?? 10);
+}
+
+interface AttemptRow {
+  id: string;
+  quizId: string;
+  score: number;
+  total: number;
+  createdAt: string;
+  results: GradedResult[];
+}
+
+async function loadAttemptRows(opts: {
+  ownerId: string;
+  quizId?: string;
+}): Promise<AttemptRow[] | null> {
   const admin = getAdminSupabase();
-  const { data, error } = await admin
-    .from("attempt_summary_v")
-    .select("attempt_id, quiz_id, material_id, quiz_title, score, total, attempted_at")
-    .eq("owner_id", opts.ownerId)
-    .order("attempted_at", { ascending: false })
-    .limit(opts.limit ?? 10);
+  const pageSize = 1000;
+  const rows: AttemptRow[] = [];
 
-  if (error || !data) return [];
+  for (let offset = 0; offset < 10_000; offset += pageSize) {
+    let query = admin
+      .from("quiz_attempts")
+      .select("id, quiz_id, score, total, created_at, results")
+      .eq("owner_id", opts.ownerId)
+      .order("created_at", { ascending: false });
+    if (opts.quizId) query = query.eq("quiz_id", opts.quizId);
+    const { data, error } = await query.range(offset, offset + pageSize - 1);
+    if (error || !data) return null;
 
-  return data.map((row) => ({
-    attemptId: row.attempt_id,
-    quizId: row.quiz_id,
-    materialId: row.material_id ?? null,
-    quizTitle: row.quiz_title,
-    score: row.score,
-    total: row.total,
-    attemptedAt: row.attempted_at,
-  }));
+    for (const row of data) {
+      rows.push({
+        id: row.id,
+        quizId: row.quiz_id,
+        score: row.score,
+        total: row.total,
+        createdAt: row.created_at,
+        results: parseAttemptResults(row.results),
+      });
+    }
+    if (data.length < pageSize) break;
+  }
+  return rows;
+}
+
+interface QuizAttemptMetadata {
+  materialId: string | null;
+  courseId: string | null;
+  title: string;
+  questions: Array<z.infer<typeof QuizQuestion>>;
+}
+
+async function loadQuizMetadata(
+  ownerId: string,
+  quizIds: string[],
+): Promise<Map<string, QuizAttemptMetadata>> {
+  const result = new Map<string, QuizAttemptMetadata>();
+  if (quizIds.length === 0) return result;
+  const admin = getAdminSupabase();
+
+  for (let offset = 0; offset < quizIds.length; offset += 200) {
+    const ids = quizIds.slice(offset, offset + 200);
+    const { data, error } = await admin
+      .from("quizzes")
+      .select("id, material_id, course_id, title, questions")
+      .eq("owner_id", ownerId)
+      .in("id", ids);
+    if (error || !data) continue;
+    for (const row of data) {
+      const parsed = z.array(QuizQuestion).safeParse(row.questions);
+      result.set(row.id, {
+        materialId: row.material_id,
+        courseId: row.course_id,
+        title: row.title,
+        questions: parsed.success ? parsed.data : [],
+      });
+    }
+  }
+  return result;
 }

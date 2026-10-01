@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { keyedItems } from "@/lib/keyed-items";
 
 interface SummarizeOk {
   ok: true;
@@ -178,8 +179,8 @@ export default function DevSummarizePage() {
             </p>
 
             <div className="mt-6 flex flex-col gap-4">
-              {result.summary.blocks.map((block, i) => (
-                <SummaryBlock key={i} block={block} />
+              {keyedItems(result.summary.blocks).map(({ item: block, key: contentKey0 }) => (
+                <SummaryBlock key={contentKey0} block={block} />
               ))}
             </div>
 
@@ -200,8 +201,8 @@ export default function DevSummarizePage() {
                   한 번 더 보면 좋은 곳
                 </p>
                 <ul className="mt-3 flex flex-col gap-3">
-                  {result.summary.reviewSpots.map((s, i) => (
-                    <li key={i}>
+                  {keyedItems(result.summary.reviewSpots).map(({ item: s, key: contentKey1 }) => (
+                    <li key={contentKey1}>
                       <p className="text-[14px] wght-620 text-[var(--color-apple-ink)]">
                         {s.title}
                       </p>
@@ -266,8 +267,8 @@ function SummaryBlock({
   if (block.type === "bullets") {
     return (
       <ul className="flex flex-col gap-1.5 pl-4 text-[14px] leading-[1.6] text-[var(--color-apple-ink)]">
-        {block.items.map((it, i) => (
-          <li key={i} className="list-disc">
+        {keyedItems(block.items).map(({ item: it, key: contentKey2 }) => (
+          <li key={contentKey2} className="list-disc">
             {it}
           </li>
         ))}

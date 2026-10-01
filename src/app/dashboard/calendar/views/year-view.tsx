@@ -16,9 +16,11 @@
 
 import { useMemo } from "react";
 import type { EventView } from "@/lib/data/events";
-import { isoToKstDateKey } from "./shared/time-grid";
+import { kstDateKey } from "@/lib/kst";
+import { eventDisplayDateKeys } from "./shared/time-grid";
 
 interface MiniMonthCell {
+  key: string;
   iso: string;
   day: number;
   inMonth: boolean;
@@ -59,15 +61,13 @@ export function YearView({
   const eventDates = useMemo(() => {
     const set = new Set<string>();
     for (const e of events) {
-      set.add(isoToKstDateKey(e.startsAt));
+      for (const dateKey of eventDisplayDateKeys(e)) set.add(dateKey);
     }
     return set;
   }, [events]);
 
   const todayIso = useMemo(() => {
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    return kstDateKey(new Date());
   }, []);
 
   return (
@@ -77,12 +77,12 @@ export function YearView({
       {MONTH_LABELS.map((label, monthIdx) => {
         const cells = buildMiniMonth(year, monthIdx, eventDates, todayIso);
         return (
-          <div key={monthIdx} className="flex flex-col">
+          <div key={label} className="flex flex-col">
             <button
               type="button"
               onClick={() => onSelectMonth(year, monthIdx)}
-              className="self-start rounded-[4px] px-1 py-0.5 text-left text-[15px] wght-700 text-[var(--color-apple-ink)] transition-colors hover:text-[var(--color-apple-action)]"
-              style={{ letterSpacing: "-0.018em" }}
+              className="inline-flex min-h-10 items-center self-start rounded-[4px] px-1 text-left text-[15px] wght-700 text-[var(--color-apple-ink)] transition-colors hover:text-[var(--color-apple-action)]"
+              style={{ letterSpacing: 0 }}
             >
               {label}
             </button>
@@ -94,17 +94,20 @@ export function YearView({
               ))}
             </div>
             <div className="grid grid-cols-7 gap-y-[1px]">
-              {cells.map((c, i) => (
+              {cells.map((c) => (
                 <button
-                  key={i}
+                  key={c.key}
                   type="button"
                   onClick={() => c.inMonth && onSelectDay(c.iso)}
                   disabled={!c.inMonth}
-                  className={`inline-flex h-[20px] w-full items-center justify-center text-[10.5px] tabular-nums transition-colors ${
+                  aria-label={
+                    c.inMonth ? `${label} ${c.day}일${c.hasEvent ? ", 일정 있음" : ""}` : undefined
+                  }
+                  className={`inline-flex h-10 w-full items-center justify-center text-[10.5px] tabular-nums transition-colors lg:h-8 ${
                     !c.inMonth
                       ? "text-transparent"
                       : c.isToday
-                        ? "rounded-full bg-[var(--color-apple-action)] wght-620 text-white"
+                        ? "wght-620 text-white"
                         : c.hasEvent
                           ? "wght-620 text-[var(--color-apple-ink)] hover:bg-[var(--color-apple-pearl)]"
                           : "wght-450 text-[var(--color-apple-muted)] hover:bg-[var(--color-apple-pearl)] hover:text-[var(--color-apple-ink)]"
@@ -117,7 +120,15 @@ export function YearView({
                     borderRadius: c.hasEvent && !c.isToday ? "4px" : undefined,
                   }}
                 >
-                  {c.day}
+                  <span
+                    className={
+                      c.isToday
+                        ? "inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[var(--color-apple-action)] px-1"
+                        : undefined
+                    }
+                  >
+                    {c.day}
+                  </span>
                 </button>
               ))}
             </div>
@@ -135,13 +146,14 @@ function buildMiniMonth(
   todayIso: string,
 ): MiniMonthCell[] {
   // 월의 1일이 무슨 요일인지 (KST 기준 — 단순 Date로 충분, 새벽 시간 이벤트 없음)
-  const firstDow = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow = new Date(Date.UTC(year, month, 1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const cells: MiniMonthCell[] = [];
 
   // 앞 패딩 (이전 월 말일들 — 빈 자리로 채움)
   for (let i = 0; i < firstDow; i++) {
     cells.push({
+      key: `leading-${i}`,
       iso: "",
       day: 0,
       inMonth: false,
@@ -155,6 +167,7 @@ function buildMiniMonth(
   for (let d = 1; d <= daysInMonth; d++) {
     const iso = `${year}-${pad(month + 1)}-${pad(d)}`;
     cells.push({
+      key: iso,
       iso,
       day: d,
       inMonth: true,
@@ -166,6 +179,7 @@ function buildMiniMonth(
   // 뒷 패딩 — 6행(42칸) 채우기
   while (cells.length < 42) {
     cells.push({
+      key: `trailing-${cells.length}`,
       iso: "",
       day: 0,
       inMonth: false,

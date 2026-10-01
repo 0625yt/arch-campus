@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
+import { getAttemptReflection } from "@/lib/data/attempt-reflections";
 import { getAttemptSummary } from "@/lib/data/attempts";
+import { kstParts } from "@/lib/kst";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { QuizResultView, type ResultQuestion } from "../../quiz-result-view";
+import { AttemptReflectionCard } from "./attempt-reflection-card";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +27,8 @@ export default async function AttemptReviewPage({
 
   const summary = await getAttemptSummary({ ownerId, attemptId });
   if (!summary || summary.quizId !== quizId) notFound();
+
+  const reflection = await getAttemptReflection({ ownerId, attemptId });
 
   // "자료로 돌아가기" 라우트 만들 때 강의명 슬러그 필요 — courseId만으론 부족.
   let courseName: string | null = null;
@@ -53,11 +58,15 @@ export default async function AttemptReviewPage({
     gradingNote: q.gradingNote,
     partial: q.partial,
     whyWrong: q.whyWrong,
+    llmGraded: q.llmGraded,
   }));
 
   const ratio = summary.total > 0 ? Math.round((summary.score / summary.total) * 100) : 0;
   const wrongCount = summary.total - summary.score;
   const attemptedAt = new Date(summary.attemptedAt);
+  const weakTopics = Array.from(
+    new Set(questions.filter((question) => !question.correct).map((question) => question.topic)),
+  ).slice(0, 3);
 
   return (
     <div>
@@ -95,18 +104,26 @@ export default async function AttemptReviewPage({
         questions.every((q) => q.submitted === null && !q.correct) ? (
           <LegacyAttemptNotice />
         ) : (
-          <QuizResultView
-            title={`다시보기 · ${summary.quizTitle}`}
-            score={summary.score}
-            total={summary.total}
-            questions={questions}
-            watermark={summary.watermark}
-            materialId={summary.materialId}
-            courseName={courseName}
-            quizId={summary.quizId}
-            showHero={false}
-            durationLabel={summary.durationMs ? formatDuration(summary.durationMs) : undefined}
-          />
+          <>
+            <AttemptReflectionCard
+              attemptId={summary.attemptId}
+              initial={reflection}
+              ratio={ratio}
+              weakTopics={weakTopics}
+            />
+            <QuizResultView
+              title={`다시보기 · ${summary.quizTitle}`}
+              score={summary.score}
+              total={summary.total}
+              questions={questions}
+              watermark={summary.watermark}
+              materialId={summary.materialId}
+              courseName={courseName}
+              quizId={summary.quizId}
+              showHero={false}
+              durationLabel={summary.durationMs ? formatDuration(summary.durationMs) : undefined}
+            />
+          </>
         )}
       </div>
     </div>
@@ -128,7 +145,8 @@ function LegacyAttemptNotice() {
 }
 
 function formatDateTime(d: Date): string {
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const part = kstParts(d);
+  return `${part.month}월 ${part.day}일 ${String(part.hour).padStart(2, "0")}:${String(part.minute).padStart(2, "0")}`;
 }
 
 function formatDuration(ms: number): string {

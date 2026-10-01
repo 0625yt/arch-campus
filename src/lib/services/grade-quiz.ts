@@ -53,6 +53,12 @@ export interface GradedResult {
   };
   /** 단답형 오답일 때 "내 답이 왜 틀렸는지" 한 줄 설명. */
   whyWrong?: string;
+  /** 정확 일치에는 실패했지만 의미가 완전히 같아 보조 채점이 정답으로 인정한 경우. */
+  llmPromoted?: boolean;
+  /** 서술형 답을 모범답안 기준으로 의미 채점한 경우. */
+  llmGraded?: boolean;
+  /** DB 누적 결과에서 이 문제를 마지막으로 채점한 시각. API 응답에는 노출하지 않는다. */
+  gradedAt?: string;
 }
 
 export interface GradedQuiz {
@@ -320,12 +326,26 @@ function extractEssayKeywords(answer: string): string[] {
 
 function isFreeTextMatch(candidate: string, submitted: string): boolean {
   const normalizedCandidate = normalizeText(candidate);
-  if (!normalizedCandidate || !submitted) return false;
-  return (
-    submitted === normalizedCandidate ||
-    submitted.includes(normalizedCandidate) ||
-    normalizedCandidate.includes(submitted)
-  );
+  const normalizedSubmitted = normalizeText(submitted);
+  if (!normalizedCandidate || !normalizedSubmitted) return false;
+  if (normalizedSubmitted === normalizedCandidate) return true;
+
+  // "정"→"정규화", "1"→"10"처럼 정답의 짧은 접두어만 쓴 답을 맞다고 보지 않는다.
+  // 특히 정답 문자열이 학생 답을 포함한다는 이유로 인정하는 역방향 포함은 금지한다.
+  if (normalizedCandidate.length < 2) return false;
+
+  // 학생이 "정답은 정규화 입니다"처럼 완전한 용어를 설명 문장 안에 쓴 경우만 허용한다.
+  // 영문·숫자는 BIOS 안의 OS 같은 부분 문자열 오판정을 막기 위해 토큰 경계를 강제한다.
+  const escaped = escapeRegExp(normalizedCandidate);
+  const isAsciiTerm = /^[a-z0-9][a-z0-9 ._+/#-]*$/i.test(normalizedCandidate);
+  const boundary = isAsciiTerm
+    ? new RegExp(`(?:^|[^\\p{L}\\p{N}])${escaped}(?:$|[^\\p{L}\\p{N}])`, "iu")
+    : new RegExp(`(?:^|\\s)${escaped}(?:$|\\s)`, "u");
+  return boundary.test(normalizedSubmitted);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeText(value: string): string {
@@ -398,7 +418,7 @@ function diagnoseJapaneseKanaSlip(correct: string, submitted: string): string | 
         return `정답은 요음(작은 「${small.includes(cc) ? cc : sc}」)이에요. 작은 글자로 적어야 해요 (큰 글자로 적으면 다른 발음이 돼요).`;
       }
       // 탁점/반탁점 등 그 외 한 글자 차이 — 어느 위치인지만 짚어준다.
-      return `정답 「${correct}」과 「${(submitted)}」은 ${i + 1}번째 글자(「${cc}」↔「${sc}」)가 달라요.`;
+      return `정답 「${correct}」과 「${submitted}」은 ${i + 1}번째 글자(「${cc}」↔「${sc}」)가 달라요.`;
     }
   }
 

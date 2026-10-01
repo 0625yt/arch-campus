@@ -1,4 +1,6 @@
 "use client";
+import { Modal } from "@/components/modal";
+import { keyedItems } from "@/lib/keyed-items";
 
 export interface Cluster {
   title: string;
@@ -16,14 +18,8 @@ export function AnalyzeResultSheet({
   onClose: () => void;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal open onClose={onClose} title="AI 분석 결과" size="lg" chromeless>
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">AI 분석 결과</h2>
           <button type="button" onClick={onClose} className="text-sm text-neutral-500">
@@ -38,8 +34,8 @@ export function AnalyzeResultSheet({
           <div className="mt-4 text-sm text-neutral-400">묶인 패턴이 없어요</div>
         ) : (
           <div className="mt-4 space-y-3">
-            {clusters.map((c, i) => (
-              <div key={i} className="rounded-lg border border-neutral-200 p-3">
+            {keyedItems(clusters).map(({ item: c, key: contentKey0 }) => (
+              <div key={contentKey0} className="rounded-lg border border-neutral-200 p-3">
                 <div className="flex items-center gap-2">
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -67,6 +63,6 @@ export function AnalyzeResultSheet({
           </div>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }

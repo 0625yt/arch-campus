@@ -1,3 +1,4 @@
+import { Children } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -127,7 +128,6 @@ export function MetaLine({
   children: React.ReactNode;
   className?: string;
 }) {
-  const items = Array.isArray(children) ? children.filter(Boolean) : [children];
   return (
     <div
       className={cn(
@@ -135,8 +135,8 @@ export function MetaLine({
         className,
       )}
     >
-      {items.map((child, i) => (
-        <span key={i} className="inline-flex items-baseline gap-2">
+      {Children.map(children, (child, i) => (
+        <span className="inline-flex items-baseline gap-2">
           {i > 0 && (
             <span aria-hidden className="text-[var(--color-apple-hairline)]">
               ·

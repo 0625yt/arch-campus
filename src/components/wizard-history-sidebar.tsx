@@ -124,6 +124,7 @@ export function WizardHistorySidebar({
             >
               {/* 우측 화살표 — 사이드바가 우측이라 닫으면 오른쪽으로 사라짐 */}
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <title>아이콘</title>
                 <path
                   d="M6 4l4 4-4 4"
                   stroke="currentColor"
@@ -224,6 +225,7 @@ export function WizardHistorySidebar({
           className="fixed top-4 right-4 z-40 hidden h-9 w-9 items-center justify-center rounded-[10px] border border-[var(--color-apple-hairline)] bg-white/95 text-[var(--color-apple-muted)] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] backdrop-blur-md transition-colors hover:border-[var(--color-apple-action)]/40 hover:text-[var(--color-apple-action)] lg:inline-flex"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <title>아이콘</title>
             <path
               d="M2.5 4h11M2.5 8h11M2.5 12h11"
               stroke="currentColor"
@@ -255,6 +257,7 @@ export function WizardHistorySidebar({
             aria-hidden
             className="shrink-0 text-[var(--color-apple-muted)]"
           >
+            <title>아이콘</title>
             <path
               d="M2.5 4h11M2.5 8h11M2.5 12h11"
               stroke="currentColor"

@@ -23,15 +23,15 @@ export default function DashboardLoading() {
 
       {/* 통계 4칸 */}
       <div className="mt-10 grid grid-cols-2 gap-3 sm:mt-12 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <SkeletonBlock key={i} className="h-[88px] rounded-[14px]" />
+        {["first", "second", "third", "fourth"].map((slot) => (
+          <SkeletonBlock key={slot} className="h-[88px] rounded-[14px]" />
         ))}
       </div>
 
       {/* 카드 그리드 */}
       <div className="mt-10 grid gap-3 sm:mt-12 sm:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <SkeletonBlock key={i} className="h-[180px] rounded-[18px]" />
+        {["first", "second", "third", "fourth"].map((slot) => (
+          <SkeletonBlock key={slot} className="h-[180px] rounded-[18px]" />
         ))}
       </div>
     </div>
