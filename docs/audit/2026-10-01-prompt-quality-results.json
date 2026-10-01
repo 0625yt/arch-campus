@@ -1,0 +1,188 @@
+{
+  "baselineRef": "4f3279c",
+  "modelId": "gemini-3.5-flash-lite",
+  "costTotal": 0.054706,
+  "rows": [
+    {
+      "version": "baseline",
+      "fixture": "statistics",
+      "modelId": "gemini-3.5-flash-lite",
+      "requested": 6,
+      "generated": 6,
+      "invalid": 0,
+      "invalidQuestions": [],
+      "exactEvidence": 6,
+      "evidencePassed": 6,
+      "integrityPassed": 6,
+      "unique": 6,
+      "accepted": 6,
+      "costUsd": 0.011131799999999999,
+      "costPerAccepted": 0.0018552999999999998,
+      "ms": 9185,
+      "usage": {
+        "inputTokens": 12460,
+        "outputTokens": 1760,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0
+      },
+      "verifierUsage": {
+        "inputTokens": 5521,
+        "outputTokens": 535,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0
+      }
+    },
+    {
+      "version": "candidate",
+      "fixture": "statistics",
+      "modelId": "gemini-3.5-flash-lite",
+      "requested": 6,
+      "generated": 6,
+      "invalid": 0,
+      "invalidQuestions": [],
+      "exactEvidence": 6,
+      "evidencePassed": 6,
+      "integrityPassed": 6,
+      "unique": 6,
+      "accepted": 6,
+      "costUsd": 0.0076565,
+      "costPerAccepted": 0.0012760833333333333,
+      "ms": 7372,
+      "usage": {
+        "inputTokens": 4923,
+        "outputTokens": 1446,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0
+      },
+      "verifierUsage": {
+        "inputTokens": 5457,
+        "outputTokens": 371,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0
+      }
+    },
+    {
+      "version": "baseline",
+      "fixture": "cs",
+      "modelId": "gemini-3.5-flash-lite",
+      "requested": 6,
+      "generated": 5,
+      "invalid": 1,
+      "invalidQuestions": [
+        {
+          "index": 2,
+          "reason": "choices.4.key: Invalid option: expected one of \"A\"|\"B\"|\"C\"|\"D\" | choices: Too big: expected array to have <=4 items"
+        }
+      ],
+      "exactEvidence": 5,
+      "evidencePassed": 5,
+      "integrityPassed": 5,
+      "unique": 5,
+      "accepted": 5,
+      "costUsd": 0.010754,
+      "costPerAccepted": 0.0021508,
+      "ms": 7506,
+      "usage": {
+        "inputTokens": 12472,
+        "outputTokens": 1902,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0
+      },
+      "verifierUsage": {
+        "inputTokens": 4958,
+        "outputTokens": 308,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0
+      }
+    },
+    {
+      "version": "candidate",
+      "fixture": "cs",
+      "modelId": "gemini-3.5-flash-lite",
+      "requested": 6,
+      "generated": 6,
+      "invalid": 0,
+      "invalidQuestions": [],
+      "exactEvidence": 6,
+      "evidencePassed": 6,
+      "integrityPassed": 6,
+      "unique": 6,
+      "accepted": 6,
+      "costUsd": 0.008728699999999999,
+      "costPerAccepted": 0.0014547833333333332,
+      "ms": 7712,
+      "usage": {
+        "inputTokens": 4935,
+        "outputTokens": 1876,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0
+      },
+      "verifierUsage": {
+        "inputTokens": 5444,
+        "outputTokens": 370,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0
+      }
+    },
+    {
+      "version": "baseline",
+      "fixture": "language",
+      "modelId": "gemini-3.5-flash-lite",
+      "requested": 6,
+      "generated": 6,
+      "invalid": 0,
+      "invalidQuestions": [],
+      "exactEvidence": 6,
+      "evidencePassed": 6,
+      "integrityPassed": 6,
+      "unique": 6,
+      "accepted": 6,
+      "costUsd": 0.0098665,
+      "costPerAccepted": 0.0016444166666666666,
+      "ms": 7446,
+      "usage": {
+        "inputTokens": 12413,
+        "outputTokens": 1350,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0
+      },
+      "verifierUsage": {
+        "inputTokens": 4792,
+        "outputTokens": 532,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0
+      }
+    },
+    {
+      "version": "candidate",
+      "fixture": "language",
+      "modelId": "gemini-3.5-flash-lite",
+      "requested": 6,
+      "generated": 6,
+      "invalid": 0,
+      "invalidQuestions": [],
+      "exactEvidence": 6,
+      "evidencePassed": 6,
+      "integrityPassed": 6,
+      "unique": 6,
+      "accepted": 6,
+      "costUsd": 0.0065685,
+      "costPerAccepted": 0.00109475,
+      "ms": 6561,
+      "usage": {
+        "inputTokens": 4876,
+        "outputTokens": 957,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0
+      },
+      "verifierUsage": {
+        "inputTokens": 4769,
+        "outputTokens": 513,
+        "cacheReadTokens": 0,
+        "cacheCreationTokens": 0
+      }
+    }
+  ],
+  "scope": "Synthetic notes only; generation plus the same current verifier for both versions. Excludes classification, embedding, topups and storage.",
+  "costBasis": "estimateCost() repository rate table and reported tokens; not provider invoice."
+}

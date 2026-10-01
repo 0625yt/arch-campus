@@ -1,6 +1,6 @@
 # 시험 벼락치기 위저드 (exam-cram)
 
-> **모델**: Sonnet 4.6 (복합 추론 — 단원 우선순위 + 시간 분할)
+> **실행 모델**: `src/lib/claude.ts`의 `getModelIdFor()`와 환경 설정을 따른다.
 > **상위 규칙**: [_shared/persona-schema.md](_shared/persona-schema.md), [_shared/master-rules.md](_shared/master-rules.md), [_shared/skills-v2.md](_shared/skills-v2.md)
 > **사용처**: `/dashboard/tools/exam-cram` 3단계 위저드 → 시험 직전 학습 계획
 > **사활**: 잘못된 단원 추천 → 시험 망 → 환불 요구. 추천은 100% 자료 본문에 근거해야 한다.
@@ -315,14 +315,6 @@ interface ExamCramInput {
 
 ---
 
-## Thinking 블록 (Sonnet thinking 활성화 시)
+## 계획 검증 순서
 
-복잡한 추론이라 thinking 블록 권장. SDK에서 `thinking: { type: "enabled", budget_tokens: 4000 }` 설정하면 자동 hidden.
-
-머릿속 순서:
-1. 자료 메타 훑기 (제목·페이지·키워드)
-2. 시험 비중 추정 (자료 분량·weightPercent 명시 여부)
-3. 학생 약점 매칭
-4. topics 우선순위 매기기
-5. 남은 시간을 블록으로 분할 (휴식·복습 포함)
-6. checkpoint·finalTips 자료에 맞춰 작성
+남은 시간·실제 범위·제약 → 주제 우선순위 → 수행 가능한 시간 배분 → 합계·마지막 복습 확인 순으로 점검한다. 내부 추론은 출력하지 않는다. thinking의 모델별 설정은 서버 호출자가 관리하며 이 문서에서 활성화나 토큰 예산을 보장하지 않는다.

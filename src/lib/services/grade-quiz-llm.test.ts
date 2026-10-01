@@ -28,7 +28,9 @@ function graded(item: GradedResult): GradedQuiz {
 }
 
 describe("gradeWithLlmAssist", () => {
-  beforeEach(() => generateMock.mockReset());
+  beforeEach(() => {
+    generateMock.mockReset();
+  });
 
   it("의미가 같은 단답형 표현만 정답으로 승격한다", async () => {
     generateMock.mockResolvedValue({
@@ -109,8 +111,8 @@ describe("gradeWithLlmAssist", () => {
       text: JSON.stringify({
         verdicts: [
           { questionId: 999, correct: true, reason: "허용되지 않은 번호예요." },
-          { questionId: 1, correct: false, reason: "첫 판정만 사용해요." },
-          { questionId: 1, correct: true, reason: "중복 판정은 버려요." },
+          { questionId: 1, correct: true, reason: "먼저 온 정답 판정이에요." },
+          { questionId: 1, correct: false, reason: "중복 판정은 모두 보류해요." },
         ],
       }),
     });

@@ -1,6 +1,6 @@
 # 리포트 요구사항 체크리스트 위저드 (report-checklist)
 
-> **모델**: Sonnet 4.6 — 공지 텍스트 분석 + 체크리스트 추론
+> **실행 모델**: `src/lib/claude.ts`의 `getModelIdFor()`와 환경 설정을 따른다.
 > **상위 규칙**: [_shared/persona-schema.md](_shared/persona-schema.md), [_shared/master-rules.md](_shared/master-rules.md)
 > **사용처**: `/dashboard/tools/report-checklist` 위저드 → 과제 공지에서 감점 슈팅 체크리스트
 > **사활**: 본문 초안 작성 X. 우리는 "구조·체크리스트·자기 점검 질문"만 만든다 (CLAUDE.md §4 윤리 라인).
@@ -191,3 +191,7 @@ interface ChecklistInput {
 ## 워터마크
 
 `watermark`는 "이 자료는 학습 보조용이며" 로 시작 + 본문은 본인이 작성하라는 문구.
+
+## 최종 품질 점검 — 2026-10-01
+
+공지에서 명시한 요구사항과 확인이 필요한 질문을 구분한다. quote는 원문 그대로, 한 요구사항당 하나의 확인 가능한 행동을 쓴다. 날짜·분량·파일 형식·평가 비중이 서로 모순되면 임의 선택하지 않고 openQuestions에 남긴다. 없는 교수의 기준이나 감점 조건을 만들지 않는다.

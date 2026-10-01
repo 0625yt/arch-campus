@@ -1,6 +1,6 @@
 # 발표 위저드 프롬프트 (presentation)
 
-> **모델**: Sonnet 4.6
+> **실행 모델**: `src/lib/claude.ts`의 `getModelIdFor()`와 환경 설정을 따른다.
 > **상위 규칙**: [_shared/persona-schema.md](_shared/persona-schema.md), [_shared/master-rules.md](_shared/master-rules.md)
 > **사용처**: `/dashboard/tools/presentation` 5단계 위저드 → 슬라이드 5장 + 예상 질문 5개
 
@@ -305,3 +305,7 @@ interface PresentationInput {
 | **speakerNote 방향** | 자료 풀이 / 청중 시선 / 시간 분배 / 개인 경험 |
 
 5장 발표면 purpose 4개 이상, speakerNote 방향 3개 이상 등장해야 함.
+
+## 최종 품질 점검 — 2026-10-01
+
+입력 발표 시간에 맞춰 슬라이드별 설명 시간·전환·질의응답이 현실적인지 확인한다. 자료 인용과 발표자의 주장은 구분한다. 입력에 없는 통계·조사·논문·출처를 만들지 않는다. 예상 질문은 내용 이해·근거·한계·적용 등 서로 다른 목적을 갖게 한다. speakerNote는 해당 슬라이드에서 실제로 수행할 행동을 구체적으로 적는다.

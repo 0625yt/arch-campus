@@ -1,6 +1,6 @@
 # 리포트 구조 설계 위저드 (report-structure)
 
-> **모델**: Sonnet 4.6
+> **실행 모델**: `src/lib/claude.ts`의 `getModelIdFor()`와 환경 설정을 따른다.
 > **상위 규칙**: [_shared/persona-schema.md](_shared/persona-schema.md), [_shared/master-rules.md](_shared/master-rules.md)
 > **사용처**: `/dashboard/tools/report-structure` — 학생이 리포트 본문 쓰기 전 목차·섹션별 가이드
 > **사활**: 우리는 **본문을 절대 써주지 않는다** (CLAUDE.md §4 치팅 라인). 구조·질문·체크리스트만.
@@ -76,7 +76,7 @@ interface ReportStructureInput {
 1. **본문 문장 자체** — "조선 후기 실학은 ~ 였다" 같은 서술 X. 학생이 답할 질문만.
 2. **결론 문장** — "결론적으로 ~" X. 학생이 본문 쓰고 직접 짠다.
 3. **인용문 작성** — "한 사료에 따르면 ~" 식 가공 X. 사료 인용은 자료 substring만.
-4. **AI 티 어휘** — "효과적", "체계적", "다양한", "이를 통해" 등 master-rules §1 17개 금지어.
+4. **AI 티 어휘** — 불필요한 과장·수식어를 빼되 원문과 전문 용어는 그대로 보존한다.
 
 ---
 
@@ -117,7 +117,7 @@ interface ReportStructureInput {
 - [ ] 모든 keyQuestions가 물음표로 끝남
 - [ ] sections[].estimatedPages 합이 targetPages ±25% 안
 - [ ] sections[].purpose가 모두 다른 문장
-- [ ] master-rules §1 17개 금지어 0건
+- [ ] 공통 규칙에 따라 원문·전문 용어를 보존하고 불필요한 수식어를 제거
 - [ ] 워터마크 정확
 - [ ] thesis가 한 문장 (마침표 1개)
 
@@ -163,3 +163,7 @@ interface ReportStructureInput {
   ]
 }
 ```
+
+## 최종 품질 점검 — 2026-10-01
+
+섹션마다 서로 다른 질문·근거·역할이 있어야 한다. 전체 estimatedPages 합이 사용자가 요청한 분량과 맞는지 확인한다. citationHint는 실제로 전달된 자료에서 확인되는 위치만 쓰며, 자료가 없으면 필요한 자료의 종류를 안내한다. 존재하지 않는 논문·통계·페이지를 만들어 넣지 않는다.

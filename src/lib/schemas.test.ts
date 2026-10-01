@@ -175,6 +175,19 @@ describe("QuizOutput choices normalization", () => {
     if (!parsed.output.rejected) expect(parsed.output.questions).toHaveLength(1);
     expect(parsed.invalidQuestions).toHaveLength(1);
   });
+
+  it("구조화 성공 응답의 null reason을 받아들이되 거절 사유 누락은 거부한다", () => {
+    const payload = {
+      rejected: false,
+      reason: null,
+      questions: [{ ...base, choices: null }],
+      watermark: "이 자료는 학습 보조용이며 직접 검토하세요.",
+    };
+    expect(parseQuizModelJson(JSON.stringify(payload)).output.questions).toHaveLength(1);
+    expect(() =>
+      parseQuizModelJson(JSON.stringify({ ...payload, rejected: true, questions: [] })),
+    ).toThrow();
+  });
 });
 
 describe("ExamExtractedQuestion answerSource", () => {

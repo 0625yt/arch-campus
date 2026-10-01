@@ -474,7 +474,9 @@
   .goalPanel button {
     grid-column: 1 / -1;
   }
-  .summaryCard { min-height: 145px; }
+  .summaryCard {
+    min-height: 145px;
+  }
   .gradeSection {
     padding: 17px 12px;
   }

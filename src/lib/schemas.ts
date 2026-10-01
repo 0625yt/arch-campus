@@ -148,7 +148,7 @@ export type QuizOutputT = z.infer<typeof QuizOutput>;
 const QuizModelEnvelope = z.object({
   questions: z.array(z.unknown()).max(50),
   rejected: z.boolean().optional(),
-  reason: z.string().optional(),
+  reason: z.string().nullable().optional(),
   watermark: z.string().min(10),
 });
 

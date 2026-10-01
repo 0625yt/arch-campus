@@ -1,26 +1,20 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
-import type { ProviderOptions, SystemModelMessage } from "@ai-sdk/provider-utils";
-import { generateText, type LanguageModel, type ModelMessage, streamText } from "ai";
+import type { FlexibleSchema, ProviderOptions, SystemModelMessage } from "@ai-sdk/provider-utils";
+import {
+  generateText,
+  type LanguageModel,
+  type ModelMessage,
+  NoObjectGeneratedError,
+  Output,
+  streamText,
+} from "ai";
 import { neutralizePromptBoundaryTags } from "@/lib/prompt-safety";
 
 /**
- * 모델 라우팅 — vendor 별 SDK 직접 사용 (Gateway 미사용).
- *
- * 2026-05-28 변경 이력:
- *   - 처음엔 AI Gateway slug(`anthropic/...`, `google/...`)로 통일했으나
- *     Vercel free tier가 Sonnet·Gemini Flash를 차단해서 prod 비용 발생함.
- *   - 한 발 물러나 Anthropic SDK + Google SDK 직접 wrap으로 복귀.
- *   - 멀티벤더 운영 복잡도(키 두 개, providerOptions 분기)는 코드 한 곳에 격리.
- *
- * 인증:
- *   - ANTHROPIC_API_KEY (필수, Anthropic 도구 전부)
- *   - GOOGLE_GENERATIVE_AI_API_KEY (선택, *_MODEL_VENDOR=google 켜진 도구만)
- *
- * 비용 통제 (CLAUDE.md §1):
- *   - 기본은 Anthropic (Sonnet·Haiku).
- *   - env 플래그(`QUIZ_MODEL_VENDOR=google`·`SUMMARY_MODEL_VENDOR=google`)가
- *     켜진 도구만 Gemini 2.5 Flash로. 플래그 끄면 100% 기존 동작.
+ * Vendor SDK를 직접 사용한다. 실제 모델은 getModelIdFor()가 환경 설정을
+ * 반영해 선택하며 해당 vendor의 API 키만 필요하다. TOOL_MODEL만 보고
+ * 운영 모델을 단정하지 않는다. 비용은 usage와 아래 단가표로 추정한다.
  */
 
 /**
@@ -546,7 +540,7 @@ function warnIfBelowCacheMin(tool: ToolKind, modelId: string, rulePrompt: string
     console.warn(
       `[llm.cache] tool="${tool}" model=${tier} rulePrompt ≈${est}t < ${min}t. ` +
         `prompt caching 비활성 가능 — 매 호출 정가 청구. ` +
-        `프롬프트를 늘리거나 같은 tier 안에서 모델 격상 고려.`,
+        `실제 usage를 확인하고 품질에 필요한 지시만 유지하세요.`,
     );
   }
 }
@@ -581,6 +575,8 @@ export interface GenerateInput {
    * 퀴즈처럼 실시간 UX 작업은 "low"로 thinking 최소화 → 속도 확보.
    */
   effort?: AnthropicEffort;
+  /** Native structured output; content grounding and correctness still require service validation. */
+  responseSchema?: FlexibleSchema<unknown>;
 }
 
 /**
@@ -686,6 +682,7 @@ async function callWithRetry(opts: {
   temperature: number;
   tool: ToolKind;
   effort?: AnthropicEffort;
+  responseSchema?: FlexibleSchema<unknown>;
 }): Promise<Awaited<ReturnType<typeof generateText>>> {
   return generateText({
     model: modelInstance(opts.modelId),
@@ -695,6 +692,7 @@ async function callWithRetry(opts: {
     temperature: supportsTemperature(opts.modelId) ? opts.temperature : undefined,
     system: opts.system,
     messages: opts.messages,
+    output: opts.responseSchema ? Output.object({ schema: opts.responseSchema }) : undefined,
     allowSystemInMessages: false,
     providerOptions: callProviderOptions(opts.vendor, opts.modelId, opts.effort),
     // AI SDK 내장 retry — 429/503/network에 자동 적용. 기본 3 → 5.
@@ -713,6 +711,7 @@ export async function generate({
   cacheUserInput = false,
   modelIdOverride,
   effort,
+  responseSchema,
 }: GenerateInput): Promise<GenerateResult> {
   // A/B 평가 전용 override. prod에서는 무시(라우팅 우회 사고 방지).
   const modelId =
@@ -765,16 +764,35 @@ export async function generate({
   // 429 / concurrent limit 대비 retry 강화 (AI SDK 기본은 3회).
   // 사용자가 여러 자료를 한 번에 올리면 같은 분 내 Haiku 호출이 폭주해 token-per-min 초과.
   // 5회까지 retry + 첫 retry 1.5s, 마지막 ~24s까지 exponential backoff (AI SDK 내장).
-  const result = await callWithRetry({
-    modelId,
-    vendor,
-    system,
-    messages,
-    maxTokens,
-    temperature,
-    tool,
-    effort,
-  });
+  let result: Awaited<ReturnType<typeof callWithRetry>>;
+  try {
+    result = await callWithRetry({
+      modelId,
+      vendor,
+      system,
+      messages,
+      maxTokens,
+      temperature,
+      tool,
+      effort,
+      responseSchema,
+    });
+  } catch (error) {
+    // Preserve billed usage and let the existing per-item parser salvage valid
+    // items. An invalid native response never bypasses the semantic verifier.
+    if (!NoObjectGeneratedError.isInstance(error) || !error.text) throw error;
+    return {
+      text: error.text,
+      modelId,
+      usage: {
+        inputTokens: error.usage?.inputTokens ?? 0,
+        outputTokens: error.usage?.outputTokens ?? 0,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+      },
+      finishReason: "error",
+    };
+  }
 
   // Gemini가 출력 한도에 닿아 잘렸으면 dev/prod 모두 경고. jobs payload에 곧바로 안 박지만
   // 로그로 잡혀서 휴리스틱·chunking 분기 시점을 알아챌 수 있다.

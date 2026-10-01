@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { tryGetOwnerId } from "@/lib/auth";
 import { estimateCost, generate } from "@/lib/claude";
+import { supportedEventWeight } from "@/lib/event-weight";
 import { loadPrompt } from "@/lib/prompts";
 import { guardRateLimit, type RateLimitErrBody } from "@/lib/ratelimit";
 
@@ -108,6 +109,10 @@ export async function POST(
   try {
     const json = JSON.parse(cleaned);
     parsed = DraftSchema.parse(json);
+    parsed.events = parsed.events.map((event) => ({
+      ...event,
+      weight_percent: supportedEventWeight(event.weight_percent, body.text),
+    }));
   } catch (e) {
     return NextResponse.json(
       {

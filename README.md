@@ -9,6 +9,8 @@
 - [2026-09-22 보완 보고서](docs/audit/2026-09-22-hardening.md): 테스트 근거·제약·수정 사항
 - [2026-09-25 학기·성적 보고서](docs/audit/2026-09-25-semester-gradebook.md): 학기 시간표·학점·평점 구현과 운영 DB 검증
 - [2026-10-01 학습·백업 검증](docs/audit/2026-10-01-learning-recovery.md): 모바일 회고 저장·1,005개 일정 내보내기·관리자 접근 차단
+- [2026-10-01 프롬프트 품질 검증](docs/audit/2026-10-01-prompt-quality.md): 가상 문항 정확성·비용 비교와 출처·일정 보완
+- [프롬프트 운영](docs/PROMPTS.md): 실행되는 MD·검증 경계·실제 AI 평가 방법
 - [다음 작업](docs/NEXT-STEPS.md), [실제 구조](docs/ARCHITECTURE.md), [제품 로드맵](docs/PRODUCT.md)
 
 ## 현재 제공하는 기능
@@ -44,6 +46,7 @@ npm run dev
 npm run verify:env -- --models   # 현재 라우팅 모델의 API 가용성 추가 확인
 npm run test                   # 단위 테스트; 실제 AI 평가는 기본 건너뜀
 npm run test:e2e                # 로컬 3010, 모바일·태블릿·노트북
+npm run test:prompt-flows      # 실제 API·요약·문제·일정, 임시 계정·기존 키 AI 과금; 서버 필요
 npm run test:learning-flows    # 실제 DB 임시 계정·모바일 회고·1,005개 일정 백업; 실행 중인 서버 필요
 npm run typecheck
 npm run build

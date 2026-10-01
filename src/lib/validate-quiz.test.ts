@@ -426,3 +426,59 @@ describe("balanceMultipleChoiceAnswers — 정답 위치 편향", () => {
     ).toBeLessThanOrEqual(1);
   });
 });
+
+describe("보기 순서와 해설의 일치", () => {
+  it("옛 보기 키를 인용하는 해설·힌트는 보기 순서를 유지한다", () => {
+    const base: QuizQuestionT = {
+      id: 1,
+      kind: "multiple-choice",
+      difficulty: "보통",
+      topic: "조건 비교",
+      stem: "자료에 제시된 조건으로 가장 적절한 것은?",
+      choices: [
+        { key: "A", text: "상호 배제" },
+        { key: "B", text: "순환 대기" },
+        { key: "C", text: "선점 허용" },
+        { key: "D", text: "무한 대기" },
+      ],
+      answer: "A",
+      explanation: "A는 동시 진입을 막으므로 정답이에요.",
+      evidence: "상호 배제는 동시 진입을 막는다.",
+    };
+    expect(balanceMultipleChoiceAnswers([base])[0]).toEqual(base);
+    expect(
+      balanceMultipleChoiceAnswers([
+        {
+          ...base,
+          explanation: "동시 진입을 막는 조건을 비교합니다.",
+          hint: "B 보기와 차이를 확인해 보세요.",
+        },
+      ])[0].answer,
+    ).toBe("A");
+  });
+});
+
+describe("어학 표기 훼손", () => {
+  const source = "学校（がっこう）: 학교. 学生（がくせい）: 학생.";
+  const base: QuizQuestionT = {
+    id: 1,
+    kind: "short-answer",
+    difficulty: "쉬움",
+    topic: "학교",
+    stem: "「学校」를 히라가나로 정확히 쓰세요.",
+    choices: null,
+    answer: "がっこう",
+    explanation: "「学校」의 읽기는 がっこう이며 작은 っ가 포함돼요.",
+    evidence: "学校（がっこう）: 학교.",
+  };
+  it("한글이 원어 안에 섞인 해설을 보류한다", () => {
+    for (const explanation of ["학교는 가っこう라고 읽습니다.", "학생은 에gensei라고 읽습니다."]) {
+      const output = validateQuestionIntegrity([{ ...base, explanation }], { sourceText: source });
+      expect(output.kept).toHaveLength(0);
+      expect(output.dropped[0].reason).toContain("표기가 훼손");
+    }
+  });
+  it("원어 뒤의 정상적인 한국어 조사는 유지한다", () => {
+    expect(validateQuestionIntegrity([base], { sourceText: source }).kept).toHaveLength(1);
+  });
+});

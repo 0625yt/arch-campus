@@ -39,6 +39,7 @@ export interface ValidateResult {
 
 export interface QuestionIntegrityOptions {
   allowedKinds?: readonly QuizQuestionT["kind"][];
+  sourceText?: string;
 }
 
 /**
@@ -71,6 +72,23 @@ export function validateQuestionIntegrity(
     if (containsPromptLeakage(question)) {
       fail("프롬프트 또는 내부 지시 노출 의심");
       continue;
+    }
+    if (opts.sourceText && /[ぁ-ゟァ-ヿ]/u.test(opts.sourceText)) {
+      const prose = [
+        question.stem,
+        question.explanation,
+        question.hint,
+        question.trapAnalysis,
+        question.answer,
+        ...(question.choices?.map((choice) => choice.text) ?? []),
+      ]
+        .filter(Boolean)
+        .join("\n");
+      // Detect broken foreign words, not ordinary Korean particles after a quoted word.
+      if (/[가-힣][ぁ-ゟァ-ヿ]|[가-힣][a-z]{3,}/u.test(prose)) {
+        fail("어학 문항에서 원어 단어에 다른 문자 체계가 섞여 표기가 훼손됨");
+        continue;
+      }
     }
 
     if (kind === "multiple-choice") {
@@ -409,6 +427,20 @@ export function balanceMultipleChoiceAnswers(questions: QuizQuestionT[]): QuizQu
     }
 
     const answer = question.answer.trim().toUpperCase();
+    // Legacy questions may name a particular choice in their explanation/hint.
+    // Preserve their order instead of silently making those references incorrect.
+    const prose = [question.stem, question.explanation, question.trapAnalysis, question.hint]
+      .filter(Boolean)
+      .join("\n");
+    if (
+      /(?:\b[ABCD]\b|[ABCD](?:는|은|가|를|을|와|과|만|번)|[①②③④]|(?:첫|두|세|네)\s*번째\s*(?:보기|선택지))/u.test(
+        prose,
+      )
+    ) {
+      if (keys.includes(answer as (typeof keys)[number]))
+        counts[answer as (typeof keys)[number]] += 1;
+      return question;
+    }
     const decorated = question.choices
       .map((choice) => ({
         choice,
