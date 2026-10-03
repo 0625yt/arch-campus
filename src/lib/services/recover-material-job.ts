@@ -23,24 +23,19 @@ function stringsFrom(value: unknown): string[] {
 
 /** stale로 판정되어 retry_count=1로 선점된 요약·문제 작업을 저장 입력으로 재구성한다. */
 export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
+  const execution = { jobId: job.id, ownerId: job.ownerId, retryCount: job.retryCount };
   try {
-    const reservation = await reserveMonthlyAiBudget({ ownerId: job.ownerId });
-    if (!reservation.allowed) {
-      await markJobError({
-        jobId: job.id,
-        ownerId: job.ownerId,
-        errorMessage: "월간 AI 사용 한도에 도달해 자동 재시도를 멈췄어요.",
-      });
+    // 실행권 없는 중복 콜백은 예약과 AI 호출을 모두 건너뛴다.
+    if (!(await markJobRunning(execution))) return;
+    if (
+      !(await recordJobCheckpoint({
+        ...execution,
+        stage: "rebuilding-input",
+        progress: 25,
+        message: "저장된 입력으로 작업을 복구하고 있어요.",
+      }))
+    )
       return;
-    }
-    if (!(await markJobRunning({ jobId: job.id, ownerId: job.ownerId }))) return;
-    await recordJobCheckpoint({
-      jobId: job.id,
-      ownerId: job.ownerId,
-      stage: "rebuilding-input",
-      progress: 25,
-      message: "저장된 입력으로 작업을 복구하고 있어요.",
-    });
     if (!job.materialId) throw new Error("재시도할 자료 정보가 없어요.");
 
     const admin = getAdminSupabase();
@@ -55,13 +50,24 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
     const primary = data.find((item) => item.id === job.materialId);
     if (!primary?.full_text?.trim()) throw new Error("재시도할 자료 본문이 비어 있어요.");
 
-    if (job.tool === "summarize") {
-      await recordJobCheckpoint({
-        jobId: job.id,
-        ownerId: job.ownerId,
-        stage: "generating-summary",
-        progress: 45,
+    const reservation = await reserveMonthlyAiBudget({ ownerId: job.ownerId });
+    if (!reservation.allowed) {
+      await markJobError({
+        ...execution,
+        errorMessage: "월간 AI 사용 한도에 도달해 자동 재시도를 멈췄어요.",
       });
+      return;
+    }
+
+    if (job.tool === "summarize") {
+      if (
+        !(await recordJobCheckpoint({
+          ...execution,
+          stage: "generating-summary",
+          progress: 45,
+        }))
+      )
+        return;
       const styles = stringsFrom(job.inputParams.styles).filter((style): style is SummaryStyle =>
         (STYLE_ORDER as readonly string[]).includes(style),
       );
@@ -79,15 +85,16 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
           typeof job.inputParams.intentNote === "string" ? job.inputParams.intentNote : undefined,
       });
       if (!result.ok) throw new Error(result.error);
-      await recordJobCheckpoint({
-        jobId: job.id,
-        ownerId: job.ownerId,
-        stage: "verifying-output",
-        progress: 85,
-      });
+      if (
+        !(await recordJobCheckpoint({
+          ...execution,
+          stage: "verifying-output",
+          progress: 85,
+        }))
+      )
+        return;
       await markJobDone({
-        jobId: job.id,
-        ownerId: job.ownerId,
+        ...execution,
         result: { summary: result.summary },
         modelId: result.modelId,
         usage: result.usage,
@@ -109,12 +116,14 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
       (kind): kind is (typeof KINDS)[number] => (KINDS as readonly string[]).includes(kind),
     );
     const materialsInOrder = [primary, ...data.filter((item) => item.id !== primary.id)];
-    await recordJobCheckpoint({
-      jobId: job.id,
-      ownerId: job.ownerId,
-      stage: "generating-quiz",
-      progress: 45,
-    });
+    if (
+      !(await recordJobCheckpoint({
+        ...execution,
+        stage: "generating-quiz",
+        progress: 45,
+      }))
+    )
+      return;
     const result = await runQuizGeneration({
       ownerId: job.ownerId,
       courseId: primary.course_id,
@@ -134,15 +143,16 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
       intentNote: typeof job.inputParams.intentNote === "string" ? job.inputParams.intentNote : "",
     });
     if (!result.ok) throw new Error(result.error);
-    await recordJobCheckpoint({
-      jobId: job.id,
-      ownerId: job.ownerId,
-      stage: "verifying-output",
-      progress: 85,
-    });
+    if (
+      !(await recordJobCheckpoint({
+        ...execution,
+        stage: "verifying-output",
+        progress: 85,
+      }))
+    )
+      return;
     await markJobDone({
-      jobId: job.id,
-      ownerId: job.ownerId,
+      ...execution,
       result: { quizId: result.quizId, quality: result.quality },
       modelId: result.modelId,
       usage: result.usage,
@@ -150,8 +160,7 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
     });
   } catch (error) {
     await markJobError({
-      jobId: job.id,
-      ownerId: job.ownerId,
+      ...execution,
       errorMessage: `자동 재시도 실패: ${error instanceof Error ? error.message : String(error)}`,
     });
   }

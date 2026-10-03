@@ -93,6 +93,6 @@ export const config = {
   // /api/*는 자체 getCurrentUser()를 호출하니 proxy에서 제외.
   // multipart 업로드 요청을 proxy가 거치면 본문이 buffer되며 boundary 손상돼 formData() 실패.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|sw\\.js$|offline\\.html$|manifest\\.webmanifest$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

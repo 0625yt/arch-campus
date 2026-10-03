@@ -91,6 +91,17 @@ export interface Database {
         };
         Returns: boolean;
       };
+      record_job_attempt_checkpoint: {
+        Args: {
+          p_job_id: string;
+          p_owner_id: string;
+          p_retry_count: number;
+          p_stage: string;
+          p_progress: number;
+          p_message?: string | null;
+        };
+        Returns: boolean;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

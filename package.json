@@ -39,7 +39,11 @@
     "workflow:files": "npm run test:files && npm run test:files-live",
     "workflow:ai": "npm run test:classification-live && npm run test:quiz-pipeline-live && npm run test:live-ai && npm run test:prompt-tools-live",
     "workflow:quality": "npm run check -- --error-on-warnings && npm run typecheck && npm run test && npm run check:docs && npm audit --audit-level=moderate && npm run build && npm run test:e2e -- --workers=2",
-    "report:ai-costs": "node --import tsx --env-file=.env.local scripts/report-ai-costs.mjs"
+    "report:ai-costs": "node --import tsx --env-file=.env.local scripts/report-ai-costs.mjs",
+    "test:job-recovery": "node --env-file=.env.local scripts/test-job-recovery.mjs",
+    "test:job-flows": "node --env-file=.env.local scripts/test-job-flows.mjs",
+    "workflow:jobs": "vitest run src/lib/data/jobs.test.ts src/lib/services/recover-material-job.test.ts && npm run test:job-recovery && npm run test:job-flows",
+    "test:pwa": "playwright test e2e/pwa.spec.ts --workers=2"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.76",
