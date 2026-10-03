@@ -27,7 +27,19 @@
     "test:learning-flows": "node --env-file=.env.local scripts/test-learning-flows.mjs",
     "test:prompt-live": "RUN_PROMPT_EVAL=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run src/lib/eval/prompt-quality.integration.test.ts",
     "test:prompt-tools-live": "RUN_PROMPT_EVAL=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run src/lib/eval/prompt-tools.integration.test.ts",
-    "test:prompt-flows": "node --import tsx --env-file=.env.local scripts/test-prompt-flows.mjs"
+    "test:prompt-flows": "node --import tsx --env-file=.env.local scripts/test-prompt-flows.mjs",
+    "test:auth-recovery": "node --env-file=.env.local scripts/test-auth-recovery.mjs",
+    "test:files": "vitest run src/lib/parsers",
+    "test:files-live": "RUN_FILE_EVAL=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run src/lib/parsers/image-file.integration.test.ts",
+    "test:prompt-stress-live": "RUN_PROMPT_STRESS=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run src/lib/eval/prompt-stress.integration.test.ts",
+    "test:api-isolation": "node --env-file=.env.local scripts/test-api-isolation.mjs",
+    "test:quiz-pipeline-live": "RUN_PIPELINE_EVAL=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run src/lib/eval/quiz-pipeline-stress.integration.test.ts",
+    "test:classification-live": "RUN_CLASSIFY_EVAL=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run src/lib/eval/classification.integration.test.ts",
+    "workflow:auth": "npm run test:live-auth && npm run test:api-isolation && npm run test:auth-recovery && npm run test:authenticated-browser",
+    "workflow:files": "npm run test:files && npm run test:files-live",
+    "workflow:ai": "npm run test:classification-live && npm run test:quiz-pipeline-live && npm run test:live-ai && npm run test:prompt-tools-live",
+    "workflow:quality": "npm run check -- --error-on-warnings && npm run typecheck && npm run test && npm run check:docs && npm audit --audit-level=moderate && npm run build && npm run test:e2e -- --workers=2",
+    "report:ai-costs": "node --import tsx --env-file=.env.local scripts/report-ai-costs.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.76",

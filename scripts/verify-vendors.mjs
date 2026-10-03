@@ -13,11 +13,11 @@ async function ping(label, model) {
       maxOutputTokens: 30,
       messages: [{ role: "user", content: "한 단어로만 답해: 안녕" }],
     });
-    console.log(`\x1b[32m✓\x1b[0m ${label} → "${result.text.trim()}" (${result.finishReason})`);
+    console.info(`\x1b[32m✓\x1b[0m ${label} → "${result.text.trim()}" (${result.finishReason})`);
     return true;
   } catch (e) {
-    console.log(`\x1b[31m✗\x1b[0m ${label} 실패`);
-    console.log(`  ${e instanceof Error ? e.message : String(e)}`);
+    console.info(`\x1b[31m✗\x1b[0m ${label} 실패`);
+    console.info(`  ${e instanceof Error ? e.message : String(e)}`);
     return false;
   }
 }

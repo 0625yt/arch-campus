@@ -90,6 +90,24 @@ try {
     }
     const other = await b.from(table).select("id").eq("id", inserted.data.id);
     check(`${table}: cross-user read denied`, !other.error && other.data.length === 0);
+    const updated = await b
+      .from(table)
+      .update(
+        table === "courses" ? { name: "Unauthorized change" } : { title: "Unauthorized change" },
+      )
+      .eq("id", inserted.data.id)
+      .select("id");
+    check(`${table}: cross-user update denied`, !updated.error && updated.data.length === 0);
+    const preserved = await a
+      .from(table)
+      .select(table === "courses" ? "name" : "title")
+      .eq("id", inserted.data.id)
+      .single();
+    check(
+      `${table}: owner data unchanged after denied update`,
+      !preserved.error &&
+        preserved.data[table === "courses" ? "name" : "title"] === "Security fixture",
+    );
     const removed = await b.from(table).delete().eq("id", inserted.data.id).select("id");
     check(`${table}: cross-user delete denied`, !removed.error && removed.data.length === 0);
     const forged = await b.from(table).insert({ owner_id: created[0], ...data });

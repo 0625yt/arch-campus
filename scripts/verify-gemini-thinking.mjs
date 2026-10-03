@@ -39,9 +39,9 @@ const TOOLS = [
   "pdf-ocr",
 ];
 
-console.log("\n── 도구별 thinking 분기 (modelId 기준) ──────────────────");
-console.log("도구                  모델ID              vendor  thinking");
-console.log("─".repeat(64));
+console.info("\n── 도구별 thinking 분기 (modelId 기준) ──────────────────");
+console.info("도구                  모델ID              vendor  thinking");
+console.info("─".repeat(64));
 
 let proCount = 0;
 for (const tool of TOOLS) {
@@ -51,23 +51,23 @@ for (const tool of TOOLS) {
   if (pro) proCount++;
   // Pro면 thinkingBudget:2048(ON), 그 외 Gemini면 0(OFF), Anthropic이면 thinking 분기 안 탐
   const thinking = !gemini ? "(N/A · Anthropic)" : pro ? "ON (2048)" : "OFF (0)";
-  console.log(
+  console.info(
     `${tool.padEnd(20)}  ${id.padEnd(18)}  ${(gemini ? "google" : "anthropic").padEnd(6)}  ${thinking}`,
   );
 }
 
-console.log("─".repeat(64));
-console.log(
+console.info("─".repeat(64));
+console.info(
   `\n핵심 불변식: Pro로 라우팅되는 도구(${proCount}개)는 thinking 화이트리스트 없이도 모두 ON.`,
 );
-console.log("  → 사고 재발 조건(Pro 도구가 budget 0 받음)이 코드 경로에서 사라졌는지 확인.\n");
+console.info("  → 사고 재발 조건(Pro 도구가 budget 0 받음)이 코드 경로에서 사라졌는지 확인.\n");
 
 // 회귀 가드: vendor=google 강제 시 Pro 도구가 하나라도 thinking OFF면 실패
 process.env.QUIZ_MODEL_VENDOR = "google";
 process.env.SUMMARY_MODEL_VENDOR = "google";
 const id = getModelIdFor("quiz");
 const ok = !isGemini(id) || isPro(id); // quiz는 vendor=google이면 Pro여야
-console.log(
+console.info(
   ok
     ? "\x1b[32m✓\x1b[0m quiz vendor=google → Pro 라우팅 확인"
     : "\x1b[31m✗\x1b[0m quiz가 Pro로 안 감 — fix 점검 필요",

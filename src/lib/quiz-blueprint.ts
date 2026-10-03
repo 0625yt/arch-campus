@@ -15,3 +15,38 @@ export function quizKindQuotas(
   }
   return quotas;
 }
+
+/** Preserve requested kinds when trimming verified over-generation. */
+export function selectQuizQuestions(
+  candidates: readonly QuizQuestionT[],
+  count: number,
+  kinds?: readonly QuizQuestionT["kind"][],
+): QuizQuestionT[] {
+  const quotas = quizKindQuotas(count, kinds);
+  const selected = new Set<QuizQuestionT>();
+  for (const question of candidates) {
+    const kind = question.kind ?? "multiple-choice";
+    if ((quotas[kind] ?? 0) > 0) {
+      selected.add(question);
+      quotas[kind] = (quotas[kind] ?? 0) - 1;
+    }
+  }
+  for (const question of candidates) {
+    if (selected.size >= count) break;
+    selected.add(question);
+  }
+  return candidates.filter((question) => selected.has(question)).slice(0, count);
+}
+
+export function missingQuizKinds(
+  candidates: readonly QuizQuestionT[],
+  count: number,
+  kinds: readonly QuizQuestionT["kind"][] | undefined,
+): QuizQuestionT["kind"][] {
+  const quotas = quizKindQuotas(count, kinds);
+  return (Object.keys(quotas) as QuizQuestionT["kind"][]).filter(
+    (kind) =>
+      candidates.filter((question) => (question.kind ?? "multiple-choice") === kind).length <
+      (quotas[kind] ?? 0),
+  );
+}

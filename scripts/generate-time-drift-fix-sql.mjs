@@ -108,5 +108,5 @@ LIMIT 20;
 
 const outPath = "scripts/fix-time-drift.sql";
 writeFileSync(outPath, sql);
-console.log(`오염 ${pollutedIds.length}건 → 교정 SQL 작성: ${outPath}`);
-console.log("Supabase SQL Editor에서 1)확인 → 2)BEGIN+UPDATE → 3)확인 → COMMIT 순으로 실행.");
+console.info(`오염 ${pollutedIds.length}건 → 교정 SQL 작성: ${outPath}`);
+console.info("Supabase SQL Editor에서 1)확인 → 2)BEGIN+UPDATE → 3)확인 → COMMIT 순으로 실행.");

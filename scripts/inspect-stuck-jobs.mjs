@@ -25,12 +25,12 @@ if (error) {
   process.exit(1);
 }
 
-console.log(`\n=== active(pending/running) job ${active.length}개 ===`);
+console.info(`\n=== active(pending/running) job ${active.length}개 ===`);
 const now = Date.now();
 for (const j of active) {
   const ageMin = Math.round((now - new Date(j.created_at).getTime()) / 60000);
   const stuck = ageMin > 10 ? "  ⚠️ STUCK" : "";
-  console.log(
+  console.info(
     `[${j.status}] tool=${j.tool} mat=${j.material_id?.slice(0, 8) ?? "NULL"} age=${ageMin}분${stuck}  (${j.id.slice(0, 8)})`,
   );
 }
@@ -40,9 +40,9 @@ const { data: mats } = await supabase
   .from("materials")
   .select("id, title, full_text")
   .ilike("title", "%9과%");
-console.log(`\n=== 제목에 "9과" 들어간 자료 ${mats?.length ?? 0}개 ===`);
+console.info(`\n=== 제목에 "9과" 들어간 자료 ${mats?.length ?? 0}개 ===`);
 for (const m of mats ?? []) {
-  console.log(`mat=${m.id.slice(0, 8)} "${m.title}" full_text=${m.full_text?.length ?? 0}자`);
+  console.info(`mat=${m.id.slice(0, 8)} "${m.title}" full_text=${m.full_text?.length ?? 0}자`);
   // 이 자료의 모든 job
   const { data: jobs } = await supabase
     .from("jobs")
@@ -51,7 +51,7 @@ for (const m of mats ?? []) {
     .order("created_at", { ascending: false });
   for (const j of jobs ?? []) {
     const ageMin = Math.round((now - new Date(j.created_at).getTime()) / 60000);
-    console.log(
+    console.info(
       `    └ [${j.status}] ${j.tool} age=${ageMin}분 ${j.error_message ? `err="${j.error_message.slice(0, 60)}"` : ""}`,
     );
   }

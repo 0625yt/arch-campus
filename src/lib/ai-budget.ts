@@ -34,6 +34,7 @@ export interface MonthlyAiUsage {
 }
 
 const TOOL_LABELS: Record<string, string> = {
+  "classify-material": "자료 분류",
   summarize: "자료 요약",
   quiz: "문제 생성",
   chat: "자료 질문",

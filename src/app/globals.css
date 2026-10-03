@@ -627,6 +627,7 @@ html[data-theme="dark"] .hover\:bg-white:not(.dark-keep-white):hover {
  * 다크 모드 — border-white 톤 자동 변환 (보더 패턴).
  * border-[#xxx] 형태 인라인은 어쩔 수 없으니 사용자 토큰 가이드.
  */
+/* biome-ignore lint/style/noDescendingSpecificity: Elevation styles change shadow and transform, independently of dark hover backgrounds. */
 .elev-hover-2 {
   box-shadow:
     0 0 0 1px rgba(20, 30, 50, 0.035),
@@ -637,6 +638,7 @@ html[data-theme="dark"] .hover\:bg-white:not(.dark-keep-white):hover {
     box-shadow var(--duration-base) var(--ease-out),
     transform var(--duration-base) var(--ease-out);
 }
+/* biome-ignore lint/style/noDescendingSpecificity: Elevation styles change shadow and transform, independently of dark hover backgrounds. */
 .elev-hover-2:hover {
   /* 2단계 점프 (B3 의도) — hover 시 무게감 분명히 바뀜 */
   box-shadow:
@@ -884,16 +886,18 @@ html[data-theme="dark"] .native-chip {
  * Liquid Glass는 시각 효과는 좋지만 인지·시각 장애 사용자에겐 잡음 → 강제 solid.
  */
 @media (prefers-reduced-transparency: reduce) {
-  /* biome-ignore lint/complexity/noImportantStyles: 컴포넌트가 자체 backdrop-filter를 inline으로 박을 수도 있어 우선 override 필요 (a11y) */
   .liquid-glass-bar,
   [data-glass] {
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     backdrop-filter: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     -webkit-backdrop-filter: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     background-color: rgba(255, 255, 255, 0.98) !important;
   }
-  /* biome-ignore lint/complexity/noImportantStyles: 위와 동일 (다크 테마 override) */
   html[data-theme="dark"] .liquid-glass-bar,
   html[data-theme="dark"] [data-glass] {
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     background-color: rgba(21, 24, 33, 0.98) !important;
   }
 }
@@ -1008,6 +1012,7 @@ select:focus-visible {
   border: 2px solid transparent;
 }
 ::-webkit-scrollbar-thumb:hover {
+  /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
   background: var(--color-fg-subtle) !important;
   background-clip: padding-box;
 }
@@ -1261,9 +1266,13 @@ html {
   *,
   *::before,
   *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     animation-delay: 0ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     animation-iteration-count: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     transition-duration: 0.01ms !important;
   }
 }
@@ -1474,26 +1483,41 @@ html[data-theme="dark"] .now-glow {
    ────────────────────────────────────────────────────────────── */
 @media print {
   body.arch-printing {
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     background: white !important;
   }
   body.arch-printing > *:not(.arch-print-target) {
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     display: none !important;
   }
   body.arch-printing .arch-print-target {
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     display: block !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     position: static !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     width: 100% !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     margin: 0 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     padding: 0 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     background: white !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     color: black !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     border: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     box-shadow: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     max-width: none !important;
   }
   body.arch-printing .arch-print-target * {
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     color: black !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     background: white !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Override inline and utility styles for theme, accessibility, or print output. */
     box-shadow: none !important;
   }
   body.arch-printing .arch-print-target h1,

@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import { getModelIdFor } from "../src/lib/claude.ts";
 import { PROMPT_QUALITY_FIXTURES } from "../src/lib/eval/fixtures/prompt-quality.ts";
 
 const base = new URL(process.env.E2E_BASE_URL ?? "http://localhost:3010");
@@ -125,6 +126,26 @@ try {
   }
   process.stdout.write(
     `PASS API quiz job → ${quiz.data.questions.length} verified saved questions ($${Number(generated.cost).toFixed(5)})\n`,
+  );
+  const classified = await admin
+    .from("generations")
+    .select("status,model_id,input_tokens,output_tokens,cost_usd")
+    .eq("owner_id", userId)
+    .eq("material_id", material.data.id)
+    .eq("tool", "classify-material");
+  if (classified.error) throw classified.error;
+  assert.equal(classified.data.length, 2);
+  for (const row of classified.data) {
+    assert.equal(row.status, "ok");
+    assert.equal(row.model_id, getModelIdFor("classify-material"));
+    assert.ok(row.input_tokens > 0 && row.output_tokens > 0 && Number(row.cost_usd) > 0);
+  }
+  const classificationCost = classified.data.reduce(
+    (total, row) => total + Number(row.cost_usd),
+    0,
+  );
+  process.stdout.write(
+    `PASS API classification → 2 successful metered records ($${classificationCost.toFixed(5)})\n`,
   );
   const draft = await request("/api/events/draft", {
     text: "곧 동아리 회식. 2026년 10월 8일 오후 6시 과제 마감, 배점 30점.",

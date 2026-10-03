@@ -95,6 +95,38 @@ export interface Database {
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
     Tables: {
+      feedback: {
+        Row: {
+          id: string;
+          owner_id: string;
+          target_type: "summary" | "quiz_item";
+          target_id: string;
+          generation_id: string | null;
+          rating: number;
+          category: string;
+          body: string | null;
+          status: "new" | "triaged" | "accepted" | "wontfix";
+          admin_note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          target_type: "summary" | "quiz_item";
+          target_id: string;
+          generation_id?: string | null;
+          rating: number;
+          category: string;
+          body?: string | null;
+          status?: "new" | "triaged" | "accepted" | "wontfix";
+          admin_note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["feedback"]["Insert"]>;
+        Relationships: [];
+      };
       ai_budget_reservations: {
         Row: {
           id: string;

@@ -15,6 +15,7 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     "LLM_VENDOR",
     "QUIZ_MODEL_VENDOR",
     "SUMMARY_MODEL_VENDOR",
+    "CLASSIFY_MODEL_VENDOR",
     "CHAT_MODEL_VENDOR",
     "QUIZ_MODEL",
     "QUIZ_GRADE_MODEL",
@@ -39,6 +40,24 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
 
   it("env 안 켜면 quiz는 Flash-Lite (2026-07-24 FIX — prod 포함 기본, 비용 79.9% 절감)", () => {
     expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlashLite);
+  });
+
+  it("자료 분류도 기본 Flash-Lite이며 요약 override와 독립이다", () => {
+    process.env.SUMMARY_MODEL_VENDOR = "anthropic";
+    expect(getModelIdFor("classify-material")).toBe(MODELS.geminiFlashLite);
+  });
+
+  it.each(["anthropic", "claude"])("CLASSIFY_MODEL_VENDOR=%s로 분류만 Haiku 원복", (vendor) => {
+    process.env.LLM_VENDOR = "google";
+    process.env.CLASSIFY_MODEL_VENDOR = vendor;
+    expect(getModelIdFor("classify-material")).toBe(MODELS.haiku);
+    expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlashLite);
+  });
+
+  it("전역 Gemini와 분류의 미지원 override는 기본 Flash-Lite를 유지한다", () => {
+    process.env.LLM_VENDOR = "gemini";
+    process.env.CLASSIFY_MODEL_VENDOR = "unknown";
+    expect(getModelIdFor("classify-material")).toBe(MODELS.geminiFlashLite);
   });
 
   it("env 안 켜면 exam-solve는 Flash-Lite (A/B 실측 정답 20/20 → 2026-07-24 변경)", () => {
