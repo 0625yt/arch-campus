@@ -193,7 +193,7 @@ function buildDynamicContext(input: ReportStructureInput): string {
     `- 목표 분량: ${input.targetPages}쪽`,
     `- 청중: ${input.audience}`,
   ];
-  if (input.constraints && input.constraints.trim()) {
+  if (input.constraints?.trim()) {
     lines.push(`- 제약·평가 기준: ${input.constraints.trim().slice(0, 400)}`);
   }
 

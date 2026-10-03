@@ -181,7 +181,7 @@ function buildDynamicContext(input: PresentationInput): string {
     `- 발표 시간: ${input.durationMin}분 (= ${input.durationMin * 60}초)`,
     `- 목적: ${input.goal}`,
   ];
-  if (input.constraints && input.constraints.trim()) {
+  if (input.constraints?.trim()) {
     lines.push(`- 제약·평가 기준: ${input.constraints.trim().slice(0, 400)}`);
   }
 

@@ -6,6 +6,7 @@ import { getModelIdFor, getModelVendor } from "../src/lib/claude.ts";
 const checks = [];
 const env = process.env;
 const tools = [
+  "classify-material",
   "summarize",
   "quiz",
   "chat",

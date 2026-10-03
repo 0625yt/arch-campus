@@ -91,10 +91,53 @@ export interface Database {
         };
         Returns: boolean;
       };
+      record_job_attempt_checkpoint: {
+        Args: {
+          p_job_id: string;
+          p_owner_id: string;
+          p_retry_count: number;
+          p_stage: string;
+          p_progress: number;
+          p_message?: string | null;
+        };
+        Returns: boolean;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
     Tables: {
+      feedback: {
+        Row: {
+          id: string;
+          owner_id: string;
+          target_type: "summary" | "quiz_item";
+          target_id: string;
+          generation_id: string | null;
+          rating: number;
+          category: string;
+          body: string | null;
+          status: "new" | "triaged" | "accepted" | "wontfix";
+          admin_note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          target_type: "summary" | "quiz_item";
+          target_id: string;
+          generation_id?: string | null;
+          rating: number;
+          category: string;
+          body?: string | null;
+          status?: "new" | "triaged" | "accepted" | "wontfix";
+          admin_note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["feedback"]["Insert"]>;
+        Relationships: [];
+      };
       ai_budget_reservations: {
         Row: {
           id: string;

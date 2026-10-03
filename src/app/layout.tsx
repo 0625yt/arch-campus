@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { PwaStatus } from "@/components/pwa-status";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
   // 아래 명시는 일부 구버전 브라우저·서버 사이드 파서 안전망.
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/apple-icon.svg", sizes: "180x180", type: "image/svg+xml" }],
+    apple: [{ url: "/pwa/apple-icon.png", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
     type: "website",
@@ -101,7 +102,10 @@ export default function RootLayout({
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: theme bootstrap pre-hydration */}
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <PwaStatus />
+      </body>
     </html>
   );
 }

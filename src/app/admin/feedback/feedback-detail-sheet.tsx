@@ -67,7 +67,7 @@ export function FeedbackDetailSheet({
           <div>
             <dt>generation</dt>
             <dd className="font-mono text-neutral-700">
-              {item.generation_id ? item.generation_id.slice(0, 8) + "…" : "—"}
+              {item.generation_id ? `${item.generation_id.slice(0, 8)}…` : "—"}
             </dd>
           </div>
           <div>

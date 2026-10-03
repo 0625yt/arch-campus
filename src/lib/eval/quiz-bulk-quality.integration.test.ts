@@ -135,7 +135,7 @@ describe.runIf(shouldRun)("quiz 대량 품질 — 25문제 중복·품질 저하
         .eq("id", mat.id)
         .limit(1);
       if (error || !data?.length) {
-        console.log(`⚠️ 자료 로드 실패 ${mat.label}: ${error?.message}`);
+        console.info(`⚠️ 자료 로드 실패 ${mat.label}: ${error?.message}`);
         continue;
       }
       const fullText = data[0].full_text as string;
@@ -232,14 +232,15 @@ describe.runIf(shouldRun)("quiz 대량 품질 — 25문제 중복·품질 저하
           row.note = `ERROR: ${e instanceof Error ? e.message.slice(0, 80) : String(e)}`;
         }
         rows.push(row);
-        console.log(
+        console.info(
           row.note ||
             `✓ ${Math.round(row.ms / 1000)}s · $${row.cost.toFixed(4)} · raw ${row.raw} · 표면중복 ${row.duplicates} · 의미중복 ${row.semDups} · evidence ${row.evidence} · 최종 ${row.survived}`,
         );
       }
     }
 
-    console.log("\n\n========== 25문제 대량 품질 (자료별) ==========");
+    console.info("\n\n========== 25문제 대량 품질 (자료별) ==========");
+    // biome-ignore lint/suspicious/noConsole: Diagnostic comparison needs tabular output.
     console.table(
       rows.map((r) => ({
         모델: r.model,
@@ -255,7 +256,7 @@ describe.runIf(shouldRun)("quiz 대량 품질 — 25문제 중복·품질 저하
       })),
     );
 
-    console.log("\n========== 모델별 종합 ==========");
+    console.info("\n========== 모델별 종합 ==========");
     const agg: Record<
       string,
       { n: number; cost: number; ms: number; raw: number; dup: number; sem: number; surv: number }
@@ -272,6 +273,7 @@ describe.runIf(shouldRun)("quiz 대량 품질 — 25문제 중복·품질 저하
       a.sem += r.semDups;
       a.surv += r.survived;
     }
+    // biome-ignore lint/suspicious/noConsole: Diagnostic comparison needs tabular output.
     console.table(
       Object.entries(agg).map(([model, a]) => ({
         모델: model,
@@ -281,10 +283,10 @@ describe.runIf(shouldRun)("quiz 대량 품질 — 25문제 중복·품질 저하
         표면중복: +(a.dup / a.n).toFixed(1),
         의미중복: +(a.sem / a.n).toFixed(1),
         평균유효산출: +(a.surv / a.n).toFixed(1),
-        유효율: Math.round((a.surv / a.raw) * 100) + "%",
+        유효율: `${Math.round((a.surv / a.raw) * 100)}%`,
       })),
     );
-    console.log(
+    console.info(
       "\n(표면중복=3-gram / 의미중복=임베딩 코사인 / evidence=fuzzy+기호정규화 통과율 / 최종유효=모든 방어 통과한 실사용 가능 문제)",
     );
   }, 1_200_000);

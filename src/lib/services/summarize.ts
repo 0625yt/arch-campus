@@ -95,10 +95,12 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     return await runSummarizeChunked(input);
   }
 
-  // 분류 — Haiku로 어떤 도메인인지
+  // 선택 자료 분류 — 본 호출과 별도로 실제 모델·비용을 기록한다.
   let classification: Classification | null = null;
   if (!isMetadataOnly) {
     classification = await classifyMaterial({
+      ownerId: input.ownerId,
+      materialId: input.materialId,
       title: input.title,
       type: input.type,
       fullText: input.sanitizedText,

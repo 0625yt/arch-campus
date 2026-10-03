@@ -91,6 +91,7 @@ const GEMINI_BY_TOOL: Record<ToolKind, string> = {
   "timetable-extract": GEMINI_31_PRO_ID,
   // 고빈도·단순·짧은출력·판정·맥락 — 현세대 최저가 Flash-Lite.
   summarize: GEMINI_FLASH_LITE_ID,
+  "classify-material": GEMINI_FLASH_LITE_ID,
   "exam-extract": GEMINI_FLASH_LITE_ID,
   "chat-free": GEMINI_FLASH_LITE_ID,
   "event-parse": GEMINI_FLASH_LITE_ID,
@@ -109,6 +110,7 @@ const GEMINI_BY_TOOL: Record<ToolKind, string> = {
  */
 const TOOL_ENV_KEY: Record<ToolKind, string> = {
   summarize: "SUMMARY",
+  "classify-material": "CLASSIFY",
   quiz: "QUIZ",
   "quiz-grade": "QUIZ_GRADE",
   "quiz-verify": "QUIZ_VERIFY",
@@ -144,6 +146,7 @@ export function modelInstance(id: string): LanguageModel {
 
 export type ToolKind =
   | "summarize"
+  | "classify-material"
   | "quiz"
   | "quiz-grade"
   | "quiz-verify"
@@ -165,6 +168,7 @@ export type ToolKind =
 /** 도구별 기본 모델 (Anthropic). vendor 플래그로 일부를 Gemini로 우회 가능. */
 export const TOOL_MODEL: Record<ToolKind, string> = {
   summarize: MODELS.haiku,
+  "classify-material": MODELS.geminiFlashLite,
   quiz: MODELS.sonnet,
   // 채점·검수 판정 — 2026-07-24 A/B 실측: 3.6 Flash·Flash-Lite·3.1 Pro 판정 정확도 완전 동일
   //   (채점 88%·검수 100%). 짧은 분류라 상위 모델 추론력 불필요 → Flash-Lite가 정확도 같으면서
@@ -265,6 +269,12 @@ function resolveModel(tool: ToolKind): string {
     const forcedAnthropic = perToolVendor === "anthropic" || perToolVendor === "claude";
     if (!forcedAnthropic) return GEMINI_BY_TOOL[tool];
     // forcedAnthropic이면 아래 기존 라우팅으로 떨어진다(그 도구만 Anthropic 유지).
+  }
+
+  // Classification shares the same default and provider override as other light tools.
+  if (tool === "classify-material") {
+    const raw = process.env.CLASSIFY_MODEL_VENDOR?.trim().toLowerCase();
+    return raw === "anthropic" || raw === "claude" ? MODELS.haiku : MODELS.geminiFlashLite;
   }
 
   // 1) Vendor 분기 — Gemini로 우회할 도구

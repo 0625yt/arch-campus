@@ -37,7 +37,7 @@ describe.runIf(shouldRun)("의미 dedup 실동작", () => {
       values: items.map((i) => i.text),
       providerOptions: { google: { outputDimensionality: 768 } },
     });
-    console.log("\n=== 쌍별 유사도 ===");
+    console.info("\n=== 쌍별 유사도 ===");
     const pairs = [
       [0, 1, "제안/suggestion (의미같음)"],
       [2, 3, "함수정의 키워드 (의미같음)"],
@@ -45,20 +45,20 @@ describe.runIf(shouldRun)("의미 dedup 실동작", () => {
       [0, 4, "제안 vs 리스트튜플 (무관)"],
     ] as const;
     for (const [a, b, label] of pairs) {
-      console.log(
+      console.info(
         `  ${label}: ${(cosineSimilarity(emb.embeddings[a], emb.embeddings[b]) * 100).toFixed(1)}%`,
       );
     }
 
     const result = await dedupeBySemantics(items);
-    console.log("\n=== 의미 dedup 결과 ===");
-    console.log(
+    console.info("\n=== 의미 dedup 결과 ===");
+    console.info(
       `입력 ${items.length} → 유지 ${result.kept.length} / 제거 ${result.dropped.length}`,
     );
     for (const d of result.dropped) {
-      console.log(`  제거: "${d.item.text}" (유사도 ${(d.similarity * 100).toFixed(1)}%)`);
+      console.info(`  제거: "${d.item.text}" (유사도 ${(d.similarity * 100).toFixed(1)}%)`);
     }
-    for (const k of result.kept) console.log(`  유지: "${k.text}"`);
+    for (const k of result.kept) console.info(`  유지: "${k.text}"`);
 
     // 최소한 임베딩이 동작해서 뭔가 판정을 했는지 (키 있으면 5개 중 일부는 중복 잡혀야 정상)
     expect(result.kept.length).toBeGreaterThan(0);

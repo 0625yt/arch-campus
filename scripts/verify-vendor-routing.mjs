@@ -9,11 +9,11 @@
 // 우리 코드의 resolveModel은 internal이라 getModelIdFor만으로 검증.
 import { getModelIdFor, MODELS } from "../src/lib/claude.ts";
 
-console.log("\n── env vendor flag 상태 ───────────────");
-console.log(`QUIZ_MODEL_VENDOR=${process.env.QUIZ_MODEL_VENDOR ?? "(unset)"}`);
-console.log(`SUMMARY_MODEL_VENDOR=${process.env.SUMMARY_MODEL_VENDOR ?? "(unset)"}`);
+console.info("\n── env vendor flag 상태 ───────────────");
+console.info(`QUIZ_MODEL_VENDOR=${process.env.QUIZ_MODEL_VENDOR ?? "(unset)"}`);
+console.info(`SUMMARY_MODEL_VENDOR=${process.env.SUMMARY_MODEL_VENDOR ?? "(unset)"}`);
 
-console.log("\n── tool별 라우팅 ──────────────────────");
+console.info("\n── tool별 라우팅 ──────────────────────");
 const cases = [
   ["quiz", "google"],
   ["summarize", "google"],
@@ -31,10 +31,10 @@ for (const [tool, expectedKey] of cases) {
   const expected = MODELS[expectedKey === "google" ? "geminiFlash" : expectedKey];
   const ok = id === expected;
   if (!ok) allOk = false;
-  console.log(
+  console.info(
     `${ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m"} ${tool.padEnd(20)} → ${id} ${ok ? "" : `(예상: ${expected})`}`,
   );
 }
 
-console.log("");
+console.info("");
 process.exit(allOk ? 0 : 1);

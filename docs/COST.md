@@ -1,5 +1,7 @@
 # AI 비용 실측·추정표 (2026-07-24 갱신)
 
+> **2026-10-03 후속:** 선택 자료 분류도 `getModelIdFor("classify-material")`의 기본 Gemini 라우팅을 사용한다. `CLASSIFY_MODEL_VENDOR=anthropic`으로 분류만 Haiku 원복 가능. 실제 요약·문제 요청의 분류 토큰·비용은 `generations`의 `classify-material` 행으로 별도 집계한다. 분류 2회와 API 저장·비용 기록 실검증은 [최신 실행 보고서](audit/2026-10-03-workflow.md)를 따른다. 아래 과거 비용·단가 합계를 소급 수정하지 않는다.
+
 > **2026-09-17 감사 메모:** 아래 비용·A/B 수치는 기록된 당시 조건이다. 현재 가격·운영 환경·생성 품질을 재검증한 수치로 해석하지 않는다. 실제 모델 선택은 `src/lib/claude.ts`의 `getModelIdFor()`/`resolveModel()`이며 `TOOL_MODEL`만으로 판단하면 틀릴 수 있다. 이번 연결/모델 가용성 검사와 남은 비용 보호는 [점검 보고서](audit/2026-09-17-feature-audit.md)에 기록한다.
 
 > **목적**: 기능별로 어떤 모델을 쓰고, 1회 호출당 원가가 얼마이며, 프로덕션에서 실제로 얼마 나가는지 한눈에.
