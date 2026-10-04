@@ -50,6 +50,15 @@ export interface Database {
       };
     };
     Functions: {
+      consume_rate_limit: {
+        Args: {
+          p_kind: string;
+          p_identifier_hash: string;
+          p_tokens: number;
+          p_window_ms: number;
+        };
+        Returns: Array<{ allowed: boolean; remaining: number; reset_ms: number }>;
+      };
       get_monthly_ai_usage: {
         Args: {
           p_owner_id: string;

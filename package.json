@@ -43,7 +43,11 @@
     "test:job-recovery": "node --env-file=.env.local scripts/test-job-recovery.mjs",
     "test:job-flows": "node --env-file=.env.local scripts/test-job-flows.mjs",
     "workflow:jobs": "vitest run src/lib/data/jobs.test.ts src/lib/services/recover-material-job.test.ts && npm run test:job-recovery && npm run test:job-flows",
-    "test:pwa": "playwright test e2e/pwa.spec.ts --workers=2"
+    "test:pwa": "playwright test e2e/pwa.spec.ts --workers=2",
+    "test:shared-rate-limits": "node --env-file=.env.local scripts/test-shared-rate-limits.mjs",
+    "test:rate-limit-flows": "node --env-file=.env.local scripts/test-rate-limit-flows.mjs",
+    "test:summary-chunks-live": "node --env-file=.env.local scripts/test-summary-chunks.mjs",
+    "workflow:limits": "vitest run src/lib/ratelimit.test.ts src/lib/ratelimit-shared.test.ts src/lib/ratelimit-failure.test.ts src/lib/monthly-budget-guard.test.ts && npm run test:shared-rate-limits && npm run test:rate-limit-flows"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.76",

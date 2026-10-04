@@ -48,7 +48,7 @@ async function main() {
     );
   }
   process.stdout.write(
-    `분산 호출 제한: ${env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN ? "설정됨" : "미설정 — 인스턴스별 메모리 제한 사용"}\n`,
+    `분산 호출 제한: ${env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN ? "Upstash" : "Supabase (0039 RPC 연결 확인 필요)"}\n`,
   );
   const monthlyBudget = Number(env.AI_MONTHLY_BUDGET_USD);
   process.stdout.write(
@@ -80,6 +80,21 @@ async function main() {
   };
   const anon = createClient(base.href, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, clientOptions);
   const admin = createClient(base.href, env.SUPABASE_SERVICE_ROLE_KEY, clientOptions);
+  if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
+    const { error: bucketError } = await admin
+      .from("rate_limit_buckets")
+      .select("*", { head: true });
+    record(
+      "공유 요청 제한 저장소",
+      !bucketError,
+      bucketError ? "0039 적용 또는 연결 확인 필요" : "연결됨 (내용 미조회)",
+    );
+    const { error: anonError, status: anonStatus } = await anon
+      .from("rate_limit_buckets")
+      .select("*", { head: true });
+    const denied = Boolean(anonError) && (anonStatus === 401 || anonStatus === 403);
+    record("공유 요청 제한 비로그인 격리", denied, denied ? "접근 거절" : "권한 확인 필요");
+  }
   for (const table of ["profiles", "courses", "materials", "generations"]) {
     const { error, count } = await anon.from(table).select("*", { count: "exact", head: true });
     record(

@@ -46,6 +46,7 @@ export type SummarizeResult =
       ok: false;
       stage: "ai" | "validation";
       error: string;
+      billed?: { usage: Awaited<ReturnType<typeof generate>>["usage"]; costUsd: number };
     };
 
 export interface SummarizeInput {
@@ -88,12 +89,17 @@ const CHUNK_SIZE = 50_000;
 const MAX_CHUNKS = 10;
 
 export async function runSummarize(input: SummarizeInput): Promise<SummarizeResult> {
-  const isMetadataOnly = !input.sanitizedText || input.sanitizedText.trim().length < 60;
-  // 본문이 한 호출 한도 초과 → chunk 분할 경로로 라우팅.
-  // chunk 6개 한도까지 chunking, 그 이상은 잘림(reviewSpots에 안내).
-  if (!isMetadataOnly && input.sanitizedText.length > CHUNK_SIZE) {
-    return await runSummarizeChunked(input);
+  if (input.sanitizedText.trim().length >= 60 && input.sanitizedText.length > CHUNK_SIZE) {
+    return runSummarizeChunked(input);
   }
+  return runSummarizeSingle(input, true);
+}
+
+async function runSummarizeSingle(
+  input: SummarizeInput,
+  persistCache: boolean,
+): Promise<SummarizeResult> {
+  const isMetadataOnly = !input.sanitizedText || input.sanitizedText.trim().length < 60;
 
   // 선택 자료 분류 — 본 호출과 별도로 실제 모델·비용을 기록한다.
   let classification: Classification | null = null;
@@ -193,23 +199,26 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
       ok: false,
       stage: "validation",
       error: "요약 형식이나 원문 인용을 확인하지 못했어요. 다시 시도해주세요.",
+      billed: { usage: result.usage, costUsd: estimateCost(result.usage, result.modelId) },
     };
   }
 
   // materials 캐시 갱신 — owner_id 강제
-  const admin = getAdminSupabase();
-  const update = await admin
-    .from("materials")
-    .update({
-      summary_payload: summary,
-      summary_keywords: summary.keywords ?? null,
-      summary_model_id: result.modelId,
-      last_summarized_at: new Date().toISOString(),
-    })
-    .eq("id", input.materialId)
-    .eq("owner_id", input.ownerId);
-  if (update.error) {
-    console.warn("materials.summary 캐시 갱신 실패:", update.error.message);
+  if (persistCache) {
+    const admin = getAdminSupabase();
+    const update = await admin
+      .from("materials")
+      .update({
+        summary_payload: summary,
+        summary_keywords: summary.keywords ?? null,
+        summary_model_id: result.modelId,
+        last_summarized_at: new Date().toISOString(),
+      })
+      .eq("id", input.materialId)
+      .eq("owner_id", input.ownerId);
+    if (update.error) {
+      console.warn("materials.summary 캐시 갱신 실패:", update.error.message);
+    }
   }
 
   const costUsd = estimateCost(result.usage, result.modelId);
@@ -391,6 +400,7 @@ async function runSummarizeChunked(input: SummarizeInput): Promise<SummarizeResu
   // chunk별 요약을 순차로 — Anthropic concurrent 보호 + chunk 간 분류기 재사용 위해 직렬.
   // chunk 1개 ≈ 8~12s라 6 chunk = ~60s. Vercel maxDuration 300s 한도 안.
   const partials: SummarizeOutputT[] = [];
+  const completedChunkIndices: number[] = [];
   let totalUsage = {
     inputTokens: 0,
     outputTokens: 0,
@@ -401,12 +411,21 @@ async function runSummarizeChunked(input: SummarizeInput): Promise<SummarizeResu
   let lastModelId = "";
 
   for (let i = 0; i < processedChunks.length; i++) {
-    const partialResult = await runSummarize({
-      ...input,
-      sanitizedText: processedChunks[i],
-      // chunk마다 별개 호출이지만 materials cache는 마지막에 머지된 결과로만 갱신해야 해서
-      // chunk 단위는 ownerId/materialId 그대로 두되 cache 갱신은 직접 처리.
-    });
+    const partialResult = await runSummarizeSingle(
+      { ...input, sanitizedText: processedChunks[i] },
+      false,
+    );
+
+    const billed = partialResult.ok ? partialResult : partialResult.billed;
+    if (billed) {
+      totalUsage = {
+        inputTokens: totalUsage.inputTokens + billed.usage.inputTokens,
+        outputTokens: totalUsage.outputTokens + billed.usage.outputTokens,
+        cacheReadTokens: totalUsage.cacheReadTokens + billed.usage.cacheReadTokens,
+        cacheCreationTokens: totalUsage.cacheCreationTokens + billed.usage.cacheCreationTokens,
+      };
+      totalCost += billed.costUsd;
+    }
 
     if (!partialResult.ok) {
       // chunk 한 개 실패해도 나머지 진행 — 빈 chunk로 채우고 계속
@@ -415,13 +434,7 @@ async function runSummarizeChunked(input: SummarizeInput): Promise<SummarizeResu
     }
 
     partials.push(partialResult.summary);
-    totalUsage = {
-      inputTokens: totalUsage.inputTokens + partialResult.usage.inputTokens,
-      outputTokens: totalUsage.outputTokens + partialResult.usage.outputTokens,
-      cacheReadTokens: totalUsage.cacheReadTokens + partialResult.usage.cacheReadTokens,
-      cacheCreationTokens: totalUsage.cacheCreationTokens + partialResult.usage.cacheCreationTokens,
-    };
-    totalCost += partialResult.costUsd;
+    completedChunkIndices.push(i + 1);
     lastModelId = partialResult.modelId;
   }
 
@@ -438,6 +451,7 @@ async function runSummarizeChunked(input: SummarizeInput): Promise<SummarizeResu
     chunkCount: processedChunks.length,
     truncatedChunkCount,
     chunkSize: CHUNK_SIZE,
+    completedChunkIndices,
   });
 
   // materials cache 갱신 — 단일 호출 경로와 동일.
@@ -456,20 +470,8 @@ async function runSummarizeChunked(input: SummarizeInput): Promise<SummarizeResu
     console.warn("materials.summary 캐시 갱신 실패 (chunked):", update.error.message);
   }
 
-  await logGeneration({
-    ownerId: input.ownerId,
-    materialId: input.materialId,
-    modelId: lastModelId,
-    usage: totalUsage,
-    cost: totalCost,
-    status: "ok",
-    payload: {
-      summary: merged,
-      chunked: true,
-      chunkCount: processedChunks.length,
-      truncatedChunkCount,
-    },
-  });
+  // Each actual chunk call was metered by runSummarizeSingle. Merging is local:
+  // logging the aggregate as another generation would charge the same usage twice.
 
   return {
     ok: true,
@@ -554,16 +556,17 @@ function mergePartialSummaries(
     chunkCount: number;
     truncatedChunkCount: number;
     chunkSize: number;
+    completedChunkIndices: number[];
   },
 ): SummarizeOutputT {
   const first = partials[0];
   const mergedBlocks: SummarizeOutputT["blocks"] = [];
 
   partials.forEach((p, i) => {
-    if (partials.length > 1) {
+    if (meta.chunkCount > 1) {
       mergedBlocks.push({
         type: "h2" as const,
-        content: `── 부분 ${i + 1}/${partials.length} ──`,
+        content: `── 부분 ${meta.completedChunkIndices[i]}/${meta.chunkCount} ──`,
       });
     }
     mergedBlocks.push(...p.blocks);
@@ -594,6 +597,19 @@ function mergePartialSummaries(
   }
   let mergedReviewSpots = Array.from(reviewSet.values());
 
+  const failedChunks = Array.from({ length: meta.chunkCount }, (_, i) => i + 1).filter(
+    (index) => !meta.completedChunkIndices.includes(index),
+  );
+  if (failedChunks.length > 0) {
+    mergedReviewSpots = [
+      {
+        title: "일부 구간을 정리하지 못했어요",
+        why: `총 ${meta.chunkCount}부분 중 ${failedChunks.join(", ")}번째 부분이 빠졌어요. 해당 구간의 원문을 확인하고 다시 요약해 주세요.`,
+      },
+      ...mergedReviewSpots,
+    ];
+  }
+
   // 잘린 chunk 안내 추가
   if (meta.truncatedChunkCount > 0) {
     const truncatedKchars = Math.round(
@@ -611,8 +627,8 @@ function mergePartialSummaries(
 
   return {
     leadSentence:
-      partials.length > 1
-        ? `${first.leadSentence} (자료가 길어 ${partials.length}부분으로 나눠 정리했어요)`
+      meta.chunkCount > 1
+        ? `${first.leadSentence} (${partials.length}/${meta.chunkCount}부분을 정리했어요)`
         : first.leadSentence,
     blocks: cappedBlocks,
     keywords: mergedKeywords,
