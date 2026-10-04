@@ -117,6 +117,15 @@ export function canAutoRetry(
   );
 }
 
+/** Only the authenticated server worker calls this; owner comes from the locked database row. */
+export async function claimStaleMaterialJobForWorker(ownerId?: string): Promise<JobView | null> {
+  const { data, error } = await getAdminSupabase().rpc("claim_stale_material_job_for_worker", {
+    p_owner_id: ownerId ?? null,
+  });
+  if (error) throw new Error("중단된 작업을 선점하지 못했어요.");
+  return data?.[0] ? mapJob(data[0]) : null;
+}
+
 /**
  * 멈춘 핵심 자료 작업을 한 번만 재시도 상태로 선점한다.
  * 관찰한 실행을 조건부 갱신하고 요청당 한 개만 선점한다.

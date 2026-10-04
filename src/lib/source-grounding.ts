@@ -19,9 +19,12 @@ export function createSourceLocator(source: string) {
     page: match[1] || match[2] ? Number(match[1] || match[2]) : null,
   }));
 
-  return (quote: string): { context: string; page: number | null; quote: string } | null => {
+  return (
+    quote: string,
+    minimumChars = 8,
+  ): { context: string; page: number | null; quote: string } | null => {
     const compactQuote = quote.replace(/[\s\p{P}\p{S}]/gu, "");
-    if (compactQuote.length < 8) return null;
+    if (compactQuote.length < minimumChars) return null;
     const compactIndex = compactSource.indexOf(compactQuote);
     if (compactIndex < 0) return null;
     const index = positions[compactIndex];

@@ -11,6 +11,7 @@ const files = [
   "docs/EXECUTION-WORKFLOW.md",
   "docs/audit/2026-10-03-workflow.md",
   "docs/audit/2026-10-04-workflow.md",
+  "docs/audit/2026-10-04-summary-worker.md",
   "docs/audit/2026-10-01-prompt-quality.md",
   "docs/audit/2026-09-17-feature-audit.md",
   "docs/audit/2026-09-22-hardening.md",

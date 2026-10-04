@@ -50,6 +50,10 @@ export interface Database {
       };
     };
     Functions: {
+      claim_stale_material_job_for_worker: {
+        Args: { p_owner_id?: string | null };
+        Returns: Database["public"]["Tables"]["jobs"]["Row"][];
+      };
       commit_material_job_result: {
         Args: {
           p_job_id: string;

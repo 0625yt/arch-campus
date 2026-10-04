@@ -33,4 +33,21 @@ describe("summary citations", () => {
     expect(output.blocks[0].sourceQuote).toBe(original);
     expect(original.includes(output.blocks[0].sourceQuote ?? "")).toBe(true);
   });
+  it("실제 짧은 단원 제목을 인용해도 구간 전체를 탈락시키지 않는다", () => {
+    const output = summary(null);
+    output.blocks = [{ type: "h2", content: "원본 접수", sourceQuote: "원본 접수" }];
+    expect(
+      groundSummaryCitations(output, "=== Page 3 ===\n원본 접수\n본문").blocks[0],
+    ).toMatchObject({
+      sourceQuote: "원본 접수",
+      sourcePage: 3,
+    });
+  });
+  it("원문에 없는 짧은 제목과 너무 짧은 본문 근거는 거절한다", () => {
+    const output = summary(null);
+    output.blocks = [{ type: "h2", content: "다른 제목", sourceQuote: "다른 제목" }];
+    expect(() => groundSummaryCitations(output, "원본 접수")).toThrow("실제 원문");
+    output.blocks = [{ type: "para", content: quote, sourceQuote: "원본 접수" }];
+    expect(() => groundSummaryCitations(output, "원본 접수")).toThrow("실제 원문");
+  });
 });

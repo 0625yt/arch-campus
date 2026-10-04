@@ -9,6 +9,8 @@ const base = new URL(process.env.E2E_BASE_URL ?? "http://localhost:3010");
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serverKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const quizMode = process.argv.includes("--quiz");
+const qualityMode = process.argv.includes("--quality");
+const statisticsMode = process.argv.includes("--statistics");
 const admin = createClient(url, serverKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -31,20 +33,36 @@ try {
   const signed = await client.auth.signInWithPassword({ email, password });
   if (signed.error) throw signed.error;
   const cookie = [...jar.values()].map(({ name, value }) => `${name}=${value}`).join("; ");
-  const chapters = [
-    [
-      "원본 접수",
-      "문서 식별자는 각 원본을 구분하기 위해 기록한다.",
-      "접수 기록에는 접수일과 담당자를 함께 적는다.",
-      "검토 담당자는 접수 담당자와 다른 사람이어야 한다.",
-    ],
-    [
-      "정정과 보관",
-      "정정은 원본을 지우지 않고 새 행과 연결해서 남긴다.",
-      "증빙이 없는 항목은 확인 필요로 표시한다.",
-      "보관 기간이 끝나도 미결 항목이 있으면 담당자가 확인한 뒤 처리한다.",
-    ],
-  ];
+  const chapters = statisticsMode
+    ? [
+        [
+          "標準誤差",
+          "표본평균의 표준오차는 σ/√n이다. 모집단 표준편차 σ가 고정되면 표본 크기가 4배일 때 표준오차는 절반이다.",
+          "독립적인 동일 분포 표본에서 표본평균은 모집단 평균의 불편추정량이다. 불편성은 추정량의 기댓값이 모수와 같다는 뜻이다.",
+          "신뢰구간은 추정값 ± 임계값 × 표준오차 형태이다. 표준오차가 고정된 상태에서 임계값이 커지면 구간 폭은 넓어진다.",
+        ],
+        [
+          "검정 오류",
+          "제1종 오류는 참인 귀무가설을 기각하는 오류이다. 제2종 오류는 거짓인 귀무가설을 기각하지 않는 오류이다.",
+          "검정력은 거짓인 귀무가설을 기각할 확률이며, 1에서 제2종 오류 확률을 뺀 값이다.",
+          "p값은 귀무가설과 검정 모형이 참이라고 가정했을 때 관측한 통계량만큼 또는 그보다 극단적인 결과를 얻을 확률이다. p값은 귀무가설이 참일 확률이 아니다.",
+          "통계적 유의성은 효과의 크기나 실용적 중요성과 동일하지 않다.",
+        ],
+      ]
+    : [
+        [
+          "원본 접수",
+          "문서 식별자는 각 원본을 구분하기 위해 기록한다.",
+          "접수 기록에는 접수일과 담당자를 함께 적는다.",
+          "검토 담당자는 접수 담당자와 다른 사람이어야 한다.",
+        ],
+        [
+          "정정과 보관",
+          "정정은 원본을 지우지 않고 새 행과 연결해서 남긴다.",
+          "증빙이 없는 항목은 확인 필요로 표시한다.",
+          "보관 기간이 끝나도 미결 항목이 있으면 담당자가 확인한 뒤 처리한다.",
+        ],
+      ];
   const source = chapters
     .map(([title, ...facts], index) => {
       const paragraph = `${title}\n${facts.join("\n")}\n`;
@@ -55,7 +73,9 @@ try {
     .from("materials")
     .insert({
       owner_id: userId,
-      title: "가상 문서 관리 수업 — 장문 회귀 자료",
+      title: statisticsMode
+        ? "가상 표본추론 수업 — 장문 회귀 자료"
+        : "가상 문서 관리 수업 — 장문 회귀 자료",
       type: "lecture",
       full_text: source,
       page_count: 2,
@@ -139,10 +159,27 @@ try {
     );
     assert.equal(partialWarning, successful < 2);
     process.stdout.write(`PASS cached summary reports actual coverage (${successful}/2 parts)\n`);
+    if (qualityMode) {
+      assert.equal(successful, 2, "both source parts must pass validation");
+      const quotes = cached.data.summary_payload.blocks
+        .map((block) => block.sourceQuote)
+        .filter(Boolean);
+      assert.ok(quotes.length >= 3, "summary needs grounded citations");
+      for (const quote of quotes) assert.ok(source.includes(quote));
+      const content = JSON.stringify(cached.data.summary_payload.blocks);
+      const terms = statisticsMode
+        ? ["σ/√n", "4배", "불편", "임계값", "제1종", "제2종", "검정력", "p값", "효과"]
+        : ["식별자", "접수일", "다른 사람", "새 행", "증빙", "미결"];
+      for (const term of terms)
+        assert.ok(content.includes(term), `missing source concept: ${term}`);
+      process.stdout.write(
+        "PASS full coverage, original citations and key conditions from both parts\n",
+      );
+    }
   }
   const totalCost = logged.data.reduce((sum, row) => sum + Number(row.cost_usd), 0);
   process.stdout.write(
-    `3 actual ${quizMode ? "quiz-job" : "chunk-summary"} checks passed; recorded estimated AI cost $${totalCost.toFixed(6)} (includes classification; not provider billing).\n`,
+    `${qualityMode && !quizMode ? 4 : 3} actual ${quizMode ? "quiz-job" : "chunk-summary"} checks passed; recorded estimated AI cost $${totalCost.toFixed(6)} (includes classification; not provider billing).\n`,
   );
 } catch (error) {
   if (userId) {
