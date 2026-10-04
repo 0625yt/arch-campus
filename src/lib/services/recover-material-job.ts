@@ -1,12 +1,6 @@
 import "server-only";
 import { reserveMonthlyAiBudget } from "@/lib/data/ai-usage";
-import {
-  type JobView,
-  markJobDone,
-  markJobError,
-  markJobRunning,
-  recordJobCheckpoint,
-} from "@/lib/data/jobs";
+import { type JobView, markJobError, markJobRunning, recordJobCheckpoint } from "@/lib/data/jobs";
 import { STYLE_ORDER, type SummaryStyle } from "@/lib/material-policy";
 import { runQuizGeneration } from "@/lib/services/quiz";
 import { runSummarize } from "@/lib/services/summarize";
@@ -72,6 +66,7 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
         (STYLE_ORDER as readonly string[]).includes(style),
       );
       const result = await runSummarize({
+        jobExecution: execution,
         ownerId: job.ownerId,
         materialId: primary.id,
         title: primary.title,
@@ -85,21 +80,6 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
           typeof job.inputParams.intentNote === "string" ? job.inputParams.intentNote : undefined,
       });
       if (!result.ok) throw new Error(result.error);
-      if (
-        !(await recordJobCheckpoint({
-          ...execution,
-          stage: "verifying-output",
-          progress: 85,
-        }))
-      )
-        return;
-      await markJobDone({
-        ...execution,
-        result: { summary: result.summary },
-        modelId: result.modelId,
-        usage: result.usage,
-        costUsd: result.costUsd,
-      });
       return;
     }
 
@@ -125,6 +105,7 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
     )
       return;
     const result = await runQuizGeneration({
+      jobExecution: execution,
       ownerId: job.ownerId,
       courseId: primary.course_id,
       materials: materialsInOrder.map((item) => ({
@@ -143,21 +124,6 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
       intentNote: typeof job.inputParams.intentNote === "string" ? job.inputParams.intentNote : "",
     });
     if (!result.ok) throw new Error(result.error);
-    if (
-      !(await recordJobCheckpoint({
-        ...execution,
-        stage: "verifying-output",
-        progress: 85,
-      }))
-    )
-      return;
-    await markJobDone({
-      ...execution,
-      result: { quizId: result.quizId, quality: result.quality },
-      modelId: result.modelId,
-      usage: result.usage,
-      costUsd: result.costUsd,
-    });
   } catch (error) {
     await markJobError({
       ...execution,

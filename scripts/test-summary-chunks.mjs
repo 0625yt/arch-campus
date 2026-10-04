@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 const base = new URL(process.env.E2E_BASE_URL ?? "http://localhost:3010");
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serverKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const quizMode = process.argv.includes("--quiz");
 const admin = createClient(url, serverKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -62,12 +63,15 @@ try {
     .select("id")
     .single();
   if (material.error) throw material.error;
-  const response = await fetch(new URL(`/api/materials/${material.data.id}/summarize`, base), {
-    method: "POST",
-    headers: { cookie, "content-type": "application/json" },
-    body: JSON.stringify({ styles: ["key-points"] }),
-    signal: AbortSignal.timeout(30_000),
-  });
+  const response = await fetch(
+    new URL(`/api/materials/${material.data.id}/${quizMode ? "quiz" : "summarize"}`, base),
+    {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify(quizMode ? { difficulty: "보통", count: 3 } : { styles: [] }),
+      signal: AbortSignal.timeout(30_000),
+    },
+  );
   assert.equal(response.status, 200);
   const queued = await response.json();
   assert.equal(queued.ok, true);
@@ -75,7 +79,7 @@ try {
   for (let attempt = 0; attempt < 240; attempt++) {
     const result = await admin
       .from("jobs")
-      .select("status, cost_usd, input_tokens, output_tokens, result, error_message")
+      .select("status, cost_usd, input_tokens, output_tokens, result, generation_id, error_message")
       .eq("id", queued.jobId)
       .eq("owner_id", userId)
       .single();
@@ -84,16 +88,16 @@ try {
     if (["done", "error", "cancelled"].includes(job.status)) break;
     await delay(1000);
   }
-  assert.equal(job.status, "done", "summary job must complete");
-  process.stdout.write("PASS actual two-chunk summary job completes\n");
+  assert.equal(job.status, "done", "material job must complete");
+  process.stdout.write(`PASS actual ${quizMode ? "quiz" : "two-chunk summary"} job completes\n`);
   const logged = await admin
     .from("generations")
     .select("tool, status, input_tokens, output_tokens, cost_usd")
     .eq("owner_id", userId)
     .eq("material_id", material.data.id);
   if (logged.error) throw logged.error;
-  const calls = logged.data.filter((row) => row.tool === "summarize");
-  assert.equal(calls.length, 2);
+  const calls = logged.data.filter((row) => row.tool === (quizMode ? "quiz" : "summarize"));
+  assert.equal(calls.length, quizMode ? 1 : 2);
   const successful = calls.filter((row) => row.status === "ok").length;
   assert.ok(successful >= 1);
   assert.equal(
@@ -106,27 +110,69 @@ try {
   );
   const recordedCost = calls.reduce((sum, row) => sum + Number(row.cost_usd), 0);
   assert.ok(Math.abs(recordedCost - Number(job.cost_usd)) < 0.000002);
-  process.stdout.write("PASS usage and costs are recorded once per actual summary call\n");
-  const cached = await admin
-    .from("materials")
-    .select("summary_payload")
-    .eq("id", material.data.id)
-    .eq("owner_id", userId)
-    .single();
-  if (cached.error) throw cached.error;
-  assert.deepEqual(cached.data.summary_payload, job.result.summary);
-  const headings = cached.data.summary_payload.blocks.filter((block) => block.type === "h2");
-  assert.equal(headings.filter((block) => /부분 [12]\/2/.test(block.content)).length, successful);
-  const partialWarning = cached.data.summary_payload.reviewSpots.some(
-    (spot) => spot.title === "일부 구간을 정리하지 못했어요",
-  );
-  assert.equal(partialWarning, successful < 2);
-  process.stdout.write(`PASS cached summary reports actual coverage (${successful}/2 parts)\n`);
+  process.stdout.write("PASS usage and costs are recorded once per generation record\n");
+  if (quizMode) {
+    const saved = await admin
+      .from("quizzes")
+      .select("id, generation_id, questions")
+      .eq("owner_id", userId)
+      .eq("material_id", material.data.id);
+    if (saved.error) throw saved.error;
+    assert.equal(saved.data.length, 1);
+    assert.equal(saved.data[0].id, job.result.quizId);
+    assert.equal(saved.data[0].generation_id, job.generation_id);
+    assert.ok(saved.data[0].questions.length >= 1 && saved.data[0].questions.length <= 3);
+    process.stdout.write("PASS job, quiz and generation link point to one committed result\n");
+  } else {
+    const cached = await admin
+      .from("materials")
+      .select("summary_payload")
+      .eq("id", material.data.id)
+      .eq("owner_id", userId)
+      .single();
+    if (cached.error) throw cached.error;
+    assert.deepEqual(cached.data.summary_payload, job.result.summary);
+    const headings = cached.data.summary_payload.blocks.filter((block) => block.type === "h2");
+    assert.equal(headings.filter((block) => /부분 [12]\/2/.test(block.content)).length, successful);
+    const partialWarning = cached.data.summary_payload.reviewSpots.some(
+      (spot) => spot.title === "일부 구간을 정리하지 못했어요",
+    );
+    assert.equal(partialWarning, successful < 2);
+    process.stdout.write(`PASS cached summary reports actual coverage (${successful}/2 parts)\n`);
+  }
   const totalCost = logged.data.reduce((sum, row) => sum + Number(row.cost_usd), 0);
   process.stdout.write(
-    `3 actual chunk-summary checks passed; recorded estimated AI cost $${totalCost.toFixed(6)} (includes classification; not provider billing).\n`,
+    `3 actual ${quizMode ? "quiz-job" : "chunk-summary"} checks passed; recorded estimated AI cost $${totalCost.toFixed(6)} (includes classification; not provider billing).\n`,
   );
 } catch (error) {
+  if (userId) {
+    const failed = await admin
+      .from("jobs")
+      .select("error_message")
+      .eq("owner_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const message = failed.data?.[0]?.error_message;
+    if (message) process.stderr.write(`DETAIL ${message.slice(0, 300)}\n`);
+    const billed = await admin
+      .from("generations")
+      .select("tool,status,cost_usd,error_message")
+      .eq("owner_id", userId);
+    if (!billed.error) {
+      process.stderr.write(
+        `Recorded estimated cost before cleanup: $${billed.data.reduce((sum, row) => sum + Number(row.cost_usd), 0).toFixed(6)}; failed summary stages: ${billed.data
+          .filter((row) => row.tool === "summarize" && row.status === "error")
+          .map((row) =>
+            row.error_message?.includes("실제 원문")
+              ? "citation"
+              : row.error_message?.startsWith("Zod")
+                ? "schema"
+                : "provider",
+          )
+          .join(",")}\n`,
+      );
+    }
+  }
   process.stderr.write(
     `FAIL actual chunk summary (${error instanceof assert.AssertionError ? error.message : (error.code ?? error.name)})\n`,
   );

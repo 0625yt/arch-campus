@@ -4,9 +4,11 @@ import { runSummarize } from "./summarize";
 
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
+  commit: vi.fn(),
   generations: [] as Array<Record<string, unknown>>,
   updates: [] as Array<{ row: Record<string, unknown>; filters: Array<[string, string]> }>,
 }));
+vi.mock("@/lib/data/material-job-result", () => ({ commitMaterialJobResult: mocks.commit }));
 vi.mock("@/lib/claude", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/claude")>()),
   generate: mocks.generate,
@@ -76,12 +78,38 @@ function response(modelId = "gemini-3.5-flash-lite") {
 }
 beforeEach(() => {
   mocks.generate.mockReset();
+  mocks.commit.mockReset();
+  mocks.commit.mockImplementation(async (options) => options.result);
   mocks.generations.length = 0;
   mocks.updates.length = 0;
   mocks.generate.mockResolvedValue(response());
 });
 
 describe("summary chunk persistence and accounting", () => {
+  it("commits a job summary and completion together without a separate cache write", async () => {
+    const jobExecution = { jobId: "job", retryCount: 1 };
+    const output = await runSummarize({ ...input, jobExecution });
+    expect(output.ok).toBe(true);
+    expect(mocks.updates).toHaveLength(0);
+    expect(mocks.commit).toHaveBeenCalledTimes(1);
+    expect(mocks.commit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        execution: jobExecution,
+        ownerId: "owner",
+        materialId: "material",
+        result: { summary: expect.any(Object) },
+      }),
+    );
+    expect(mocks.generations).toHaveLength(3);
+  });
+
+  it("does not save a stale job result through the direct cache path", async () => {
+    mocks.commit.mockResolvedValue(null);
+    const output = await runSummarize({ ...input, jobExecution: { jobId: "job", retryCount: 0 } });
+    expect(output).toMatchObject({ ok: false, stage: "persistence" });
+    expect(mocks.updates).toHaveLength(0);
+    expect(mocks.generations).toHaveLength(3);
+  });
   it("meters each actual call once and caches only the merged result", async () => {
     const output = await runSummarize(input);
     expect(output.ok).toBe(true);

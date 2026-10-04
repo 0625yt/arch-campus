@@ -1,10 +1,12 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import {
   type Classification,
   classificationToContext,
   classifyMaterial,
 } from "@/lib/classify-material";
 import { estimateCost, generate, getModelIdFor, getModelVendor } from "@/lib/claude";
+import { commitMaterialJobResult, type MaterialJobExecution } from "@/lib/data/material-job-result";
 import { listPreviousQuizStems } from "@/lib/data/quizzes";
 import { sanitizePromptField } from "@/lib/prompt-safety";
 import { loadPrompt } from "@/lib/prompts";
@@ -65,6 +67,7 @@ export interface QuizMaterialInput {
 }
 
 export interface QuizGenerateInput {
+  jobExecution?: MaterialJobExecution;
   ownerId: string;
   /**
    * 주 자료(quizzes.material_id 박힐 첫 번째 자료)와 묶음 자료.
@@ -696,28 +699,31 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     usableMaterials.length > 1
       ? `${primary.title} 외 ${usableMaterials.length - 1}개 묶음`
       : primary.title;
-  const { data: quizRow, error: quizErr } = await admin
-    .from("quizzes")
-    .insert({
-      owner_id: input.ownerId,
-      material_id: primary.materialId,
-      course_id: input.courseId,
-      title: titleForRow,
-      difficulty: input.difficulty,
-      question_count: normalizedQuestions.length,
-      questions: normalizedQuestions,
-      watermark,
-      model_id: result.modelId,
-    })
-    .select("id")
-    .single();
+  const quizInsert = {
+    owner_id: input.ownerId,
+    material_id: primary.materialId,
+    course_id: input.courseId,
+    title: titleForRow,
+    difficulty: input.difficulty,
+    question_count: normalizedQuestions.length,
+    questions: normalizedQuestions,
+    watermark,
+    model_id: result.modelId,
+  };
+  let quizRow: { id: string };
+  if (input.jobExecution) {
+    quizRow = { id: randomUUID() };
+  } else {
+    const { data, error } = await admin.from("quizzes").insert(quizInsert).select("id").single();
 
-  if (quizErr || !quizRow) {
-    return {
-      ok: false,
-      status: 500,
-      error: `quizzes 저장 실패: ${quizErr?.message ?? "unknown"}`,
-    };
+    if (error || !data) {
+      return {
+        ok: false,
+        status: 500,
+        error: `quizzes 저장 실패: ${error?.message ?? "unknown"}`,
+      };
+    }
+    quizRow = data;
   }
 
   const generationId = await logGeneration({
@@ -742,7 +748,31 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       verifierUsage: verification.usage,
     },
   });
-  if (generationId) {
+  if (input.jobExecution) {
+    try {
+      const stored = await commitMaterialJobResult({
+        execution: input.jobExecution,
+        ownerId: input.ownerId,
+        materialId: primary.materialId,
+        modelId: result.modelId,
+        usage: finalUsage,
+        costUsd,
+        generationId,
+        result: { quality },
+        quiz: { ...quizInsert, id: quizRow.id },
+      });
+      if (!stored || typeof stored.quizId !== "string") {
+        return { ok: false, status: 500, error: "이전 실행의 문제는 저장하지 않았어요." };
+      }
+      quizRow = { id: stored.quizId };
+    } catch (error) {
+      return {
+        ok: false,
+        status: 500,
+        error: error instanceof Error ? error.message : "문제를 저장하지 못했어요.",
+      };
+    }
+  } else if (generationId) {
     const { error: linkError } = await admin
       .from("quizzes")
       .update({ generation_id: generationId })

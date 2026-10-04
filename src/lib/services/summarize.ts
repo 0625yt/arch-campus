@@ -5,6 +5,7 @@ import {
   classifyMaterial,
 } from "@/lib/classify-material";
 import { estimateCost, generate, getModelVendor } from "@/lib/claude";
+import { commitMaterialJobResult, type MaterialJobExecution } from "@/lib/data/material-job-result";
 import { MAX_STYLES_PER_REQUEST, STYLE_LABEL, type SummaryStyle } from "@/lib/material-policy";
 import { loadPrompt } from "@/lib/prompts";
 import { SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
@@ -44,12 +45,13 @@ export type SummarizeResult =
     }
   | {
       ok: false;
-      stage: "ai" | "validation";
+      stage: "ai" | "validation" | "persistence";
       error: string;
       billed?: { usage: Awaited<ReturnType<typeof generate>>["usage"]; costUsd: number };
     };
 
 export interface SummarizeInput {
+  jobExecution?: MaterialJobExecution;
   ownerId: string;
   materialId: string;
   title: string;
@@ -204,7 +206,7 @@ async function runSummarizeSingle(
   }
 
   // materials 캐시 갱신 — owner_id 강제
-  if (persistCache) {
+  if (persistCache && !input.jobExecution) {
     const admin = getAdminSupabase();
     const update = await admin
       .from("materials")
@@ -231,6 +233,29 @@ async function runSummarizeSingle(
     status: "ok",
     payload: { summary },
   });
+
+  if (persistCache && input.jobExecution) {
+    try {
+      const stored = await commitMaterialJobResult({
+        execution: input.jobExecution,
+        ownerId: input.ownerId,
+        materialId: input.materialId,
+        modelId: result.modelId,
+        usage: result.usage,
+        costUsd,
+        result: { summary },
+      });
+      if (!stored)
+        return { ok: false, stage: "persistence", error: "이전 실행의 요약은 저장하지 않았어요." };
+      summary = stored.summary as SummarizeOutputT;
+    } catch (error) {
+      return {
+        ok: false,
+        stage: "persistence",
+        error: error instanceof Error ? error.message : "요약을 저장하지 못했어요.",
+      };
+    }
+  }
 
   return {
     ok: true,
@@ -446,7 +471,7 @@ async function runSummarizeChunked(input: SummarizeInput): Promise<SummarizeResu
     };
   }
 
-  const merged = mergePartialSummaries(partials, {
+  let merged = mergePartialSummaries(partials, {
     totalLength: input.sanitizedText.length,
     chunkCount: processedChunks.length,
     truncatedChunkCount,
@@ -455,19 +480,42 @@ async function runSummarizeChunked(input: SummarizeInput): Promise<SummarizeResu
   });
 
   // materials cache 갱신 — 단일 호출 경로와 동일.
-  const admin = getAdminSupabase();
-  const update = await admin
-    .from("materials")
-    .update({
-      summary_payload: merged,
-      summary_keywords: merged.keywords ?? null,
-      summary_model_id: lastModelId,
-      last_summarized_at: new Date().toISOString(),
-    })
-    .eq("id", input.materialId)
-    .eq("owner_id", input.ownerId);
-  if (update.error) {
-    console.warn("materials.summary 캐시 갱신 실패 (chunked):", update.error.message);
+  if (input.jobExecution) {
+    try {
+      const stored = await commitMaterialJobResult({
+        execution: input.jobExecution,
+        ownerId: input.ownerId,
+        materialId: input.materialId,
+        modelId: lastModelId,
+        usage: totalUsage,
+        costUsd: totalCost,
+        result: { summary: merged },
+      });
+      if (!stored)
+        return { ok: false, stage: "persistence", error: "이전 실행의 요약은 저장하지 않았어요." };
+      merged = stored.summary as SummarizeOutputT;
+    } catch (error) {
+      return {
+        ok: false,
+        stage: "persistence",
+        error: error instanceof Error ? error.message : "요약을 저장하지 못했어요.",
+      };
+    }
+  } else {
+    const admin = getAdminSupabase();
+    const update = await admin
+      .from("materials")
+      .update({
+        summary_payload: merged,
+        summary_keywords: merged.keywords ?? null,
+        summary_model_id: lastModelId,
+        last_summarized_at: new Date().toISOString(),
+      })
+      .eq("id", input.materialId)
+      .eq("owner_id", input.ownerId);
+    if (update.error) {
+      console.warn("materials.summary 캐시 갱신 실패 (chunked):", update.error.message);
+    }
   }
 
   // Each actual chunk call was metered by runSummarizeSingle. Merging is local:

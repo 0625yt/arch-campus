@@ -3,11 +3,13 @@ import { estimateCost } from "@/lib/claude";
 import type { QuizQuestionT } from "@/lib/schemas";
 import { runQuizGeneration } from "./quiz";
 
-const { generate, verify, writes } = vi.hoisted(() => ({
+const { generate, verify, writes, commit } = vi.hoisted(() => ({
   generate: vi.fn(),
   verify: vi.fn(),
+  commit: vi.fn(),
   writes: [] as Array<{ table: string; row: Record<string, unknown> }>,
 }));
+vi.mock("@/lib/data/material-job-result", () => ({ commitMaterialJobResult: commit }));
 vi.mock("@/lib/claude", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/claude")>()),
   generate,
@@ -120,11 +122,62 @@ function response(items: QuizQuestionT[]) {
 }
 beforeEach(() => {
   generate.mockReset();
+  commit.mockReset();
+  commit.mockResolvedValue({ quizId: "atomic-quiz" });
   verify.mockReset();
   writes.length = 0;
 });
 
 describe("quiz supplementation and rejection accounting", () => {
+  it("sends verified questions to atomic job persistence and avoids direct quiz inserts", async () => {
+    generate.mockResolvedValue(response(questions));
+    verify.mockImplementation(
+      async ({ questions: candidates }: { questions: QuizQuestionT[] }) => ({
+        kept: candidates,
+        dropped: [],
+        technicalFailure: false,
+        modelId,
+        usage,
+      }),
+    );
+    const output = await runQuizGeneration({
+      ...input,
+      jobExecution: { jobId: "job", retryCount: 1 },
+    });
+    expect(output).toMatchObject({ ok: true, quizId: "atomic-quiz" });
+    expect(writes.filter((write) => write.table === "quizzes")).toHaveLength(0);
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        execution: { jobId: "job", retryCount: 1 },
+        ownerId: "owner",
+        materialId: "material",
+        quiz: expect.objectContaining({ questions: expect.any(Array) }),
+        generationId: "fixture",
+      }),
+    );
+  });
+
+  it("reports a discarded attempt without writing a second quiz", async () => {
+    generate.mockResolvedValue(response(questions));
+    verify.mockImplementation(
+      async ({ questions: candidates }: { questions: QuizQuestionT[] }) => ({
+        kept: candidates,
+        dropped: [],
+        technicalFailure: false,
+        modelId,
+        usage,
+      }),
+    );
+    commit.mockResolvedValue(null);
+    const output = await runQuizGeneration({
+      ...input,
+      jobExecution: { jobId: "job", retryCount: 0 },
+    });
+    expect(output).toMatchObject({ ok: false, status: 500 });
+    expect(writes.filter((write) => write.table === "quizzes")).toHaveLength(0);
+    expect(writes.filter((write) => write.table === "generations")).toHaveLength(1);
+  });
   it("records billed usage when every generation chunk rejects the material", async () => {
     generate.mockResolvedValue({
       text: JSON.stringify({

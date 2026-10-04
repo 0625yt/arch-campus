@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { markJobDone, markJobError, markJobRunning, recordJobCheckpoint } from "@/lib/data/jobs";
+import { markJobError, markJobRunning, recordJobCheckpoint } from "@/lib/data/jobs";
 import { type Difficulty, runQuizGeneration } from "@/lib/services/quiz";
 import { runSummarize } from "@/lib/services/summarize";
 
@@ -53,6 +53,7 @@ export async function runSummarizeJob(opts: {
       progress: 45,
     });
     const result = await runSummarize({
+      jobExecution: { jobId: opts.jobId, retryCount: 0 },
       ownerId: opts.ownerId,
       materialId: opts.materialId,
       title: opts.title,
@@ -67,20 +68,6 @@ export async function runSummarizeJob(opts: {
       await markJobError({ jobId: opts.jobId, ownerId: opts.ownerId, errorMessage: result.error });
       return;
     }
-    await recordJobCheckpoint({
-      jobId: opts.jobId,
-      ownerId: opts.ownerId,
-      stage: "verifying-output",
-      progress: 85,
-    });
-    await markJobDone({
-      jobId: opts.jobId,
-      ownerId: opts.ownerId,
-      result: { summary: result.summary },
-      modelId: result.modelId,
-      usage: result.usage,
-      costUsd: result.costUsd,
-    });
   } catch (e) {
     await markJobError({
       jobId: opts.jobId,
@@ -114,6 +101,7 @@ export async function runQuizJob(opts: {
       progress: 45,
     });
     const result = await runQuizGeneration({
+      jobExecution: { jobId: opts.jobId, retryCount: 0 },
       ownerId: opts.ownerId,
       courseId: opts.courseId,
       materials: [
@@ -134,20 +122,6 @@ export async function runQuizJob(opts: {
       await markJobError({ jobId: opts.jobId, ownerId: opts.ownerId, errorMessage: result.error });
       return;
     }
-    await recordJobCheckpoint({
-      jobId: opts.jobId,
-      ownerId: opts.ownerId,
-      stage: "verifying-output",
-      progress: 85,
-    });
-    await markJobDone({
-      jobId: opts.jobId,
-      ownerId: opts.ownerId,
-      result: { quizId: result.quizId, quality: result.quality },
-      modelId: result.modelId,
-      usage: result.usage,
-      costUsd: result.costUsd,
-    });
   } catch (e) {
     await markJobError({
       jobId: opts.jobId,

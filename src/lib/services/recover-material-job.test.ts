@@ -135,11 +135,15 @@ describe("recovered material execution", () => {
     await runRecoveredMaterialJob(job);
     expect(mocks.reserve).toHaveBeenCalledTimes(1);
     expect(mocks.summary).toHaveBeenCalledWith(
-      expect.objectContaining({ materialId: "primary", fullText: primary.full_text }),
+      expect.objectContaining({
+        materialId: "primary",
+        fullText: primary.full_text,
+        jobExecution: execution,
+      }),
     );
     for (const [checkpoint] of mocks.checkpoint.mock.calls)
       expect(checkpoint).toMatchObject(execution);
-    expect(mocks.done).toHaveBeenCalledWith(expect.objectContaining(execution));
+    expect(mocks.done).not.toHaveBeenCalled();
   });
 
   it("resumes a quiz from the saved options and keeps the primary material first", async () => {
@@ -166,10 +170,9 @@ describe("recovered material execution", () => {
       kinds: ["essay"],
       difficulty: "어려움",
       scope: "1장",
+      jobExecution: execution,
     });
-    expect(mocks.done).toHaveBeenCalledWith(
-      expect.objectContaining({ ...execution, result: { quizId: "quiz", quality: {} } }),
-    );
+    expect(mocks.done).not.toHaveBeenCalled();
   });
 
   it("does not complete a retry when the execution ended during generation", async () => {

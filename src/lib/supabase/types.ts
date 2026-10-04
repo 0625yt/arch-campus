@@ -50,6 +50,21 @@ export interface Database {
       };
     };
     Functions: {
+      commit_material_job_result: {
+        Args: {
+          p_job_id: string;
+          p_owner_id: string;
+          p_retry_count: number;
+          p_material_id: string;
+          p_model_id: string;
+          p_usage: Json;
+          p_cost_usd: number;
+          p_result: Json;
+          p_quiz?: Json;
+          p_generation_id?: string | null;
+        };
+        Returns: Json;
+      };
       consume_rate_limit: {
         Args: {
           p_kind: string;

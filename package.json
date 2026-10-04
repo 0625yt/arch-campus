@@ -41,12 +41,14 @@
     "workflow:quality": "npm run check -- --error-on-warnings && npm run typecheck && npm run test && npm run check:docs && npm audit --audit-level=moderate && npm run build && npm run test:e2e -- --workers=2",
     "report:ai-costs": "node --import tsx --env-file=.env.local scripts/report-ai-costs.mjs",
     "test:job-recovery": "node --env-file=.env.local scripts/test-job-recovery.mjs",
+    "test:job-results": "node --env-file=.env.local scripts/test-job-results.mjs",
     "test:job-flows": "node --env-file=.env.local scripts/test-job-flows.mjs",
-    "workflow:jobs": "vitest run src/lib/data/jobs.test.ts src/lib/services/recover-material-job.test.ts && npm run test:job-recovery && npm run test:job-flows",
+    "workflow:jobs": "vitest run src/lib/data/jobs.test.ts src/lib/data/material-job-result.test.ts src/lib/services/recover-material-job.test.ts src/lib/services/quiz-generation.test.ts src/lib/services/summarize-persistence.test.ts && npm run test:job-recovery && npm run test:job-results && npm run test:job-flows",
     "test:pwa": "playwright test e2e/pwa.spec.ts --workers=2",
     "test:shared-rate-limits": "node --env-file=.env.local scripts/test-shared-rate-limits.mjs",
     "test:rate-limit-flows": "node --env-file=.env.local scripts/test-rate-limit-flows.mjs",
     "test:summary-chunks-live": "node --env-file=.env.local scripts/test-summary-chunks.mjs",
+    "test:quiz-job-live": "node --env-file=.env.local scripts/test-summary-chunks.mjs --quiz",
     "workflow:limits": "vitest run src/lib/ratelimit.test.ts src/lib/ratelimit-shared.test.ts src/lib/ratelimit-failure.test.ts src/lib/monthly-budget-guard.test.ts && npm run test:shared-rate-limits && npm run test:rate-limit-flows"
   },
   "dependencies": {
