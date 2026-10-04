@@ -166,7 +166,7 @@ try {
     }
   }
   if (cronId) {
-    await clean(() => db.query("select cron.unschedule($1)", [cronId]), "cron");
+    await clean(() => db.query("select cron.unschedule($1::bigint)", [cronId]), "cron");
     await delay(1000);
     await clean(
       () => db.query("delete from cron.job_run_details where jobid=$1", [cronId]),
