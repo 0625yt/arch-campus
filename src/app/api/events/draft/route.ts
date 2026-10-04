@@ -126,7 +126,7 @@ export async function POST(
   // 비용 로깅. 적자 추적용 — 실패해도 응답엔 영향 X.
   try {
     const cost = estimateCost(result.usage, result.modelId);
-    console.log(
+    console.info(
       `[event-parse] owner=${ownerId.slice(0, 8)} events=${parsed.events.length} cost=$${cost.toFixed(5)} model=${result.modelId}`,
     );
   } catch {

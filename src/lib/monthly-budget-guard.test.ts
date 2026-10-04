@@ -18,6 +18,7 @@ describe("월간 AI 비용 한도", () => {
   beforeEach(() => {
     vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
     vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
     vi.stubEnv("AI_MONTHLY_BUDGET_USD", "3");
     reserveMonthlyAiBudget.mockReset();
   });

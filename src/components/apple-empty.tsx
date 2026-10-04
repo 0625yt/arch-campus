@@ -66,11 +66,9 @@ export function AppleEmptyState({
 }: AppleEmptyStateProps) {
   if (process.env.NODE_ENV !== "production") {
     if (title.endsWith(".") || title.endsWith("。")) {
-      // biome-ignore lint/suspicious/noConsole: dev-only AI-tone guard
       console.warn(`[AppleEmptyState] title 끝 마침표 권장 X: "${title}"`);
     }
     if (sub?.endsWith("드릴게요.") || sub?.includes("도와드릴게요")) {
-      // biome-ignore lint/suspicious/noConsole: dev-only AI-tone guard
       console.warn(`[AppleEmptyState] 어시스턴트체 카피: "${sub}"`);
     }
   }

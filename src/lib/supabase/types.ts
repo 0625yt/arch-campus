@@ -50,6 +50,34 @@ export interface Database {
       };
     };
     Functions: {
+      claim_stale_material_job_for_worker: {
+        Args: { p_owner_id?: string | null };
+        Returns: Database["public"]["Tables"]["jobs"]["Row"][];
+      };
+      commit_material_job_result: {
+        Args: {
+          p_job_id: string;
+          p_owner_id: string;
+          p_retry_count: number;
+          p_material_id: string;
+          p_model_id: string;
+          p_usage: Json;
+          p_cost_usd: number;
+          p_result: Json;
+          p_quiz?: Json;
+          p_generation_id?: string | null;
+        };
+        Returns: Json;
+      };
+      consume_rate_limit: {
+        Args: {
+          p_kind: string;
+          p_identifier_hash: string;
+          p_tokens: number;
+          p_window_ms: number;
+        };
+        Returns: Array<{ allowed: boolean; remaining: number; reset_ms: number }>;
+      };
       get_monthly_ai_usage: {
         Args: {
           p_owner_id: string;
@@ -91,10 +119,53 @@ export interface Database {
         };
         Returns: boolean;
       };
+      record_job_attempt_checkpoint: {
+        Args: {
+          p_job_id: string;
+          p_owner_id: string;
+          p_retry_count: number;
+          p_stage: string;
+          p_progress: number;
+          p_message?: string | null;
+        };
+        Returns: boolean;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
     Tables: {
+      feedback: {
+        Row: {
+          id: string;
+          owner_id: string;
+          target_type: "summary" | "quiz_item";
+          target_id: string;
+          generation_id: string | null;
+          rating: number;
+          category: string;
+          body: string | null;
+          status: "new" | "triaged" | "accepted" | "wontfix";
+          admin_note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          target_type: "summary" | "quiz_item";
+          target_id: string;
+          generation_id?: string | null;
+          rating: number;
+          category: string;
+          body?: string | null;
+          status?: "new" | "triaged" | "accepted" | "wontfix";
+          admin_note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["feedback"]["Insert"]>;
+        Relationships: [];
+      };
       ai_budget_reservations: {
         Row: {
           id: string;

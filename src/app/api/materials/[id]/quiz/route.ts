@@ -1,13 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import {
-  enqueueJob,
-  markJobDone,
-  markJobError,
-  markJobRunning,
-  recordJobCheckpoint,
-} from "@/lib/data/jobs";
+import { enqueueJob, markJobError, markJobRunning, recordJobCheckpoint } from "@/lib/data/jobs";
 import { guardRateLimit } from "@/lib/ratelimit";
 import { runQuizGeneration } from "@/lib/services/quiz";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -39,7 +33,7 @@ const RequestBody = z.object({
  *  1) 자료 owner 검증
  *  2) jobs에 pending 행 등록 (같은 자료+quiz active 있으면 재사용)
  *  3) 즉시 jobId 응답
- *  4) after()에서 runQuizGeneration → markJobDone/Error
+ *  4) after()의 서비스가 결과와 완료를 함께 저장하고 실패 시 markJobError
  *
  * 폴링: GET /api/jobs/{jobId}
  */
@@ -127,6 +121,7 @@ export async function POST(
         progress: 45,
       });
       const result = await runQuizGeneration({
+        jobExecution: { jobId: job.id, retryCount: 0 },
         ownerId,
         courseId: primary.course_id ?? null,
         materials: materialsInOrder.map((m) => ({
@@ -149,22 +144,6 @@ export async function POST(
         await markJobError({ jobId: job.id, ownerId, errorMessage: result.error });
         return;
       }
-
-      await recordJobCheckpoint({
-        jobId: job.id,
-        ownerId,
-        stage: "verifying-output",
-        progress: 85,
-      });
-
-      await markJobDone({
-        jobId: job.id,
-        ownerId,
-        result: { quizId: result.quizId, quality: result.quality },
-        modelId: result.modelId,
-        usage: result.usage,
-        costUsd: result.costUsd,
-      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await markJobError({ jobId: job.id, ownerId, errorMessage: msg });

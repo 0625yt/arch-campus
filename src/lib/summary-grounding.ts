@@ -11,7 +11,12 @@ export function groundSummaryCitations(
     ...summary,
     blocks: summary.blocks.map((block) => {
       if (!block.sourceQuote?.trim()) return { ...block, sourcePage: null, sourceQuote: null };
-      const location = locate(block.sourceQuote);
+      // Source headings can be shorter than a factual passage; body/quiz evidence keeps its floor.
+      const location = locate(block.sourceQuote, block.type === "h2" ? 2 : 8);
+      // Generated section labels can stand alone; never attach an invented quote or page.
+      if (!location && block.type === "h2") {
+        return { ...block, sourcePage: null, sourceQuote: null };
+      }
       if (!location) throw new Error("요약 인용의 실제 원문 위치를 확인하지 못했어요.");
       return { ...block, sourcePage: location.page, sourceQuote: location.quote };
     }),

@@ -1,14 +1,16 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import {
   type Classification,
   classificationToContext,
   classifyMaterial,
 } from "@/lib/classify-material";
 import { estimateCost, generate, getModelIdFor, getModelVendor } from "@/lib/claude";
+import { commitMaterialJobResult, type MaterialJobExecution } from "@/lib/data/material-job-result";
 import { listPreviousQuizStems } from "@/lib/data/quizzes";
 import { sanitizePromptField } from "@/lib/prompt-safety";
 import { loadPrompt } from "@/lib/prompts";
-import { quizKindQuotas } from "@/lib/quiz-blueprint";
+import { missingQuizKinds, quizKindQuotas, selectQuizQuestions } from "@/lib/quiz-blueprint";
 import { QuizGenerationSchema } from "@/lib/quiz-generation-schema";
 import { parseQuizModelJson, type QuizOutputT, type QuizQuestionT } from "@/lib/schemas";
 import { verifyQuizQuestions } from "@/lib/services/quiz-verifier";
@@ -65,6 +67,7 @@ export interface QuizMaterialInput {
 }
 
 export interface QuizGenerateInput {
+  jobExecution?: MaterialJobExecution;
   ownerId: string;
   /**
    * 주 자료(quizzes.material_id 박힐 첫 번째 자료)와 묶음 자료.
@@ -152,6 +155,8 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   const isMetadataOnly = false;
 
   const classification: Classification | null = await classifyMaterial({
+    ownerId: input.ownerId,
+    materialId: primary.materialId,
     title: primary.title,
     type: primary.type,
     fullText: sanitizedText,
@@ -320,6 +325,15 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
 
   // 모든 청크가 reject면 422
   if (aggregated.length === 0 && firstReject) {
+    await logGeneration({
+      ownerId: input.ownerId,
+      materialId: primary.materialId,
+      modelId: firstResult?.modelId ?? getModelIdFor("quiz"),
+      usage: totalUsage,
+      cost: estimateCost(totalUsage, firstResult?.modelId ?? getModelIdFor("quiz")),
+      status: "rejected",
+      errorMessage: firstReject.reason,
+    });
     return { ok: false, status: 422, error: firstReject.reason };
   }
   if (aggregated.length === 0) {
@@ -414,12 +428,21 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   // 실제 비용은 선택 모델·출력 길이·검수량에 따라 달라진다.
   // 50개 요청은 4청크 over-generation으로 대부분 채워지고, 미달이면 있는 만큼 반환.
   const MAX_TOPUP = 5;
+  // Final verification can reject otherwise valid candidates. Keep two spares
+  // within the existing supplementation limit so a single rejection need not
+  // reduce the requested set.
+  const candidateTarget = input.requestedCount + 2;
   let stuckCount = 0; // 보충해도 새 문제가 안 늘어나는 횟수
   let topupTechnicalFailure = false;
   let topupStoppedBySource = false;
-  while (collected.length < input.requestedCount && topupCount < MAX_TOPUP) {
+  while (
+    (collected.length < candidateTarget ||
+      missingQuizKinds(collected, input.requestedCount, input.kinds).length > 0) &&
+    topupCount < MAX_TOPUP
+  ) {
     topupCount += 1;
-    const missing = input.requestedCount - collected.length;
+    const missingKinds = missingQuizKinds(collected, input.requestedCount, input.kinds);
+    const missing = Math.max(candidateTarget - collected.length, missingKinds.length);
     // 한 보충 호출이 스키마 상한까지 커지면 JSON 절단·파싱 실패가 늘어난다.
     // 작은 묶음으로 여러 번 보충해 각 호출의 완결성을 우선한다.
     const topupTarget = Math.min(missing + 2, 12);
@@ -435,7 +458,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       classification,
       fullText: sanitizedText,
       subject,
-      kinds: input.kinds,
+      kinds: missingKinds.length ? missingKinds : input.kinds,
       scope: input.scope,
       intentNote: input.intentNote,
       multiMaterial: usableMaterials.length > 1 ? usableMaterials : null,
@@ -532,7 +555,11 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       for (const q of topupSurface) {
         if (res.dropped.some((d) => d.q === q)) continue;
         collected.push(q);
-        if (collected.length >= input.requestedCount) break;
+        if (
+          collected.length >= candidateTarget &&
+          missingQuizKinds(collected, input.requestedCount, input.kinds).length === 0
+        )
+          break;
       }
     }
     // 이번 보충에서 새 문제가 0개면 stuck. 2번 연속 stuck이면 자료 본문 한계라 보고 중단.
@@ -569,7 +596,7 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   // 최종 2차 검수에는 요청 수보다 여유 있게 보낸다. 앞 문항이 모호해 탈락해도 뒤의
   // 검증 통과 문항으로 채울 수 있어, 품질을 위해 제거한 것이 곧 개수 부족으로 이어지지 않는다.
   const verificationCandidates = normalizeQuizQuestions(
-    collected.slice(0, Math.min(collected.length, input.requestedCount + 10)),
+    selectQuizQuestions(collected, input.requestedCount + 10, input.kinds),
     input.difficulty,
   );
   const generationUsage = { ...totalUsage };
@@ -610,12 +637,14 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   }
 
   // 검수 후 보기 위치를 다시 균형화하고 id를 연속으로 재부여한다. 보기 의미는 보존된다.
-  let normalizedQuestions = verification.kept
-    .slice(0, input.requestedCount)
-    .map((question, index) => ({
-      ...question,
-      id: index + 1,
-    }));
+  let normalizedQuestions = selectQuizQuestions(
+    verification.kept,
+    input.requestedCount,
+    input.kinds,
+  ).map((question, index) => ({
+    ...question,
+    id: index + 1,
+  }));
   normalizedQuestions = balanceMultipleChoiceAnswers(normalizedQuestions);
 
   if (normalizedQuestions.length === 0) {
@@ -670,28 +699,31 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
     usableMaterials.length > 1
       ? `${primary.title} 외 ${usableMaterials.length - 1}개 묶음`
       : primary.title;
-  const { data: quizRow, error: quizErr } = await admin
-    .from("quizzes")
-    .insert({
-      owner_id: input.ownerId,
-      material_id: primary.materialId,
-      course_id: input.courseId,
-      title: titleForRow,
-      difficulty: input.difficulty,
-      question_count: normalizedQuestions.length,
-      questions: normalizedQuestions,
-      watermark,
-      model_id: result.modelId,
-    })
-    .select("id")
-    .single();
+  const quizInsert = {
+    owner_id: input.ownerId,
+    material_id: primary.materialId,
+    course_id: input.courseId,
+    title: titleForRow,
+    difficulty: input.difficulty,
+    question_count: normalizedQuestions.length,
+    questions: normalizedQuestions,
+    watermark,
+    model_id: result.modelId,
+  };
+  let quizRow: { id: string };
+  if (input.jobExecution) {
+    quizRow = { id: randomUUID() };
+  } else {
+    const { data, error } = await admin.from("quizzes").insert(quizInsert).select("id").single();
 
-  if (quizErr || !quizRow) {
-    return {
-      ok: false,
-      status: 500,
-      error: `quizzes 저장 실패: ${quizErr?.message ?? "unknown"}`,
-    };
+    if (error || !data) {
+      return {
+        ok: false,
+        status: 500,
+        error: `quizzes 저장 실패: ${error?.message ?? "unknown"}`,
+      };
+    }
+    quizRow = data;
   }
 
   const generationId = await logGeneration({
@@ -716,7 +748,31 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
       verifierUsage: verification.usage,
     },
   });
-  if (generationId) {
+  if (input.jobExecution) {
+    try {
+      const stored = await commitMaterialJobResult({
+        execution: input.jobExecution,
+        ownerId: input.ownerId,
+        materialId: primary.materialId,
+        modelId: result.modelId,
+        usage: finalUsage,
+        costUsd,
+        generationId,
+        result: { quality },
+        quiz: { ...quizInsert, id: quizRow.id },
+      });
+      if (!stored || typeof stored.quizId !== "string") {
+        return { ok: false, status: 500, error: "이전 실행의 문제는 저장하지 않았어요." };
+      }
+      quizRow = { id: stored.quizId };
+    } catch (error) {
+      return {
+        ok: false,
+        status: 500,
+        error: error instanceof Error ? error.message : "문제를 저장하지 못했어요.",
+      };
+    }
+  } else if (generationId) {
     const { error: linkError } = await admin
       .from("quizzes")
       .update({ generation_id: generationId })

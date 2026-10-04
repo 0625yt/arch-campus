@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { EventView } from "@/lib/data/events";
-import { formatEventCompact, formatEventLabel } from "@/lib/format-event";
+import { formatEventLabel } from "@/lib/format-event";
 import { kstParts, weekdayOfDateKey } from "@/lib/kst";
 import { useIsDark } from "../../use-mobile";
 import { eventColorThemed } from "../calendar-board";

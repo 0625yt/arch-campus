@@ -1,9 +1,11 @@
 import "server-only";
+import { createHmac } from "node:crypto";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
 import { readMonthlyBudgetUsd, secondsUntilReset } from "@/lib/ai-budget";
 import { reserveMonthlyAiBudget } from "@/lib/data/ai-usage";
+import { getAdminSupabase } from "@/lib/supabase/admin";
 
 /**
  * Upstash 기반 rate limit — 라우트별 limiter를 미리 정의해 한 곳에서 관리.
@@ -15,10 +17,8 @@ import { reserveMonthlyAiBudget } from "@/lib/data/ai-usage";
  *
  * 동작:
  *   - UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN env가 있으면 Upstash(분산) 활성
- *   - 없으면 인메모리 폴백 — 단일 인스턴스 내 sliding window로 "무제한 호출"만은 막는다.
- *     (Vercel Fluid Compute는 인스턴스를 재사용하므로 hot 상태에선 실효. 다만 인스턴스가
- *      여러 개로 스케일아웃되면 인스턴스 수만큼 한도가 곱해진다 — 완벽한 분산 제한은
- *      Upstash가 있어야 함. 폴백은 최후 방어선이지 정식 대체가 아니다.)
+ *   - 없으면 Supabase의 원자적 sliding window를 사용한다 (0039 RPC).
+ *   - 저장소 없는 개발·테스트 환경에서만 인메모리 제한을 허용한다.
  *
  * 제한 저장소 오류 시 503을 반환한다. 비용이 발생하는 작업을 무제한 허용하지 않는다.
  *
@@ -55,29 +55,16 @@ const POLICIES: Record<string, LimiterConfig> = {
 let redis: Redis | null = null;
 const limiters = new Map<string, Ratelimit>();
 
-let warnedNoEnvInProd = false;
 function getRedis(): Redis | null {
   if (redis) return redis;
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) {
-    // prod에서 env 누락 시 인메모리 폴백으로 동작 — 한 번만 큰 로그로 알린다.
-    // Vercel logs 검색 시 즉시 잡히게 메시지 고정. (분산 제한이 필요하면 Upstash 연결.)
-    if (process.env.NODE_ENV === "production" && !warnedNoEnvInProd) {
-      warnedNoEnvInProd = true;
-      console.error(
-        "[ratelimit.CRITICAL] UPSTASH_REDIS_REST_URL/TOKEN not set in production. " +
-          "Falling back to IN-MEMORY rate limit (single-instance only — abuse protection is " +
-          "weaker across scaled instances). Set both env vars in Vercel for distributed limits.",
-      );
-    }
-    return null;
-  }
+  if (!url || !token) return null;
   redis = new Redis({ url, token });
   return redis;
 }
 
-/* ── 인메모리 폴백 — Upstash 없을 때 단일 인스턴스 sliding window ───────────────
+/* ── 저장소 없는 개발·테스트 환경에서만 쓰는 sliding window ───────────────
  * key = `${kind}:${identifier}`. 값은 윈도우 안의 hit timestamp(ms) 배열.
  * 호출마다 윈도우 밖 항목을 잘라내고, 남은 수가 정책 토큰 이상이면 차단.
  * 메모리 무한 증식 방지: 비어버린 key는 즉시 삭제, 전체 key 수가 상한 넘으면 정리. */
@@ -166,8 +153,7 @@ export interface RateLimitResult {
  *   - identifier: user_id 또는 IP (앱이 결정. 인증된 라우트는 ownerId)
  *   - kind: POLICIES 키
  *
- * Upstash env 미설정 시 인메모리 폴백(단일 인스턴스 sliding window)으로 동작.
- * 저장소 및 폴백 오류는 작업을 시작하지 않고 503으로 재시도를 안내한다.
+ * Upstash → Supabase 순서로 저장소를 고른다. 선택한 저장소가 실패하면 503으로 차단한다.
  */
 function unavailableLimit(): RateLimitResult {
   return { success: false, unavailable: true, headers: { "Retry-After": "30" } };
@@ -178,11 +164,47 @@ export async function checkRateLimit(
   identifier: string,
 ): Promise<RateLimitResult> {
   try {
-    const lim = getLimiter(kind);
-    if (!lim) return memLimit(kind, identifier);
-    const { success, limit, remaining, reset } = await lim.limit(identifier);
+    const policyKind = Object.hasOwn(POLICIES, kind) ? kind : "default";
+    const policy = POLICIES[policyKind];
+    const lim = getLimiter(policyKind);
+    let success: boolean, remaining: number, reset: number;
+    if (lim) {
+      ({ success, remaining, reset } = await lim.limit(identifier));
+    } else if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const identifierHash = createHmac("sha256", process.env.SUPABASE_SERVICE_ROLE_KEY)
+        .update(`arch-campus:rate-limit:${identifier}`)
+        .digest("hex");
+      const { data, error } = await getAdminSupabase()
+        .rpc("consume_rate_limit", {
+          p_kind: policyKind,
+          p_identifier_hash: identifierHash,
+          p_tokens: policy.tokens,
+          p_window_ms: windowMs(policy.window),
+        })
+        .abortSignal(AbortSignal.timeout(5000));
+      const row = data?.[0];
+      if (
+        error ||
+        data?.length !== 1 ||
+        !row ||
+        typeof row.allowed !== "boolean" ||
+        !Number.isInteger(row.remaining) ||
+        row.remaining < 0 ||
+        row.remaining >= policy.tokens ||
+        !Number.isSafeInteger(row.reset_ms) ||
+        row.reset_ms <= 0 ||
+        (!row.allowed && row.remaining !== 0)
+      ) {
+        return unavailableLimit();
+      }
+      ({ allowed: success, remaining, reset_ms: reset } = row);
+    } else {
+      return process.env.NODE_ENV === "production"
+        ? unavailableLimit()
+        : memLimit(policyKind, identifier);
+    }
     const headers: Record<string, string> = {
-      "X-RateLimit-Limit": String(limit),
+      "X-RateLimit-Limit": String(policy.tokens),
       "X-RateLimit-Remaining": String(remaining),
       "X-RateLimit-Reset": String(reset),
     };
@@ -217,7 +239,7 @@ export function getClientIp(req: Request): string {
  *   const blocked = await guardRateLimit("ai", ownerId);
  *   if (blocked) return blocked;
  *
- * env 미설정·hit 안 됨이면 null 반환 → 호출자가 그대로 진행.
+ * 제한 이내면 null 반환 → 호출자가 그대로 진행.
  *
  * Type: generic을 T로 두어 라우트의 좁힌 NextResponse 타입과 호환되게 한다.
  * 429 body는 `{ ok:false, error, retryAfterSec }`로 통일 — 라우트의 ErrResponse가

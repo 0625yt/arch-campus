@@ -170,7 +170,7 @@ function buildDynamicContext(input: ChecklistInput): string {
   } else {
     lines.push(`- 학생이 입력한 마감: 없음 (공지에서 찾으면 requirements에 박을 것)`);
   }
-  if (input.extraNotes && input.extraNotes.trim()) {
+  if (input.extraNotes?.trim()) {
     lines.push(``, `학생이 강의 중 메모:`, input.extraNotes.trim().slice(0, 1000));
   }
   return lines.join("\n");

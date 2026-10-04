@@ -33,4 +33,73 @@ describe("summary citations", () => {
     expect(output.blocks[0].sourceQuote).toBe(original);
     expect(original.includes(output.blocks[0].sourceQuote ?? "")).toBe(true);
   });
+  it("실제 짧은 단원 제목을 인용해도 구간 전체를 탈락시키지 않는다", () => {
+    const output = summary(null);
+    output.blocks = [{ type: "h2", content: "원본 접수", sourceQuote: "원본 접수" }];
+    expect(
+      groundSummaryCitations(output, "=== Page 3 ===\n원본 접수\n본문").blocks[0],
+    ).toMatchObject({
+      sourceQuote: "원본 접수",
+      sourcePage: 3,
+    });
+  });
+  it("생성한 소제목의 잘못된 인용과 쪽수만 제거한다", () => {
+    const output = summary(null);
+    output.blocks = [
+      { type: "h2", content: "접수와 보관", sourceQuote: "접수와 보관", sourcePage: 99 },
+    ];
+    expect(groundSummaryCitations(output, "원본 접수").blocks[0]).toEqual({
+      type: "h2",
+      content: "접수와 보관",
+      sourceQuote: null,
+      sourcePage: null,
+    });
+  });
+  it("분리된 제목을 합친 인용 때문에 정상 본문과 전체 요약을 버리지 않는다", () => {
+    const output = summary(null);
+    output.blocks = [
+      { type: "h2", content: "검정과 추정", sourceQuote: "1. 검정과 2. 추정", sourcePage: 99 },
+      { type: "para", content: quote, sourceQuote: quote, sourcePage: 99 },
+    ];
+    const result = groundSummaryCitations(
+      output,
+      `=== Page 2 ===\n1. 검정\n본문\n=== Page 3 ===\n2. 추정\n${quote}`,
+    );
+    expect(result.blocks).toEqual([
+      { type: "h2", content: "검정과 추정", sourceQuote: null, sourcePage: null },
+      { type: "para", content: quote, sourceQuote: quote, sourcePage: 3 },
+    ]);
+  });
+  it.each([
+    "para",
+    "bullets",
+    "callout",
+  ] as const)("%s의 원문에 없는 사실 인용은 계속 거절한다", (type) => {
+    const output = summary(null);
+    const fields = { sourceQuote: "원문에 존재하지 않는 새로운 주장입니다." };
+    output.blocks = [
+      type === "bullets"
+        ? { type, items: [quote], ...fields }
+        : type === "callout"
+          ? { type, tone: "info", content: quote, ...fields }
+          : { type, content: quote, ...fields },
+    ];
+    expect(() => groundSummaryCitations(output, quote)).toThrow("실제 원문");
+  });
+  it.each([
+    "para",
+    "bullets",
+    "callout",
+  ] as const)("%s의 너무 짧은 본문 근거는 계속 거절한다", (type) => {
+    const output = summary(null);
+    const fields = { sourceQuote: "원본 접수" };
+    output.blocks = [
+      type === "bullets"
+        ? { type, items: [quote], ...fields }
+        : type === "callout"
+          ? { type, tone: "info", content: quote, ...fields }
+          : { type, content: quote, ...fields },
+    ];
+    expect(() => groundSummaryCitations(output, "원본 접수")).toThrow("실제 원문");
+  });
 });
