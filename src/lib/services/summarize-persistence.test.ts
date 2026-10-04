@@ -183,6 +183,64 @@ describe("summary chunk persistence and accounting", () => {
     expect(mocks.updates).toHaveLength(1);
   });
 
+  it("commits a summary with generated section labels after clearing only invalid heading citations", async () => {
+    const combined = response();
+    const payload = JSON.parse(combined.text);
+    payload.blocks[0] = {
+      type: "h2",
+      content: "검정과 추정",
+      sourceQuote: "1. 검정과 2. 추정",
+      sourcePage: 99,
+    };
+    mocks.generate.mockResolvedValue({ ...combined, text: JSON.stringify(payload) });
+    const shortSource = `=== Page 1 ===\n1. 검정\n${quote}\n2. 추정`;
+    const output = await runSummarize({
+      ...input,
+      fullText: shortSource,
+      sanitizedText: shortSource,
+      jobExecution: { jobId: "job", retryCount: 0 },
+    });
+    expect(output.ok).toBe(true);
+    if (!output.ok) return;
+    expect(output.summary.blocks[0]).toEqual({
+      type: "h2",
+      content: "검정과 추정",
+      sourceQuote: null,
+      sourcePage: null,
+    });
+    expect(output.summary.blocks[1]).toMatchObject({ sourceQuote: quote, sourcePage: 1 });
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(mocks.generations).toHaveLength(1);
+    expect(mocks.generations[0]).toMatchObject({ status: "ok", cost_usd: output.costUsd });
+    expect(mocks.commit).toHaveBeenCalledWith(
+      expect.objectContaining({ result: { summary: output.summary } }),
+    );
+    expect(mocks.updates).toHaveLength(0);
+  });
+
+  it("does not cache or commit unsupported body citations even if headings can be normalized", async () => {
+    const unsupported = response();
+    const payload = JSON.parse(unsupported.text);
+    payload.blocks[0].sourceQuote = "생성한 새로운 소제목";
+    payload.blocks[1].sourceQuote = "표본 크기가 작아지면 표준오차가 항상 감소한다.";
+    mocks.generate.mockResolvedValue({ ...unsupported, text: JSON.stringify(payload) });
+    const output = await runSummarize({
+      ...input,
+      fullText: quote,
+      sanitizedText: quote,
+      jobExecution: { jobId: "job", retryCount: 0 },
+    });
+    expect(output).toMatchObject({ ok: false, stage: "validation" });
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(mocks.commit).not.toHaveBeenCalled();
+    expect(mocks.updates).toHaveLength(0);
+    expect(mocks.generations).toHaveLength(1);
+    expect(mocks.generations[0]).toMatchObject({
+      status: "error",
+      cost_usd: estimateCost(usage, unsupported.modelId),
+    });
+  });
+
   it("preserves the previous material cache when every chunk fails validation", async () => {
     mocks.generate.mockResolvedValue({ ...response(), text: "invalid JSON" });
     const output = await runSummarize(input);
