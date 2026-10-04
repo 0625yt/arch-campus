@@ -2,7 +2,7 @@
 
 현재 코드 기준의 단일 현황 문서. [10월 1일 학습·백업 검증](audit/2026-10-01-learning-recovery.md)에 최신 보완과 실사용 흐름 검사 결과를 기록했다. [점검 보고서](audit/2026-09-22-hardening.md)에 테스트 결과·수정·제약을 기록한다. 제품 목표는 [PRODUCT.md](PRODUCT.md), 다음 작업은 [NEXT-STEPS.md](NEXT-STEPS.md).
 
-[10월 3일 순차 실행](audit/2026-10-03-workflow.md)에서 인증/API 격리·복구 세션·Office/PDF/OCR·문제 생성·자료 분류·작업 재시도 보호·PWA 오프라인 안내를 보완했다. [10월 4일 보완](audit/2026-10-04-workflow.md)에서는 공유 요청 제한·장문 요약 비용/누락 안내와 요약·문제 결과/완료의 원자적 저장을 보완했다. 최신 로컬 단위 434개·화면 75개 통과. 원격·타입·빌드·Biome 검사의 적용 커밋은 보고서에서 구분한다. [검토용 PR #4](https://github.com/0625yt/arch-campus/pull/4)의 코드 `33cbdca` 원격 Quality·Vercel 성공과 새 Preview 공유 제한 7개·API 격리 9개를 확인했다. 장문 요약 평가의 1/2 구간만 검증을 통과했고 개선은 남아 있다. 운영에는 아직 반영하지 않았다. 실행 명령과 외부 의존성은 [워크플로](EXECUTION-WORKFLOW.md)를 따른다.
+[10월 3일 순차 실행](audit/2026-10-03-workflow.md)에서 인증/API 격리·복구 세션·Office/PDF/OCR·문제 생성·자료 분류·작업 재시도 보호·PWA 오프라인 안내를 보완했다. [10월 4일 보완](audit/2026-10-04-workflow.md)에서는 공유 요청 제한·장문 요약 비용/누락 안내와 요약·문제 결과/완료의 원자적 저장을 보완했다. 최신 로컬 단위 434개·화면 75개 통과. 원격·타입·빌드·Biome 검사의 적용 커밋은 보고서에서 구분한다. [검토용 PR #4](https://github.com/0625yt/arch-campus/pull/4)의 결과 저장 코드 `b7a5d8a` Vercel 배포·Preview 작업 복구 5개·실제 문제 저장 3개를 확인했다. 최신 원격 Quality는 PR 검사를 따르며, 앞선 공유 제한 코드의 원격 성공·Preview 공유 제한 7개·API 격리 9개와 구분한다. 장문 요약 평가의 1/2 구간만 검증을 통과했고 개선은 남아 있다. 운영에는 아직 반영하지 않았다. 실행 명령과 외부 의존성은 [워크플로](EXECUTION-WORKFLOW.md)를 따른다.
 
 ## 판정 기준
 
