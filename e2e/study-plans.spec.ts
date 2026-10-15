@@ -8,6 +8,10 @@ import {
   type StudyWorkspace,
 } from "../src/lib/study-plan";
 
+// Page routing cannot intercept the PWA worker's navigation fetch. Keep this
+// mocked UI suite isolated; pwa.spec.ts separately tests the real worker.
+test.use({ serviceWorkers: "block" });
+
 const courseId = "00000000-0000-4000-8000-000000000010";
 const materialId = "00000000-0000-4000-8000-000000000020";
 const quizId = "00000000-0000-4000-8000-000000000030";
