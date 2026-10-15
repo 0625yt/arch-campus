@@ -40,7 +40,9 @@ describe.skipIf(process.env.RUN_PIPELINE_EVAL !== "1")("quiz production pipeline
     const rows = [];
     let costTotal = 0;
     mkdirSync(".tmp", { recursive: true });
-    for (const fixture of PROMPT_STRESS_FIXTURES) {
+    for (const fixture of PROMPT_STRESS_FIXTURES.filter(
+      (f) => !process.env.EVAL_FIXTURE || f.name === process.env.EVAL_FIXTURE,
+    )) {
       for (let trial = 1; trial <= 2; trial++) {
         if (costTotal >= 0.5) throw new Error("Evaluation estimate limit reached");
         writes.length = 0;

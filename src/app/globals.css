@@ -1546,3 +1546,47 @@ html[data-theme="dark"] .now-glow {
 .dashboard-canvas .fade-up {
   animation-name: readable-rise;
 }
+
+.summary-table th,
+.summary-table td {
+  overflow-wrap: anywhere;
+  min-width: 6rem;
+}
+@media print {
+  .summary-table-wrap {
+    overflow: visible;
+    border-radius: 0;
+  }
+  .summary-table {
+    table-layout: fixed;
+    font-size: 10pt;
+  }
+  .summary-table th,
+  .summary-table td {
+    min-width: 0;
+    padding: 7pt;
+  }
+  .summary-table thead {
+    display: table-header-group;
+  }
+  .summary-table tr,
+  .summary-flow li {
+    break-inside: avoid;
+  }
+  .summary-table caption {
+    break-after: avoid;
+  }
+  .summary-flow {
+    break-inside: avoid;
+  }
+  .arch-print-target > div {
+    display: block;
+  }
+  .arch-print-target > div > div {
+    margin-bottom: 14pt;
+  }
+}
+
+[data-summary-print-copy] {
+  display: none;
+}

@@ -1,0 +1,24 @@
+[
+  {
+    "fixture": "statistics",
+    "additions": [
+      {
+        "type": "para",
+        "content": "효과 크기는 차이나 관련성의 규모를 나타내요. 통계적 유의성이 효과의 크기나 실용적 중요성과 동일하지 않다는 점에 유의해야 해요.",
+        "sourceQuote": "통계적 유의성은 효과의 크기나 실용적 중요성과 동일하지 않다. 효과 크기는 차이나 관련성의 규모를 나타낸다.",
+        "sourcePage": 2
+      }
+    ],
+    "cost": 0.0091635
+  },
+  {
+    "fixture": "cs",
+    "additions": [],
+    "cost": 0.0066165
+  },
+  {
+    "fixture": "language",
+    "additions": [],
+    "cost": 0.008781
+  }
+]

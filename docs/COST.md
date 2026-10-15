@@ -1,5 +1,8 @@
 # AI 비용 실측·추정표 (2026-07-24 갱신)
 
+> **2026-10-15 현재 기준:** 모델 선택·전환 설정·보수적 단가는 [AI-MODELS.md](AI-MODELS.md), 비교 실험과 의존성 업그레이드는 [점검 보고서](audit/2026-10-15-upgrades.md)를 따른다. 요약·문제 생성과 추가 검수 비용은 [내용 품질 보고서](audit/2026-10-15-study-quality.md)를 참고한다. 아래는 과거 실측 기록으로 보존한다.
+
+
 > **2026-10-03 후속:** 선택 자료 분류도 `getModelIdFor("classify-material")`의 기본 Gemini 라우팅을 사용한다. `CLASSIFY_MODEL_VENDOR=anthropic`으로 분류만 Haiku 원복 가능. 실제 요약·문제 요청의 분류 토큰·비용은 `generations`의 `classify-material` 행으로 별도 집계한다. 분류 2회와 API 저장·비용 기록 실검증은 [최신 실행 보고서](audit/2026-10-03-workflow.md)를 따른다. 아래 과거 비용·단가 합계를 소급 수정하지 않는다.
 
 > **2026-09-17 감사 메모:** 아래 비용·A/B 수치는 기록된 당시 조건이다. 현재 가격·운영 환경·생성 품질을 재검증한 수치로 해석하지 않는다. 실제 모델 선택은 `src/lib/claude.ts`의 `getModelIdFor()`/`resolveModel()`이며 `TOOL_MODEL`만으로 판단하면 틀릴 수 있다. 이번 연결/모델 가용성 검사와 남은 비용 보호는 [점검 보고서](audit/2026-09-17-feature-audit.md)에 기록한다.

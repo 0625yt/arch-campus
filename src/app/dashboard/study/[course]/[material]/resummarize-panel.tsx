@@ -90,14 +90,18 @@ export function ResummarizePanel({
         <label htmlFor={inputId} className="sr-only">
           요약에 반영할 추가 요청
         </label>
-        <input
+        <textarea
           id={inputId}
-          type="text"
+          rows={3}
+          maxLength={120}
           value={intentNote}
           onChange={(e) => setIntentNote(e.target.value.slice(0, 120))}
-          placeholder="예: 시험 직전 정리, 표 위주, 예문은 영어 그대로"
-          className="mt-4 w-full rounded-full border border-[var(--color-apple-hairline)] bg-white px-4 py-2.5 text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)] placeholder:text-[var(--color-apple-muted)]/55"
+          placeholder="예: 3~5장은 자세히, 차이점은 비교표로, 과정은 단계 도식으로. 영어 예문은 유지"
+          className="mt-4 w-full resize-y rounded-xl border border-[var(--color-apple-hairline)] bg-white px-4 py-2.5 text-[13.5px] wght-450 text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)] placeholder:text-[var(--color-apple-muted)]/55"
         />
+        <p className="mt-2 text-xs text-[var(--color-apple-muted)]">
+          비교표와 단계 도식은 자료에 근거가 있을 때 함께 정리하고 PDF에도 담아요.
+        </p>
         <div className="mt-5 flex items-center justify-between gap-3">
           <p className="text-[11px] wght-450 tabular-nums text-[var(--color-apple-muted)]">
             {trimmed.length}/120

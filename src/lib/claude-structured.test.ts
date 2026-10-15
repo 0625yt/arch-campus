@@ -2,13 +2,17 @@ import { NoObjectGeneratedError } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-const { generateTextMock } = vi.hoisted(() => ({ generateTextMock: vi.fn() }));
+const { generateTextMock, streamTextMock } = vi.hoisted(() => ({
+  generateTextMock: vi.fn(),
+  streamTextMock: vi.fn(() => ({})),
+}));
 vi.mock("ai", async (importOriginal) => ({
   ...(await importOriginal<typeof import("ai")>()),
   generateText: generateTextMock,
+  streamText: streamTextMock,
 }));
 
-import { generate } from "./claude";
+import { generate, streamChatReply } from "./claude";
 
 const input = {
   tool: "quiz" as const,
@@ -63,5 +67,62 @@ describe("native structured generation", () => {
   it("제공자 인증 실패를 정상 출력으로 둔갑시키지 않는다", async () => {
     generateTextMock.mockRejectedValue(new Error("synthetic provider failure"));
     await expect(generate(input)).rejects.toThrow("synthetic provider failure");
+  });
+
+  it.each([false, true])(
+    "preserves SDK cache usage including invalid output (invalid=%s)",
+    async (invalid) => {
+      vi.stubEnv("QUIZ_MODEL_ID", "claude-haiku-5-5");
+      const cachedUsage = {
+        ...usage,
+        inputTokenDetails: { noCacheTokens: 20, cacheReadTokens: 60, cacheWriteTokens: 20 },
+      };
+      if (invalid) {
+        generateTextMock.mockRejectedValue(
+          new NoObjectGeneratedError({
+            text: '{"ok":"invalid"}',
+            usage: cachedUsage,
+            finishReason: "stop",
+            response: { id: "synthetic", modelId: "synthetic", timestamp: new Date() },
+          }),
+        );
+      } else {
+        generateTextMock.mockResolvedValue({
+          text: '{"ok":true}',
+          usage: cachedUsage,
+          finishReason: "stop",
+        });
+      }
+      const result = await generate({ ...input, responseSchema: z.object({ ok: z.boolean() }) });
+      expect(result.usage).toEqual({
+        inputTokens: 100,
+        outputTokens: 20,
+        cacheReadTokens: 60,
+        cacheCreationTokens: 20,
+      });
+    },
+  );
+
+  it("streaming uses the same temperature policy as non-streaming generation", () => {
+    vi.stubEnv("CHAT_MODEL_ID", "gemini-3.8-flash");
+    streamChatReply({
+      rulePrompt: "답변",
+      dynamicContext: "",
+      materialBlock: "자료",
+      history: [],
+      userMessage: "질문",
+    });
+    expect(streamTextMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ temperature: undefined }),
+    );
+    vi.stubEnv("CHAT_MODEL_ID", "claude-haiku-4-5");
+    streamChatReply({
+      rulePrompt: "답변",
+      dynamicContext: "",
+      materialBlock: "자료",
+      history: [],
+      userMessage: "질문",
+    });
+    expect(streamTextMock).toHaveBeenLastCalledWith(expect.objectContaining({ temperature: 0.3 }));
   });
 });

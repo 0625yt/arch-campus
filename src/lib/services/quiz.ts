@@ -212,6 +212,19 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
   // 위해 120K자로. 그 이상은 head/mid/tail 균등 샘플링해 자료 전 구간 출제 가능하게.
   // (종전 60K cap은 50p+ PDF 뒤쪽 단원이 통째로 빠지던 문제 → 두 배로 + 균등 샘플링)
   const quizInput = compactForQuiz(sanitizedText, 120_000);
+  const broadScope = !input.scope?.trim() || /전체|골고루|전반|all\b/iu.test(input.scope);
+  const sourcePages = quizInput.split(/(?=^=== Page \d+ ===$)/m).filter(Boolean);
+  const regionInputs =
+    broadScope && sourcePages.length >= chunkSizes.length * 2
+      ? chunkSizes.map((_, i) =>
+          sourcePages
+            .slice(
+              Math.floor((i * sourcePages.length) / chunkSizes.length),
+              Math.floor(((i + 1) * sourcePages.length) / chunkSizes.length),
+            )
+            .join(""),
+        )
+      : chunkSizes.map(() => quizInput);
   const allowOcrFuzzyEvidence = usableMaterials.some(isOcrLikeMaterial);
 
   // 각 청크에 +2 여유분을 줘서 drop 흡수. 모든 청크는 자료 전체를 보고 만들되,
@@ -242,9 +255,10 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
           tool: "quiz",
           rulePrompt,
           responseSchema: QuizGenerationSchema,
-          dynamicContext: chunkContext,
-          userInput: quizInput,
-          maxTokens: 8192,
+          dynamicContext: `${chunkContext}\n이 호출은 자료의 한 출제 구간을 담당합니다. 제공된 본문에서만 문항을 만드세요. 다른 구간은 별도 호출로 처리합니다.`,
+          userInput: regionInputs[idx],
+          maxTokens: 12288,
+          effort: "low",
           temperature: 0.4,
           // Anthropic에서 반복 본문 캐시를 요청한다. Gemini 할인은 보장하지 않는다.
           cacheUserInput: true,
@@ -472,7 +486,8 @@ export async function runQuizGeneration(input: QuizGenerateInput): Promise<QuizG
         responseSchema: QuizGenerationSchema,
         dynamicContext: topupContext,
         userInput: quizInput,
-        maxTokens: 8192,
+        maxTokens: 12288,
+        effort: "low",
         temperature: 0.5, // 보충은 다른 각도 — temp 살짝 올림
         cacheUserInput: true, // 청크와 같은 자료 본문 — cache read로 재청구 회피
       });

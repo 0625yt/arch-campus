@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal } from "@/components/modal";
 import { GenerateForm } from "./generate-form";
 
@@ -31,6 +31,10 @@ export function GenerateButton({
 }: Props) {
   const [open, setOpen] = useState(false);
   const isExamMaterial = materialType === "exam";
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (!isExamMaterial && query.get("studyPractice") === "1") setOpen(true);
+  }, [isExamMaterial]);
 
   return (
     <>

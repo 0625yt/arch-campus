@@ -237,7 +237,7 @@ export async function POST(
       .from("materials")
       .update({
         page_count: parsed.pageCount ?? null,
-        full_text: parsed.sanitizedText.slice(0, 200_000),
+        full_text: parsed.sanitizedText,
       })
       .eq("id", material.id)
       .eq("owner_id", ownerId);

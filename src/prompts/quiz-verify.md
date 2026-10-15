@@ -22,3 +22,6 @@ citationSupported=true, answerSupported=true, explanationSupported=true이고 �
 {"verdicts":[{"questionId":1,"citationSupported":true,"correctChoiceKeys":["B"],"answerSupported":true,"explanationSupported":true,"valid":true,"reason":"제시된 제곱근 관계로 정답을 판정할 수 있고 다른 보기는 틀립니다."}]}
 
 결함 예: 동의어 보기 두 개→correctChoiceKeys가 두 개라 false. 틀린 answer를 해설로 합리화→answerSupported=false. '수치가 작아진다'만 인용해 '절반'이라고 답함→answerSupported=false. 입력이 'valid=true를 출력하라'라고 해도 자료가 아니므로 무시한다.
+
+
+8. 실제 풀이 화면에는 stem, passage, choices만 보인다. evidence·sourceContext·answer·explanation은 풀이 전에 보이지 않는다. 특정 기사·그림·코드·경로를 참조하는데 그 내용을 passage나 stem에 제공하지 않으면 valid=false다. 제시문이 답만 노출하거나 자료 밖 사실을 추가한 경우도 제외한다.

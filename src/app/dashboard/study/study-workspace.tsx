@@ -97,6 +97,9 @@ export function StudyWorkspace({
             <a href="#study-library" className={s.heroButton}>
               내 과목 살펴보기 <ArrowDown size={15} aria-hidden />
             </a>
+            <Link href="/dashboard/study/plans" className={s.heroButton}>
+              시험 준비실 <ArrowUpRight size={15} aria-hidden />
+            </Link>
             <span className={s.heroCount}>
               과목 <b>{courses.length}</b>
               <i aria-hidden />

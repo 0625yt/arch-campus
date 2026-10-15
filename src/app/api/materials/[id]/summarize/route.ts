@@ -68,7 +68,7 @@ export async function POST(
   const admin = getAdminSupabase();
   const { data: material, error: fetchErr } = await admin
     .from("materials")
-    .select("id, title, type, full_text, page_count")
+    .select("id, title, type, full_text, page_count, storage_path, mime_type")
     .eq("id", materialId)
     .eq("owner_id", ownerId)
     .maybeSingle();
@@ -129,6 +129,10 @@ export async function POST(
         sanitizedText: fullText,
         pageCount: material.page_count ?? null,
         parserWarnings: [],
+        originalFile:
+          material.storage_path && material.mime_type
+            ? { storagePath: material.storage_path, mimeType: material.mime_type }
+            : null,
         styles,
         intentNote,
       });

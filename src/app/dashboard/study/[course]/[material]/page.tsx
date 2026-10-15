@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { SummaryVisual } from "@/components/summary-visual";
 import { WizardWatermark } from "@/components/wizard-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getLatestJob } from "@/lib/data/jobs";
@@ -697,6 +698,12 @@ function SummaryBlocks({ blocks }: { blocks: SummarizeOutputT["blocks"] }) {
     <div>
       {keyedItems(blocks).map(({ item: b, key: contentKey1 }) => {
         const pageHint = "sourcePage" in b && b.sourcePage ? `p.${b.sourcePage}` : null;
+        if (b.type === "table" || b.type === "flow")
+          return (
+            <div key={contentKey1} className="my-6">
+              <SummaryVisual block={b} />
+            </div>
+          );
         if (b.type === "h2") {
           return (
             <h3

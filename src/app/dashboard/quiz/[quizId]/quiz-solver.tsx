@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { FeedbackTriggerButton } from "@/components/feedback-trigger-button";
+import { SelfAssessmentControl } from "@/components/self-assessment-control";
 import type { QuizSolveView } from "@/lib/data/quizzes";
 import { QuizResultView, type ResultQuestion } from "./quiz-result-view";
 
@@ -37,6 +38,7 @@ interface SubmitResult {
   llmPromoted?: boolean;
   /** 서술형을 모범답안 기준으로 의미 채점한 경우. */
   llmGraded?: boolean;
+  selfAssessment?: import("@/lib/services/grade-quiz").GradedResult["selfAssessment"];
   /** 복수 필수답 부분 채점 (예: "둘 다 쓰세요"). */
   partial?: PartialGrade;
   /** 단답형 오답일 때 내 답이 왜 틀렸는지. */
@@ -58,6 +60,7 @@ interface StepGradeResult {
   gradingNote?: string;
   llmPromoted?: boolean;
   llmGraded?: boolean;
+  selfAssessment?: import("@/lib/services/grade-quiz").GradedResult["selfAssessment"];
   partial?: PartialGrade;
   whyWrong?: string;
 }
@@ -538,6 +541,12 @@ function SolveSection({
               <p className="mt-3 text-[16px] leading-[1.6] wght-560 text-[var(--color-apple-ink)] break-keep sm:text-[17px]">
                 {currentQuestion.stem}
               </p>
+              {currentQuestion.passage && (
+                <blockquote className="my-5 whitespace-pre-wrap rounded-xl border border-[var(--color-apple-hairline)] bg-[var(--color-apple-pearl)] p-5 text-sm leading-relaxed">
+                  <p className="mb-2 text-xs font-semibold">제시문</p>
+                  {currentQuestion.passage}
+                </blockquote>
+              )}
             </div>
             <button
               type="button"
@@ -666,6 +675,16 @@ function SolveSection({
           {isReviewing && currentGraded && (
             <>
               <GradeFeedback graded={currentGraded} />
+              {attemptId && currentGraded.submitted && (
+                <SelfAssessmentControl
+                  quizId={quiz.id}
+                  attemptId={attemptId}
+                  questionId={currentQuestion.id}
+                  correct={currentGraded.correct}
+                  selfAssessed={currentGraded.selfAssessment?.accepted}
+                  onChange={(r) => setStepResults((prev) => ({ ...prev, [r.questionId]: r }))}
+                />
+              )}
               <ReviewRatingControl
                 key={`${quiz.id}:${currentQuestion.id}:${currentGraded.submitted}`}
                 quizId={quiz.id}
@@ -1167,6 +1186,7 @@ function ResultSection({
         kind: graded.kind,
         topic: question.topic,
         stem: question.stem,
+        passage: question.passage,
         choices: question.kind === "multiple-choice" ? question.choices : null,
         answer: graded.answer,
         submitted: graded.submitted,
@@ -1178,6 +1198,7 @@ function ResultSection({
         partial: graded.partial,
         whyWrong: graded.whyWrong,
         llmGraded: graded.llmGraded,
+        selfAssessment: graded.selfAssessment,
       },
     ];
   });

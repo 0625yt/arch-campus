@@ -38,8 +38,8 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     for (const k of ENV_KEYS) delete process.env[k];
   });
 
-  it("env 안 켜면 quiz는 Flash-Lite (2026-07-24 FIX — prod 포함 기본, 비용 79.9% 절감)", () => {
-    expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlashLite);
+  it("env 안 켜면 quiz는 Haiku 5.5", () => {
+    expect(getModelIdFor("quiz")).toBe(MODELS.haiku55);
   });
 
   it("자료 분류도 기본 Flash-Lite이며 요약 override와 독립이다", () => {
@@ -75,8 +75,8 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
       process.env.VERCEL_ENV = "production";
       // GEMINI_BY_TOOL 제거 후 TOOL_MODEL 직접 사용 → 두 테이블 드리프트 없음.
       expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlashLite);
-      // 위저드 생성 — TOOL_MODEL대로 3.6 Flash
-      expect(getModelIdFor("presentation")).toBe(MODELS.gemini36Flash);
+      // 위저드 생성 — TOOL_MODEL대로 3.8 Flash
+      expect(getModelIdFor("presentation")).toBe(MODELS.gemini38Flash);
       // Vision — TOOL_MODEL대로 3.1 Pro
       expect(getModelIdFor("timetable-extract")).toBe(MODELS.gemini31Pro);
     });
@@ -99,7 +99,7 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     it("gemini 별칭도 동작 — quiz는 Flash-Lite", () => {
       process.env.LLM_VENDOR = "gemini";
       expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlashLite);
-      expect(getModelIdFor("presentation")).toBe(MODELS.gemini36Flash);
+      expect(getModelIdFor("presentation")).toBe(MODELS.gemini38Flash);
     });
 
     it("도구별 *_MODEL_VENDOR=anthropic으로 그 도구만 Anthropic 유지", () => {
@@ -107,16 +107,16 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
       process.env.QUIZ_MODEL_VENDOR = "anthropic";
       // quiz만 다시 Anthropic(강제 원복 시 기본 Sonnet), 나머지는 Gemini 유지
       expect(getModelIdFor("quiz")).toBe(MODELS.sonnet);
-      expect(getModelIdFor("presentation")).toBe(MODELS.gemini36Flash);
+      expect(getModelIdFor("presentation")).toBe(MODELS.gemini38Flash);
     });
 
-    it("LLM_VENDOR 미설정이면 기존 라우팅 그대로 (quiz=Flash-Lite FIX)", () => {
-      expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlashLite);
+    it("LLM_VENDOR 미설정이면 quiz는 Haiku 5.5", () => {
+      expect(getModelIdFor("quiz")).toBe(MODELS.haiku55);
     });
   });
 
-  it("env 안 켜면 summarize는 Gemini Flash (2026-05-31 결정: prod 포함 기본)", () => {
-    expect(getModelIdFor("summarize")).toBe(MODELS.geminiFlashLite);
+  it("env 안 켜면 summarize는 Haiku 5.5", () => {
+    expect(getModelIdFor("summarize")).toBe(MODELS.haiku55);
   });
 
   it("SUMMARY_MODEL_VENDOR=anthropic으로 강제하면 Haiku", () => {
@@ -124,12 +124,12 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     expect(getModelIdFor("summarize")).toBe(MODELS.haiku);
   });
 
-  it("QUIZ_MODEL_VENDOR 미설정이어도 quiz는 Flash-Lite (기본 FIX)", () => {
-    // summarize는 기본 Gemini, presentation은 Sonnet 5 그대로(FIX 2026-07-24)
-    expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlashLite);
-    expect(getModelIdFor("summarize")).toBe(MODELS.geminiFlashLite);
-    // 위저드는 2026-07-24 실측으로 3.6 Flash로 변경(Flash-Lite는 발표 슬라이드 감각 약해 탈락).
-    expect(getModelIdFor("presentation")).toBe(MODELS.gemini36Flash);
+  it("quiz와 summarize의 기본은 Haiku 5.5", () => {
+    // summarize는 기본 Gemini, presentation은 Gemini 3.8 Flash
+    expect(getModelIdFor("quiz")).toBe(MODELS.haiku55);
+    expect(getModelIdFor("summarize")).toBe(MODELS.haiku55);
+    // 위저드는 2026-07-24 실측으로 3.8 Flash로 변경(Flash-Lite는 발표 슬라이드 감각 약해 탈락).
+    expect(getModelIdFor("presentation")).toBe(MODELS.gemini38Flash);
   });
 
   it("QUIZ_MODEL_VENDOR=anthropic → quiz를 Anthropic으로 원복 (기본 Sonnet)", () => {
@@ -142,11 +142,11 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     expect(getModelIdFor("quiz")).toBe(MODELS.sonnet);
   });
 
-  it("SUMMARY_MODEL_VENDOR=google → summarize는 Gemini (이미 기본)", () => {
+  it("SUMMARY_MODEL_VENDOR=google은 summarize만 Gemini로 변경", () => {
     process.env.SUMMARY_MODEL_VENDOR = "google";
     expect(getModelIdFor("summarize")).toBe(MODELS.geminiFlashLite);
     // quiz는 영향 X — 기본 Flash-Lite
-    expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlashLite);
+    expect(getModelIdFor("quiz")).toBe(MODELS.haiku55);
   });
 
   it("anthropic 원복 시 tier override 존중 — QUIZ_MODEL_VENDOR=anthropic + QUIZ_MODEL=haiku", () => {
@@ -155,17 +155,17 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     expect(getModelIdFor("quiz")).toBe(MODELS.haiku);
   });
 
-  it("QUIZ_MODEL_VENDOR 안 걸면 QUIZ_MODEL(tier)도 무시되고 Flash-Lite 유지", () => {
+  it("QUIZ_MODEL_VENDOR 없는 QUIZ_MODEL은 기본 Haiku 5.5 유지", () => {
     // vendor 원복 없이 tier만 지정해도 Flash-Lite 기본이 우선(vendor 층이 tier 위)
     process.env.QUIZ_MODEL = "haiku";
-    expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlashLite);
+    expect(getModelIdFor("quiz")).toBe(MODELS.haiku55);
   });
 
-  it("빈 문자열·잡값 vendor는 기본 Flash-Lite 유지 (anthropic만 원복)", () => {
+  it("빈 문자열·미지원 vendor는 기본 Haiku 5.5 유지", () => {
     process.env.QUIZ_MODEL_VENDOR = "";
-    expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlashLite);
+    expect(getModelIdFor("quiz")).toBe(MODELS.haiku55);
     process.env.QUIZ_MODEL_VENDOR = "openai"; // 미지원 vendor
-    expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlashLite);
+    expect(getModelIdFor("quiz")).toBe(MODELS.haiku55);
   });
 
   it("한 도구 vendor 플래그가 다른 도구에 영향 X", () => {
@@ -185,9 +185,9 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
   });
 
   // 2026-07-24 — quiz는 prod 포함 Flash-Lite 확정. 강화 파이프라인이 Flash-Lite 약점을 덮음.
-  it("VERCEL_ENV=production이어도 quiz는 Flash-Lite (prod 포함 FIX)", () => {
+  it("production에서도 quiz는 Haiku 5.5", () => {
     process.env.VERCEL_ENV = "production";
-    expect(getModelIdFor("quiz")).toBe(MODELS.geminiFlashLite);
+    expect(getModelIdFor("quiz")).toBe(MODELS.haiku55);
   });
 
   it("prod에서도 QUIZ_MODEL_VENDOR=anthropic이면 Sonnet으로 원복", () => {
@@ -196,9 +196,9 @@ describe("resolveModel — vendor 분기 (via getModelIdFor)", () => {
     expect(getModelIdFor("quiz")).toBe(MODELS.sonnet);
   });
 
-  it("VERCEL_ENV=production이어도 summarize는 Gemini Flash (2026-05-31 결정)", () => {
+  it("production에서도 summarize는 Haiku 5.5", () => {
     process.env.VERCEL_ENV = "production";
-    expect(getModelIdFor("summarize")).toBe(MODELS.geminiFlashLite);
+    expect(getModelIdFor("summarize")).toBe(MODELS.haiku55);
   });
 
   it("VERCEL_ENV=production에서도 SUMMARY_MODEL_VENDOR=anthropic이면 Haiku로 복귀", () => {

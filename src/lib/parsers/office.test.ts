@@ -45,14 +45,15 @@ describe("Office file regression", () => {
     expect(result.text).not.toContain("[object Object]");
   });
 
-  it.each([
-    parseDocx,
-    parsePptx,
-    parseXlsx,
-  ])("rejects empty and corrupt Office files", async (parse) => {
-    await expect(parse({ filename: "broken", bytes: new Uint8Array() })).rejects.toMatchObject({
-      reason: "empty",
-    });
-    await expect(parse({ filename: "broken", bytes: new Uint8Array([1, 2, 3]) })).rejects.toThrow();
-  });
+  it.each([parseDocx, parsePptx, parseXlsx])(
+    "rejects empty and corrupt Office files",
+    async (parse) => {
+      await expect(parse({ filename: "broken", bytes: new Uint8Array() })).rejects.toMatchObject({
+        reason: "empty",
+      });
+      await expect(
+        parse({ filename: "broken", bytes: new Uint8Array([1, 2, 3]) }),
+      ).rejects.toThrow();
+    },
+  );
 });

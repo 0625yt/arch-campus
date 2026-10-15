@@ -1,6 +1,7 @@
 "use client";
 
 import { FeedbackTriggerButton } from "@/components/feedback-trigger-button";
+import { SummaryCoverage, SummaryVisual } from "@/components/summary-visual";
 import { WizardWatermark } from "@/components/wizard-shell";
 import { keyedItems } from "@/lib/keyed-items";
 import type { SummarizeOutputT } from "@/lib/schemas";
@@ -43,6 +44,7 @@ export function SummaryColumn({
         {summary.leadSentence}
       </p>
 
+      <SummaryCoverage coverage={summary.coverage} />
       <div className="mt-8 flex flex-col gap-6">
         {keyedItems(summary.blocks).map(({ item: block, key: contentKey0 }) => (
           <BlockRow key={contentKey0} block={block} onPageClick={onPageClick} />
@@ -94,6 +96,13 @@ function BlockRow({
     <PageChip page={sourcePage} onClick={() => onPageClick(sourcePage)} />
   ) : null;
 
+  if (block.type === "table" || block.type === "flow")
+    return (
+      <div>
+        <SummaryVisual block={block} />
+        {chip && <div className="mt-2">{chip}</div>}
+      </div>
+    );
   if (block.type === "h2") {
     return (
       <div className="flex flex-wrap items-baseline gap-2">

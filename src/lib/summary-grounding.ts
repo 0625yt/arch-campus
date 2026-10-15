@@ -10,6 +10,9 @@ export function groundSummaryCitations(
   return {
     ...summary,
     blocks: summary.blocks.map((block) => {
+      if (block.type === "table" && block.rows.some((row) => row.length !== block.headers.length)) {
+        throw new Error("표의 열과 셀 개수가 맞지 않아요.");
+      }
       if (!block.sourceQuote?.trim()) return { ...block, sourcePage: null, sourceQuote: null };
       // Source headings can be shorter than a factual passage; body/quiz evidence keeps its floor.
       const location = locate(block.sourceQuote, block.type === "h2" ? 2 : 8);

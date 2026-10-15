@@ -108,6 +108,48 @@ try {
   assert.equal(events.status, 200);
   assert.ok(!(await events.text()).includes(marker));
   process.stdout.write("PASS foreign event is absent from API list\n");
+
+  const created = await request(0, "/api/events", "POST", {
+    title: "Synthetic reminder fixture",
+    kind: "etc",
+    starts_at: "2026-10-20T09:00:00Z",
+    reminder_minutes: 60,
+  });
+  assert.equal(created.status, 200);
+  const reminderId = (await created.json()).event.id;
+  async function savedReminder() {
+    const response = await request(
+      0,
+      "/api/events?from=2026-10-01T00:00:00Z&to=2026-11-01T00:00:00Z",
+    );
+    assert.equal(response.status, 200);
+    return (await response.json()).events.find((event) => event.id === reminderId);
+  }
+  assert.equal((await savedReminder()).reminderMinutes, 60);
+  process.stdout.write("PASS reminder creation round-trips through authenticated HTTP and DB\n");
+  assert.equal(
+    (await request(0, `/api/events/${reminderId}`, "PATCH", { reminder_minutes: 0 })).status,
+    200,
+  );
+  assert.equal((await savedReminder()).reminderMinutes, 0);
+  process.stdout.write("PASS start-time reminder preserves the zero value\n");
+  assert.equal(
+    (await request(1, `/api/events/${reminderId}`, "PATCH", { reminder_minutes: 30 })).status,
+    404,
+  );
+  assert.equal((await savedReminder()).reminderMinutes, 0);
+  process.stdout.write("PASS another account cannot change the reminder\n");
+  assert.equal(
+    (await request(0, `/api/events/${reminderId}`, "PATCH", { reminder_minutes: null })).status,
+    200,
+  );
+  assert.equal((await savedReminder()).reminderMinutes, null);
+  process.stdout.write("PASS reminder consent can be disabled with null\n");
+  assert.equal(
+    (await request(0, `/api/events/${reminderId}`, "PATCH", { reminder_minutes: 10081 })).status,
+    400,
+  );
+  process.stdout.write("PASS out-of-range reminder is rejected by HTTP\n");
 } catch (error) {
   process.stderr.write(
     `FAIL API isolation (${error instanceof assert.AssertionError ? error.message : (error.code ?? error.name)})\n`,

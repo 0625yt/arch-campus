@@ -37,7 +37,7 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
     const materialIds = Array.from(new Set([job.materialId, ...extraIds]));
     const { data, error } = await admin
       .from("materials")
-      .select("id, course_id, title, type, full_text, page_count, mime_type")
+      .select("id, course_id, title, type, full_text, page_count, mime_type, storage_path")
       .eq("owner_id", job.ownerId)
       .in("id", materialIds);
     if (error || !data) throw new Error("재시도할 자료를 불러오지 못했어요.");
@@ -75,6 +75,10 @@ export async function runRecoveredMaterialJob(job: JobView): Promise<void> {
         sanitizedText: primary.full_text,
         pageCount: primary.page_count,
         parserWarnings: [],
+        originalFile:
+          primary.storage_path && primary.mime_type
+            ? { storagePath: primary.storage_path, mimeType: primary.mime_type }
+            : null,
         styles,
         intentNote:
           typeof job.inputParams.intentNote === "string" ? job.inputParams.intentNote : undefined,

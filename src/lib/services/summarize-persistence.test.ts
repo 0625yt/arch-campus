@@ -5,9 +5,11 @@ import { runSummarize } from "./summarize";
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
   commit: vi.fn(),
+  audit: vi.fn(),
   generations: [] as Array<Record<string, unknown>>,
   updates: [] as Array<{ row: Record<string, unknown>; filters: Array<[string, string]> }>,
 }));
+vi.mock("./summary-audit", () => ({ auditSummary: mocks.audit }));
 vi.mock("@/lib/data/material-job-result", () => ({ commitMaterialJobResult: mocks.commit }));
 vi.mock("@/lib/claude", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/claude")>()),
@@ -83,6 +85,12 @@ beforeEach(() => {
   mocks.generations.length = 0;
   mocks.updates.length = 0;
   mocks.generate.mockResolvedValue(response());
+  mocks.audit.mockImplementation(async ({ summary }) => ({
+    summary,
+    modelId: "gemini-3.5-flash-lite",
+    usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
+    costUsd: 0,
+  }));
 });
 
 describe("summary chunk persistence and accounting", () => {
@@ -100,7 +108,7 @@ describe("summary chunk persistence and accounting", () => {
         result: { summary: expect.any(Object) },
       }),
     );
-    expect(mocks.generations).toHaveLength(3);
+    expect(mocks.generations.filter((r) => r.tool === "summarize")).toHaveLength(3);
   });
 
   it("does not save a stale job result through the direct cache path", async () => {
@@ -108,14 +116,14 @@ describe("summary chunk persistence and accounting", () => {
     const output = await runSummarize({ ...input, jobExecution: { jobId: "job", retryCount: 0 } });
     expect(output).toMatchObject({ ok: false, stage: "persistence" });
     expect(mocks.updates).toHaveLength(0);
-    expect(mocks.generations).toHaveLength(3);
+    expect(mocks.generations.filter((r) => r.tool === "summarize")).toHaveLength(3);
   });
   it("meters each actual call once and caches only the merged result", async () => {
     const output = await runSummarize(input);
     expect(output.ok).toBe(true);
     if (!output.ok) return;
     expect(mocks.generate).toHaveBeenCalledTimes(3);
-    expect(mocks.generations).toHaveLength(3);
+    expect(mocks.generations.filter((r) => r.tool === "summarize")).toHaveLength(3);
     expect(mocks.generations.reduce((sum, row) => sum + Number(row.cost_usd), 0)).toBeCloseTo(
       output.costUsd,
       10,
@@ -151,35 +159,24 @@ describe("summary chunk persistence and accounting", () => {
   it("retains billed failed calls without saving partial summaries to the material", async () => {
     mocks.generate.mockResolvedValueOnce({ ...response(), text: "invalid JSON" });
     const output = await runSummarize(input);
-    expect(output.ok).toBe(true);
-    if (!output.ok) return;
-    expect(mocks.generations).toHaveLength(3);
-    expect(mocks.generations[0]).toMatchObject({
-      status: "error",
-      input_tokens: 100,
-      cost_usd: estimateCost(usage, response().modelId),
-    });
-    expect(mocks.updates).toHaveLength(1);
-    expect(output.summary.blocks.filter((block) => block.type === "para")).toHaveLength(2);
-    expect(output.costUsd).toBeCloseTo(
+    expect(output.ok).toBe(false);
+    if (output.ok) return;
+    expect(mocks.generations.filter((r) => r.tool === "summarize")).toHaveLength(3);
+    expect(mocks.updates).toHaveLength(0);
+    expect(mocks.commit).not.toHaveBeenCalled();
+    expect(output.billed?.usage.inputTokens).toBe(300);
+    expect(output.billed?.costUsd).toBeCloseTo(
       mocks.generations.reduce((sum, row) => sum + Number(row.cost_usd), 0),
       10,
     );
-    expect(output.usage.inputTokens).toBe(300);
-    expect(
-      output.summary.blocks.filter((block) => block.type === "h2").map((block) => block.content),
-    ).toContain("── 부분 2/3 ──");
-    expect(output.summary.reviewSpots[0]).toMatchObject({
-      title: "일부 구간을 정리하지 못했어요",
-      why: expect.stringContaining("1번째 부분"),
-    });
+    expect(output.error).toContain("1번 구간");
   });
 
   it("keeps single-call summaries metered and cached normally", async () => {
     const output = await runSummarize({ ...input, fullText: quote, sanitizedText: quote });
     expect(output.ok).toBe(true);
     expect(mocks.generate).toHaveBeenCalledTimes(1);
-    expect(mocks.generations).toHaveLength(1);
+    expect(mocks.generations.filter((r) => r.tool === "summarize")).toHaveLength(1);
     expect(mocks.updates).toHaveLength(1);
   });
 
@@ -210,7 +207,7 @@ describe("summary chunk persistence and accounting", () => {
     });
     expect(output.summary.blocks[1]).toMatchObject({ sourceQuote: quote, sourcePage: 1 });
     expect(mocks.generate).toHaveBeenCalledTimes(1);
-    expect(mocks.generations).toHaveLength(1);
+    expect(mocks.generations.filter((r) => r.tool === "summarize")).toHaveLength(1);
     expect(mocks.generations[0]).toMatchObject({ status: "ok", cost_usd: output.costUsd });
     expect(mocks.commit).toHaveBeenCalledWith(
       expect.objectContaining({ result: { summary: output.summary } }),
@@ -234,7 +231,7 @@ describe("summary chunk persistence and accounting", () => {
     expect(mocks.generate).toHaveBeenCalledTimes(1);
     expect(mocks.commit).not.toHaveBeenCalled();
     expect(mocks.updates).toHaveLength(0);
-    expect(mocks.generations).toHaveLength(1);
+    expect(mocks.generations.filter((r) => r.tool === "summarize")).toHaveLength(1);
     expect(mocks.generations[0]).toMatchObject({
       status: "error",
       cost_usd: estimateCost(usage, unsupported.modelId),
@@ -246,9 +243,23 @@ describe("summary chunk persistence and accounting", () => {
     const output = await runSummarize(input);
     expect(output).toMatchObject({ ok: false, stage: "ai" });
     expect(mocks.updates).toHaveLength(0);
-    expect(mocks.generations).toHaveLength(3);
+    expect(mocks.generations.filter((r) => r.tool === "summarize")).toHaveLength(3);
     expect(
       mocks.generations.every((row) => row.status === "error" && Number(row.cost_usd) > 0),
     ).toBe(true);
   });
+});
+
+it("never thins body blocks when combining long summaries", async () => {
+  const generated = response();
+  const summary = JSON.parse(generated.text);
+  summary.blocks = Array.from({ length: 50 }, (_, i) => ({
+    type: "para",
+    content: `구간 핵심 ${i}: ${quote}`,
+    sourceQuote: quote,
+  }));
+  mocks.generate.mockResolvedValue({ ...generated, text: JSON.stringify(summary) });
+  const output = await runSummarize(input);
+  expect(output.ok).toBe(true);
+  if (output.ok) expect(output.summary.blocks.filter((b) => b.type === "para")).toHaveLength(150);
 });

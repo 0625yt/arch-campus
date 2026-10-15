@@ -1,0 +1,125 @@
+{
+  "costTotal": 0.06722519999999998,
+  "rows": [
+    {
+      "fixture": "statistics",
+      "tool": "summarize",
+      "modelId": "gemini-3.5-flash-lite",
+      "generated": 9,
+      "accepted": 7,
+      "valid": true,
+      "costUsd": 0.0031822,
+      "ms": 3151
+    },
+    {
+      "fixture": "statistics",
+      "tool": "quiz",
+      "modelId": "gemini-3.5-flash-lite",
+      "generated": 6,
+      "accepted": 6,
+      "valid": true,
+      "costUsd": 0.009579,
+      "ms": 7982
+    },
+    {
+      "fixture": "statistics",
+      "tool": "summarize",
+      "modelId": "claude-haiku-5-5",
+      "generated": 13,
+      "accepted": 9,
+      "valid": true,
+      "costUsd": 0.0031268,
+      "ms": 15346
+    },
+    {
+      "fixture": "statistics",
+      "tool": "quiz",
+      "modelId": "claude-haiku-5-5",
+      "generated": 6,
+      "accepted": 6,
+      "valid": true,
+      "costUsd": 0.0073013,
+      "ms": 26929
+    },
+    {
+      "fixture": "cs",
+      "tool": "summarize",
+      "modelId": "gemini-3.5-flash-lite",
+      "generated": 9,
+      "accepted": 5,
+      "valid": true,
+      "costUsd": 0.0037757999999999997,
+      "ms": 3477
+    },
+    {
+      "fixture": "cs",
+      "tool": "quiz",
+      "modelId": "gemini-3.5-flash-lite",
+      "generated": 6,
+      "accepted": 6,
+      "valid": true,
+      "costUsd": 0.007977999999999999,
+      "ms": 6573
+    },
+    {
+      "fixture": "cs",
+      "tool": "summarize",
+      "modelId": "claude-haiku-5-5",
+      "generated": 14,
+      "accepted": 9,
+      "valid": true,
+      "costUsd": 0.0033209,
+      "ms": 16743
+    },
+    {
+      "fixture": "cs",
+      "tool": "quiz",
+      "modelId": "claude-haiku-5-5",
+      "generated": 6,
+      "accepted": 6,
+      "valid": true,
+      "costUsd": 0.0080187,
+      "ms": 33091
+    },
+    {
+      "fixture": "language",
+      "tool": "summarize",
+      "modelId": "gemini-3.5-flash-lite",
+      "generated": 6,
+      "accepted": 6,
+      "valid": true,
+      "costUsd": 0.0032081,
+      "ms": 2671
+    },
+    {
+      "fixture": "language",
+      "tool": "quiz",
+      "modelId": "gemini-3.5-flash-lite",
+      "generated": 6,
+      "accepted": 6,
+      "valid": true,
+      "costUsd": 0.0082426,
+      "ms": 7192
+    },
+    {
+      "fixture": "language",
+      "tool": "summarize",
+      "modelId": "claude-haiku-5-5",
+      "generated": 10,
+      "accepted": 7,
+      "valid": true,
+      "costUsd": 0.0026919,
+      "ms": 14825
+    },
+    {
+      "fixture": "language",
+      "tool": "quiz",
+      "modelId": "claude-haiku-5-5",
+      "generated": 6,
+      "accepted": 6,
+      "valid": true,
+      "costUsd": 0.006799899999999999,
+      "ms": 25773
+    }
+  ]
+}

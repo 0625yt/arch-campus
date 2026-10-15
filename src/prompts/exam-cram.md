@@ -127,6 +127,7 @@ interface ExamCramInput {
 | `topics[]` | 단원 우선순위 (1~8개) | weight 합 = 1.0 ±0.05 |
 | `topics[].evidence` | 자료 본문 인용 | materials[*].fullText 중 하나에 substring |
 | `topics[].weight` | 시험 비중 추정 0~1 | 비중 명시된 단원은 자료의 weightPercent 그대로 |
+| `topics[].priority` | 우선순위 | 정확히 `high`, `mid`, `low` 중 하나. `medium`이나 한국어 값은 사용하지 않는다 |
 | `schedule[]` | 시간 블록 | 합 = remainingMin ±10% |
 | `schedule[].mode` | read·summarize·quiz·review-mistakes·rest 중 하나 | 마지막 블록은 review-mistakes 또는 rest |
 | `schedule[].checkpoint` | 자기 점검 질문 1줄 | "~인가요?" 또는 "~할 수 있어요?" 패턴 |

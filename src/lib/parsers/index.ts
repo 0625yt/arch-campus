@@ -1,4 +1,4 @@
-import { sanitizeForPrompt } from "../sanitize";
+import { sanitizeDocumentForPrompt } from "../sanitize";
 import { isHwpEnabled, parseHwp } from "./hwp";
 import { parseImage } from "./image";
 import { parseDocx, parsePptx, parseXlsx } from "./office";
@@ -115,7 +115,7 @@ export async function parseDocument(input: ParseInput): Promise<ParseResult> {
       break;
   }
 
-  return { ...parsed, sanitizedText: sanitizeForPrompt(parsed.text) };
+  return { ...parsed, sanitizedText: sanitizeDocumentForPrompt(parsed.text) };
 }
 
 async function fallbackText(input: ParseInput): Promise<ParsedDocument> {

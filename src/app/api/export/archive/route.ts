@@ -23,6 +23,7 @@ export async function GET() {
       reviewLogs,
       threads,
       messages,
+      studyWorkspace,
     ] = await Promise.all([
       admin.from("profiles").select("*").eq("id", ownerId).maybeSingle(),
       collectExportRows((from, to) =>
@@ -128,8 +129,15 @@ export async function GET() {
           .order("id")
           .range(from, to),
       ),
+      admin
+        .from("study_workspaces")
+        .select("daily_minutes, plans, revision, updated_at")
+        .eq("owner_id", ownerId)
+        .maybeSingle(),
     ]);
     if (profile.error) throw new Error("profile export failed");
+    if (studyWorkspace.error && !["42P01", "PGRST205"].includes(studyWorkspace.error.code))
+      throw new Error("study workspace export failed");
     archiveData = {
       profile: profile.data,
       courses,
@@ -143,6 +151,7 @@ export async function GET() {
       reviewLogs,
       chatThreads: threads,
       chatMessages: messages,
+      studyWorkspace: studyWorkspace.data ?? null,
     };
   } catch {
     return Response.json(

@@ -1,25 +1,11 @@
 #!/usr/bin/env node
 // Read-only health checks. Never print credentials or create AI generations.
 import { createClient } from "@supabase/supabase-js";
-import { getModelIdFor, getModelVendor } from "../src/lib/claude.ts";
+import { getModelIdFor, getModelVendor, TOOL_MODEL } from "../src/lib/claude.ts";
 
 const checks = [];
 const env = process.env;
-const tools = [
-  "classify-material",
-  "summarize",
-  "quiz",
-  "chat",
-  "chat-free",
-  "presentation",
-  "timetable-extract",
-  "syllabus-extract",
-  "event-parse",
-  "exam-extract",
-  "quiz-grade",
-  "quiz-verify",
-  "report-structure",
-];
+const tools = Object.keys(TOOL_MODEL);
 function record(name, ok, detail = "") {
   checks.push({ name, ok });
   process.stdout.write(`${ok ? "PASS" : "FAIL"} ${name}${detail ? ` — ${detail}` : ""}\n`);

@@ -103,7 +103,7 @@ export async function getSemesterSafetySnapshot(ownerId: string): Promise<Semest
       }
       if (unreadMaterials > 0) {
         score += Math.min(30, unreadMaterials * 7);
-        reasons.push(`안 본 자료 ${unreadMaterials}개`);
+        reasons.push(`요약이 없는 자료 ${unreadMaterials}개`);
       }
       if (wrongCount > 0) {
         score += Math.min(30, wrongCount * 5);
@@ -290,11 +290,13 @@ function buildSignals({
     signals.push({
       id: `material:${unread.id}`,
       tone: "calm",
-      label: "자료 방치",
+      label: "자료 정리",
       title: unread.title,
-      reason: "자료를 넣었지만 아직 학습 루프로 들어가지 않았어요",
-      evidence: "요약을 읽고 문제로 점검해야 시험 전에 남습니다",
-      href: "/dashboard/study",
+      reason: "이 자료에 저장된 요약이 아직 없어요",
+      evidence: "읽은 상태와는 별개예요. 원문을 확인하고 필요한 내용을 정리하세요",
+      href: unread.course_id
+        ? `/dashboard/study/${unread.course_id}/${unread.id}`
+        : "/dashboard/study",
       cta: "자료 정리",
     });
   }

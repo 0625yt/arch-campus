@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Arrow } from "@/components/primitives";
 import { useJob } from "@/lib/hooks/use-job";
+import { type StudyWorkspace, studyQuizHref } from "@/lib/study-plan";
 import { cn } from "@/lib/utils";
 
 type Difficulty = "쉬움" | "보통" | "어려움";
@@ -90,6 +91,9 @@ export function GenerateForm({
   siblingMaterials?: SiblingMaterialOption[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const studyPlanId = searchParams.get("studyPlan");
+  const studyTaskId = searchParams.get("studyTask");
   const isExamMaterial = materialType === "exam";
   const [difficulty, setDifficulty] = useState<Difficulty>("보통");
   const [count, setCount] = useState(5);
@@ -100,12 +104,54 @@ export function GenerateForm({
   const [extraMaterialIds, setExtraMaterialIds] = useState<Set<string>>(new Set());
   const [jobId, setJobId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [planScopeLoading, setPlanScopeLoading] = useState(
+    Boolean(studyPlanId && UUID_RE.test(studyPlanId) && !isExamMaterial),
+  );
+  const [planScopeFailed, setPlanScopeFailed] = useState(false);
   const { job, error: pollError } = useJob(jobId);
   const EXTRA_MAX = 5;
   // siblings에서 현재 자료·기출은 제외 (기출은 별도 추출 흐름)
   const eligibleSiblings = (siblingMaterials ?? []).filter(
     (s) => s.id !== materialId && s.type !== "exam",
   );
+  useEffect(() => {
+    const planId = studyPlanId;
+    if (!planId || !UUID_RE.test(planId) || isExamMaterial) return;
+    const controller = new AbortController();
+    setPlanScopeLoading(true);
+    setPlanScopeFailed(false);
+    fetch("/api/study-plans", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok)
+          throw new Error("시험 범위를 불러오지 못했어요. 출제 범위를 직접 확인해주세요.");
+        const result: { ok: boolean; workspace: StudyWorkspace } = await response.json();
+        if (!result.ok) throw new Error("시험 범위를 불러오지 못했어요.");
+        const plan = result.workspace.plans.find(
+          (item) => item.id === planId && item.materialIds.includes(materialId),
+        );
+        if (!plan)
+          throw new Error("연결된 시험 계획을 찾지 못했어요. 출제 범위를 직접 확인해주세요.");
+        setScope(plan.scope);
+        const allowed = new Set(
+          (siblingMaterials ?? []).filter((item) => item.type !== "exam").map((item) => item.id),
+        );
+        setExtraMaterialIds(
+          new Set(
+            plan.materialIds.filter((id) => id !== materialId && allowed.has(id)).slice(0, 5),
+          ),
+        );
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setPlanScopeFailed(true);
+          setSubmitError(error instanceof Error ? error.message : "시험 범위를 확인해주세요.");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setPlanScopeLoading(false);
+      });
+    return () => controller.abort();
+  }, [materialId, isExamMaterial, siblingMaterials, studyPlanId]);
 
   function toggleKind(k: Kind) {
     setKinds((prev) => {
@@ -130,6 +176,7 @@ export function GenerateForm({
   const busy = jobId !== null && job?.status !== "done" && job?.status !== "error";
 
   async function handleGenerate() {
+    if (planScopeLoading || planScopeFailed) return;
     if (!isReal) {
       setSubmitError(
         "이 자료는 디자인 시연용 mock이라 진짜 문제는 못 만들어요. 자료를 새로 업로드해 주세요.",
@@ -198,8 +245,8 @@ export function GenerateForm({
       return;
     }
     const quizId = (job.result as { quizId?: string } | null)?.quizId;
-    if (quizId) router.push(`/dashboard/quiz/${quizId}`);
-  }, [job?.status, job?.result, router, isExamMaterial]);
+    if (quizId) router.push(studyQuizHref(quizId, studyPlanId, studyTaskId));
+  }, [job?.status, job?.result, router, isExamMaterial, studyPlanId, studyTaskId]);
 
   const errorMsg = submitError ?? pollError ?? (job?.status === "error" ? job.errorMessage : null);
 
@@ -370,6 +417,7 @@ export function GenerateForm({
           <input
             type="text"
             value={scope}
+            disabled={planScopeLoading}
             onChange={(e) => setScope(e.target.value.slice(0, 200))}
             placeholder="예: 1~3장만 / p.10~30 위주"
             className="w-full rounded-full border border-[var(--color-apple-hairline)] bg-white px-4 py-2 text-[13px] wght-450 text-[var(--color-apple-ink)] outline-none focus:border-[var(--color-apple-action)] placeholder:text-[var(--color-apple-muted)]/55"
@@ -471,11 +519,23 @@ export function GenerateForm({
           {errorMsg}
         </p>
       )}
+      {planScopeFailed && (
+        <button
+          type="button"
+          className="mt-3 min-h-11 text-[13px] text-[var(--color-apple-action)]"
+          onClick={() => {
+            setPlanScopeFailed(false);
+            setSubmitError(null);
+          }}
+        >
+          시험 범위를 직접 확인해서 입력할게요
+        </button>
+      )}
 
       <div className="-mx-5 -mb-5 mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-apple-hairline)] bg-white px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-5">
         {doneQuizId && !isExamMaterial ? (
           <Link
-            href={`/dashboard/quiz/${doneQuizId}`}
+            href={studyQuizHref(doneQuizId, studyPlanId, studyTaskId)}
             className="group inline-flex items-center gap-2 rounded-full bg-[var(--color-apple-ink)] px-5 py-2.5 text-[13.5px] wght-560 text-white transition-opacity hover:opacity-90"
             style={{ letterSpacing: "-0.012em" }}
           >
@@ -486,7 +546,7 @@ export function GenerateForm({
           <button
             type="button"
             onClick={handleGenerate}
-            disabled={busy}
+            disabled={busy || planScopeLoading || planScopeFailed}
             className={cn(
               "group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13.5px] wght-560 transition-all duration-[var(--duration-fast)]",
               busy
@@ -495,13 +555,15 @@ export function GenerateForm({
             )}
           >
             {busy && <Spinner />}
-            {busy
-              ? isExamMaterial
-                ? "기출문제를 추출하고 있어요…"
-                : "문제지를 만들고 있어요…"
-              : isExamMaterial
-                ? "기출문제 추출하기"
-                : `${count}문제 만들기`}
+            {planScopeLoading
+              ? "시험 범위를 불러오는 중…"
+              : busy
+                ? isExamMaterial
+                  ? "기출문제를 추출하고 있어요…"
+                  : "문제지를 만들고 있어요…"
+                : isExamMaterial
+                  ? "기출문제 추출하기"
+                  : `${count}문제 만들기`}
             {!busy && (
               <Arrow className="text-[12px] transition-transform group-hover:translate-x-0.5" />
             )}

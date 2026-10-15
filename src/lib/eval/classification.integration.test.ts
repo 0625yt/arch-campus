@@ -24,19 +24,23 @@ describe.skipIf(process.env.RUN_CLASSIFY_EVAL !== "1")("material classification 
       primaryLanguage: "영어",
     },
   ];
-  it.each(cases)("$title", async (fixture) => {
-    const classification = await classifyMaterial({ ...fixture, type: "lecture", pageCount: 1 });
-    rows.push({
-      title: fixture.title,
-      modelId: getModelIdFor("classify-material"),
-      classification,
-    });
-    mkdirSync(".tmp", { recursive: true });
-    writeFileSync(".tmp/classification-quality.json", JSON.stringify(rows, null, 2));
-    expect(ClassificationSchema.safeParse(classification).success).toBe(true);
-    expect(classification?.domain).toBe(fixture.domain);
-    expect(classification?.primaryLanguage).toBe(fixture.primaryLanguage);
-    expect(JSON.stringify(classification)).not.toContain("CLASSIFY_OVERRIDE_9281");
-    if (fixture.difficulty === "쉬움") expect(classification?.answerLanguage).toContain("한국어");
-  }, 120_000);
+  it.each(cases)(
+    "$title",
+    async (fixture) => {
+      const classification = await classifyMaterial({ ...fixture, type: "lecture", pageCount: 1 });
+      rows.push({
+        title: fixture.title,
+        modelId: getModelIdFor("classify-material"),
+        classification,
+      });
+      mkdirSync(".tmp", { recursive: true });
+      writeFileSync(".tmp/classification-quality.json", JSON.stringify(rows, null, 2));
+      expect(ClassificationSchema.safeParse(classification).success).toBe(true);
+      expect(classification?.domain).toBe(fixture.domain);
+      expect(classification?.primaryLanguage).toBe(fixture.primaryLanguage);
+      expect(JSON.stringify(classification)).not.toContain("CLASSIFY_OVERRIDE_9281");
+      if (fixture.difficulty === "쉬움") expect(classification?.answerLanguage).toContain("한국어");
+    },
+    120_000,
+  );
 });

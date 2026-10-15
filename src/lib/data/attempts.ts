@@ -167,6 +167,7 @@ export interface AttemptSummary {
     topic: string;
     difficulty: string;
     stem: string;
+    passage?: string | null;
     choices: { key: "A" | "B" | "C" | "D"; text: string }[] | null;
     answer: string;
     explanation: string;
@@ -184,6 +185,7 @@ export interface AttemptSummary {
     whyWrong?: string;
     llmPromoted?: boolean;
     llmGraded?: boolean;
+    selfAssessment?: GradedResult["selfAssessment"];
   }>;
 }
 
@@ -236,6 +238,7 @@ export async function getAttemptSummary(opts: {
           topic: q.topic,
           difficulty: q.difficulty,
           stem: q.stem,
+          passage: q.passage,
           choices: q.choices ?? null,
           answer: r?.answer ?? q.answer,
           explanation: q.explanation,
@@ -248,6 +251,7 @@ export async function getAttemptSummary(opts: {
           whyWrong: r?.whyWrong,
           llmPromoted: r?.llmPromoted,
           llmGraded: r?.llmGraded,
+          selfAssessment: r?.selfAssessment,
         };
       }),
   };

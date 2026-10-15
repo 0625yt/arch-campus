@@ -146,7 +146,7 @@ export async function POST(
       mime_type: uploaded.mimeType,
       storage_path: uploaded.storagePath,
       page_count: parsed.pageCount ?? null,
-      full_text: parsed.sanitizedText.slice(0, 200_000),
+      full_text: parsed.sanitizedText,
     })
     .select("id")
     .single();

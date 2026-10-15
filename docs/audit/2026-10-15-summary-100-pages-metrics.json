@@ -1,0 +1,9 @@
+{
+  "model": "claude-haiku-5-5",
+  "cost": 0.21425670000000002,
+  "blocks": 214,
+  "missingThresholds": [],
+  "citedPages": 53,
+  "tables": 21,
+  "flows": 13
+}

@@ -70,36 +70,34 @@ describe("summary citations", () => {
       { type: "para", content: quote, sourceQuote: quote, sourcePage: 3 },
     ]);
   });
-  it.each([
-    "para",
-    "bullets",
-    "callout",
-  ] as const)("%s의 원문에 없는 사실 인용은 계속 거절한다", (type) => {
-    const output = summary(null);
-    const fields = { sourceQuote: "원문에 존재하지 않는 새로운 주장입니다." };
-    output.blocks = [
-      type === "bullets"
-        ? { type, items: [quote], ...fields }
-        : type === "callout"
-          ? { type, tone: "info", content: quote, ...fields }
-          : { type, content: quote, ...fields },
-    ];
-    expect(() => groundSummaryCitations(output, quote)).toThrow("실제 원문");
-  });
-  it.each([
-    "para",
-    "bullets",
-    "callout",
-  ] as const)("%s의 너무 짧은 본문 근거는 계속 거절한다", (type) => {
-    const output = summary(null);
-    const fields = { sourceQuote: "원본 접수" };
-    output.blocks = [
-      type === "bullets"
-        ? { type, items: [quote], ...fields }
-        : type === "callout"
-          ? { type, tone: "info", content: quote, ...fields }
-          : { type, content: quote, ...fields },
-    ];
-    expect(() => groundSummaryCitations(output, "원본 접수")).toThrow("실제 원문");
-  });
+  it.each(["para", "bullets", "callout"] as const)(
+    "%s의 원문에 없는 사실 인용은 계속 거절한다",
+    (type) => {
+      const output = summary(null);
+      const fields = { sourceQuote: "원문에 존재하지 않는 새로운 주장입니다." };
+      output.blocks = [
+        type === "bullets"
+          ? { type, items: [quote], ...fields }
+          : type === "callout"
+            ? { type, tone: "info", content: quote, ...fields }
+            : { type, content: quote, ...fields },
+      ];
+      expect(() => groundSummaryCitations(output, quote)).toThrow("실제 원문");
+    },
+  );
+  it.each(["para", "bullets", "callout"] as const)(
+    "%s의 너무 짧은 본문 근거는 계속 거절한다",
+    (type) => {
+      const output = summary(null);
+      const fields = { sourceQuote: "원본 접수" };
+      output.blocks = [
+        type === "bullets"
+          ? { type, items: [quote], ...fields }
+          : type === "callout"
+            ? { type, tone: "info", content: quote, ...fields }
+            : { type, content: quote, ...fields },
+      ];
+      expect(() => groundSummaryCitations(output, "원본 접수")).toThrow("실제 원문");
+    },
+  );
 });

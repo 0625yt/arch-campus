@@ -69,3 +69,7 @@ supabase/.temp/
 /design/
 .playwright-mcp/
 .env*.local
+
+# Local generated PDF fixtures and rendered verification pages
+/tmp/
+/output/

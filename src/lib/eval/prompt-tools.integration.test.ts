@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { generate } from "@/lib/claude";
 import { loadPrompt } from "@/lib/prompts";
-import { ChecklistOutput, evidenceMatches, parseModelJson, SummarizeOutput } from "@/lib/schemas";
+import {
+  ChecklistOutput,
+  evidenceMatches,
+  parseModelJson,
+  SummarizeGenerationSchema,
+} from "@/lib/schemas";
 import { createSourceLocator } from "@/lib/source-grounding";
 import { groundSummaryCitations } from "@/lib/summary-grounding";
 import { PROMPT_QUALITY_FIXTURES } from "./fixtures/prompt-quality";
@@ -14,14 +19,17 @@ describe.skipIf(process.env.RUN_PROMPT_EVAL !== "1")("other prompt regressions l
     const result = await generate({
       tool: "summarize",
       rulePrompt: loadPrompt("summarize"),
-      responseSchema: SummarizeOutput,
+      responseSchema: SummarizeGenerationSchema,
       dynamicContext: "제목: 표본추론 강의 노트. 본문 전체, 일반 요약.",
       userInput: source,
-      maxTokens: 4096,
+      maxTokens: 16384,
     });
     mkdirSync(".tmp", { recursive: true });
     writeFileSync(".tmp/summary-quality.json", result.text);
-    const output = groundSummaryCitations(parseModelJson(SummarizeOutput, result.text), source);
+    const output = groundSummaryCitations(
+      parseModelJson(SummarizeGenerationSchema, result.text),
+      source,
+    );
     const quoted = output.blocks.filter((block) => block.sourceQuote);
     expect(quoted.length).toBeGreaterThanOrEqual(3);
     const locate = createSourceLocator(source);

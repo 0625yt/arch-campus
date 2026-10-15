@@ -286,7 +286,7 @@ export async function POST(
       .from("materials")
       .update({
         page_count: merged.pageCount,
-        full_text: merged.sanitizedText.slice(0, 200_000),
+        full_text: merged.sanitizedText,
         storage_path: finalStoragePath,
         ...(merged.mode === "pdf" ? { mime_type: "application/pdf" } : {}),
       })

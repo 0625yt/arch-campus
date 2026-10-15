@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { tryGetOwnerId } from "@/lib/auth";
 import { resolveSeriesOccurrenceTimes, resolveSingleEventTimes } from "@/lib/calendar-event-time";
+import { ReminderMinutes } from "@/lib/push-schema";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 
@@ -72,6 +73,7 @@ const PatchBody = z
       .nullable()
       .optional(),
     location: z.string().max(200).nullable().optional(),
+    reminder_minutes: ReminderMinutes.optional(),
     scope: z.enum(["this", "all"]).default("this"),
   })
   .strict();
@@ -114,6 +116,7 @@ export async function PATCH(
   if (body.weight_percent !== undefined) update.weight_percent = body.weight_percent;
   if (body.confirmed !== undefined) update.confirmed = body.confirmed;
   if (body.color !== undefined) update.color = body.color;
+  if (body.reminder_minutes !== undefined) update.reminder_minutes = body.reminder_minutes;
   if (body.location !== undefined)
     update.location = body.location?.trim() ? body.location.trim() : null;
 
