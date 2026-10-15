@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { GlobalTopbar } from "@/components/global-topbar";
 import { MobileTabBar, MobileTopbar } from "@/components/mobile-nav";
 import type { CourseListItem } from "@/lib/data/materials";
+import { CalendarBoard } from "../../dashboard/calendar/calendar-board";
 import styles from "../../dashboard/campus.module.css";
 import { DashboardClient } from "../../dashboard/dashboard-client";
 import { QuizResultView } from "../../dashboard/quiz/[quizId]/quiz-result-view";
@@ -108,6 +109,23 @@ export default async function CampusPreviewPage({
 }) {
   if (process.env.NODE_ENV === "production") notFound();
   const view = (await searchParams).view;
+  if (view === "calendar")
+    return (
+      <main className="mx-auto max-w-[1280px] p-4">
+        <CalendarBoard
+          monthEvents={[]}
+          upcoming={[]}
+          courses={[]}
+          kindLabel={{
+            exam: "시험",
+            assignment: "과제",
+            presentation: "발표",
+            class: "수업",
+            etc: "기타",
+          }}
+        />
+      </main>
+    );
   if (view === "study-generate")
     return (
       <main className="mx-auto max-w-[800px] px-6 py-12">

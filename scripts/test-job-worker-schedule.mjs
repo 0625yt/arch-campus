@@ -45,6 +45,10 @@ try {
     signal: AbortSignal.timeout(10000),
   });
   check("deployed worker is ready", ready.status === 200);
+  // Dispatch the isolated schedule before the existing production minute tick
+  // can claim this deliberately stale fixture through its global owner scope.
+  const second = (Date.now() / 1000) % 60;
+  if (second >= 40) await delay((65 - second) * 1000);
   const u = await admin.auth.admin.createUser({
     email: `arch-worker-schedule-${randomUUID()}@example.invalid`,
     email_confirm: true,
@@ -89,7 +93,7 @@ try {
     const r = await db.query("select vault.create_secret($1,$2) as id", [value, key]);
     vaultIds.push(r.rows[0].id);
   }
-  const command = `insert into ${schema}.requests select net.http_post(url:=(select decrypted_secret from vault.decrypted_secrets where name='${urlName}'),headers:=jsonb_build_object('Content-Type','application/json','Authorization','Bearer '||(select decrypted_secret from vault.decrypted_secrets where name='${keyName}')),body:=jsonb_build_object('ownerId','${owner}'),timeout_milliseconds:=15000);`;
+  const command = `insert into ${schema}.requests select net.http_post(url:=(select decrypted_secret from vault.decrypted_secrets where name='${urlName}'),headers:=jsonb_build_object('Content-Type','application/json','Authorization','Bearer '||(select decrypted_secret from vault.decrypted_secrets where name='${keyName}')),body:=jsonb_build_object('ownerId','${owner}'),timeout_milliseconds:=55000);`;
   const scheduled = await db.query("select cron.schedule($1,$2,$3) as id", [
     name,
     "10 seconds",
@@ -118,9 +122,15 @@ try {
     saved.checkpoint_history.some((s) => s.stage === "retry-queued") &&
       saved.checkpoint_history.some((s) => s.stage === "rebuilding-input"),
   );
-  const responses = await db.query(
-    `select status_code,content from net._http_response where id in(select request_id from ${schema}.requests)`,
-  );
+  let responses;
+  for (let i = 0; i < 30; i++) {
+    responses = await db.query(
+      `select status_code,content from net._http_response where id in(select request_id from ${schema}.requests)`,
+    );
+    if (responses.rows.some((r) => r.status_code === 200 && JSON.parse(r.content).resumed === 1))
+      break;
+    await delay(1000);
+  }
   check(
     "database HTTP dispatch reaches the authenticated worker",
     responses.rows.some((r) => r.status_code === 200 && JSON.parse(r.content).resumed === 1),

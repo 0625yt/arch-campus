@@ -107,7 +107,8 @@ test("구독 저장 실패 시 브라우저 구독을 되돌리고 다시 시도
 test("새 일정의 알림 시각을 저장하고 연결 실패를 화면에서 안내한다", async ({ page }) => {
   let attempts = 0;
   await page.route("**/api/events", async (route) => {
-    if (route.request().method() !== "POST") return route.continue();
+    if (route.request().method() !== "POST")
+      return route.fulfill({ json: { ok: true, events: [] } });
     expect(route.request().postDataJSON().reminder_minutes).toBe(60);
     attempts++;
     if (attempts === 1) return route.abort("failed");
@@ -115,7 +116,7 @@ test("새 일정의 알림 시각을 저장하고 연결 실패를 화면에서 
       json: { ok: true, event: { id: "test-event", title: "알림 회귀 일정" } },
     });
   });
-  await page.goto("/dashboard/calendar");
+  await page.goto("/dev/campus-preview?view=calendar");
   await page
     .getByRole("button", { name: /일정 추가|AI로 일정/ })
     .filter({ visible: true })

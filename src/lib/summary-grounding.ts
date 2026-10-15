@@ -1,6 +1,8 @@
 import type { SummarizeOutputT } from "./schemas";
 import { createSourceLocator } from "./source-grounding";
 
+export class SummaryCitationError extends Error {}
+
 /** Check citations without an extra model call; this does not verify every summary claim. */
 export function groundSummaryCitations(
   summary: SummarizeOutputT,
@@ -20,7 +22,8 @@ export function groundSummaryCitations(
       if (!location && block.type === "h2") {
         return { ...block, sourcePage: null, sourceQuote: null };
       }
-      if (!location) throw new Error("요약 인용의 실제 원문 위치를 확인하지 못했어요.");
+      if (!location)
+        throw new SummaryCitationError("요약 인용의 실제 원문 위치를 확인하지 못했어요.");
       return { ...block, sourcePage: location.page, sourceQuote: location.quote };
     }),
   };

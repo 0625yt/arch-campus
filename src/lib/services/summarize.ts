@@ -12,7 +12,7 @@ import { SummarizeGenerationSchema, SummarizeOutput, type SummarizeOutputT } fro
 import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
 import { buildPlaybookSection } from "@/lib/subject-playbook";
 import { sourcePages, splitSummarySource } from "@/lib/summary-chunks";
-import { groundSummaryCitations } from "@/lib/summary-grounding";
+import { groundSummaryCitations, SummaryCitationError } from "@/lib/summary-grounding";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { breakdown } from "@/lib/tokens";
 import { auditSummary } from "./summary-audit";
@@ -149,6 +149,15 @@ async function runSummarizeSingle(
   persistCache: boolean,
   sharedClassification?: Classification | null,
   chunkContext = "",
+  previousAttempt?: {
+    usage: {
+      inputTokens: number;
+      outputTokens: number;
+      cacheReadTokens: number;
+      cacheCreationTokens: number;
+    };
+    costUsd: number;
+  },
 ): Promise<SummarizeResult> {
   const isMetadataOnly = !input.sanitizedText || input.sanitizedText.trim().length < 60;
 
@@ -225,6 +234,7 @@ async function runSummarizeSingle(
       ok: false,
       stage: "ai",
       error: "자료를 정리하지 못했어요. 잠시 후 다시 시도해주세요.",
+      billed: previousAttempt,
     };
   }
 
@@ -232,6 +242,12 @@ async function runSummarizeSingle(
   // 모델이 keywords 50개 초과·blocks 100개 초과로 뱉으면 zod가 throw. parseSummarizeWithCap이
   // 검증 전에 한도 안으로 안전 보정해서 검증 통과시킴. (실측 2026-05-31 prod: Haiku가
   // 강의 슬라이드 자료에서 keywords 50개 초과 뱉어 모든 chunk가 throw하던 버그.)
+  const attemptUsage = { ...result.usage };
+  if (previousAttempt) {
+    for (const key of Object.keys(attemptUsage) as Array<keyof typeof attemptUsage>)
+      attemptUsage[key] += previousAttempt.usage[key];
+  }
+  const attemptCost = estimateCost(result.usage, result.modelId) + (previousAttempt?.costUsd ?? 0);
   let summary: SummarizeOutputT;
   try {
     if (result.finishReason === "length" || result.finishReason === "error")
@@ -248,11 +264,20 @@ async function runSummarizeSingle(
       errorMessage: `Zod 검증 실패: ${e instanceof Error ? e.message : String(e)}`,
       payload: { rawText: result.text.slice(0, 4000) },
     });
+    if (e instanceof SummaryCitationError && !previousAttempt) {
+      return runSummarizeSingle(
+        input,
+        persistCache,
+        classification,
+        `${chunkContext}\n직전 응답은 원문 인용이 바뀌거나 너무 짧아 검증되지 않았습니다. 이 구간 전체를 다시 정리하세요. sourceQuote는 원문에서 12자 이상의 연속 문장을 그대로 복사하고, 수식만 짧게 인용하거나 말줄임표·재서술을 넣지 마세요. 원문에 없는 설명은 추가하지 마세요.\n`,
+        { usage: attemptUsage, costUsd: attemptCost },
+      );
+    }
     return {
       ok: false,
       stage: "validation",
       error: "요약 형식이나 원문 인용을 확인하지 못했어요. 다시 시도해주세요.",
-      billed: { usage: result.usage, costUsd: estimateCost(result.usage, result.modelId) },
+      billed: { usage: attemptUsage, costUsd: attemptCost },
     };
   }
 
@@ -266,8 +291,8 @@ async function runSummarizeSingle(
     payload: { summary },
   });
 
-  let costUsd = estimateCost(result.usage, result.modelId);
-  const combinedUsage = { ...result.usage };
+  let costUsd = attemptCost;
+  const combinedUsage = attemptUsage;
   if (!isMetadataOnly) {
     let audit: Awaited<ReturnType<typeof auditSummary>>;
     try {

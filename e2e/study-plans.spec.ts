@@ -224,6 +224,14 @@ test("저장된 시험 범위를 기다린 뒤 같은 자료 묶음으로 문제
 });
 
 test("풀이 결과에서 개념 메모를 시험 계획에 기록하고 Today로 돌아간다", async ({ page }) => {
+  // Isolate the destination from server-side database calls. The live release
+  // workflow separately verifies authenticated Today rendering and persistence.
+  await page.route("**/dashboard/today**", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: "<!doctype html><html lang='ko'><body><main>오늘의 공부</main></body></html>",
+    }),
+  );
   const plan = samplePlan();
   const read = await mockWorkspace(page, { ...emptyStudyWorkspace(), plans: [plan] });
   await page.goto(

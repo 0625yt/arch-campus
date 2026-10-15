@@ -81,6 +81,7 @@ function response(modelId = "gemini-3.5-flash-lite") {
 beforeEach(() => {
   mocks.generate.mockReset();
   mocks.commit.mockReset();
+  mocks.audit.mockReset();
   mocks.commit.mockImplementation(async (options) => options.result);
   mocks.generations.length = 0;
   mocks.updates.length = 0;
@@ -228,14 +229,42 @@ describe("summary chunk persistence and accounting", () => {
       jobExecution: { jobId: "job", retryCount: 0 },
     });
     expect(output).toMatchObject({ ok: false, stage: "validation" });
-    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(mocks.generate).toHaveBeenCalledTimes(2);
     expect(mocks.commit).not.toHaveBeenCalled();
     expect(mocks.updates).toHaveLength(0);
-    expect(mocks.generations.filter((r) => r.tool === "summarize")).toHaveLength(1);
+    expect(mocks.generations.filter((r) => r.tool === "summarize")).toHaveLength(2);
     expect(mocks.generations[0]).toMatchObject({
       status: "error",
       cost_usd: estimateCost(usage, unsupported.modelId),
     });
+  });
+
+  it("retries only a failed citation once and commits both attempts' actual usage", async () => {
+    const invalid = response();
+    const payload = JSON.parse(invalid.text);
+    payload.blocks[1].sourceQuote = "원문에 없는 문장을 인용한 잘못된 응답입니다.";
+    mocks.generate
+      .mockResolvedValueOnce({ ...invalid, text: JSON.stringify(payload) })
+      .mockResolvedValueOnce(response());
+    const output = await runSummarize({
+      ...input,
+      fullText: quote.repeat(4),
+      sanitizedText: quote.repeat(4),
+      jobExecution: { jobId: "job", retryCount: 0 },
+    });
+    expect(output.ok).toBe(true);
+    if (!output.ok) return;
+    expect(mocks.generate).toHaveBeenCalledTimes(2);
+    expect(mocks.audit).toHaveBeenCalledOnce();
+    expect(output.usage.inputTokens).toBe(200);
+    expect(output.costUsd).toBeCloseTo(2 * estimateCost(usage, invalid.modelId), 10);
+    expect(mocks.generations.filter((r) => r.tool === "summarize").map((r) => r.status)).toEqual([
+      "error",
+      "ok",
+    ]);
+    expect(mocks.commit).toHaveBeenCalledWith(
+      expect.objectContaining({ usage: output.usage, costUsd: output.costUsd }),
+    );
   });
 
   it("preserves the previous material cache when every chunk fails validation", async () => {

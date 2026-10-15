@@ -117,18 +117,25 @@ try {
     .eq("material_id", material.data.id);
   if (logged.error) throw logged.error;
   const calls = logged.data.filter((row) => row.tool === (quizMode ? "quiz" : "summarize"));
-  assert.equal(calls.length, quizMode ? 1 : 2);
+  const audits = logged.data.filter((row) => row.tool === "summary-verify");
+  const metered = quizMode ? calls : [...calls, ...audits];
+  if (quizMode) assert.equal(calls.length, 1);
+  else assert.ok(calls.length >= 2 && calls.length <= 4, "at most one citation retry per part");
+  if (!quizMode) {
+    assert.equal(audits.length, 2, "each source part must have an independent audit");
+    assert.ok(audits.every((row) => row.status === "ok"));
+  }
   const successful = calls.filter((row) => row.status === "ok").length;
   assert.ok(successful >= 1);
   assert.equal(
-    calls.reduce((sum, row) => sum + row.input_tokens, 0),
+    metered.reduce((sum, row) => sum + row.input_tokens, 0),
     job.input_tokens,
   );
   assert.equal(
-    calls.reduce((sum, row) => sum + row.output_tokens, 0),
+    metered.reduce((sum, row) => sum + row.output_tokens, 0),
     job.output_tokens,
   );
-  const recordedCost = calls.reduce((sum, row) => sum + Number(row.cost_usd), 0);
+  const recordedCost = metered.reduce((sum, row) => sum + Number(row.cost_usd), 0);
   assert.ok(Math.abs(recordedCost - Number(job.cost_usd)) < 0.000002);
   process.stdout.write("PASS usage and costs are recorded once per generation record\n");
   if (quizMode) {
@@ -152,8 +159,10 @@ try {
       .single();
     if (cached.error) throw cached.error;
     assert.deepEqual(cached.data.summary_payload, job.result.summary);
-    const headings = cached.data.summary_payload.blocks.filter((block) => block.type === "h2");
-    assert.equal(headings.filter((block) => /부분 [12]\/2/.test(block.content)).length, successful);
+    const coverage = cached.data.summary_payload.coverage;
+    assert.equal(coverage.processedChunks, 2);
+    assert.equal(coverage.totalChunks, 2);
+    assert.deepEqual(coverage.sourcePages, [1, 2]);
     const partialWarning = cached.data.summary_payload.reviewSpots.some(
       (spot) => spot.title === "일부 구간을 정리하지 못했어요",
     );
