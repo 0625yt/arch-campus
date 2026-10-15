@@ -100,6 +100,40 @@ try {
     status: 403,
   });
   pass("stale revisions, foreign materials and foreign origins are rejected");
+  const foreignId = randomUUID();
+  const source = {
+    storagePath: `${users[1]}/${foreignId}.txt`,
+    filename: "synthetic.txt",
+    mimeType: "text/plain",
+  };
+  await request("/api/materials/finalize", {
+    owner: 1,
+    method: "POST",
+    status: 404,
+    body: { ...source, materialId: foreignId, courseId: course.data.id },
+  });
+  await request("/api/materials/finalize-merged", {
+    owner: 1,
+    method: "POST",
+    status: 404,
+    body: {
+      materialId: randomUUID(),
+      courseId: course.data.id,
+      sources: [source, { ...source, storagePath: `${users[1]}/${randomUUID()}.txt` }],
+    },
+  });
+  assert.equal(
+    (
+      await admin
+        .from("materials")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", users[1])
+    ).count,
+    0,
+  );
+  pass(
+    "single and merged uploads reject a foreign course before writing material rows or starting AI",
+  );
   const plan = workspace.plans[0],
     task = plan.tasks[0];
   for (const action of ["complete", "undo"]) {
