@@ -195,7 +195,7 @@ try {
     "push configuration, idempotent registration, owner isolation and opt-out work without sending notifications",
   );
   if (process.argv.includes("--upload")) {
-    const filename = "study-example.pptx",
+    const filename = "release-example.pptx",
       mimeType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
     const target = await request("/api/materials/upload-url", {
       method: "POST",
@@ -205,7 +205,7 @@ try {
     const uploaded = await fetch(target.signedUrl, {
       method: "PUT",
       headers: { "content-type": mimeType, authorization: `Bearer ${target.token}` },
-      body: await readFile(new URL("../src/test/fixtures/study-example.pptx", import.meta.url)),
+      body: await readFile(new URL("../src/test/fixtures/release-example.pptx", import.meta.url)),
     });
     assert.ok(uploaded.ok, "signed direct upload must succeed");
     const finalized = await request("/api/materials/finalize", {
@@ -224,7 +224,7 @@ try {
     let jobs;
     for (let i = 0; i < 120; i++) {
       const loaded = await admin
-        .from("material_jobs")
+        .from("jobs")
         .select("tool,status,error_message")
         .eq("owner_id", users[0])
         .eq("material_id", target.materialId);
@@ -277,6 +277,19 @@ try {
   }
   process.stdout.write(`${checks} production release checks passed\n`);
 } catch (error) {
+  if (users[0]) {
+    const failed = await admin
+      .from("generations")
+      .select("tool,error_message")
+      .eq("owner_id", users[0])
+      .eq("status", "error");
+    for (const row of failed.data ?? []) {
+      const message = (row.error_message ?? "")
+        .replace(/(?:sk-|AIza)[\w-]+/g, "[redacted]")
+        .slice(0, 240);
+      process.stderr.write(`Synthetic fixture failure (${row.tool}): ${message}\n`);
+    }
+  }
   process.stderr.write(
     `FAIL release verification: ${error instanceof assert.AssertionError ? error.message : (error.code ?? error.name)}\n`,
   );

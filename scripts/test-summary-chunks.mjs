@@ -196,6 +196,12 @@ try {
       .select("tool,status,cost_usd,error_message")
       .eq("owner_id", userId);
     if (!billed.error) {
+      for (const row of billed.data.filter((row) => row.status === "error")) {
+        const message = (row.error_message ?? "")
+          .replace(/(?:sk-|AIza)[\w-]+/g, "[redacted]")
+          .slice(0, 240);
+        process.stderr.write(`Synthetic fixture failure (${row.tool}): ${message}\n`);
+      }
       process.stderr.write(
         `Recorded estimated cost before cleanup: $${billed.data.reduce((sum, row) => sum + Number(row.cost_usd), 0).toFixed(6)}; failed summary stages: ${billed.data
           .filter((row) => row.tool === "summarize" && row.status === "error")
