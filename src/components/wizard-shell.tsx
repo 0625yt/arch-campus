@@ -11,10 +11,9 @@ import { WATERMARK } from "@/lib/schemas";
  *  - 안 포함하거나 비어있으면 코드 상수로 fallback — 학칙·치팅 라인 보호 (CLAUDE.md §4).
  */
 export function WizardWatermark({ modelText }: { modelText?: string | null }) {
-  const safe =
-    modelText && modelText.includes(WATERMARK)
-      ? modelText
-      : `${WATERMARK} 본인이 다시 검토·수정해야 학습이 완성돼요.`;
+  const safe = modelText?.includes(WATERMARK)
+    ? modelText
+    : `${WATERMARK} 본인이 다시 검토·수정해야 학습이 완성돼요.`;
   return (
     <p
       className="mt-2 text-[11px] wght-450 italic leading-[1.55] text-[var(--color-apple-muted)]"

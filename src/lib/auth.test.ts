@@ -25,15 +25,15 @@ describe("owner authorization", () => {
     currentUser.mockResolvedValue(null);
     expect(await getOwnerId()).toBe(DEV_FALLBACK_USER_ID);
   });
-  it.each([
-    "production",
-    "development",
-  ])("never downgrades pending MFA to a fallback identity (%s)", async (env) => {
-    vi.stubEnv("NODE_ENV", env);
-    currentUser.mockRejectedValue(new MfaRequiredError());
-    await expect(getOwnerId()).rejects.toBeInstanceOf(UnauthorizedError);
-    expect(await tryGetOwnerId()).toBeNull();
-  });
+  it.each(["production", "development"])(
+    "never downgrades pending MFA to a fallback identity (%s)",
+    async (env) => {
+      vi.stubEnv("NODE_ENV", env);
+      currentUser.mockRejectedValue(new MfaRequiredError());
+      await expect(getOwnerId()).rejects.toBeInstanceOf(UnauthorizedError);
+      expect(await tryGetOwnerId()).toBeNull();
+    },
+  );
   it("does not substitute a user when the auth service fails", async () => {
     currentUser.mockRejectedValue(new Error("unavailable"));
     await expect(getOwnerId()).rejects.toThrow("unavailable");

@@ -22,7 +22,7 @@ if (error) {
   process.exit(1);
 }
 
-console.log(`\n=== 최근 피드백 ${data.length}개 ===\n`);
+console.info(`\n=== 최근 피드백 ${data.length}개 ===\n`);
 const now = Date.now();
 for (const f of data) {
   const ageMin = Math.round((now - new Date(f.created_at).getTime()) / 60000);
@@ -33,12 +33,12 @@ for (const f of data) {
         ? `${Math.round(ageMin / 60)}시간 전`
         : `${Math.round(ageMin / 1440)}일 전`;
   const rate = f.rating === 1 ? "👍" : f.rating === -1 ? "👎" : `(${f.rating})`;
-  console.log(`${rate} [${f.target_type}/${f.category}] ${age}`);
-  if (f.body) console.log(`   "${f.body}"`);
-  console.log(
+  console.info(`${rate} [${f.target_type}/${f.category}] ${age}`);
+  if (f.body) console.info(`   "${f.body}"`);
+  console.info(
     `   target=${f.target_id} owner=${f.owner_id?.slice(0, 8)} gen=${f.generation_id?.slice(0, 8) ?? "-"}`,
   );
-  console.log("");
+  console.info("");
 }
 
 // 카테고리별 집계
@@ -47,7 +47,7 @@ for (const f of data) {
   const k = `${f.target_type}/${f.category}`;
   byCat[k] = (byCat[k] ?? 0) + 1;
 }
-console.log("=== 카테고리별 집계 ===");
+console.info("=== 카테고리별 집계 ===");
 for (const [k, n] of Object.entries(byCat).sort((a, b) => b[1] - a[1])) {
-  console.log(`  ${n.toString().padStart(3)}  ${k}`);
+  console.info(`  ${n.toString().padStart(3)}  ${k}`);
 }

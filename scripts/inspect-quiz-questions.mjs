@@ -25,26 +25,26 @@ for (const t of targets) {
     .eq("id", quizId)
     .maybeSingle();
   if (error || !data) {
-    console.log(`\n### ${quizId} — 조회 실패: ${error?.message ?? "없음"}`);
+    console.info(`\n### ${quizId} — 조회 실패: ${error?.message ?? "없음"}`);
     continue;
   }
-  console.log(`\n\n══════════ ${data.title} ══════════`);
-  console.log(
+  console.info(`\n\n══════════ ${data.title} ══════════`);
+  console.info(
     `mode=${data.mode} difficulty=${data.difficulty} count=${data.question_count} id=${quizId}`,
   );
   const qs = Array.isArray(data.questions) ? data.questions : [];
   const wanted = qNumRaw ? Number(qNumRaw) : null; // 1-based
   for (const q of qs) {
     if (wanted && q.id !== wanted) continue;
-    console.log(
+    console.info(
       `\n── Q${q.id} [${q.kind ?? "multiple-choice"}] (${q.difficulty ?? "?"}) topic=${q.topic ?? "-"}`,
     );
-    console.log(`stem: ${q.stem}`);
+    console.info(`stem: ${q.stem}`);
     if (q.choices) {
-      for (const c of q.choices) console.log(`   ${c.key}. ${c.text}`);
+      for (const c of q.choices) console.info(`   ${c.key}. ${c.text}`);
     }
-    console.log(`answer: ${JSON.stringify(q.answer)}`);
-    if (q.explanation) console.log(`explanation: ${q.explanation}`);
-    if (q.evidence) console.log(`evidence: ${q.evidence?.slice(0, 200)}`);
+    console.info(`answer: ${JSON.stringify(q.answer)}`);
+    if (q.explanation) console.info(`explanation: ${q.explanation}`);
+    if (q.evidence) console.info(`evidence: ${q.evidence?.slice(0, 200)}`);
   }
 }

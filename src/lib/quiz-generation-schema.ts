@@ -30,6 +30,14 @@ export const QuizGenerationSchema = z.object({
           .describe(
             "A complete question of 15–400 characters specifying the target and requested answer form.",
           ),
+        passage: z
+          .string()
+          .min(10)
+          .max(5000)
+          .nullable()
+          .describe(
+            "Verbatim source passage or textual diagram needed to solve the question, shown before answering; otherwise null.",
+          ),
         choices: z
           .array(z.object({ key: z.enum(["A", "B", "C", "D"]), text: z.string().min(1).max(300) }))
           .length(4)

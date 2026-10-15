@@ -104,24 +104,24 @@ describe.runIf(shouldRun)("Flash-Lite evidence 실패 원인 진단", () => {
       }
     }
 
-    console.log("\n========== Flash-Lite evidence 실패 원인 ==========");
-    console.log(
+    console.info("\n========== Flash-Lite evidence 실패 원인 ==========");
+    console.info(
       `총 생성 ${total}개 · evidence 통과 ${kept}개 (${Math.round((kept / total) * 100)}%)`,
     );
-    console.log(`\ndrop 사유별:`);
-    console.log(`  A. evidence 비어있음     : ${sujiBuckets.비어있음}  ← 프롬프트로 강제 가능`);
-    console.log(
+    console.info(`\ndrop 사유별:`);
+    console.info(`  A. evidence 비어있음     : ${sujiBuckets.비어있음}  ← 프롬프트로 강제 가능`);
+    console.info(
       `  B. 너무 짧음(<10자)      : ${sujiBuckets.너무짧음}  ← 프롬프트로 최소길이 요구 가능`,
     );
-    console.log(
+    console.info(
       `  C. 본문 인용 아님(환각)  : ${sujiBuckets.인용아님_환각}  ← 근본적, 살리기 어려움`,
     );
-    console.log(`  기타                     : ${sujiBuckets.기타}`);
-    console.log(`\n환각 evidence 예시 (본문에 없는 인용):`);
-    for (const e of examples) console.log(e);
+    console.info(`  기타                     : ${sujiBuckets.기타}`);
+    console.info(`\n환각 evidence 예시 (본문에 없는 인용):`);
+    for (const e of examples) console.info(e);
     const fixable = sujiBuckets.비어있음 + sujiBuckets.너무짧음;
     const hard = sujiBuckets.인용아님_환각;
-    console.log(
+    console.info(
       `\n판정: 프롬프트로 살릴 수 있는 실패 ${fixable}개 / 근본적(환각) ${hard}개 → ${
         fixable > hard ? "프롬프트 보강으로 살릴 가능성 있음" : "환각이 지배적 — 살리기 어려움"
       }`,

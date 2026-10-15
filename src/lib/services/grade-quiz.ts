@@ -59,6 +59,12 @@ export interface GradedResult {
   llmGraded?: boolean;
   /** DB 누적 결과에서 이 문제를 마지막으로 채점한 시각. API 응답에는 노출하지 않는다. */
   gradedAt?: string;
+  selfAssessment?: {
+    accepted: boolean;
+    originalCorrect: boolean;
+    originalWhyWrong?: string;
+    originalGradingNote?: string;
+  };
 }
 
 export interface GradedQuiz {
@@ -142,7 +148,7 @@ function gradeQuestion(
   }
 
   if (kind === "short-answer") {
-    return gradeShortAnswer(question.answer, rawSubmitted, submittedText);
+    return gradeShortAnswer(question.answer, rawSubmitted, submittedText, question.stem);
   }
 
   const keywords = extractEssayKeywords(question.answer);
@@ -179,7 +185,7 @@ function gradeQuestion(
  * 단답형 채점 — 단일답·동의어형(OR)과 복수 필수답(AND)을 구분해 부분 채점까지.
  *
  * 정답 표기 규약 (quiz.md):
- *   - 동의어 허용: `|` `/` `,` `또는` 로 구분 → 하나만 맞으면 정답.
+ *   - 동의어 허용: `|` `,` `또는` 로 구분 → 하나만 맞으면 정답.
  *     예) "임계 구역 | critical section"
  *   - 복수 필수답("둘 다 쓰세요"): `&` 로 구분 → 전부 맞아야 정답, 부분 채점 노출.
  *     각 슬롯 안에서 다시 `|`로 동의어 허용 가능. 예) "あの|あ & この|こ"
@@ -188,8 +194,10 @@ function gradeShortAnswer(
   answerSpec: string,
   rawSubmitted: string,
   submittedText: string,
+  stem: string,
 ): Pick<GradedResult, "correct" | "answer" | "submitted" | "gradingNote" | "partial" | "whyWrong"> {
   const requiredSlots = parseRequiredSlots(answerSpec);
+  const scriptAllowed = !violatesRequestedScript(stem, rawSubmitted);
 
   // 복수 필수답 — "둘 다 쓰세요" 류.
   if (requiredSlots.length > 1) {
@@ -204,7 +212,7 @@ function gradeShortAnswer(
       if (hit) matchedParts.push(slot.label);
       else missingParts.push(slot.label);
     }
-    const correct = missingParts.length === 0;
+    const correct = scriptAllowed && missingParts.length === 0;
     return {
       correct,
       answer: answerSpec,
@@ -231,7 +239,14 @@ function gradeShortAnswer(
 
   // 단일답(동의어 허용) — 기존 동작.
   const accepted = requiredSlots[0]?.accepted ?? extractAcceptedAnswers(answerSpec);
-  const correct = accepted.some((candidate) => isFreeTextMatch(candidate, submittedText));
+  const contextual = accepted.flatMap((candidate) => {
+    const match = candidate.match(/^(.{2,}?)\s*(결합도|무결성|알고리즘|프로토콜)$/u);
+    return match && stem.includes(match[2]) ? [match[1].trim()] : [];
+  });
+  const correct =
+    scriptAllowed &&
+    ([...accepted, ...contextual].some((candidate) => isFreeTextMatch(candidate, submittedText)) ||
+      accepted.some((candidate) => equivalentQuantity(candidate, rawSubmitted, stem)));
   const primary = requiredSlots[0]?.label ?? accepted[0] ?? answerSpec;
 
   // 오답이면 — 정답과 거의 같은(가나 한 글자 차이) 경우 무엇이 다른지 콕 집어준다.
@@ -264,7 +279,7 @@ function gradeShortAnswer(
  */
 function parseRequiredSlots(answerSpec: string): Array<{ label: string; accepted: string[] }> {
   const stripped = answerSpec.replace(/^정답[:：]\s*/i, "").trim();
-  // `&` 또는 " 그리고 " 로 명시적 복수답 구분. 그 외 구분자(|,/)는 동의어로 본다.
+  // `&` 또는 " 그리고 " 로 명시적 복수답 구분. 그 외 명시적 구분자(|, 등)는 동의어로 본다. /는 분수·단위를 보존한다.
   const slotTexts = stripped
     .split(/\s*&\s*|\s+그리고\s+/g)
     .map((s) => s.trim())
@@ -281,7 +296,7 @@ function parseRequiredSlots(answerSpec: string): Array<{ label: string; accepted
 
 /** 동의어 묶음에서 사람이 읽기 좋은 첫 표현 (정규화 전 원문 기준). */
 function firstReadableLabel(slotText: string): string {
-  const first = slotText.split(/\n|\/|,|;|\||또는/gi)[0] ?? slotText;
+  const first = slotText.split(/\n|(?<!\d),(?!\d)|;|\||또는/gi)[0] ?? slotText;
   return first.replace(/^정답[:：]\s*/i, "").trim() || slotText.trim();
 }
 
@@ -304,7 +319,7 @@ function extractAcceptedAnswers(answer: string): string[] {
   return Array.from(
     new Set(
       answer
-        .split(/\n|\/|,|;|\||또는/gi)
+        .split(/\n|(?<!\d),(?!\d)|;|\||또는/gi)
         .map((part) => part.replace(/^정답[:：]\s*/i, "").trim())
         .filter(Boolean)
         .map(normalizeText)
@@ -329,6 +344,15 @@ function isFreeTextMatch(candidate: string, submitted: string): boolean {
   const normalizedSubmitted = normalizeText(submitted);
   if (!normalizedCandidate || !normalizedSubmitted) return false;
   if (normalizedSubmitted === normalizedCandidate) return true;
+  if (/^[+-]?[\d.]/u.test(normalizedCandidate)) return false;
+  // Korean spacing is not a learning objective for terminology questions.
+  if (
+    /^[가-힣\s]+$/u.test(normalizedCandidate) &&
+    normalizedCandidate.replace(/\s/g, "").length >= 2 &&
+    normalizedCandidate.replace(/\s/g, "") === normalizedSubmitted.replace(/\s/g, "")
+  )
+    return true;
+  if (/(?:아니|않|not\b|never\b)/iu.test(normalizedSubmitted)) return false;
 
   // "정"→"정규화", "1"→"10"처럼 정답의 짧은 접두어만 쓴 답을 맞다고 보지 않는다.
   // 특히 정답 문자열이 학생 답을 포함한다는 이유로 인정하는 역방향 포함은 금지한다.
@@ -360,7 +384,8 @@ function normalizeText(value: string): string {
       .replace(/[“”"'"`「」『』]/g, "")
       .replace(/[(){}[\]（）【】]/g, " ")
       // 영문 + 일본어·한국어 구두점(중점·일본쉼표·마침표 등)을 공백으로.
-      .replace(/[.,!?~。、・·…：:;；]/g, " ")
+      .replace(/(?<=\d),(?=\d{3}(?:\D|$))/g, "")
+      .replace(/(?<!\d)\.|\.(?!\d)|[,!?~。、・·…：:;；]/g, " ")
       .replace(/\s+/g, " ")
       .trim()
   );
@@ -432,4 +457,64 @@ function diagnoseJapaneseKanaSlip(correct: string, submitted: string): string | 
   }
 
   return null;
+}
+
+/** Only single numeric quantities: no arbitrary expression execution or loose substring match. */
+function equivalentQuantity(expected: string, submitted: string, stem: string): boolean {
+  const parse = (raw: string) => {
+    const match = raw
+      .normalize("NFKC")
+      .replace(/(?<=\d),(?=\d{3}(?:\D|$))/g, "")
+      .trim()
+      .match(
+        /^([+-]?(?:\d+(?:\.\d+)?|\.\d+))(?:\s*\/\s*([+-]?\d+(?:\.\d+)?))?\s*(%|mm|cm|km|m|mg|kg|g|ms|s|분|초)?$/i,
+      );
+    if (!match || (match[2] && Number(match[2]) === 0)) return null;
+    const units: Record<string, [string, number]> = {
+      "%": ["number", 0.01],
+      mm: ["length", 0.001],
+      cm: ["length", 0.01],
+      m: ["length", 1],
+      km: ["length", 1000],
+      mg: ["mass", 0.001],
+      g: ["mass", 1],
+      kg: ["mass", 1000],
+      ms: ["time", 0.001],
+      s: ["time", 1],
+      초: ["time", 1],
+      분: ["time", 60],
+    };
+    const unit = match[3]?.toLowerCase() ?? "";
+    const [dimension, scale] = units[unit] ?? ["number", 1];
+    return {
+      value: (Number(match[1]) / Number(match[2] ?? 1)) * scale,
+      dimension,
+      unit,
+      fraction: !!match[2],
+    };
+  };
+  const a = parse(expected),
+    b = parse(submitted);
+  if (
+    !a ||
+    !b ||
+    a.dimension !== b.dimension ||
+    !Number.isFinite(a.value) ||
+    !Number.isFinite(b.value)
+  )
+    return false;
+  if (
+    /분수로|소수로|백분율로|단위를.*(?:맞춰|지켜)/u.test(stem) &&
+    (a.fraction !== b.fraction || a.unit !== b.unit)
+  )
+    return false;
+  return Math.abs(a.value - b.value) <= 1e-10 * Math.max(1, Math.abs(a.value));
+}
+
+export function violatesRequestedScript(stem: string, rawSubmitted: string): boolean {
+  const text = rawSubmitted.normalize("NFKC");
+  return (
+    (/(?:히라가나|ひらがな)(?:로|로만|로 쓰)/u.test(stem) && /[ァ-ヿ一-龯]/u.test(text)) ||
+    (/(?:가타카나|カタカナ)(?:로|로만|로 쓰)/u.test(stem) && /[ぁ-ゟ一-龯]/u.test(text))
+  );
 }

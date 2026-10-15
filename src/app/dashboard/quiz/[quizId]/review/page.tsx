@@ -9,12 +9,20 @@ import { QuizSolver } from "../quiz-solver";
 
 export const dynamic = "force-dynamic";
 
-export default async function QuizReviewPage({ params }: { params: Promise<{ quizId: string }> }) {
+export default async function QuizReviewPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ quizId: string }>;
+  searchParams: Promise<{ limit?: string }>;
+}) {
   const { quizId } = await params;
   const ownerId = await tryGetOwnerId();
   if (!ownerId) redirect("/login");
 
-  const dueIds = await listDueQuestionIds({ ownerId, quizId });
+  const requestedLimit = Number((await searchParams).limit);
+  const limit = [5, 10, 20].includes(requestedLimit) ? requestedLimit : 200;
+  const dueIds = (await listDueQuestionIds({ ownerId, quizId })).slice(0, limit);
   if (dueIds.length === 0) {
     const quiz = await getQuizForSolving({ ownerId, quizId });
     if (!quiz) notFound();

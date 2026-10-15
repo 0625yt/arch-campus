@@ -147,7 +147,7 @@ function formatDayLabel(day: string): string {
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
   if (day === isoDay(yesterday)) return "어제";
   // day는 YYYY-MM-DD (KST). KST 자정 시각으로 명시 파싱.
-  const d = new Date(day + "T00:00:00+09:00");
+  const d = new Date(`${day}T00:00:00+09:00`);
   if (!Number.isFinite(d.getTime())) return day;
   const { month, day: dd } = kstParts(d);
   return `${month}월 ${dd}일`;

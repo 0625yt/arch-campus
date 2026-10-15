@@ -32,6 +32,30 @@ export const SummarizeOutput = z.object({
           ...SummaryBlockBase,
         }),
         z.object({
+          type: z.literal("table"),
+          caption: z.string().min(2).max(120),
+          headers: z.array(z.string().min(1).max(80)).min(2).max(6),
+          rows: z
+            .array(z.array(z.string().max(400)).min(2).max(6))
+            .min(1)
+            .max(30),
+          ...SummaryBlockBase,
+        }),
+        z.object({
+          type: z.literal("flow"),
+          caption: z.string().min(2).max(120),
+          steps: z
+            .array(
+              z.object({
+                label: z.string().min(1).max(60),
+                detail: z.string().max(240),
+              }),
+            )
+            .min(2)
+            .max(8),
+          ...SummaryBlockBase,
+        }),
+        z.object({
           type: z.literal("callout"),
           tone: z.enum(["info", "warn", "tip"]),
           content: z.string().min(10).max(600),
@@ -43,7 +67,7 @@ export const SummarizeOutput = z.object({
     // max 500 — 2026-05-31 사용자 결정: Gemini Flash로 모델 바꾸며 cap 5배 (100→500).
     // 합본·100p 자료에서도 잘릴 일 없게.
     .min(5)
-    .max(500),
+    .max(2000),
   // max 500 — blocks와 같은 정책. 어학 자료처럼 단어가 많아도 다 담음.
   keywords: z.array(z.string().min(1).max(60)).min(3).max(500),
   reviewSpots: z
@@ -56,7 +80,20 @@ export const SummarizeOutput = z.object({
     .min(1)
     .max(8),
   watermark: z.string().min(10),
+  // Written by the service, never trusted from model output. Optional for old cached summaries.
+  coverage: z
+    .object({
+      processedChunks: z.number().int().positive(),
+      totalChunks: z.number().int().positive(),
+      inputCharacters: z.number().int().nonnegative(),
+      sourcePages: z.array(z.number().int().positive()),
+      citedPages: z.array(z.number().int().positive()),
+      pageCount: z.number().int().nonnegative().nullable(),
+      warnings: z.array(z.string()),
+    })
+    .optional(),
 });
+export const SummarizeGenerationSchema = SummarizeOutput.omit({ coverage: true });
 export type SummarizeOutputT = z.infer<typeof SummarizeOutput>;
 
 /**
@@ -104,6 +141,7 @@ export const QuizQuestion = z.object({
     z.string().min(1).max(60),
   ),
   stem: z.string().min(15).max(400),
+  passage: z.string().min(10).max(5000).nullable().optional(),
   // 객관식이 아니면 null. zod default가 풀어주므로 호출자는 null 또는 undefined 둘 다 OK.
   choices: z.preprocess(
     // Gemini가 비객관식에서 `null` 대신 `[]`를 자주 반환한다. 의미는 같으므로

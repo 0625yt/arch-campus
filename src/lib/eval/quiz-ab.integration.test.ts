@@ -309,13 +309,13 @@ function printResult(
   model: ModelLabel,
   result: Awaited<ReturnType<typeof runCase>>,
 ) {
-  console.log(`\n[quiz-eval] ${testCase.label} / ${model} / ${result.modelId}`);
-  console.log(
+  console.info(`\n[quiz-eval] ${testCase.label} / ${model} / ${result.modelId}`);
+  console.info(
     `raw=${result.raw} accepted=${result.accepted} evidence=${Math.round(result.exactEvidenceRate * 100)}% integrity=${Math.round(result.integrityRate * 100)}% duplicates=${result.nearDuplicates} leaks=${result.promptLeaks} cost=$${result.cost.toFixed(4)}`,
   );
-  if (result.rejected) console.log(`rejected: ${result.drops.join(" | ")}`);
+  if (result.rejected) console.info(`rejected: ${result.drops.join(" | ")}`);
   if (result.drops.length > 0 && !result.rejected)
-    console.log(`drops: ${result.drops.join(" | ")}`);
-  for (const [index, stem] of result.stems.entries()) console.log(`  Q${index + 1}. ${stem}`);
-  console.log(`vendor=${getModelVendor(result.modelId)}`);
+    console.info(`drops: ${result.drops.join(" | ")}`);
+  for (const [index, stem] of result.stems.entries()) console.info(`  Q${index + 1}. ${stem}`);
+  console.info(`vendor=${getModelVendor(result.modelId)}`);
 }

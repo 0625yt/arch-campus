@@ -1,12 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { getOwnerId, UnauthorizedError } from "@/lib/auth";
-import {
-  enqueueJob,
-  markJobDone,
-  markJobError,
-  markJobRunning,
-  recordJobCheckpoint,
-} from "@/lib/data/jobs";
+import { enqueueJob, markJobError, markJobRunning, recordJobCheckpoint } from "@/lib/data/jobs";
 import { MAX_STYLES_PER_REQUEST, STYLE_ORDER, type SummaryStyle } from "@/lib/material-policy";
 import { guardRateLimit } from "@/lib/ratelimit";
 import { runSummarize } from "@/lib/services/summarize";
@@ -22,7 +16,7 @@ export const maxDuration = 300;
  *  1) 자료 owner 검증
  *  2) jobs에 pending 행 만들기 (같은 자료+tool active 있으면 그걸 재사용)
  *  3) 즉시 { ok, jobId } 응답
- *  4) after()로 백그라운드에서 runSummarize → markJobDone/Error
+ *  4) after()의 서비스가 결과와 완료를 함께 저장하고 실패 시 markJobError
  *
  * 클라이언트는 jobId 받자마자 다른 페이지 가도 됨.
  * 폴링: GET /api/jobs/{jobId}
@@ -74,7 +68,7 @@ export async function POST(
   const admin = getAdminSupabase();
   const { data: material, error: fetchErr } = await admin
     .from("materials")
-    .select("id, title, type, full_text, page_count")
+    .select("id, title, type, full_text, page_count, storage_path, mime_type")
     .eq("id", materialId)
     .eq("owner_id", ownerId)
     .maybeSingle();
@@ -126,6 +120,7 @@ export async function POST(
         progress: 45,
       });
       const result = await runSummarize({
+        jobExecution: { jobId: job.id, retryCount: 0 },
         ownerId,
         materialId: material.id,
         title: material.title,
@@ -134,6 +129,10 @@ export async function POST(
         sanitizedText: fullText,
         pageCount: material.page_count ?? null,
         parserWarnings: [],
+        originalFile:
+          material.storage_path && material.mime_type
+            ? { storagePath: material.storage_path, mimeType: material.mime_type }
+            : null,
         styles,
         intentNote,
       });
@@ -142,22 +141,6 @@ export async function POST(
         await markJobError({ jobId: job.id, ownerId, errorMessage: result.error });
         return;
       }
-
-      await recordJobCheckpoint({
-        jobId: job.id,
-        ownerId,
-        stage: "verifying-output",
-        progress: 85,
-      });
-
-      await markJobDone({
-        jobId: job.id,
-        ownerId,
-        result: { summary: result.summary },
-        modelId: result.modelId,
-        usage: result.usage,
-        costUsd: result.costUsd,
-      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await markJobError({ jobId: job.id, ownerId, errorMessage: msg });

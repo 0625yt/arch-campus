@@ -52,16 +52,15 @@ describe("readChatResponse", () => {
     await expect(readChatResponse(response, vi.fn())).resolves.toBe("정답");
   });
 
-  it.each([
-    "\n",
-    "\r\n",
-    "\r",
-  ])("accepts multi-line SSE data with fragmented %j separators", async (separator) => {
-    const response = streamResponse(
-      ['data:{"type":"text-delta",', 'data: "delta":"공부 시작"}', "", ""].join(separator),
-    );
-    await expect(readChatResponse(response, vi.fn())).resolves.toBe("공부 시작");
-  });
+  it.each(["\n", "\r\n", "\r"])(
+    "accepts multi-line SSE data with fragmented %j separators",
+    async (separator) => {
+      const response = streamResponse(
+        ['data:{"type":"text-delta",', 'data: "delta":"공부 시작"}', "", ""].join(separator),
+      );
+      await expect(readChatResponse(response, vi.fn())).resolves.toBe("공부 시작");
+    },
+  );
 
   it("flushes an event without a trailing newline", async () => {
     const response = streamResponse('data: {"type":"text-delta","delta":"마지막 문장"}');

@@ -2,23 +2,44 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { state } = vi.hoisted(() => ({
   state: {
-    row: { id: "job", owner_id: "owner", status: "pending" } as Record<string, unknown>,
+    row: { id: "job", owner_id: "owner", status: "pending", retry_count: 0 } as Record<
+      string,
+      unknown
+    >,
+    rows: null as Record<string, unknown>[] | null,
     error: false,
     completeBeforeUpdate: false,
+    restartBeforeUpdate: false,
+    advanceRetryBeforeUpdate: true,
   },
 }));
 vi.mock("@/lib/supabase/admin", () => ({
   getAdminSupabase: () => ({
     from: () => {
       let single = false;
+      let orderKey = "";
+      let ascending = true;
+      let rowLimit = Number.POSITIVE_INFINITY;
       let patch: Record<string, unknown> = {},
         filters: ((row: Record<string, unknown>) => boolean)[] = [];
       const execute = () => {
         if (patch.status === "error" && state.completeBeforeUpdate) state.row.status = "done";
+        if (patch.status && state.restartBeforeUpdate) {
+          state.row.started_at = new Date().toISOString();
+          if (state.advanceRetryBeforeUpdate) state.row.retry_count = 1;
+        }
         if (state.error) return { data: null, error: { message: "database unavailable" } };
-        if (!filters.every((f) => f(state.row))) return { data: null, error: null };
-        Object.assign(state.row, patch);
-        return { data: single ? { ...state.row } : [{ ...state.row }], error: null };
+        const matched = (state.rows ?? [state.row])
+          .filter((row) => filters.every((filter) => filter(row)))
+          .sort((a, b) =>
+            ascending
+              ? String(a[orderKey]).localeCompare(String(b[orderKey]))
+              : String(b[orderKey]).localeCompare(String(a[orderKey])),
+          )
+          .slice(0, rowLimit);
+        for (const row of matched) Object.assign(row, patch);
+        const data = matched.map((row) => ({ ...row }));
+        return { data: single ? (data[0] ?? null) : data, error: null };
       };
       const query = Object.assign(Promise.resolve().then(execute), {
         update: (value: Record<string, unknown>) => {
@@ -38,8 +59,15 @@ vi.mock("@/lib/supabase/admin", () => ({
           return query;
         },
         select: () => query,
-        order: () => query,
-        limit: () => query,
+        order: (key: string, options: { ascending: boolean }) => {
+          orderKey = key;
+          ascending = options.ascending;
+          return query;
+        },
+        limit: (value: number) => {
+          rowLimit = value;
+          return query;
+        },
         maybeSingle: () => {
           single = true;
           return query;
@@ -52,6 +80,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 import {
   canAutoRetry,
+  claimStaleMaterialJobsForRetry,
   getLatestJob,
   listActiveJobs,
   markJobDone,
@@ -60,9 +89,12 @@ import {
 } from "./jobs";
 
 beforeEach(() => {
-  state.row = { id: "job", owner_id: "owner", status: "pending" };
+  state.row = { id: "job", owner_id: "owner", status: "pending", retry_count: 0 };
+  state.rows = null;
   state.error = false;
   state.completeBeforeUpdate = false;
+  state.restartBeforeUpdate = false;
+  state.advanceRetryBeforeUpdate = true;
 });
 describe("job state transitions", () => {
   it("only one worker can claim the pending job", async () => {
@@ -72,6 +104,28 @@ describe("job state transitions", () => {
   it("rejects a different owner's claim", async () => {
     expect(await markJobRunning({ jobId: "job", ownerId: "other" })).toBe(false);
     expect(state.row.status).toBe("pending");
+  });
+  it("does not let the original callback claim a retry", async () => {
+    state.row.retry_count = 1;
+    expect(await markJobRunning({ jobId: "job", ownerId: "owner" })).toBe(false);
+    expect(await markJobRunning({ jobId: "job", ownerId: "owner", retryCount: 1 })).toBe(true);
+  });
+  it("ignores an original execution's late completion and error during a retry", async () => {
+    state.row.status = "running";
+    state.row.retry_count = 1;
+    await markJobDone({
+      jobId: "job",
+      ownerId: "owner",
+      result: { stale: true },
+      modelId: "fixture",
+      usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheCreationTokens: 0 },
+      costUsd: 0,
+    });
+    await markJobError({ jobId: "job", ownerId: "owner", errorMessage: "late" });
+    expect(state.row.status).toBe("running");
+    expect(state.row.result).toBeUndefined();
+    await markJobError({ jobId: "job", ownerId: "owner", retryCount: 1, errorMessage: "current" });
+    expect(state.row.status).toBe("error");
   });
   it("keeps completed results when a delayed failure arrives", async () => {
     state.row.status = "done";
@@ -123,6 +177,7 @@ it("stale cleanup preserves a worker completion that won the race", async () => 
     material_id: "material",
     tool: "summarize",
     status: "running",
+    retry_count: 1,
     created_at: "2020-01-01T00:00:00Z",
     started_at: "2020-01-01T00:00:00Z",
   };
@@ -134,6 +189,62 @@ it("stale cleanup preserves a worker completion that won the race", async () => 
   });
   expect(result?.status).toBe("done");
   expect(state.row.status).toBe("done");
+});
+
+it("keeps a retry that restarts after the latest stale row was read", async () => {
+  state.row = {
+    id: "job",
+    owner_id: "owner",
+    material_id: "material",
+    tool: "presentation",
+    status: "running",
+    retry_count: 0,
+    created_at: "2020-01-01T00:00:00Z",
+    started_at: "2020-01-01T00:00:00Z",
+  };
+  state.restartBeforeUpdate = true;
+  const result = await getLatestJob({
+    ownerId: "owner",
+    materialId: "material",
+    tool: "presentation",
+  });
+  expect(result?.status).toBe("running");
+  expect(result?.retryCount).toBe(1);
+});
+
+it("claims one stale job per poll and leaves the rest eligible for recovery", async () => {
+  state.rows = ["first", "second", "other-owner"].map((id) => ({
+    id,
+    owner_id: id === "other-owner" ? "other" : "owner",
+    tool: "summarize",
+    status: "running",
+    retry_count: 0,
+    created_at: "2020-01-01T00:00:00Z",
+    started_at: "2020-01-01T00:00:00Z",
+  }));
+  const claimed = await claimStaleMaterialJobsForRetry({ ownerId: "owner" });
+  expect(claimed.map((job) => job.id)).toEqual(["first"]);
+  const active = await listActiveJobs({ ownerId: "owner" });
+  expect(active.map((job) => job.id)).toEqual(["first", "second"]);
+  expect(state.rows[1].retry_count).toBe(0);
+  expect(state.rows[1].status).toBe("running");
+  expect(state.rows[2].retry_count).toBe(0);
+});
+
+it("does not claim a job whose worker started after the stale SELECT", async () => {
+  state.row = {
+    id: "job",
+    owner_id: "owner",
+    tool: "quiz",
+    status: "pending",
+    retry_count: 0,
+    created_at: "2020-01-01T00:00:00Z",
+    started_at: null,
+  };
+  state.restartBeforeUpdate = true;
+  state.advanceRetryBeforeUpdate = false;
+  expect(await claimStaleMaterialJobsForRetry({ ownerId: "owner" })).toEqual([]);
+  expect(state.row.status).toBe("pending");
 });
 
 it("active-list cleanup preserves a completion after the list was read", async () => {

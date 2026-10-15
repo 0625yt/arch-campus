@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SummaryVisual } from "@/components/summary-visual";
 import { keyedItems } from "@/lib/keyed-items";
 
 interface SummarizeOk {
@@ -250,12 +251,9 @@ export default function DevSummarizePage() {
 function SummaryBlock({
   block,
 }: {
-  block:
-    | { type: "h2"; content: string }
-    | { type: "para"; content: string }
-    | { type: "bullets"; items: string[] }
-    | { type: "callout"; tone: "info" | "warn" | "tip"; content: string };
+  block: import("@/lib/schemas").SummarizeOutputT["blocks"][number];
 }) {
+  if (block.type === "table" || block.type === "flow") return <SummaryVisual block={block} />;
   if (block.type === "h2") {
     return <h3 className="text-[16px] wght-620 text-[var(--color-apple-ink)]">{block.content}</h3>;
   }

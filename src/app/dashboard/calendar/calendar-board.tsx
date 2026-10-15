@@ -25,6 +25,7 @@ import {
 import { useIsDark } from "../use-mobile";
 import { EventAIDraftPanel } from "./ai-draft-panel";
 import { AiEntryCard } from "./ai-entry-card";
+import { ReminderField } from "./reminder-field";
 import { DayView } from "./views/day-view";
 import { eventDisplayDateKeys, startOfWeekKst } from "./views/shared/time-grid";
 import { WeekView } from "./views/week-view";
@@ -1806,6 +1807,12 @@ function EventDetailPanel({
             </div>
           )}
 
+          {event.reminderMinutes != null && (
+            <p className="mt-4 text-[12.5px] text-[var(--color-apple-muted)]">
+              알림 {event.reminderMinutes === 0 ? "시작 시각" : `${event.reminderMinutes}분 전`}
+            </p>
+          )}
+
           {/* 위치 — 실제 저장·조회가 끝까지 연결된 정보만 노출한다. */}
           {event.location && (
             <ul className="mt-4 flex flex-col gap-1.5">
@@ -2141,6 +2148,7 @@ function EventEditForm({
   const [startsAt, setStartsAt] = useState(isoToKstLocalInput(event.startsAt));
   const [endsAt, setEndsAt] = useState(event.endsAt ? isoToKstLocalInput(event.endsAt) : "");
   const [notes, setNotes] = useState(event.notes ?? "");
+  const [reminderMinutes, setReminderMinutes] = useState<number | null>(event.reminderMinutes);
   const [allDay, setAllDay] = useState(event.allDay);
   const [location, setLocation] = useState(event.location ?? "");
   const [color, setColor] = useState<string>(event.color ?? "");
@@ -2161,6 +2169,7 @@ function EventEditForm({
         body.notes = notes.trim() || null;
       }
       if (allDay !== event.allDay) body.all_day = allDay;
+      if (reminderMinutes !== event.reminderMinutes) body.reminder_minutes = reminderMinutes;
       if (location.trim() !== (event.location ?? "")) {
         body.location = location.trim() || null;
       }
@@ -2228,6 +2237,8 @@ function EventEditForm({
       if (body.all_day !== undefined) patch.allDay = body.all_day as boolean;
       if (body.location !== undefined) patch.location = body.location as string | null;
       if (body.color !== undefined) patch.color = body.color as string | null;
+      if (body.reminder_minutes !== undefined)
+        patch.reminderMinutes = body.reminder_minutes as number | null;
       onSaved(patch);
     } catch (e) {
       setError(e instanceof Error ? e.message : "수정 실패");
@@ -2412,6 +2423,7 @@ function EventEditForm({
               })}
             </div>
           </div>
+          <ReminderField value={reminderMinutes} onChange={setReminderMinutes} allDay={allDay} />
           <div className="border-t border-[var(--color-apple-hairline-soft)]">
             <textarea
               value={notes}
@@ -2648,6 +2660,7 @@ function EventCreateForm({
   /** "" (자동 — courseColor 또는 kind fallback) | "#RRGGBB". */
   const [color, setColor] = useState<string>("");
   const [notes, setNotes] = useState("");
+  const [reminderMinutes, setReminderMinutes] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -2669,6 +2682,7 @@ function EventCreateForm({
     setLocation("");
     setColor("");
     setNotes("");
+    setReminderMinutes(null);
     setError(null);
   }
 
@@ -2712,6 +2726,7 @@ function EventCreateForm({
         starts_at: startsIso,
         notes: notes.trim() || null,
         all_day: allDay,
+        reminder_minutes: reminderMinutes,
       };
       if (courseId) body.course_id = courseId;
       if (endsIso) body.ends_at = endsIso;
@@ -2730,6 +2745,8 @@ function EventCreateForm({
       }
       reset();
       onCreated();
+    } catch {
+      setError("일정을 저장하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.");
     } finally {
       setBusy(false);
     }
@@ -2957,6 +2974,7 @@ function EventCreateForm({
                 </select>
               </div>
             )}
+            <ReminderField value={reminderMinutes} onChange={setReminderMinutes} allDay={allDay} />
             {/* 메모 */}
             <div className="border-t border-[var(--color-apple-hairline-soft)]">
               <textarea

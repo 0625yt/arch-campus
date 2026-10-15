@@ -98,6 +98,7 @@ async function verifyBatch(
       sourceContext,
       evidence: q.evidence,
       stem: q.stem,
+      passage: q.passage ?? null,
       choices: q.choices ?? null,
       answer: q.answer,
       explanation: q.explanation,

@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { SelfAssessmentControl } from "@/components/self-assessment-control";
+import { StudyTaskCompletion } from "@/components/study-task-completion";
 import { WizardWatermark } from "@/components/wizard-shell";
 
 export interface ResultQuestion {
@@ -8,6 +11,7 @@ export interface ResultQuestion {
   kind: "multiple-choice" | "short-answer" | "essay";
   topic: string;
   stem: string;
+  passage?: string | null;
   choices: { key: "A" | "B" | "C" | "D"; text: string }[] | null;
   answer: string;
   submitted: string | null;
@@ -26,6 +30,7 @@ export interface ResultQuestion {
   whyWrong?: string;
   /** 서술형을 모범답안 기준으로 의미 채점한 경우. */
   llmGraded?: boolean;
+  selfAssessment?: import("@/lib/services/grade-quiz").GradedResult["selfAssessment"];
 }
 
 export interface ResultViewProps {
@@ -57,9 +62,9 @@ export interface ResultViewProps {
  */
 export function QuizResultView({
   title,
-  score,
+  score: initialScore,
   total,
-  questions,
+  questions: initialQuestions,
   watermark,
   materialId,
   courseName,
@@ -68,6 +73,8 @@ export function QuizResultView({
   showHero = true,
   durationLabel,
 }: ResultViewProps) {
+  const [questions, setQuestions] = useState(initialQuestions);
+  const score = questions.length ? questions.filter((q) => q.correct).length : initialScore;
   const wrongCount = questions.filter((q) => !q.correct).length;
   const ratio = total > 0 ? Math.round((score / total) * 100) : 0;
   const weakTopics = Array.from(
@@ -76,6 +83,7 @@ export function QuizResultView({
 
   return (
     <section className="flex flex-col gap-6 fade-up">
+      {attemptId && <StudyTaskCompletion materialId={materialId} weakTopics={weakTopics} />}
       {showHero && (
         <header className="rounded-[24px] border border-[var(--color-apple-hairline)] bg-white/96 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:p-8">
           <p className="text-[12px] wght-560 uppercase tracking-[0.06em] text-[var(--color-apple-muted)]">
@@ -151,7 +159,23 @@ export function QuizResultView({
 
       <div className="flex flex-col gap-5">
         {questions.map((q, idx) => (
-          <ResultCard key={q.id} q={q} idx={idx + 1} />
+          <div key={q.id}>
+            <ResultCard q={q} idx={idx + 1} />
+            {attemptId && q.submitted && (
+              <SelfAssessmentControl
+                quizId={quizId}
+                attemptId={attemptId}
+                questionId={q.id}
+                correct={q.correct}
+                selfAssessed={q.selfAssessment?.accepted}
+                onChange={(result) =>
+                  setQuestions((prev) =>
+                    prev.map((item) => (item.id === q.id ? { ...item, ...result } : item)),
+                  )
+                }
+              />
+            )}
+          </div>
         ))}
       </div>
 

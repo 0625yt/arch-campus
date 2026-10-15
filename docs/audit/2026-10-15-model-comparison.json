@@ -1,0 +1,125 @@
+{
+  "costTotal": 0.1833163,
+  "rows": [
+    {
+      "fixture": "statistics",
+      "tool": "summarize",
+      "modelId": "gemini-3.5-flash-lite",
+      "generated": 11,
+      "accepted": 8,
+      "valid": true,
+      "costUsd": 0.0041786,
+      "ms": 4200
+    },
+    {
+      "fixture": "statistics",
+      "tool": "quiz",
+      "modelId": "gemini-3.5-flash-lite",
+      "generated": 0,
+      "accepted": 0,
+      "valid": false,
+      "costUsd": 0.0016183,
+      "ms": 1349
+    },
+    {
+      "fixture": "statistics",
+      "tool": "summarize",
+      "modelId": "gemini-3.8-flash",
+      "generated": 9,
+      "accepted": 7,
+      "valid": true,
+      "costUsd": 0.012933,
+      "ms": 8146
+    },
+    {
+      "fixture": "statistics",
+      "tool": "quiz",
+      "modelId": "gemini-3.8-flash",
+      "generated": 6,
+      "accepted": 6,
+      "valid": true,
+      "costUsd": 0.043453200000000004,
+      "ms": 36208
+    },
+    {
+      "fixture": "cs",
+      "tool": "summarize",
+      "modelId": "gemini-3.5-flash-lite",
+      "generated": 8,
+      "accepted": 6,
+      "valid": true,
+      "costUsd": 0.0027947000000000002,
+      "ms": 2862
+    },
+    {
+      "fixture": "cs",
+      "tool": "quiz",
+      "modelId": "gemini-3.5-flash-lite",
+      "generated": 6,
+      "accepted": 6,
+      "valid": true,
+      "costUsd": 0.007537799999999999,
+      "ms": 7048
+    },
+    {
+      "fixture": "cs",
+      "tool": "summarize",
+      "modelId": "gemini-3.8-flash",
+      "generated": 8,
+      "accepted": 5,
+      "valid": true,
+      "costUsd": 0.013986,
+      "ms": 8459
+    },
+    {
+      "fixture": "cs",
+      "tool": "quiz",
+      "modelId": "gemini-3.8-flash",
+      "generated": 5,
+      "accepted": 5,
+      "valid": false,
+      "costUsd": 0.0361784,
+      "ms": 26070
+    },
+    {
+      "fixture": "language",
+      "tool": "summarize",
+      "modelId": "gemini-3.5-flash-lite",
+      "generated": 6,
+      "accepted": 4,
+      "valid": true,
+      "costUsd": 0.002347,
+      "ms": 2245
+    },
+    {
+      "fixture": "language",
+      "tool": "quiz",
+      "modelId": "gemini-3.5-flash-lite",
+      "generated": 6,
+      "accepted": 6,
+      "valid": true,
+      "costUsd": 0.0076656,
+      "ms": 6415
+    },
+    {
+      "fixture": "language",
+      "tool": "summarize",
+      "modelId": "gemini-3.8-flash",
+      "generated": 7,
+      "accepted": 4,
+      "valid": true,
+      "costUsd": 0.0154425,
+      "ms": 22910
+    },
+    {
+      "fixture": "language",
+      "tool": "quiz",
+      "modelId": "gemini-3.8-flash",
+      "generated": 6,
+      "accepted": 6,
+      "valid": true,
+      "costUsd": 0.0351812,
+      "ms": 26129
+    }
+  ]
+}

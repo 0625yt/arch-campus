@@ -91,14 +91,16 @@ export async function recordJobCheckpoint(opts: {
   stage: string;
   progress: number;
   message?: string | null;
+  retryCount?: number;
 }): Promise<boolean> {
   const admin = getAdminSupabase();
-  const { data, error } = await admin.rpc("record_job_checkpoint", {
+  const { data, error } = await admin.rpc("record_job_attempt_checkpoint", {
     p_job_id: opts.jobId,
     p_owner_id: opts.ownerId,
     p_stage: opts.stage,
     p_progress: opts.progress,
     p_message: opts.message ?? null,
+    p_retry_count: opts.retryCount ?? 0,
   });
   if (error) throw new Error("작업 진행 단계를 저장하지 못했어요.");
   return data;
@@ -115,9 +117,19 @@ export function canAutoRetry(
   );
 }
 
+/** Only the authenticated server worker calls this; owner comes from the locked database row. */
+export async function claimStaleMaterialJobForWorker(ownerId?: string): Promise<JobView | null> {
+  const { data, error } = await getAdminSupabase().rpc("claim_stale_material_job_for_worker", {
+    p_owner_id: ownerId ?? null,
+  });
+  if (error) throw new Error("중단된 작업을 선점하지 못했어요.");
+  return data?.[0] ? mapJob(data[0]) : null;
+}
+
 /**
  * 멈춘 핵심 자료 작업을 한 번만 재시도 상태로 선점한다.
- * status+retry_count 조건부 갱신이 여러 탭·인스턴스의 중복 재실행을 막는다.
+ * 관찰한 실행을 조건부 갱신하고 요청당 한 개만 선점한다.
+ * 나머지는 다음 폴링에서 복구해 after()의 실행 시간 안에 처리한다.
  */
 export async function claimStaleMaterialJobsForRetry(opts: {
   ownerId: string;
@@ -137,7 +149,7 @@ export async function claimStaleMaterialJobsForRetry(opts: {
   for (const row of data) {
     if (!canAutoRetry(row)) continue;
     const now = new Date().toISOString();
-    const { data: retried, error: retryError } = await admin
+    let retry = admin
       .from("jobs")
       .update({
         status: "pending",
@@ -149,10 +161,16 @@ export async function claimStaleMaterialJobsForRetry(opts: {
       .eq("id", row.id)
       .eq("owner_id", opts.ownerId)
       .eq("status", row.status)
-      .eq("retry_count", 0)
-      .select("*")
-      .maybeSingle();
-    if (!retryError && retried) claimed.push(mapJob(retried));
+      .eq("retry_count", 0);
+    retry =
+      row.started_at === null
+        ? retry.is("started_at", null)
+        : retry.eq("started_at", row.started_at);
+    const { data: retried, error: retryError } = await retry.select("*").maybeSingle();
+    if (!retryError && retried) {
+      claimed.push(mapJob(retried));
+      break;
+    }
   }
   return claimed;
 }
@@ -186,7 +204,7 @@ export async function enqueueJob(opts: {
       }
       // stale(8분+ 멈춘 죽은 작업)이면 error로 닫고 새로 만든다.
       // 이 닫기가 없으면 아래 INSERT가 UNIQUE partial index에 막혀 영원히 새 작업 불가.
-      const { error: staleError } = await admin
+      let close = admin
         .from("jobs")
         .update({
           status: "error",
@@ -195,7 +213,13 @@ export async function enqueueJob(opts: {
         })
         .eq("id", existing.id)
         .eq("owner_id", opts.ownerId)
-        .eq("status", existing.status);
+        .eq("status", existing.status)
+        .eq("retry_count", existing.retry_count);
+      close =
+        existing.started_at === null
+          ? close.is("started_at", null)
+          : close.eq("started_at", existing.started_at);
+      const { error: staleError } = await close;
       if (staleError) throw new Error("중단된 작업 상태를 정리하지 못했어요.");
     }
   }
@@ -265,7 +289,7 @@ export async function getLatestJob(opts: {
   if ((latest.status === "pending" || latest.status === "running") && isStale(latest)) {
     if (canAutoRetry(latest)) return mapJob(latest);
     const errorMessage = "작업이 중단돼 자동 정리됐어요. 다시 시도해 주세요.";
-    const { data: closed, error: closeError } = await admin
+    let close = admin
       .from("jobs")
       .update({
         status: "error",
@@ -275,8 +299,12 @@ export async function getLatestJob(opts: {
       .eq("id", latest.id)
       .eq("owner_id", opts.ownerId)
       .eq("status", latest.status)
-      .select("*")
-      .maybeSingle();
+      .eq("retry_count", latest.retry_count);
+    close =
+      latest.started_at === null
+        ? close.is("started_at", null)
+        : close.eq("started_at", latest.started_at);
+    const { data: closed, error: closeError } = await close.select("*").maybeSingle();
     if (closeError) throw new Error("중단된 작업 상태를 정리하지 못했어요.");
     if (closed) return mapJob(closed);
     return getJob({ ownerId: opts.ownerId, jobId: latest.id });
@@ -288,13 +316,18 @@ export async function getLatestJob(opts: {
 // 호출처는 enqueueJob 결과의 job.owner_id를 같이 넘긴다.
 
 /** Atomically claim pending work. A second worker must not run or bill the same job. */
-export async function markJobRunning(opts: { jobId: string; ownerId: string }): Promise<boolean> {
+export async function markJobRunning(opts: {
+  jobId: string;
+  ownerId: string;
+  retryCount?: number;
+}): Promise<boolean> {
   const admin = getAdminSupabase();
   const { data, error } = await admin
     .from("jobs")
     .update({ status: "running", started_at: new Date().toISOString() })
     .eq("id", opts.jobId)
     .eq("owner_id", opts.ownerId)
+    .eq("retry_count", opts.retryCount ?? 0)
     .eq("status", "pending")
     .select("id")
     .maybeSingle();
@@ -305,6 +338,7 @@ export async function markJobRunning(opts: { jobId: string; ownerId: string }): 
 export async function markJobDone(opts: {
   jobId: string;
   ownerId: string;
+  retryCount?: number;
   result: Record<string, unknown>;
   modelId: string;
   usage: {
@@ -333,6 +367,7 @@ export async function markJobDone(opts: {
     })
     .eq("id", opts.jobId)
     .eq("owner_id", opts.ownerId)
+    .eq("retry_count", opts.retryCount ?? 0)
     .in("status", ["pending", "running"]);
   if (error) throw new Error("작업 완료 상태를 저장하지 못했어요.");
 }
@@ -340,6 +375,7 @@ export async function markJobDone(opts: {
 export async function markJobError(opts: {
   jobId: string;
   ownerId: string;
+  retryCount?: number;
   errorMessage: string;
 }): Promise<void> {
   const admin = getAdminSupabase();
@@ -352,6 +388,7 @@ export async function markJobError(opts: {
     })
     .eq("id", opts.jobId)
     .eq("owner_id", opts.ownerId)
+    .eq("retry_count", opts.retryCount ?? 0)
     .in("status", ["pending", "running"]);
   if (error) throw new Error("작업 오류 상태를 저장하지 못했어요.");
 }
@@ -375,7 +412,8 @@ export async function listActiveJobs(opts: { ownerId: string }): Promise<JobView
   const live: JobRow[] = [];
   const staleRows: JobRow[] = [];
   for (const row of data) {
-    if (isStale(row)) staleRows.push(row);
+    // 아직 선점하지 않은 복구 대상은 다음 폴링까지 유지한다.
+    if (isStale(row) && !canAutoRetry(row)) staleRows.push(row);
     else live.push(row);
   }
   // Re-check the observed execution before closing it: a worker may have completed

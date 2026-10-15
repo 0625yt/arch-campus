@@ -1,0 +1,1377 @@
+{
+  "date": "2026-10-03",
+  "coverage": "Synthetic inputs, production quiz generation/verification; classification and database persistence replaced, no private data.",
+  "estimatedRecordedStressCostUsd": 0.4677168,
+  "runs": [
+    {
+      "name": "raw-generation",
+      "costTotal": 0.0438729,
+      "rows": [
+        {
+          "fixture": "nursing-lab-injection",
+          "trial": 1,
+          "passed": false,
+          "failure": "expected true to be false // Object.is equality",
+          "costUsd": 0.0016143,
+          "ms": 1627,
+          "modelId": null,
+          "quality": null,
+          "pages": [],
+          "generations": []
+        },
+        {
+          "fixture": "nursing-lab-injection",
+          "trial": 2,
+          "passed": false,
+          "failure": "expected [ { id: 1, …(11) }, …(4) ] to have a length of 6 but got 5",
+          "costUsd": 0.006291799999999999,
+          "ms": 6349,
+          "modelId": null,
+          "quality": null,
+          "pages": [],
+          "generations": []
+        },
+        {
+          "fixture": "accounting",
+          "trial": 1,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.007942000000000001,
+          "ms": 7474,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": null,
+          "pages": [2, 2, 3, 3, 1, 3],
+          "generations": []
+        },
+        {
+          "fixture": "accounting",
+          "trial": 2,
+          "passed": false,
+          "failure": "expected [ { id: 1, …(11) }, …(4) ] to have a length of 6 but got 5",
+          "costUsd": 0.0051636,
+          "ms": 5100,
+          "modelId": null,
+          "quality": null,
+          "pages": [],
+          "generations": []
+        },
+        {
+          "fixture": "long-record-management",
+          "trial": 1,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0105788,
+          "ms": 6557,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": null,
+          "pages": [1, 40, 3, 31, 5, 35],
+          "generations": []
+        },
+        {
+          "fixture": "long-record-management",
+          "trial": 2,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.012282399999999999,
+          "ms": 8123,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": null,
+          "pages": [1, 1, 3, 7, 38, 40],
+          "generations": []
+        }
+      ]
+    },
+    {
+      "name": "pipeline-initial",
+      "costTotal": 0.0873272,
+      "rows": [
+        {
+          "fixture": "nursing-lab-injection",
+          "trial": 1,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.012731699999999999,
+          "ms": 8336,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 3,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 2
+          },
+          "pages": [1, 1, 2, 2, 3, 3],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.012731699999999999,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 3,
+                "chunks": 2,
+                "topupCount": 0,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 3,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 5539,
+                  "outputTokens": 615,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "nursing-lab-injection",
+          "trial": 2,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.011803399999999999,
+          "ms": 7232,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 2,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 3,
+            "short-answer": 2,
+            "essay": 1
+          },
+          "pages": [1, 1, 2, 2, 3, 2],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.011803399999999999,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 2,
+                "chunks": 2,
+                "topupCount": 0,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 2,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 5703,
+                  "outputTokens": 380,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "accounting",
+          "trial": 1,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.013333999999999999,
+          "ms": 7589,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 4,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 2
+          },
+          "pages": [1, 1, 2, 2, 3, 3],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.013333999999999999,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 4,
+                "chunks": 2,
+                "topupCount": 0,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 4,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 5068,
+                  "outputTokens": 552,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "accounting",
+          "trial": 2,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.011785899999999998,
+          "ms": 6558,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 4,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 2
+          },
+          "pages": [1, 2, 2, 3, 3, 3],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.011785899999999998,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 4,
+                "chunks": 2,
+                "topupCount": 0,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 4,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 4916,
+                  "outputTokens": 524,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "long-record-management",
+          "trial": 1,
+          "passed": false,
+          "failure": "expected [ { id: 1, …(11) }, …(4) ] to have a length of 6 but got 5",
+          "costUsd": 0.017785099999999998,
+          "ms": 6919,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 5,
+            "dropped": 4,
+            "limitedBySource": false,
+            "reason": "generation-limited"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 1
+          },
+          "pages": [1, 5, 35, 40, 5],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.017785099999999998,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 5,
+                "droppedCount": 4,
+                "chunks": 2,
+                "topupCount": 0,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 5,
+                  "dropped": 4,
+                  "limitedBySource": false,
+                  "reason": "generation-limited"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 1,
+                "verifierUsage": {
+                  "inputTokens": 6069,
+                  "outputTokens": 295,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "long-record-management",
+          "trial": 2,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0198871,
+          "ms": 8229,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 1,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 3,
+            "essay": 1
+          },
+          "pages": [1, 1, 1, 40, 40, 31],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0198871,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 1,
+                "chunks": 2,
+                "topupCount": 0,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 1,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 8359,
+                  "outputTokens": 749,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pipeline-spares",
+      "costTotal": 0.1190861,
+      "rows": [
+        {
+          "fixture": "nursing-lab-injection",
+          "trial": 1,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0140759,
+          "ms": 8228,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 2,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 3,
+            "essay": 1
+          },
+          "pages": [1, 1, 1, 2, 2, 3],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0140759,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 2,
+                "chunks": 2,
+                "topupCount": 0,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 2,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 5978,
+                  "outputTokens": 711,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "nursing-lab-injection",
+          "trial": 2,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0204862,
+          "ms": 16002,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 9,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 2
+          },
+          "pages": [1, 2, 2, 3, 2, 3],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0204862,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 9,
+                "chunks": 2,
+                "topupCount": 2,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 9,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 5479,
+                  "outputTokens": 596,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "accounting",
+          "trial": 1,
+          "passed": false,
+          "failure": "expected false to be true // Object.is equality",
+          "costUsd": 0.0158459,
+          "ms": 10621,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 6,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 3,
+            "short-answer": 3
+          },
+          "pages": [2, 2, 3, 3, 2, 2],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0158459,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 6,
+                "chunks": 2,
+                "topupCount": 1,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 6,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 1,
+                "verifierUsage": {
+                  "inputTokens": 5340,
+                  "outputTokens": 629,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "accounting",
+          "trial": 2,
+          "passed": false,
+          "failure": "expected false to be true // Object.is equality",
+          "costUsd": 0.0236643,
+          "ms": 19034,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 13,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 4,
+            "short-answer": 2
+          },
+          "pages": [2, 2, 1, 3, 2, 1],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0236643,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 13,
+                "chunks": 2,
+                "topupCount": 3,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 13,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 1,
+                "verifierUsage": {
+                  "inputTokens": 5449,
+                  "outputTokens": 606,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "long-record-management",
+          "trial": 1,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0262343,
+          "ms": 11622,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 5,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 1,
+            "short-answer": 3,
+            "essay": 2
+          },
+          "pages": [1, 1, 32, 31, 38, 40],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0262343,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 5,
+                "chunks": 2,
+                "topupCount": 1,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 5,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 1,
+                "verifierUsage": {
+                  "inputTokens": 7547,
+                  "outputTokens": 391,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "long-record-management",
+          "trial": 2,
+          "passed": false,
+          "failure": "expected false to be true // Object.is equality",
+          "costUsd": 0.0187795,
+          "ms": 7321,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 2,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 4
+          },
+          "pages": [1, 5, 3, 35, 20, 35],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0187795,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 2,
+                "chunks": 2,
+                "topupCount": 0,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 2,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 1,
+                "verifierUsage": {
+                  "inputTokens": 7617,
+                  "outputTokens": 617,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pipeline-kind-selection",
+      "costTotal": 0.10917469999999999,
+      "rows": [
+        {
+          "fixture": "nursing-lab-injection",
+          "trial": 1,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0162772,
+          "ms": 11164,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 3,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 2
+          },
+          "pages": [1, 1, 2, 2, 3, 2],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0162772,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 3,
+                "chunks": 2,
+                "topupCount": 1,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 3,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 6124,
+                  "outputTokens": 693,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "nursing-lab-injection",
+          "trial": 2,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0166749,
+          "ms": 11522,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 5,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 2
+          },
+          "pages": [1, 1, 2, 2, 3, 3],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0166749,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 5,
+                "chunks": 2,
+                "topupCount": 1,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 5,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 6021,
+                  "outputTokens": 668,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "accounting",
+          "trial": 1,
+          "passed": false,
+          "failure": "expected false to be true // Object.is equality",
+          "costUsd": 0.01729,
+          "ms": 12522,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 8,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 3,
+            "short-answer": 3
+          },
+          "pages": [2, 1, 2, 3, 1, 2],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.01729,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 8,
+                "chunks": 2,
+                "topupCount": 1,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 8,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 1,
+                "verifierUsage": {
+                  "inputTokens": 5417,
+                  "outputTokens": 612,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "accounting",
+          "trial": 2,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.012505599999999999,
+          "ms": 7187,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 3,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 3,
+            "short-answer": 2,
+            "essay": 1
+          },
+          "pages": [2, 1, 2, 3, 2, 3],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.012505599999999999,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 3,
+                "chunks": 2,
+                "topupCount": 0,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 3,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 1,
+                "verifierUsage": {
+                  "inputTokens": 5340,
+                  "outputTokens": 625,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "long-record-management",
+          "trial": 1,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0261682,
+          "ms": 12177,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 5,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 2
+          },
+          "pages": [1, 35, 40, 1, 38, 10],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0261682,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 5,
+                "chunks": 2,
+                "topupCount": 1,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 5,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 8049,
+                  "outputTokens": 719,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "long-record-management",
+          "trial": 2,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0202588,
+          "ms": 8033,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 2,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 2
+          },
+          "pages": [1, 35, 5, 32, 10, 20],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0202588,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 2,
+                "chunks": 2,
+                "topupCount": 0,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 2,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 8473,
+                  "outputTokens": 444,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pipeline-final",
+      "costTotal": 0.10825590000000002,
+      "rows": [
+        {
+          "fixture": "nursing-lab-injection",
+          "trial": 1,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.016497699999999997,
+          "ms": 11696,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 6,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 2
+          },
+          "pages": [1, 2, 2, 3, 2, 1],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.016497699999999997,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 6,
+                "chunks": 2,
+                "topupCount": 1,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 6,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 5952,
+                  "outputTokens": 729,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "nursing-lab-injection",
+          "trial": 2,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0159159,
+          "ms": 11599,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 4,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 2
+          },
+          "pages": [1, 2, 2, 3, 2, 1],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0159159,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 4,
+                "chunks": 2,
+                "topupCount": 1,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 4,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 6045,
+                  "outputTokens": 473,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "accounting",
+          "trial": 1,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0158259,
+          "ms": 10455,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 6,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 3,
+            "short-answer": 2,
+            "essay": 1
+          },
+          "pages": [1, 1, 2, 2, 2, 2],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0158259,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 6,
+                "chunks": 2,
+                "topupCount": 1,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 6,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 1,
+                "verifierUsage": {
+                  "inputTokens": 5522,
+                  "outputTokens": 600,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "accounting",
+          "trial": 2,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0154316,
+          "ms": 8725,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 4,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 3,
+            "essay": 1
+          },
+          "pages": [1, 1, 2, 2, 3, 2],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0154316,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 4,
+                "chunks": 2,
+                "topupCount": 1,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 4,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 5107,
+                  "outputTokens": 495,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "long-record-management",
+          "trial": 1,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.0189704,
+          "ms": 8013,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 2,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 2
+          },
+          "pages": [1, 5, 35, 40, 5, 8],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.0189704,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 2,
+                "chunks": 2,
+                "topupCount": 0,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 2,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 8095,
+                  "outputTokens": 411,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "long-record-management",
+          "trial": 2,
+          "passed": true,
+          "failure": null,
+          "costUsd": 0.025614400000000002,
+          "ms": 11143,
+          "modelId": "gemini-3.5-flash-lite",
+          "quality": {
+            "requested": 6,
+            "generated": 6,
+            "dropped": 3,
+            "limitedBySource": false,
+            "reason": "complete"
+          },
+          "kinds": {
+            "multiple-choice": 2,
+            "short-answer": 2,
+            "essay": 2
+          },
+          "pages": [1, 5, 35, 40, 10, 3],
+          "generations": [
+            {
+              "status": "ok",
+              "cost_usd": 0.025614400000000002,
+              "payload": {
+                "quizId": "00000000-0000-4000-8000-000000000003",
+                "questionCount": 6,
+                "droppedCount": 3,
+                "chunks": 2,
+                "topupCount": 1,
+                "materialIds": ["00000000-0000-4000-8000-000000000002"],
+                "omittedUnreadableMaterials": 0,
+                "quality": {
+                  "requested": 6,
+                  "generated": 6,
+                  "dropped": 3,
+                  "limitedBySource": false,
+                  "reason": "complete"
+                },
+                "verifierModelId": "gemini-3.5-flash-lite",
+                "verifierTechnicalFailure": false,
+                "verifierRejectedCount": 0,
+                "verifierUsage": {
+                  "inputTokens": 8176,
+                  "outputTokens": 737,
+                  "cacheReadTokens": 0,
+                  "cacheCreationTokens": 0
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

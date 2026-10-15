@@ -36,10 +36,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "카테고리가 맞지 않아요" }, { status: 400 });
   }
 
-  // feedback 테이블은 supabase types 재생성 전이라 any로 캐스팅
-  const admin = getAdminSupabase() as unknown as {
-    from: (table: string) => any;
-  };
+  const admin = getAdminSupabase();
 
   // quiz_item이면 body 앞에 [Q{n}] 자동 부착 — 어느 문항인지 식별
   let body = input.body ?? null;

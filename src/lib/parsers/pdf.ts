@@ -1,17 +1,18 @@
+import pLimit from "p-limit";
 import { PDFDocument } from "pdf-lib";
-import { extractText, getDocumentProxy } from "unpdf";
+import { extractText } from "unpdf";
 import { generateWithFile } from "../claude";
 import { type ParsedDocument, type ParseInput, ParserRejectedError, toUint8Array } from "./types";
 
 /**
  * PDF 파서 — Gemini Flash Vision OCR 우선 + unpdf 텍스트 추출 안전망.
  *
- * 99.9% 빠짐없이 읽기 위한 4중 보강:
+ * 페이지 누락을 감지하고 원문을 보강한다:
  *   1. 페이지 청크 분할 (PAGES_PER_CHUNK) — 한 호출에 너무 많은 페이지가 들어가
  *      maxOutputTokens(32K)에 닿아 뒷페이지가 잘리는 함정 회피.
  *   2. 잘림 감지 시 자동 재시도 — 청크를 절반으로 쪼개 다시. 4단계까지 재귀.
  *   3. 가장 작은 청크(1페이지)도 잘리면 그 페이지만 unpdf 텍스트로 폴백 (빈 칸 X).
- *   4. 전체 OCR 결과가 unpdf보다 짧으면 unpdf 채택 — 텍스트 PDF는 그게 더 정확.
+ *   4. OCR에 없는 원문 텍스트는 길이와 관계없이 보존한다.
  *
  * 왜 OCR 우선인가:
  *   - unpdf만 쓰면 스캔본·이미지 박힌 PDF·복잡한 레이아웃(2단·표·각주)에서 본문이 통째로 빠진다.
@@ -92,10 +93,23 @@ export async function parsePdf(input: ParseInput): Promise<ParsedDocument> {
     return finalize(unpdfResult, input, [`[ocr-fallback] ${ocr.reason}`]);
   }
 
-  // 4) OCR 결과가 unpdf보다 길면 채택 (스캔본·이미지 PDF는 unpdf가 거의 빈 텍스트)
-  //    OCR 결과가 더 짧으면 unpdf가 더 풍부한 케이스 (텍스트 PDF라 OCR이 굳이 필요 없음).
-  const chooseOcr = ocr.text.trim().length >= unpdfResult.text.trim().length;
-  const text = chooseOcr ? ocr.text : unpdfResult.text;
+  // A longer OCR response can still omit a short definition or numeric condition.
+  // Retain the native text unless its entire normalized content is already present.
+  const text = ocr.text.replace(
+    /(^=== Page (\d+) ===\n)([\s\S]*?)(?=^=== Page \d+ ===$|(?![\s\S]))/gm,
+    (_all, header, page, body) => {
+      const plain = unpdfResult.pageTexts[Number(page) - 1]?.trim() ?? "";
+      // Preserve both sources when OCR is shorter: text length cannot prove visual completeness.
+      return (
+        header +
+        body.trim() +
+        (plain && !compactText(body).includes(compactText(plain))
+          ? `\n[원문 텍스트 보강]\n${plain}`
+          : "") +
+        "\n\n"
+      );
+    },
+  );
 
   const warnings: string[] = [];
   if (text.trim().length < 40) {
@@ -125,12 +139,11 @@ interface UnpdfResult {
 
 async function extractWithUnpdf(bytes: Uint8Array): Promise<UnpdfResult> {
   try {
-    const pdf = await getDocumentProxy(bytes);
-    // mergePages: false로 페이지별 배열로 받음 — fallback 시 그 페이지만 쓸 수 있음.
-    const { text, totalPages } = await extractText(pdf, { mergePages: false });
+    // Passing bytes lets unpdf destroy its PDF worker in finally, including failures.
+    const { text, totalPages } = await extractText(bytes, { mergePages: false });
     const pageTexts = Array.isArray(text) ? text : [String(text)];
     return {
-      text: pageTexts.join("\n\n"),
+      text: pageTexts.map((text, i) => `=== Page ${i + 1} ===\n${text}`).join("\n\n"),
       pageCount: totalPages,
       pageTexts,
     };
@@ -185,37 +198,37 @@ async function ocrPdfChunked(bytes: Uint8Array, unpdf: UnpdfResult): Promise<Chu
     return { ok: true, text: r.text, partialPages: r.truncated ? [-1] : [] };
   }
 
-  const partialPages: number[] = [];
-  const parts: string[] = [];
+  const limit = pLimit(2);
+  const ranges = Array.from(
+    { length: Math.ceil(pageCount / PAGES_PER_CHUNK) },
+    (_, i) => i * PAGES_PER_CHUNK + 1,
+  );
+  const chunks = await Promise.all(
+    ranges.map((start) =>
+      limit(async () => {
+        const end = Math.min(start + PAGES_PER_CHUNK - 1, pageCount);
+        const chunkBytes = await extractPageRange(source, start, end);
+        if (!chunkBytes) {
+          return {
+            text: fallbackPages(unpdf, start, end),
+            partialPages: Array.from({ length: end - start + 1 }, (_, i) => start + i),
+          };
+        }
+        const chunkResult = await ocrWithFallback(chunkBytes, start, end, unpdf, 0);
+        if (chunkResult.ok) return chunkResult;
+        return {
+          text: fallbackPages(unpdf, start, end),
+          partialPages: Array.from({ length: end - start + 1 }, (_, i) => start + i),
+        };
+      }),
+    ),
+  );
 
-  for (let start = 1; start <= pageCount; start += PAGES_PER_CHUNK) {
-    const end = Math.min(start + PAGES_PER_CHUNK - 1, pageCount);
-    const chunkBytes = await extractPageRange(source, start, end);
-    if (!chunkBytes) {
-      // 페이지 추출 실패 — unpdf 텍스트로 폴백
-      for (let p = start; p <= end; p++) {
-        const txt = unpdf.pageTexts[p - 1]?.trim() ?? "";
-        if (txt) parts.push(`[페이지 ${p} — OCR 대신 unpdf]\n${txt}`);
-        partialPages.push(p);
-      }
-      continue;
-    }
-    const chunkResult = await ocrWithFallback(chunkBytes, start, end, unpdf, 0);
-    if (chunkResult.ok) {
-      parts.push(chunkResult.text);
-      partialPages.push(...chunkResult.partialPages);
-    } else {
-      // 청크 자체 호출이 throw — 이 페이지 범위는 unpdf 텍스트로 대체
-      console.warn(`[pdf.chunk] 청크 ${start}-${end} 실패: ${chunkResult.reason}`);
-      for (let p = start; p <= end; p++) {
-        const txt = unpdf.pageTexts[p - 1]?.trim() ?? "";
-        if (txt) parts.push(`[페이지 ${p} — OCR 실패, unpdf]\n${txt}`);
-        partialPages.push(p);
-      }
-    }
-  }
-
-  const text = parts.join("\n\n").trim();
+  const partialPages = chunks.flatMap((chunk) => chunk.partialPages);
+  const text = chunks
+    .map((chunk) => chunk.text)
+    .join("\n\n")
+    .trim();
   if (text.length === 0) {
     return { ok: false, reason: "모든 청크 OCR 실패" };
   }
@@ -253,8 +266,25 @@ async function ocrWithFallback(
   unpdf: UnpdfResult,
   depth = 0,
 ): Promise<ChunkedOcrSuccess | { ok: false; reason: string }> {
-  const result = await ocrSinglePass(chunkBytes);
-  if (!result.ok) return result;
+  const result = await ocrSinglePass(chunkBytes, pageEnd - pageStart + 1);
+  if (!result.ok) {
+    return {
+      ok: true,
+      text: fallbackPages(unpdf, pageStart, pageEnd),
+      partialPages: Array.from({ length: pageEnd - pageStart + 1 }, (_, i) => pageStart + i),
+    };
+  }
+  const span = pageEnd - pageStart + 1;
+  const markers = [...result.text.matchAll(/^=== Page (\d+) ===$/gm)];
+  const complete = markers.length === span && markers.every((m, i) => Number(m[1]) === i + 1);
+  if (complete) {
+    result.text = result.text.replace(
+      /^=== Page (\d+) ===$/gm,
+      (_, n) => `=== Page ${pageStart + Number(n) - 1} ===`,
+    );
+  } else {
+    result.truncated = true;
+  }
 
   // 잘리지 않았으면 그대로 반환
   if (!result.truncated) {
@@ -266,9 +296,8 @@ async function ocrWithFallback(
   // 1페이지에서도 잘렸으면 더 분할 불가 — 부분 OCR 텍스트 + unpdf 텍스트 합쳐 반환
   if (pageSpan <= 1 || depth >= MAX_SPLIT_DEPTH) {
     const unpdfText = unpdf.pageTexts[pageStart - 1]?.trim() ?? "";
-    const combined = unpdfText
-      ? `${result.text}\n\n[페이지 ${pageStart} — OCR 잘려 unpdf 텍스트로 보강]\n${unpdfText}`
-      : result.text;
+    // Unverified/partial OCR is never presented as a complete page.
+    const combined = `=== Page ${pageStart} ===\n${unpdfText || "[unreadable: 페이지 내용을 추출하지 못함]"}`;
     return {
       ok: true,
       text: combined,
@@ -281,7 +310,11 @@ async function ocrWithFallback(
   try {
     source = await PDFDocument.load(chunkBytes, { ignoreEncryption: true });
   } catch {
-    return { ok: true, text: result.text, partialPages: [pageStart] };
+    return {
+      ok: true,
+      text: fallbackPages(unpdf, pageStart, pageEnd),
+      partialPages: Array.from({ length: span }, (_, i) => pageStart + i),
+    };
   }
 
   const mid = pageStart + Math.floor(pageSpan / 2) - 1;
@@ -292,13 +325,17 @@ async function ocrWithFallback(
   );
   const secondHalf = await extractPageRange(source, mid - pageStart + 2, pageSpan);
   if (!firstHalf || !secondHalf) {
-    return { ok: true, text: result.text, partialPages: [pageStart] };
+    return {
+      ok: true,
+      text: fallbackPages(unpdf, pageStart, pageEnd),
+      partialPages: Array.from({ length: span }, (_, i) => pageStart + i),
+    };
   }
 
-  const [a, b] = await Promise.all([
-    ocrWithFallback(firstHalf, pageStart, mid, unpdf, depth + 1),
-    ocrWithFallback(secondHalf, mid + 1, pageEnd, unpdf, depth + 1),
-  ]);
+  // Split retries stay sequential within each limited top-level chunk, so a
+  // truncated 100-page file cannot fan out into unbounded provider requests.
+  const a = await ocrWithFallback(firstHalf, pageStart, mid, unpdf, depth + 1);
+  const b = await ocrWithFallback(secondHalf, mid + 1, pageEnd, unpdf, depth + 1);
 
   const partial: number[] = [];
   const parts: string[] = [];
@@ -323,7 +360,10 @@ interface SinglePassResult {
 }
 type SinglePassOutcome = SinglePassResult | { ok: false; reason: string };
 
-async function ocrSinglePass(chunkBytes: Uint8Array): Promise<SinglePassOutcome> {
+async function ocrSinglePass(
+  chunkBytes: Uint8Array,
+  expectedPages?: number,
+): Promise<SinglePassOutcome> {
   try {
     const result = await generateWithFile({
       tool: "pdf-ocr",
@@ -331,6 +371,7 @@ async function ocrSinglePass(chunkBytes: Uint8Array): Promise<SinglePassOutcome>
       dynamicContext: "",
       fileBytes: chunkBytes,
       mediaType: "application/pdf",
+      userText: `이 파일${expectedPages ? `의 ${expectedPages}페이지 전체` : "의 전체 페이지"}를 규칙에 따라 원문으로 옮기세요. 각 페이지 앞에 === Page N ===를 별도 줄로 적고 N은 1부터 순서대로 쓰세요. JSON이나 코드 블록 없이 페이지 헤더와 본문만 출력하세요. 비슷한 페이지도 생략하거나 합치지 마세요.`,
       maxTokens: OCR_MAX_TOKENS,
       temperature: 0,
     });
@@ -364,4 +405,15 @@ function finalize(unpdf: UnpdfResult, input: ParseInput, extraWarnings: string[]
     source: "pdf",
     warnings,
   };
+}
+
+function fallbackPages(unpdf: UnpdfResult, start: number, end: number): string {
+  return Array.from({ length: end - start + 1 }, (_, i) => {
+    const page = start + i;
+    return `=== Page ${page} ===\n${unpdf.pageTexts[page - 1]?.trim() || "[unreadable: 페이지 추출 실패]"}`;
+  }).join("\n\n");
+}
+
+function compactText(text: string): string {
+  return text.normalize("NFKC").replace(/\s+/g, "");
 }

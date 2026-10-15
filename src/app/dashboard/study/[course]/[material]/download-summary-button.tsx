@@ -30,18 +30,13 @@ export function DownloadSummaryButton({
       return;
     }
 
-    // ancestor의 sticky·100vh·split-view layout이 print 시 빈 공간을 차지하는 문제를
-    // 피하기 위해 target을 잠시 body 직속으로 옮긴다. afterprint에서 원래 자리로 복귀.
-    const originalParent = target.parentElement;
-    const originalNextSibling = target.nextSibling;
-    if (!originalParent) {
-      window.alert("요약 영역의 부모를 찾지 못했어요.");
-      return;
-    }
-
+    // Print a snapshot; never detach React-owned nodes while a dialog is open.
+    document.querySelector("[data-summary-print-copy]")?.remove();
+    const copy = target.cloneNode(true) as HTMLElement;
+    copy.dataset.summaryPrintCopy = "true";
     const originalTitle = document.title;
     document.title = filename;
-    document.body.appendChild(target);
+    document.body.appendChild(copy);
     document.body.classList.add("arch-printing");
 
     let cleaned = false;
@@ -50,18 +45,16 @@ export function DownloadSummaryButton({
       cleaned = true;
       document.body.classList.remove("arch-printing");
       document.title = originalTitle;
-      // 원래 자리로 복귀 — nextSibling이 살아있으면 그 앞에, 아니면 부모 끝에
-      if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
-        originalParent.insertBefore(target, originalNextSibling);
-      } else {
-        originalParent.appendChild(target);
-      }
+      copy.remove();
       window.removeEventListener("afterprint", cleanup);
     };
     window.addEventListener("afterprint", cleanup);
-    window.print();
-    // afterprint를 못 받는 브라우저 안전망
-    setTimeout(cleanup, 1500);
+    try {
+      window.print();
+    } catch {
+      cleanup();
+    }
+    // No timer: asynchronous print previews may remain open for minutes.
   }, [filename]);
 
   return (

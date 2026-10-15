@@ -16,6 +16,7 @@ function read(path: string): string {
 
 export type PromptName =
   | "summarize"
+  | "summary-verify"
   | "quiz"
   | "quiz-verify"
   | "quiz-grade"

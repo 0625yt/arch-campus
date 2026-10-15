@@ -127,6 +127,24 @@ export async function POST(
 
   const mimeType = body.mimeType ?? "application/octet-stream";
   const admin = getAdminSupabase();
+  if (body.courseId) {
+    const course = await admin
+      .from("courses")
+      .select("id")
+      .eq("id", body.courseId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    if (course.error)
+      return NextResponse.json(
+        { ok: false, error: "과목을 확인하지 못했어요. 다시 시도해주세요." },
+        { status: 503 },
+      );
+    if (!course.data)
+      return NextResponse.json(
+        { ok: false, error: "자료를 등록할 과목을 찾을 수 없어요." },
+        { status: 404 },
+      );
+  }
   const title = (body.title ?? "").trim() || stripExt(body.filename);
   const type: MaterialType = body.type ?? "lecture";
 
@@ -237,7 +255,7 @@ export async function POST(
       .from("materials")
       .update({
         page_count: parsed.pageCount ?? null,
-        full_text: parsed.sanitizedText.slice(0, 200_000),
+        full_text: parsed.sanitizedText,
       })
       .eq("id", material.id)
       .eq("owner_id", ownerId);

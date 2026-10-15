@@ -35,9 +35,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     );
   }
 
-  const admin = getAdminSupabase() as unknown as {
-    from: (table: string) => any;
-  };
+  const admin = getAdminSupabase();
   const { error } = await admin
     .from("feedback")
     .update({

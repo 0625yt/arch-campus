@@ -6,11 +6,13 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: "arch — 대학 생활을 놓치지 않게",
     short_name: "arch",
     description:
       "강의자료·강의계획서·시간표를 올리면 오늘 할 일과 공부 흐름을 자동으로 정리하는 한국 대학생 학기 운영 OS.",
     start_url: "/dashboard",
+    scope: "/",
     display: "standalone",
     background_color: "#FFFFFF",
     theme_color: "#0071E3",
@@ -25,9 +27,15 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
-        src: "/apple-icon.svg",
-        sizes: "180x180",
-        type: "image/svg+xml",
+        src: "/pwa/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/pwa/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
         purpose: "any",
       },
     ],

@@ -1,6 +1,7 @@
 import { ArrowUpRight, CalendarDays, Check, ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
 import { AppleShell } from "@/components/apple-shell";
+import { StudyWorkspacePanel } from "@/components/study-workspace";
 import type { EventView } from "@/lib/data/events";
 import type { SafetySignal } from "@/lib/data/semester-safety";
 import { formatEventLabel } from "@/lib/format-event";
@@ -32,6 +33,7 @@ export function TodayOverview({
           <b>{signals.length}</b>개의 확인할 일
         </span>
       </header>
+      <StudyWorkspacePanel compact />
       <section className={s.section} aria-labelledby="priority-title">
         <h2 id="priority-title">먼저 확인해 보세요</h2>
         {signals.length ? (

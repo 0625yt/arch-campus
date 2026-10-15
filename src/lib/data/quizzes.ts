@@ -41,6 +41,7 @@ export interface QuizSolveView {
         difficulty: string;
         topic: string;
         stem: string;
+        passage?: string | null;
         choices: { key: "A" | "B" | "C" | "D"; text: string }[];
         hint?: string | null;
       }
@@ -50,6 +51,7 @@ export interface QuizSolveView {
         difficulty: string;
         topic: string;
         stem: string;
+        passage?: string | null;
         placeholder: string;
         answerGuide: string;
         hint?: string | null;
@@ -127,6 +129,7 @@ export async function getQuizForSolving(opts: {
             difficulty: q.difficulty,
             topic: q.topic,
             stem: q.stem,
+            passage: q.passage,
             choices: q.choices ?? [],
             hint: q.hint,
           }
@@ -136,6 +139,7 @@ export async function getQuizForSolving(opts: {
             difficulty: q.difficulty,
             topic: q.topic,
             stem: q.stem,
+            passage: q.passage,
             placeholder:
               q.kind === "essay" ? "핵심 포인트를 직접 정리해 보세요" : "짧게 직접 적어보세요",
             answerGuide: q.answer,

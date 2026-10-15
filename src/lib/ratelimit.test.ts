@@ -2,10 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkRateLimit } from "./ratelimit";
 
 /**
- * Upstash env가 없을 때의 인메모리 폴백 검증 (2026-06-09).
- *
- * prod에 UPSTASH_REDIS_REST_* 가 없어 rate limit이 무음 비활성이던 것을,
- * 단일 인스턴스 sliding window 폴백으로 "무제한 호출"만은 막게 바꿨다.
+ * 공유 저장소 없는 개발·테스트 환경의 인메모리 제한 검증.
  *
  * 검증 핵심:
  *   - Upstash env 없으면 폴백이 정책 한도까지 통과, 초과 시 차단
@@ -15,11 +12,12 @@ import { checkRateLimit } from "./ratelimit";
  *
  * 모듈 전역 memHits Map은 테스트 간 공유되므로, 각 테스트는 고유 identifier로 격리.
  */
-describe("checkRateLimit — 인메모리 폴백 (Upstash 미설정)", () => {
+describe("checkRateLimit — 저장소 없는 개발·테스트 환경", () => {
   beforeEach(() => {
     // Upstash env 제거 → 폴백 경로 강제. NODE_ENV는 prod 경고를 피하려 test 유지.
     vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
     vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
   });
   afterEach(() => {
     vi.unstubAllEnvs();

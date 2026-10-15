@@ -20,7 +20,7 @@ if (error || !data) {
   process.exit(1);
 }
 const qs = Array.isArray(data.questions) ? data.questions : [];
-console.log(
+console.info(
   `${data.title} — mode=${data.mode} count=${data.question_count} 실제=${qs.length} created=${data.created_at}\n`,
 );
 
@@ -39,17 +39,17 @@ for (const q of qs) {
 }
 let dupeGroups = 0,
   dupeItems = 0;
-console.log("=== stem 완전 동일 그룹 ===");
+console.info("=== stem 완전 동일 그룹 ===");
 for (const [, group] of byStem) {
   if (group.length > 1) {
     dupeGroups++;
     dupeItems += group.length;
-    console.log(
+    console.info(
       `  [${group.length}회] Q${group.map((g) => g.id).join(",")}  "${group[0].stem.slice(0, 50)}"  답=${group.map((g) => JSON.stringify(g.answer)).join("/")}`,
     );
   }
 }
-console.log(
+console.info(
   `\n완전중복: ${dupeGroups}그룹 ${dupeItems}문항 (유니크 stem ${byStem.size}/${qs.length})`,
 );
 
@@ -60,10 +60,10 @@ for (const q of qs) {
   if (!byAns.has(k)) byAns.set(k, []);
   byAns.get(k).push(q);
 }
-console.log("\n=== answer 동일 그룹 (다른 stem이라도 같은 답 반복) ===");
+console.info("\n=== answer 동일 그룹 (다른 stem이라도 같은 답 반복) ===");
 for (const [, group] of byAns) {
   if (group.length > 1)
-    console.log(
+    console.info(
       `  [${group.length}회] 답="${JSON.stringify(group[0].answer)}"  Q${group.map((g) => g.id).join(",")}`,
     );
 }

@@ -79,7 +79,7 @@ describe("gradeWithLlmAssist", () => {
     expect(output.results[0].whyWrong).toContain("관계");
   });
 
-  it("모델 응답이 깨지면 기존 보수적 판정을 유지한다", async () => {
+  it("모델 응답이 깨지면 점수를 유지하며 재확인 안내를 표시한다", async () => {
     generateMock.mockResolvedValue({ text: "JSON이 아닌 응답" });
     const input = graded(result());
     const output = await gradeWithLlmAssist(input, [
@@ -87,11 +87,17 @@ describe("gradeWithLlmAssist", () => {
     ]);
 
     expect(output.score).toBe(0);
-    expect(output.results).toEqual(input.results);
+    expect(output.results[0]).toMatchObject(input.results[0]);
+    expect(output.results[0].gradingNote).toContain("의미 검토를 완료하지 못했어요");
     expect(output.llmCalled).toBe(true);
   });
 
-  it("복수 필수답 부분 채점은 모델에 보내지 않는다", async () => {
+  it("복수 필수답은 의미를 검토하되 부족한 답을 인정하지 않는다", async () => {
+    generateMock.mockResolvedValue({
+      text: JSON.stringify({
+        verdicts: [{ questionId: 1, correct: false, reason: "진행 조건이 빠져 있어요." }],
+      }),
+    });
     const multi = result({
       answer: "상호 배제 & 진행",
       submitted: "상호 배제",
@@ -101,8 +107,8 @@ describe("gradeWithLlmAssist", () => {
       { id: 1, kind: "short-answer", stem: "두 조건을 모두 쓰세요." },
     ]);
 
-    expect(generateMock).not.toHaveBeenCalled();
-    expect(output.llmCalled).toBe(false);
+    expect(generateMock).toHaveBeenCalledOnce();
+    expect(output.llmCalled).toBe(true);
     expect(output.results[0].correct).toBe(false);
   });
 

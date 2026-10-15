@@ -209,7 +209,7 @@ function buildDynamicContext(input: ExamCramInput): string {
     `- 과목·시험: ${input.subject}`,
     `- 남은 시간: ${input.remainingMin}분 (${formatDuration(input.remainingMin)})`,
   ];
-  if (input.weakSpots && input.weakSpots.trim()) {
+  if (input.weakSpots?.trim()) {
     lines.push(`- 약점·요청: ${input.weakSpots.trim().slice(0, 400)}`);
   }
 

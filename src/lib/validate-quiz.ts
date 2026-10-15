@@ -1,4 +1,5 @@
 import type { QuizQuestionT } from "@/lib/schemas";
+import { createSourceLocator } from "@/lib/source-grounding";
 
 /**
  * Quiz 출력 검증 — 환각 차단의 사활.
@@ -53,6 +54,7 @@ export function validateQuestionIntegrity(
   const kept: QuizQuestionT[] = [];
   const dropped: ValidateResult["dropped"] = [];
   const allowed = opts.allowedKinds?.length ? new Set(opts.allowedKinds) : null;
+  const locatePassage = opts.sourceText ? createSourceLocator(opts.sourceText) : null;
 
   for (const question of questions) {
     const kind = question.kind ?? "multiple-choice";
@@ -69,6 +71,27 @@ export function validateQuestionIntegrity(
       continue;
     }
 
+    if (
+      /(?:based on|according to) (?:the )?(?:article|passage|diagram)|(?:위|아래|다음)\s*(?:그림|도표|지문)|자료의.*(?:경로|노드)/i.test(
+        question.stem,
+      ) &&
+      !question.passage
+    ) {
+      fail("풀이에 필요한 지문·도표가 제공되지 않음");
+      continue;
+    }
+    if (question.passage && locatePassage && !locatePassage(question.passage)) {
+      fail("제시문이 원문에서 확인되지 않음");
+      continue;
+    }
+    if (
+      /[&|]\s*기호로\s*구분|(?:반드시|꼭).{0,12}[&|].{0,8}(?:기호|구분)/u.test(
+        `${question.stem} ${question.explanation}`,
+      )
+    ) {
+      fail("서버용 정답 구분 기호를 학생에게 강요함");
+      continue;
+    }
     if (containsPromptLeakage(question)) {
       fail("프롬프트 또는 내부 지시 노출 의심");
       continue;
@@ -92,7 +115,7 @@ export function validateQuestionIntegrity(
     }
 
     if (kind === "multiple-choice") {
-      if (!question.choices || question.choices.length !== 4) {
+      if (question.choices?.length !== 4) {
         fail("객관식 보기가 정확히 4개가 아님");
         continue;
       }

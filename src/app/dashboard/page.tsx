@@ -101,6 +101,9 @@ function TopChrome({
         <Link href="/dashboard/today" className={styles.todayLink}>
           오늘 할 일 <ArrowUpRight size={14} aria-hidden />
         </Link>
+        <Link href="/dashboard/study/plans" className={styles.todayLink}>
+          시험 준비실 <ArrowUpRight size={14} aria-hidden />
+        </Link>
         <Link href={`/dashboard/grades?term=${selectedKey}`} className={styles.todayLink}>
           <BarChart3 size={14} aria-hidden /> 성적
         </Link>

@@ -1,0 +1,10 @@
+# Deploy application files only; local reports, credentials and fixtures stay local.
+.env*
+.tmp/
+tmp/
+output/
+test-results/
+playwright-report/
+.claude/
+.codex/
+.git/

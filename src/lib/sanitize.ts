@@ -18,7 +18,12 @@ const INJECTION_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
 
 export function sanitizeUserInput(raw: string): string {
   if (!raw) return "";
-  let cleaned = raw.slice(0, MAX_USER_INPUT);
+  return sanitizeDocumentText(raw.slice(0, MAX_USER_INPUT));
+}
+
+/** Documents are chunked downstream; sanitization must never discard their tail. */
+export function sanitizeDocumentText(raw: string): string {
+  let cleaned = raw;
   // NUL byte는 한국어·일반 본문에 정상적으로 등장하지 않음. 파서가 깨진 바이너리를
   // 흘려보냈을 때 LLM 프롬프트가 깨질 수 있어 명시적으로 제거.
   cleaned = cleaned.replaceAll(String.fromCharCode(0), "");
@@ -45,4 +50,8 @@ export function maskPersonalInfo(text: string): string {
 
 export function sanitizeForPrompt(raw: string): string {
   return maskPersonalInfo(sanitizeUserInput(raw));
+}
+
+export function sanitizeDocumentForPrompt(raw: string): string {
+  return maskPersonalInfo(sanitizeDocumentText(raw));
 }

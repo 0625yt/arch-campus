@@ -1,6 +1,8 @@
 import type { SummarizeOutputT } from "./schemas";
 import { createSourceLocator } from "./source-grounding";
 
+export class SummaryCitationError extends Error {}
+
 /** Check citations without an extra model call; this does not verify every summary claim. */
 export function groundSummaryCitations(
   summary: SummarizeOutputT,
@@ -10,9 +12,18 @@ export function groundSummaryCitations(
   return {
     ...summary,
     blocks: summary.blocks.map((block) => {
+      if (block.type === "table" && block.rows.some((row) => row.length !== block.headers.length)) {
+        throw new Error("표의 열과 셀 개수가 맞지 않아요.");
+      }
       if (!block.sourceQuote?.trim()) return { ...block, sourcePage: null, sourceQuote: null };
-      const location = locate(block.sourceQuote);
-      if (!location) throw new Error("요약 인용의 실제 원문 위치를 확인하지 못했어요.");
+      // Source headings can be shorter than a factual passage; body/quiz evidence keeps its floor.
+      const location = locate(block.sourceQuote, block.type === "h2" ? 2 : 8);
+      // Generated section labels can stand alone; never attach an invented quote or page.
+      if (!location && block.type === "h2") {
+        return { ...block, sourcePage: null, sourceQuote: null };
+      }
+      if (!location)
+        throw new SummaryCitationError("요약 인용의 실제 원문 위치를 확인하지 못했어요.");
       return { ...block, sourcePage: location.page, sourceQuote: location.quote };
     }),
   };

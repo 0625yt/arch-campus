@@ -5,14 +5,18 @@ import {
   classifyMaterial,
 } from "@/lib/classify-material";
 import { estimateCost, generate, getModelVendor } from "@/lib/claude";
+import { commitMaterialJobResult, type MaterialJobExecution } from "@/lib/data/material-job-result";
 import { MAX_STYLES_PER_REQUEST, STYLE_LABEL, type SummaryStyle } from "@/lib/material-policy";
 import { loadPrompt } from "@/lib/prompts";
-import { SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
+import { SummarizeGenerationSchema, SummarizeOutput, type SummarizeOutputT } from "@/lib/schemas";
 import { detectSubject, SUBJECT_LABEL } from "@/lib/subject-detector";
 import { buildPlaybookSection } from "@/lib/subject-playbook";
-import { groundSummaryCitations } from "@/lib/summary-grounding";
+import { sourcePages, splitSummarySource } from "@/lib/summary-chunks";
+import { groundSummaryCitations, SummaryCitationError } from "@/lib/summary-grounding";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { breakdown } from "@/lib/tokens";
+import { auditSummary } from "./summary-audit";
+import { restoreSummarySource } from "./summary-source";
 
 /**
  * 요약 서비스 — 라우트(/api/summarize, /api/materials/[id]/summarize)에서 공유.
@@ -23,7 +27,7 @@ import { breakdown } from "@/lib/tokens";
  *   - 인증, 입력 파싱, 파일 업로드(파일 케이스), HTTP 응답 매핑
  *
  * 비용 가드:
- *   - maxTokens 8192 (사용자 피드백 "기존보다 더 풍부하게" — 단원·흐름이 다 보이려면 충분히 길어야 함)
+ *   - maxTokens 16384 (사용자 피드백 "기존보다 더 풍부하게" — 단원·흐름이 다 보이려면 충분히 길어야 함)
  *   - 분류기는 본문 60자 이상일 때만 호출 (메타만이면 스킵)
  *   - 같은 자료에 대해 강제 재요약은 호출자가 결정 (idempotency 안 함)
  */
@@ -44,11 +48,13 @@ export type SummarizeResult =
     }
   | {
       ok: false;
-      stage: "ai" | "validation";
+      stage: "ai" | "validation" | "persistence";
       error: string;
+      billed?: { usage: Awaited<ReturnType<typeof generate>>["usage"]; costUsd: number };
     };
 
 export interface SummarizeInput {
+  jobExecution?: MaterialJobExecution;
   ownerId: string;
   materialId: string;
   title: string;
@@ -69,36 +75,98 @@ export interface SummarizeInput {
    * 자료 안 강조 조정만 허용, 자료 밖 내용 생성은 프롬프트 가드가 거부. 120자 제한.
    */
   intentNote?: string;
+  originalFile?: { storagePath: string; mimeType: string } | null;
 }
 
-/**
- * 한 번의 모델 호출에 안전하게 들어가는 본문 크기.
- * 한국어 기준 50K자 ≈ 25K 토큰 → Haiku 출력 6K 토큰까지 여유.
- * 이 한도 초과 시 chunk로 쪼개서 각 chunk 요약 후 머지 (전체 커버).
- */
 const CHUNK_SIZE = 50_000;
-/**
- * 한 자료에서 처리할 최대 chunk 수. 50K자 × 10 = 500K자까지 커버.
- * 빽빽한 교재 100장+도 끊김 없이 전체 요약 가능.
- *
- * 비용: chunk 10개 ≈ Haiku $0.01, 시간 ≈ 100~120초 (Vercel maxDuration 300s 안).
- * 학생이 시험 직전 한 학기 분량 PDF를 통째로 올려도 안 빠짐 — 우선순위.
- * 초과분(500K자 이상)은 reviewSpots에 안내.
- */
-const MAX_CHUNKS = 10;
+const MAX_CHUNKS = 64;
 
 export async function runSummarize(input: SummarizeInput): Promise<SummarizeResult> {
-  const isMetadataOnly = !input.sanitizedText || input.sanitizedText.trim().length < 60;
-  // 본문이 한 호출 한도 초과 → chunk 분할 경로로 라우팅.
-  // chunk 6개 한도까지 chunking, 그 이상은 잘림(reviewSpots에 안내).
-  if (!isMetadataOnly && input.sanitizedText.length > CHUNK_SIZE) {
-    return await runSummarizeChunked(input);
+  if (input.originalFile) {
+    try {
+      const restored = await restoreSummarySource({ ...input, text: input.sanitizedText });
+      if (restored)
+        input = {
+          ...input,
+          fullText: restored.text,
+          sanitizedText: restored.sanitizedText,
+          pageCount: restored.pageCount ?? null,
+          parserWarnings: [...input.parserWarnings, ...restored.warnings],
+        };
+    } catch {
+      return {
+        ok: false,
+        stage: "validation",
+        error:
+          "기존 PDF의 전체 원문을 다시 읽지 못했어요. 원본을 다시 업로드해주세요. 기존 요약은 유지했어요.",
+      };
+    }
   }
+  const chunks = splitSummarySource(input.sanitizedText, CHUNK_SIZE);
+  if (chunks.length > MAX_CHUNKS) {
+    return {
+      ok: false,
+      stage: "validation",
+      error:
+        "자료 전체를 처리할 수 있는 크기를 넘었어요. 단원별로 나눠 올려주세요. 일부만 잘라 요약하지 않았어요.",
+    };
+  }
+  return chunks.length > 1 ? runSummarizeChunked(input, chunks) : runSummarizeSingle(input, true);
+}
 
-  // 분류 — Haiku로 어떤 도메인인지
-  let classification: Classification | null = null;
-  if (!isMetadataOnly) {
+function withCoverage(
+  summary: SummarizeOutputT,
+  input: SummarizeInput,
+  chunks: number,
+): SummarizeOutputT {
+  const pages = sourcePages(input.sanitizedText);
+  const warnings = [...input.parserWarnings];
+  if (input.pageCount && pages.length < input.pageCount) {
+    warnings.push(
+      `원문 ${input.pageCount}쪽 중 쪽수 표식을 확인한 범위는 ${pages.length}쪽이에요. 원본과 대조해 주세요.`,
+    );
+  }
+  if (/\[unreadable/i.test(input.sanitizedText))
+    warnings.push("읽히지 않은 부분이 있어요. 원본의 해당 쪽을 확인해 주세요.");
+  return {
+    ...summary,
+    coverage: {
+      processedChunks: chunks,
+      totalChunks: chunks,
+      inputCharacters: input.sanitizedText.length,
+      sourcePages: pages,
+      citedPages: [
+        ...new Set(summary.blocks.flatMap((b) => (b.sourcePage ? [b.sourcePage] : []))),
+      ].sort((a, b) => a - b),
+      pageCount: input.pageCount,
+      warnings,
+    },
+  };
+}
+
+async function runSummarizeSingle(
+  input: SummarizeInput,
+  persistCache: boolean,
+  sharedClassification?: Classification | null,
+  chunkContext = "",
+  previousAttempt?: {
+    usage: {
+      inputTokens: number;
+      outputTokens: number;
+      cacheReadTokens: number;
+      cacheCreationTokens: number;
+    };
+    costUsd: number;
+  },
+): Promise<SummarizeResult> {
+  const isMetadataOnly = !input.sanitizedText || input.sanitizedText.trim().length < 60;
+
+  // 선택 자료 분류 — 본 호출과 별도로 실제 모델·비용을 기록한다.
+  let classification: Classification | null = sharedClassification ?? null;
+  if (!isMetadataOnly && sharedClassification === undefined) {
     classification = await classifyMaterial({
+      ownerId: input.ownerId,
+      materialId: input.materialId,
       title: input.title,
       type: input.type,
       fullText: input.sanitizedText,
@@ -115,20 +183,22 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     classificationDomain: classification?.domain ?? null,
     materialTitle: input.title,
   });
-  const dynamicContext = buildDynamicContext({
-    title: input.title,
-    type: input.type,
-    pageCount: input.pageCount ?? undefined,
-    isMetadataOnly,
-    parserWarnings: input.parserWarnings,
-    classification,
-    styles,
-    subject,
-    intentNote: input.intentNote,
-    // wasTruncated 플래그는 chunk 경로에서만 의미 — 단일 호출 경로는 자료 전체가 들어감.
-    wasTruncated: false,
-    originalLength: input.sanitizedText.length,
-  });
+  const dynamicContext =
+    chunkContext +
+    buildDynamicContext({
+      title: input.title,
+      type: input.type,
+      pageCount: input.pageCount ?? undefined,
+      isMetadataOnly,
+      parserWarnings: input.parserWarnings,
+      classification,
+      styles,
+      subject,
+      intentNote: input.intentNote,
+      // wasTruncated 플래그는 chunk 경로에서만 의미 — 단일 호출 경로는 자료 전체가 들어감.
+      wasTruncated: false,
+      originalLength: input.sanitizedText.length,
+    });
   const tokenBudget = breakdown({
     rule: rulePrompt,
     dynamic: dynamicContext,
@@ -141,16 +211,14 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
     result = await generate({
       tool: "summarize",
       rulePrompt,
-      responseSchema: SummarizeOutput,
+      responseSchema: SummarizeGenerationSchema,
       dynamicContext,
       userInput:
         input.sanitizedText.trim().length > 0
           ? input.sanitizedText
           : `[본문 자동 추출 실패 — 파일명 ${input.title} · 종류 ${input.type}]`,
-      // 2026-05-31 결정: 31p+ 합본 자료에서 Haiku가 8192에서 잘려 JSON 깨지던 문제 해결.
-      // Gemini Flash로 모델 교체 + maxTokens 10배(8K→81K). 모델은 보통 6~10K만 뱉으므로
-      // 평균 비용 영향 거의 없음 — 극단 케이스에만 길게 뱉음. (CLAUDE.md §1 비용 통제 검토 완료)
-      maxTokens: 81920,
+      // Bound each region independently; reject truncated output before persistence.
+      maxTokens: 16384,
       temperature: 0.3,
     });
   } catch (e) {
@@ -166,6 +234,7 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
       ok: false,
       stage: "ai",
       error: "자료를 정리하지 못했어요. 잠시 후 다시 시도해주세요.",
+      billed: previousAttempt,
     };
   }
 
@@ -173,8 +242,16 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
   // 모델이 keywords 50개 초과·blocks 100개 초과로 뱉으면 zod가 throw. parseSummarizeWithCap이
   // 검증 전에 한도 안으로 안전 보정해서 검증 통과시킴. (실측 2026-05-31 prod: Haiku가
   // 강의 슬라이드 자료에서 keywords 50개 초과 뱉어 모든 chunk가 throw하던 버그.)
+  const attemptUsage = { ...result.usage };
+  if (previousAttempt) {
+    for (const key of Object.keys(attemptUsage) as Array<keyof typeof attemptUsage>)
+      attemptUsage[key] += previousAttempt.usage[key];
+  }
+  const attemptCost = estimateCost(result.usage, result.modelId) + (previousAttempt?.costUsd ?? 0);
   let summary: SummarizeOutputT;
   try {
+    if (result.finishReason === "length" || result.finishReason === "error")
+      throw new Error("요약 출력이 끝까지 완성되지 않았어요.");
     summary = groundSummaryCitations(parseSummarizeWithCap(result.text), input.sanitizedText);
   } catch (e) {
     await logGeneration({
@@ -187,45 +264,120 @@ export async function runSummarize(input: SummarizeInput): Promise<SummarizeResu
       errorMessage: `Zod 검증 실패: ${e instanceof Error ? e.message : String(e)}`,
       payload: { rawText: result.text.slice(0, 4000) },
     });
+    if (e instanceof SummaryCitationError && !previousAttempt) {
+      return runSummarizeSingle(
+        input,
+        persistCache,
+        classification,
+        `${chunkContext}\n직전 응답은 원문 인용이 바뀌거나 너무 짧아 검증되지 않았습니다. 이 구간 전체를 다시 정리하세요. sourceQuote는 원문에서 12자 이상의 연속 문장을 그대로 복사하고, 수식만 짧게 인용하거나 말줄임표·재서술을 넣지 마세요. 원문에 없는 설명은 추가하지 마세요.\n`,
+        { usage: attemptUsage, costUsd: attemptCost },
+      );
+    }
     return {
       ok: false,
       stage: "validation",
       error: "요약 형식이나 원문 인용을 확인하지 못했어요. 다시 시도해주세요.",
+      billed: { usage: attemptUsage, costUsd: attemptCost },
     };
   }
 
-  // materials 캐시 갱신 — owner_id 강제
-  const admin = getAdminSupabase();
-  const update = await admin
-    .from("materials")
-    .update({
-      summary_payload: summary,
-      summary_keywords: summary.keywords ?? null,
-      summary_model_id: result.modelId,
-      last_summarized_at: new Date().toISOString(),
-    })
-    .eq("id", input.materialId)
-    .eq("owner_id", input.ownerId);
-  if (update.error) {
-    console.warn("materials.summary 캐시 갱신 실패:", update.error.message);
-  }
-
-  const costUsd = estimateCost(result.usage, result.modelId);
   await logGeneration({
     ownerId: input.ownerId,
     materialId: input.materialId,
     modelId: result.modelId,
     usage: result.usage,
-    cost: costUsd,
+    cost: estimateCost(result.usage, result.modelId),
     status: "ok",
     payload: { summary },
   });
+
+  let costUsd = attemptCost;
+  const combinedUsage = attemptUsage;
+  if (!isMetadataOnly) {
+    let audit: Awaited<ReturnType<typeof auditSummary>>;
+    try {
+      audit = await auditSummary({
+        summary,
+        source: input.sanitizedText,
+        intentNote: input.intentNote,
+      });
+    } catch {
+      return {
+        ok: false,
+        stage: "validation",
+        error: "요약 내용 검수를 완료하지 못했어요. 기존 요약을 유지했어요.",
+        billed: { usage: combinedUsage, costUsd },
+      };
+    }
+    await logGeneration({
+      ownerId: input.ownerId,
+      materialId: input.materialId,
+      modelId: audit.modelId,
+      tool: "summary-verify",
+      usage: audit.usage,
+      cost: audit.costUsd,
+      status: audit.summary ? "ok" : "error",
+    });
+    costUsd += audit.costUsd;
+    for (const key of Object.keys(combinedUsage) as Array<keyof typeof combinedUsage>)
+      combinedUsage[key] += audit.usage[key];
+    if (!audit.summary)
+      return {
+        ok: false,
+        stage: "validation",
+        error: audit.error,
+        billed: { usage: combinedUsage, costUsd },
+      };
+    summary = audit.summary;
+  }
+  if (persistCache) summary = withCoverage(summary, input, 1);
+
+  // materials 캐시 갱신 — owner_id 강제
+  if (persistCache && !input.jobExecution) {
+    const admin = getAdminSupabase();
+    const update = await admin
+      .from("materials")
+      .update({
+        summary_payload: summary,
+        summary_keywords: summary.keywords ?? null,
+        summary_model_id: result.modelId,
+        last_summarized_at: new Date().toISOString(),
+      })
+      .eq("id", input.materialId)
+      .eq("owner_id", input.ownerId);
+    if (update.error) {
+      console.warn("materials.summary 캐시 갱신 실패:", update.error.message);
+    }
+  }
+
+  if (persistCache && input.jobExecution) {
+    try {
+      const stored = await commitMaterialJobResult({
+        execution: input.jobExecution,
+        ownerId: input.ownerId,
+        materialId: input.materialId,
+        modelId: result.modelId,
+        usage: combinedUsage,
+        costUsd,
+        result: { summary },
+      });
+      if (!stored)
+        return { ok: false, stage: "persistence", error: "이전 실행의 요약은 저장하지 않았어요." };
+      summary = stored.summary as SummarizeOutputT;
+    } catch (error) {
+      return {
+        ok: false,
+        stage: "persistence",
+        error: error instanceof Error ? error.message : "요약을 저장하지 못했어요.",
+      };
+    }
+  }
 
   return {
     ok: true,
     summary,
     modelId: result.modelId,
-    usage: result.usage,
+    usage: combinedUsage,
     costUsd,
     tokenBudget,
   };
@@ -250,12 +402,10 @@ function parseSummarizeWithCap(raw: string): SummarizeOutputT {
   if (Array.isArray(parsed.keywords) && parsed.keywords.length > 500) {
     parsed.keywords = parsed.keywords.slice(0, 500);
   }
-  if (Array.isArray(parsed.blocks) && parsed.blocks.length > 500) {
-    parsed.blocks = parsed.blocks.slice(0, 500);
-  }
   if (Array.isArray(parsed.reviewSpots) && parsed.reviewSpots.length > 8) {
     parsed.reviewSpots = parsed.reviewSpots.slice(0, 8);
   }
+  delete parsed.coverage;
   return SummarizeOutput.parse(parsed);
 }
 
@@ -363,111 +513,115 @@ function buildDynamicContext(meta: {
   return lines.join("\n");
 }
 
-/**
- * Map-Reduce 요약 — 본문을 chunk로 쪼개 각각 요약 → 결과 머지.
- *
- * 사용자 피드백: "20장 PDF인데 5장까지만 요약됨, 자료 전체 무조건 다 나와야 함"
- * → 60K자 cap 제거. CHUNK_SIZE(50K자) 단위로 분할, 최대 MAX_CHUNKS(10)개까지 처리.
- *
- * 동작:
- *   1) 본문을 단락 경계(개행) 기준으로 chunk 분할 — 문장 중간 X
- *   2) 각 chunk마다 runSummarize 재귀 호출 (chunk 크기 ≤ CHUNK_SIZE라 단일 경로)
- *   3) 결과 N개를 머지: blocks/keywords/reviewSpots concat, leadSentence는 첫 chunk 것
- *   4) 각 chunk blocks 앞에 h2 "── 부분 N/M (p.X~Y) ──" 박아 위치 안내
- *   5) MAX_CHUNKS 초과분은 reviewSpots에 "뒤 X자 빠짐" 안내
- *
- * 비용:
- *   - chunk 1개당 Haiku $0.0005 ~ $0.001
- *   - 6 chunk 자료 → $0.006 + classify 1회
- *   - 사용자가 자료를 정리해야 점수 오르는 시점이라 비용보다 완성도 우선
- */
-async function runSummarizeChunked(input: SummarizeInput): Promise<SummarizeResult> {
-  const chunks = splitIntoChunks(input.sanitizedText, CHUNK_SIZE);
-  const processedChunks = chunks.slice(0, MAX_CHUNKS);
-  const truncatedChunkCount = chunks.length - processedChunks.length;
-
-  // chunk별 요약을 순차로 — Anthropic concurrent 보호 + chunk 간 분류기 재사용 위해 직렬.
-  // chunk 1개 ≈ 8~12s라 6 chunk = ~60s. Vercel maxDuration 300s 한도 안.
-  const partials: SummarizeOutputT[] = [];
-  let totalUsage = {
+/** All chunks must succeed before replacing the previous summary. No thinning or tail truncation. */
+async function runSummarizeChunked(
+  input: SummarizeInput,
+  chunks: string[],
+): Promise<SummarizeResult> {
+  const classification = await classifyMaterial({
+    ownerId: input.ownerId,
+    materialId: input.materialId,
+    title: input.title,
+    type: input.type,
+    fullText: input.sanitizedText,
+    pageCount: input.pageCount ?? undefined,
+  });
+  const outcomes: SummarizeResult[] = new Array(chunks.length);
+  let next = 0;
+  // Small bounded pool preserves order without serial latency for 100-page documents.
+  await Promise.all(
+    Array.from({ length: Math.min(3, chunks.length) }, async () => {
+      while (next < chunks.length) {
+        const i = next++;
+        outcomes[i] = await runSummarizeSingle(
+          { ...input, sanitizedText: chunks[i] },
+          false,
+          classification,
+          `현재 입력은 전체 ${chunks.length}개 중 ${i + 1}번째 구간입니다. 다른 구간은 별도로 처리 후 합칩니다. 이 분할 때문에 자료가 누락되었다거나 다른 쪽을 받지 못했다는 안내를 blocks/reviewSpots에 쓰지 마세요. 이 구간의 학습 내용만 정리하세요.\n`,
+        );
+      }
+    }),
+  );
+  const totalUsage = {
     inputTokens: 0,
     outputTokens: 0,
     cacheReadTokens: 0,
     cacheCreationTokens: 0,
   };
   let totalCost = 0;
+  const partials: SummarizeOutputT[] = [];
   let lastModelId = "";
-
-  for (let i = 0; i < processedChunks.length; i++) {
-    const partialResult = await runSummarize({
-      ...input,
-      sanitizedText: processedChunks[i],
-      // chunk마다 별개 호출이지만 materials cache는 마지막에 머지된 결과로만 갱신해야 해서
-      // chunk 단위는 ownerId/materialId 그대로 두되 cache 갱신은 직접 처리.
-    });
-
-    if (!partialResult.ok) {
-      // chunk 한 개 실패해도 나머지 진행 — 빈 chunk로 채우고 계속
-      console.warn(`chunk ${i + 1}/${processedChunks.length} 요약 실패: ${partialResult.error}`);
-      continue;
+  for (const outcome of outcomes) {
+    const billed = outcome.ok ? outcome : outcome.billed;
+    if (billed) {
+      for (const key of Object.keys(totalUsage) as Array<keyof typeof totalUsage>)
+        totalUsage[key] += billed.usage[key];
+      totalCost += billed.costUsd;
     }
-
-    partials.push(partialResult.summary);
-    totalUsage = {
-      inputTokens: totalUsage.inputTokens + partialResult.usage.inputTokens,
-      outputTokens: totalUsage.outputTokens + partialResult.usage.outputTokens,
-      cacheReadTokens: totalUsage.cacheReadTokens + partialResult.usage.cacheReadTokens,
-      cacheCreationTokens: totalUsage.cacheCreationTokens + partialResult.usage.cacheCreationTokens,
-    };
-    totalCost += partialResult.costUsd;
-    lastModelId = partialResult.modelId;
+    if (outcome.ok) {
+      partials.push(outcome.summary);
+      lastModelId = outcome.modelId;
+    }
   }
-
-  if (partials.length === 0) {
+  const failures = outcomes.flatMap((r, i) => (r.ok ? [] : [i + 1]));
+  if (failures.length)
     return {
       ok: false,
       stage: "ai",
-      error: "자료가 너무 길어 부분 요약을 만들지 못했어요. 잠시 후 다시 시도해주세요.",
+      error: `전체 ${chunks.length}개 구간 중 ${failures.join(", ")}번 구간을 완료하지 못했어요. 기존 요약을 유지했어요. 다시 시도해주세요.`,
+      billed: { usage: totalUsage, costUsd: totalCost },
     };
-  }
-
-  const merged = mergePartialSummaries(partials, {
-    totalLength: input.sanitizedText.length,
-    chunkCount: processedChunks.length,
-    truncatedChunkCount,
-    chunkSize: CHUNK_SIZE,
-  });
+  let merged = withCoverage(mergePartialSummaries(partials, chunks), input, chunks.length);
+  const validated = SummarizeOutput.safeParse(merged);
+  if (!validated.success)
+    return {
+      ok: false,
+      stage: "validation",
+      error: "전체 요약이 출력 한도를 넘었어요. 단원별로 나눠 다시 시도해주세요.",
+      billed: { usage: totalUsage, costUsd: totalCost },
+    };
 
   // materials cache 갱신 — 단일 호출 경로와 동일.
-  const admin = getAdminSupabase();
-  const update = await admin
-    .from("materials")
-    .update({
-      summary_payload: merged,
-      summary_keywords: merged.keywords ?? null,
-      summary_model_id: lastModelId,
-      last_summarized_at: new Date().toISOString(),
-    })
-    .eq("id", input.materialId)
-    .eq("owner_id", input.ownerId);
-  if (update.error) {
-    console.warn("materials.summary 캐시 갱신 실패 (chunked):", update.error.message);
+  if (input.jobExecution) {
+    try {
+      const stored = await commitMaterialJobResult({
+        execution: input.jobExecution,
+        ownerId: input.ownerId,
+        materialId: input.materialId,
+        modelId: lastModelId,
+        usage: totalUsage,
+        costUsd: totalCost,
+        result: { summary: merged },
+      });
+      if (!stored)
+        return { ok: false, stage: "persistence", error: "이전 실행의 요약은 저장하지 않았어요." };
+      merged = stored.summary as SummarizeOutputT;
+    } catch (error) {
+      return {
+        ok: false,
+        stage: "persistence",
+        error: error instanceof Error ? error.message : "요약을 저장하지 못했어요.",
+      };
+    }
+  } else {
+    const admin = getAdminSupabase();
+    const update = await admin
+      .from("materials")
+      .update({
+        summary_payload: merged,
+        summary_keywords: merged.keywords ?? null,
+        summary_model_id: lastModelId,
+        last_summarized_at: new Date().toISOString(),
+      })
+      .eq("id", input.materialId)
+      .eq("owner_id", input.ownerId);
+    if (update.error) {
+      console.warn("materials.summary 캐시 갱신 실패 (chunked):", update.error.message);
+    }
   }
 
-  await logGeneration({
-    ownerId: input.ownerId,
-    materialId: input.materialId,
-    modelId: lastModelId,
-    usage: totalUsage,
-    cost: totalCost,
-    status: "ok",
-    payload: {
-      summary: merged,
-      chunked: true,
-      chunkCount: processedChunks.length,
-      truncatedChunkCount,
-    },
-  });
+  // Each actual chunk call was metered by runSummarizeSingle. Merging is local:
+  // logging the aggregate as another generation would charge the same usage twice.
 
   return {
     ok: true,
@@ -483,182 +637,26 @@ async function runSummarizeChunked(input: SummarizeInput): Promise<SummarizeResu
   };
 }
 
-/**
- * 본문을 chunkSize 이하의 chunk로 분할. 가능한 단락 경계(\n\n) 기준,
- * 단락 하나가 chunkSize보다 크면 문장(. !?) 단위, 그것도 크면 강제 절단.
- */
-function splitIntoChunks(text: string, chunkSize: number): string[] {
-  if (text.length <= chunkSize) return [text];
-
-  const chunks: string[] = [];
-  const paragraphs = text.split(/\n\n+/);
-  let current = "";
-
-  for (const para of paragraphs) {
-    // 빈 단락 스킵
-    if (!para.trim()) continue;
-
-    // 단락 자체가 chunkSize 초과 → 문장 단위 재분할
-    if (para.length > chunkSize) {
-      if (current) {
-        chunks.push(current);
-        current = "";
-      }
-      const sentences = para.split(/(?<=[.!?。!?])\s+/);
-      for (const sent of sentences) {
-        if (current.length + sent.length + 1 > chunkSize) {
-          if (current) chunks.push(current);
-          // 한 문장도 너무 크면 (드물지만 표·코드) 강제 자르기
-          if (sent.length > chunkSize) {
-            for (let i = 0; i < sent.length; i += chunkSize) {
-              chunks.push(sent.slice(i, i + chunkSize));
-            }
-            current = "";
-          } else {
-            current = sent;
-          }
-        } else {
-          current = current ? `${current} ${sent}` : sent;
-        }
-      }
-      continue;
-    }
-
-    if (current.length + para.length + 2 > chunkSize) {
-      chunks.push(current);
-      current = para;
-    } else {
-      current = current ? `${current}\n\n${para}` : para;
-    }
-  }
-
-  if (current) chunks.push(current);
-  return chunks;
-}
-
-/**
- * N개의 부분 요약을 한 자료 요약으로 합침.
- *
- * - leadSentence: 첫 chunk의 것 + " (총 N부분 요약)" 추가
- * - blocks: 각 chunk 시작 전 h2 "── 부분 N/M ──" prepend 후 concat
- * - keywords: 합치고 중복 제거 (대소문자 무시), 최대 50개
- * - reviewSpots: 합치고 중복 title 제거, 최대 8개
- * - watermark: 첫 chunk의 것
- */
-function mergePartialSummaries(
-  partials: SummarizeOutputT[],
-  meta: {
-    totalLength: number;
-    chunkCount: number;
-    truncatedChunkCount: number;
-    chunkSize: number;
-  },
-): SummarizeOutputT {
-  const first = partials[0];
-  const mergedBlocks: SummarizeOutputT["blocks"] = [];
-
-  partials.forEach((p, i) => {
-    if (partials.length > 1) {
-      mergedBlocks.push({
-        type: "h2" as const,
-        content: `── 부분 ${i + 1}/${partials.length} ──`,
-      });
-    }
-    mergedBlocks.push(...p.blocks);
-  });
-
-  // 머지된 blocks 한도 — chunk 머지 결과는 풍부도 유지.
-  // 사용자 피드백 2026-05-31: 강의 슬라이드 50쪽+에서 페이지별 그림·예문·라벨까지 다 담아야
-  // 중간이 비어 보이지 않음. zod max(100) 한도까지 살림.
-  const cappedBlocks = mergedBlocks.length <= 100 ? mergedBlocks : capBlocks(mergedBlocks, 100);
-
-  // keywords 중복 제거 (lowercase·trim 기준)
-  const keywordSet = new Map<string, string>();
-  for (const p of partials) {
-    for (const kw of p.keywords) {
-      const key = kw.toLowerCase().trim();
-      if (!keywordSet.has(key)) keywordSet.set(key, kw);
-    }
-  }
-  const mergedKeywords = Array.from(keywordSet.values()).slice(0, 100);
-
-  // reviewSpots 중복 title 제거
-  const reviewSet = new Map<string, SummarizeOutputT["reviewSpots"][number]>();
-  for (const p of partials) {
-    for (const rs of p.reviewSpots) {
-      const key = rs.title.toLowerCase().trim();
-      if (!reviewSet.has(key)) reviewSet.set(key, rs);
-    }
-  }
-  let mergedReviewSpots = Array.from(reviewSet.values());
-
-  // 잘린 chunk 안내 추가
-  if (meta.truncatedChunkCount > 0) {
-    const truncatedKchars = Math.round(
-      (meta.totalLength - meta.chunkCount * meta.chunkSize) / 1000,
-    );
-    mergedReviewSpots = [
-      {
-        title: `⚠ 자료가 매우 길어 일부 뒤쪽이 빠졌어요`,
-        why: `이 자료는 약 ${Math.round(meta.totalLength / 1000)}K자인데 ${meta.chunkCount}부분(약 ${Math.round((meta.chunkCount * meta.chunkSize) / 1000)}K자)까지 정리했어요. 뒤 약 ${truncatedKchars}K자가 빠졌어요. 더 정확한 정리가 필요하면 단원별로 쪼개서 따로 올려주세요.`,
-      },
-      ...mergedReviewSpots,
-    ];
-  }
-  mergedReviewSpots = mergedReviewSpots.slice(0, 8);
-
-  return {
-    leadSentence:
-      partials.length > 1
-        ? `${first.leadSentence} (자료가 길어 ${partials.length}부분으로 나눠 정리했어요)`
-        : first.leadSentence,
-    blocks: cappedBlocks,
-    keywords: mergedKeywords,
-    reviewSpots: mergedReviewSpots,
-    watermark: first.watermark,
-  };
-}
-
-/**
- * 머지된 blocks가 zod max(60)를 초과하면 균형 있게 솎아내기.
- * 각 chunk(h2 부분 마커) 안에서 h2·callout은 무조건 keep, para·bullets는 비율로 줄임.
- */
-function capBlocks(blocks: SummarizeOutputT["blocks"], max: number): SummarizeOutputT["blocks"] {
-  if (blocks.length <= max) return blocks;
-
-  // 우선순위: h2·callout(시각 구조) > bullets(키워드) > para(설명)
-  const priority = (b: (typeof blocks)[number]): number => {
-    if (b.type === "h2") return 0;
-    if (b.type === "callout") return 1;
-    if (b.type === "bullets") return 2;
-    return 3;
-  };
-  // 원래 순서 유지하면서 우선순위 낮은 것부터 drop
-  const indexed = blocks.map((b, i) => ({ block: b, originalIndex: i, prio: priority(b) }));
-  // prio 3(para) 부터 drop, 그래도 초과면 prio 2(bullets), prio 1(callout) 순
-  let target = indexed;
-  for (let prio = 3; prio >= 1 && target.length > max; prio--) {
-    const dropCount = target.length - max;
-    const droppable = target.filter((x) => x.prio === prio);
-    if (droppable.length === 0) continue;
-    // 균등하게 솎기 — 매 N번째 drop
-    const keepRate = Math.max(0, droppable.length - dropCount) / droppable.length;
-    let kept = 0;
-    const dropSet = new Set<number>();
-    droppable.forEach((d, i) => {
-      if (Math.floor((i + 1) * keepRate) > kept) {
-        kept++;
-      } else {
-        dropSet.add(d.originalIndex);
-      }
+function mergePartialSummaries(partials: SummarizeOutputT[], chunks: string[]): SummarizeOutputT {
+  const blocks: SummarizeOutputT["blocks"] = [];
+  partials.forEach((part, i) => {
+    const pages = sourcePages(chunks[i]);
+    blocks.push({
+      type: "h2",
+      content: pages.length
+        ? `${pages[0]}–${pages.at(-1)}쪽 정리`
+        : `부분 ${i + 1}/${chunks.length}`,
     });
-    target = target.filter((x) => !dropSet.has(x.originalIndex));
-  }
-
-  return target
-    .sort((a, b) => a.originalIndex - b.originalIndex)
-    .map((x) => x.block)
-    .slice(0, max);
+    blocks.push(...part.blocks);
+  });
+  const reviews = new Map(partials.flatMap((p) => p.reviewSpots).map((s) => [s.title, s]));
+  return {
+    leadSentence: `자료 전체 ${chunks.length}개 구간을 순서대로 정리했어요. 아래 각 구간에서 핵심 내용과 출처를 확인하세요.`,
+    blocks,
+    keywords: [...new Set(partials.flatMap((p) => p.keywords))].slice(0, 500),
+    reviewSpots: [...reviews.values()].slice(0, 8),
+    watermark: partials[0].watermark,
+  };
 }
 
 async function logGeneration(opts: {
@@ -675,12 +673,13 @@ async function logGeneration(opts: {
   status: "ok" | "rejected" | "error";
   errorMessage?: string;
   payload?: Record<string, unknown>;
+  tool?: "summarize" | "summary-verify";
 }): Promise<void> {
   const admin = getAdminSupabase();
   const { error } = await admin.from("generations").insert({
     owner_id: opts.ownerId,
     material_id: opts.materialId,
-    tool: "summarize",
+    tool: opts.tool ?? "summarize",
     model_id: opts.modelId,
     model_provider: getModelVendor(opts.modelId),
     input_tokens: opts.usage?.inputTokens ?? 0,

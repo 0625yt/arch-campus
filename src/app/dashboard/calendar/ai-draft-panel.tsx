@@ -172,7 +172,7 @@ export function EventAIDraftPanel({
       const successIdxByDraftIdx = new Set<number>();
       const draftIdxByPickedIdx = new Map<number, number>();
       picked.forEach((p, pickIdx) => {
-        const dIdx = drafts.findIndex((d) => d === p);
+        const dIdx = drafts.indexOf(p);
         if (dIdx >= 0) draftIdxByPickedIdx.set(pickIdx, dIdx);
       });
 

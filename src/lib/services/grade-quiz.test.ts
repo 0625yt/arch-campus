@@ -256,3 +256,45 @@ describe("gradeQuiz", () => {
     ).toBe(true);
   });
 });
+
+describe("reported answer regressions", () => {
+  const short = (answer: string, submitted: string, stem = "다음 개념에 해당하는 정답을 쓰시오.") =>
+    gradeQuiz(
+      [mkQ(1, "A", { kind: "short-answer", answer, stem, choices: null })],
+      [{ questionId: 1, response: submitted }],
+    ).results[0].correct;
+  it("accepts the identifying term when the question already names its category", () => {
+    expect(
+      short(
+        "제어 결합도 | 제어결합도 | Control",
+        "제어",
+        "플래그로 처리 흐름을 지시하는 결합도 명칭을 쓰시오.",
+      ),
+    ).toBe(true);
+    expect(short("개체 무결성", "무결성", "기본키의 NULL을 금지하는 무결성 제약을 쓰시오.")).toBe(
+      false,
+    );
+  });
+  it("accepts Korean spacing without accepting prefixes or negated explanations", () => {
+    expect(short("상호 배제", "상호배제")).toBe(true);
+    expect(short("정규화", "정규화가 아니다")).toBe(false);
+    expect(short("정규화", "정")).toBe(false);
+  });
+  it("preserves fractions and decimals, and converts compatible units", () => {
+    expect(short("1/2", "0.5")).toBe(true);
+    expect(short("1/2", "1")).toBe(false);
+    expect(short("5 m/s", "5 m")).toBe(false);
+    expect(short("5 m/s", "5 m/s")).toBe(true);
+    expect(short("0.5", "-0.5")).toBe(false);
+    expect(short("0.5", "0.6")).toBe(false);
+    expect(short("10,000", "10000")).toBe(true);
+    expect(short("1 m", "100 cm")).toBe(true);
+    expect(short("1 m", "1 s")).toBe(false);
+    expect(short("1 m", "1")).toBe(false);
+    expect(short("1/2", "0.5", "정답을 반드시 분수로 쓰시오.")).toBe(false);
+  });
+  it("distinguishes script requirements from equivalent readings", () => {
+    expect(short("ゴム", "ごむ")).toBe(true);
+    expect(short("ゴム", "ごむ", "고무를 가타카나로 쓰시오.")).toBe(false);
+  });
+});

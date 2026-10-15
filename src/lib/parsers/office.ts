@@ -44,6 +44,8 @@ export async function parseXlsx(input: ParseInput): Promise<ParsedDocument> {
           cells.push(v.richText.map((r) => r.text).join(""));
         } else if (typeof v === "object" && "text" in v && typeof v.text === "string") {
           cells.push(v.text);
+        } else if (typeof v === "object" && ("formula" in v || "sharedFormula" in v)) {
+          cells.push(cell.text);
         } else if (v instanceof Date) {
           cells.push(v.toISOString().slice(0, 10));
         } else {

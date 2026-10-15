@@ -4,6 +4,7 @@ import { z } from "zod";
 import { tryGetOwnerId } from "@/lib/auth";
 import { validateEventRange } from "@/lib/calendar-event-time";
 import { listEventsBetween } from "@/lib/data/events";
+import { ReminderMinutes } from "@/lib/push-schema";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 
@@ -92,6 +93,7 @@ const CreateBody = z
       .nullable()
       .optional(),
     location: z.string().max(200).nullable().optional(),
+    reminder_minutes: ReminderMinutes.optional(),
   })
   .strict();
 
@@ -154,6 +156,7 @@ export async function POST(req: Request): Promise<NextResponse<OkResponse | ErrR
     confirmed: true, // 사용자가 직접 입력 = 무조건 확정
     color: body.color ?? null,
     location: body.location?.trim() ? body.location.trim() : null,
+    reminder_minutes: body.reminder_minutes ?? null,
   };
 
   const { data, error } = await admin.from("events").insert(insert).select("id, title").single();

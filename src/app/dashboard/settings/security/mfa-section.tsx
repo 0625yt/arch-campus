@@ -151,6 +151,7 @@ export function MfaSection({ className }: { className?: string }) {
           <div className="mt-6 flex flex-col gap-5">
             {qrSvg && (
               <div className="flex flex-col items-center gap-3 rounded-[12px] border border-[var(--color-apple-hairline)] bg-white p-5">
+                {/* biome-ignore lint/performance/noImgElement: The private QR is an in-memory SVG data URL. */}
                 <img
                   width={180}
                   height={180}

@@ -95,7 +95,7 @@ describe.runIf(shouldRun)("quiz 모델 A/B — 3.6 Flash vs 3.5 Flash-Lite vs So
         .eq("id", mat.id)
         .limit(1);
       if (error || !data?.length) {
-        console.log(`⚠️ 자료 로드 실패 ${mat.label}: ${error?.message}`);
+        console.info(`⚠️ 자료 로드 실패 ${mat.label}: ${error?.message}`);
         continue;
       }
       const fullText = data[0].full_text as string;
@@ -153,7 +153,7 @@ describe.runIf(shouldRun)("quiz 모델 A/B — 3.6 Flash vs 3.5 Flash-Lite vs So
           raw,
           note,
         });
-        console.log(
+        console.info(
           note ||
             `✓ ${Math.round(ms)}ms · $${cost.toFixed(5)} · evidence ${Math.round(evidence * 100)}% · ${accepted}/${raw}`,
         );
@@ -161,22 +161,23 @@ describe.runIf(shouldRun)("quiz 모델 A/B — 3.6 Flash vs 3.5 Flash-Lite vs So
     }
 
     // ===== 자료별 상세 =====
-    console.log("\n\n========== 자료별 상세 ==========");
+    console.info("\n\n========== 자료별 상세 ==========");
+    // biome-ignore lint/suspicious/noConsole: Diagnostic comparison needs tabular output.
     console.table(
       rows.map((r) => ({
         모델: r.model,
         자료: r.material,
         "속도(ms)": Math.round(r.ms),
         "비용($)": +r.cost.toFixed(5),
-        evidence: Math.round(r.evidence * 100) + "%",
-        integrity: Math.round(r.integrity * 100) + "%",
+        evidence: `${Math.round(r.evidence * 100)}%`,
+        integrity: `${Math.round(r.integrity * 100)}%`,
         채택: `${r.accepted}/${r.raw}`,
         비고: r.note || "-",
       })),
     );
 
     // ===== 모델별 종합 =====
-    console.log("\n========== 모델별 종합 (3자료 평균) ==========");
+    console.info("\n========== 모델별 종합 (3자료 평균) ==========");
     const agg: Record<
       string,
       { n: number; cost: number; ms: number; ev: number; integ: number; acc: number }
@@ -192,18 +193,19 @@ describe.runIf(shouldRun)("quiz 모델 A/B — 3.6 Flash vs 3.5 Flash-Lite vs So
       a.integ += r.integrity;
       a.acc += r.accepted;
     }
+    // biome-ignore lint/suspicious/noConsole: Diagnostic comparison needs tabular output.
     console.table(
       Object.entries(agg).map(([model, a]) => ({
         모델: model,
         "평균비용($)": +(a.cost / a.n).toFixed(5),
         "3자료합($)": +a.cost.toFixed(5),
         "평균속도(ms)": Math.round(a.ms / a.n),
-        evidence정확도: Math.round((a.ev / a.n) * 100) + "%",
-        integrity: Math.round((a.integ / a.n) * 100) + "%",
+        evidence정확도: `${Math.round((a.ev / a.n) * 100)}%`,
+        integrity: `${Math.round((a.integ / a.n) * 100)}%`,
         평균채택: +(a.acc / a.n).toFixed(1),
       })),
     );
-    console.log(
+    console.info(
       "\n(비용=실제 시장단가×측정 usage / 속도=생성 wall-clock / evidence=본문 substring 매칭율, 높을수록 인용 정확)",
     );
   }, 900_000);

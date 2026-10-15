@@ -14,7 +14,7 @@ import { breakdown } from "@/lib/tokens";
  *   - 머리·꼬리 워터마크 양쪽 확인 (sub_string).
  *   - bookTitle·bookAuthor 입력값 그대로 (모델이 환각 만들면 reject).
  *
- * 모델: wizard-assignment(Sonnet) 재사용. 학기당 독후감 1~3건이라 Sonnet OK.
+ * 모델: wizard-assignment 라우팅 재사용. 현재 기본과 평가 범위는 docs/AI-MODELS.md.
  */
 
 export interface BookReviewInput {

@@ -107,15 +107,15 @@ for (const e of events) {
   }
 }
 
-console.log("=== class 이벤트 시각 진단 ===");
-console.log(`전체: ${events.length}건`);
-console.log(`정상(schedule과 일치): ${normal}건`);
-console.log(`오염(9시간 밀림): ${polluted}건  ⚠️`);
-console.log(`판별불가(schedule 없음/패턴 안맞음): ${unknown}건`);
-console.log("\n=== 오염 owner별 분포 (앞 8자) ===");
-console.log(JSON.stringify(pollutedByOwner, null, 2));
-console.log("\n=== 오염 샘플 ===");
-for (const s of pollutedSamples) console.log(JSON.stringify(s));
-console.log("\n=== 제안 교정 (실행 X — 검토용) ===");
-console.log("오염 이벤트의 starts_at·ends_at에서 9시간(interval '9 hours')을 빼면 정상.");
-console.log("단, 위 '오염' 판별을 통과한 id만 대상으로 해야 정상 데이터를 안 건드림.");
+console.info("=== class 이벤트 시각 진단 ===");
+console.info(`전체: ${events.length}건`);
+console.info(`정상(schedule과 일치): ${normal}건`);
+console.info(`오염(9시간 밀림): ${polluted}건  ⚠️`);
+console.info(`판별불가(schedule 없음/패턴 안맞음): ${unknown}건`);
+console.info("\n=== 오염 owner별 분포 (앞 8자) ===");
+console.info(JSON.stringify(pollutedByOwner, null, 2));
+console.info("\n=== 오염 샘플 ===");
+for (const s of pollutedSamples) console.info(JSON.stringify(s));
+console.info("\n=== 제안 교정 (실행 X — 검토용) ===");
+console.info("오염 이벤트의 starts_at·ends_at에서 9시간(interval '9 hours')을 빼면 정상.");
+console.info("단, 위 '오염' 판별을 통과한 id만 대상으로 해야 정상 데이터를 안 건드림.");

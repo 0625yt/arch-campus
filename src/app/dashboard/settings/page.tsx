@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AppleShell } from "@/components/apple-shell";
 import { tryGetOwnerId } from "@/lib/auth";
 import { getMonthlyAiUsage } from "@/lib/data/ai-usage";
+import { PushSettings } from "./push-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -129,6 +130,8 @@ export default async function SettingsPage() {
           )}
         </div>
       </section>
+
+      <PushSettings />
 
       <section className="mt-5 fade-up fade-up-3">
         <Link

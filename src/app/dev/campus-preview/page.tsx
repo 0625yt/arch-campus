@@ -2,8 +2,11 @@ import { notFound } from "next/navigation";
 import { GlobalTopbar } from "@/components/global-topbar";
 import { MobileTabBar, MobileTopbar } from "@/components/mobile-nav";
 import type { CourseListItem } from "@/lib/data/materials";
+import { CalendarBoard } from "../../dashboard/calendar/calendar-board";
 import styles from "../../dashboard/campus.module.css";
 import { DashboardClient } from "../../dashboard/dashboard-client";
+import { QuizResultView } from "../../dashboard/quiz/[quizId]/quiz-result-view";
+import { GenerateButton } from "../../dashboard/study/[course]/[material]/generate-button";
 import { ReplaceFailedMaterial } from "../../dashboard/study/[course]/[material]/replace-failed-material";
 import { UploadZone } from "../../dashboard/study/[course]/upload-zone";
 import { StudyWorkspace } from "../../dashboard/study/study-workspace";
@@ -106,6 +109,68 @@ export default async function CampusPreviewPage({
 }) {
   if (process.env.NODE_ENV === "production") notFound();
   const view = (await searchParams).view;
+  if (view === "calendar")
+    return (
+      <main className="mx-auto max-w-[1280px] p-4">
+        <CalendarBoard
+          monthEvents={[]}
+          upcoming={[]}
+          courses={[]}
+          kindLabel={{
+            exam: "시험",
+            assignment: "과제",
+            presentation: "발표",
+            class: "수업",
+            etc: "기타",
+          }}
+        />
+      </main>
+    );
+  if (view === "study-generate")
+    return (
+      <main className="mx-auto max-w-[800px] px-6 py-12">
+        <h1 className="mb-6 text-xl">개발용 시험 범위 연결 확인</h1>
+        <GenerateButton
+          courseSlug="00000000-0000-4000-8000-000000000010"
+          materialId="00000000-0000-4000-8000-000000000020"
+          materialTitle="3주차 강의"
+          materialType="lecture"
+          siblingMaterials={[
+            { id: "00000000-0000-4000-8000-000000000021", title: "4주차 강의", type: "lecture" },
+          ]}
+        />
+      </main>
+    );
+  if (view === "study-result")
+    return (
+      <main className="mx-auto max-w-[800px] px-6 py-12">
+        <h1 className="mb-6 text-xl">개발용 공부 완료 연결 확인</h1>
+        <QuizResultView
+          title="개발용 개념 점검"
+          score={0}
+          total={1}
+          watermark="개발용 예시 데이터"
+          materialId="00000000-0000-4000-8000-000000000020"
+          quizId="00000000-0000-4000-8000-000000000030"
+          attemptId="00000000-0000-4000-8000-000000000040"
+          questions={[
+            {
+              id: 1,
+              kind: "short-answer",
+              topic: "스택",
+              stem: "스택의 처리 순서는?",
+              choices: null,
+              answer: "후입선출",
+              submitted: "선입선출",
+              correct: false,
+              explanation: "마지막 입력을 먼저 꺼냅니다.",
+              evidence: "스택은 후입선출 구조",
+              evidencePage: 1,
+            },
+          ]}
+        />
+      </main>
+    );
   if (view === "study" || view === "today") {
     return (
       <div className="flex h-screen-safe flex-col overflow-hidden">

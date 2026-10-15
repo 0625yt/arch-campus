@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { tryGetOwnerId } from "@/lib/auth";
 import { isAdminUserId } from "@/lib/auth/admin";
-import type { FeedbackStatus } from "@/lib/schemas/feedback";
+import { FEEDBACK_STATUSES, TARGET_TYPES } from "@/lib/schemas/feedback";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { FeedbackListClient } from "./feedback-list-client";
 
@@ -21,12 +21,10 @@ export default async function AdminFeedbackPage({
   const ownerId = await tryGetOwnerId();
   if (!isAdminUserId(ownerId)) notFound();
   const sp = await searchParams;
-  const status = (sp.status as FeedbackStatus) ?? "new";
+  const status = FEEDBACK_STATUSES.find((value) => value === sp.status) ?? "new";
+  const targetType = TARGET_TYPES.find((value) => value === sp.targetType);
 
-  // feedback 테이블은 supabase types 재생성 전이라 any로 캐스팅
-  const admin = getAdminSupabase() as unknown as {
-    from: (table: string) => any;
-  };
+  const admin = getAdminSupabase();
 
   let query = admin
     .from("feedback")
@@ -37,7 +35,7 @@ export default async function AdminFeedbackPage({
     .limit(100);
 
   if (status) query = query.eq("status", status);
-  if (sp.targetType) query = query.eq("target_type", sp.targetType);
+  if (targetType) query = query.eq("target_type", targetType);
   if (sp.category) query = query.eq("category", sp.category);
 
   const { data, error } = await query;

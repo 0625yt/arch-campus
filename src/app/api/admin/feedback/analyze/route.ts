@@ -48,9 +48,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "ids 필요" }, { status: 400 });
   }
 
-  const admin = getAdminSupabase() as unknown as {
-    from: (table: string) => any;
-  };
+  const admin = getAdminSupabase();
   const { data: rows, error } = await admin
     .from("feedback")
     .select("id, target_type, target_id, rating, category, body, generation_id, created_at")

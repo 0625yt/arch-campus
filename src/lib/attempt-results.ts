@@ -21,6 +21,14 @@ const GradedResultSchema = z.object({
   whyWrong: z.string().optional(),
   llmPromoted: z.boolean().optional(),
   llmGraded: z.boolean().optional(),
+  selfAssessment: z
+    .object({
+      accepted: z.boolean(),
+      originalCorrect: z.boolean(),
+      originalWhyWrong: z.string().optional(),
+      originalGradingNote: z.string().optional(),
+    })
+    .optional(),
   gradedAt: z.string().datetime({ offset: true }).optional(),
 });
 

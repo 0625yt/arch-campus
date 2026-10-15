@@ -50,6 +50,52 @@ export interface Database {
       };
     };
     Functions: {
+      register_push_subscription: {
+        Args: {
+          p_owner_id: string;
+          p_endpoint: string;
+          p_endpoint_hash: string;
+          p_p256dh: string;
+          p_auth: string;
+        };
+        Returns: string;
+      };
+      claim_push_reminders: {
+        Args: { p_owner_id?: string | null };
+        Returns: Database["public"]["Tables"]["push_reminder_deliveries"]["Row"][];
+      };
+      finish_push_reminder: {
+        Args: { p_id: string; p_owner_id: string; p_lease_token: string; p_outcome: string };
+        Returns: boolean;
+      };
+      claim_stale_material_job_for_worker: {
+        Args: { p_owner_id?: string | null };
+        Returns: Database["public"]["Tables"]["jobs"]["Row"][];
+      };
+      commit_material_job_result: {
+        Args: {
+          p_job_id: string;
+          p_owner_id: string;
+          p_retry_count: number;
+          p_material_id: string;
+          p_model_id: string;
+          p_usage: Json;
+          p_cost_usd: number;
+          p_result: Json;
+          p_quiz?: Json;
+          p_generation_id?: string | null;
+        };
+        Returns: Json;
+      };
+      consume_rate_limit: {
+        Args: {
+          p_kind: string;
+          p_identifier_hash: string;
+          p_tokens: number;
+          p_window_ms: number;
+        };
+        Returns: Array<{ allowed: boolean; remaining: number; reset_ms: number }>;
+      };
       get_monthly_ai_usage: {
         Args: {
           p_owner_id: string;
@@ -91,10 +137,53 @@ export interface Database {
         };
         Returns: boolean;
       };
+      record_job_attempt_checkpoint: {
+        Args: {
+          p_job_id: string;
+          p_owner_id: string;
+          p_retry_count: number;
+          p_stage: string;
+          p_progress: number;
+          p_message?: string | null;
+        };
+        Returns: boolean;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
     Tables: {
+      feedback: {
+        Row: {
+          id: string;
+          owner_id: string;
+          target_type: "summary" | "quiz_item";
+          target_id: string;
+          generation_id: string | null;
+          rating: number;
+          category: string;
+          body: string | null;
+          status: "new" | "triaged" | "accepted" | "wontfix";
+          admin_note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          target_type: "summary" | "quiz_item";
+          target_id: string;
+          generation_id?: string | null;
+          rating: number;
+          category: string;
+          body?: string | null;
+          status?: "new" | "triaged" | "accepted" | "wontfix";
+          admin_note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["feedback"]["Insert"]>;
+        Relationships: [];
+      };
       ai_budget_reservations: {
         Row: {
           id: string;
@@ -211,6 +300,72 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["semester_goals"]["Insert"]>;
+        Relationships: [];
+      };
+      study_workspaces: {
+        Row: {
+          owner_id: string;
+          daily_minutes: number;
+          plans: Json;
+          revision: number;
+          updated_at: string;
+        };
+        Insert: {
+          owner_id: string;
+          daily_minutes: number;
+          plans: Json;
+          revision: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["study_workspaces"]["Insert"]>;
+        Relationships: [];
+      };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          owner_id: string;
+          endpoint: string;
+          endpoint_hash: string;
+          p256dh: string;
+          auth: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          endpoint: string;
+          endpoint_hash: string;
+          p256dh: string;
+          auth: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["push_subscriptions"]["Insert"]>;
+        Relationships: [];
+      };
+      push_reminder_deliveries: {
+        Row: {
+          id: string;
+          owner_id: string;
+          event_id: string;
+          subscription_id: string;
+          starts_at: string;
+          reminder_minutes: number;
+          due_at: string;
+          status: "pending" | "sending" | "sent" | "failed";
+          attempts: number;
+          available_at: string;
+          leased_at: string | null;
+          lease_token: string | null;
+          sent_at: string | null;
+        };
+        Insert: {
+          owner_id: string;
+          event_id: string;
+          subscription_id: string;
+          starts_at: string;
+          reminder_minutes: number;
+          due_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["push_reminder_deliveries"]["Row"]>;
         Relationships: [];
       };
       events: {

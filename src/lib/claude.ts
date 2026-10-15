@@ -11,104 +11,71 @@ import {
 } from "ai";
 import { neutralizePromptBoundaryTags } from "@/lib/prompt-safety";
 
-/**
- * Vendor SDK를 직접 사용한다. 실제 모델은 getModelIdFor()가 환경 설정을
- * 반영해 선택하며 해당 vendor의 API 키만 필요하다. TOOL_MODEL만 보고
- * 운영 모델을 단정하지 않는다. 비용은 usage와 아래 단가표로 추정한다.
- */
-
-/**
- * MODELS는 두 가지 형태로 노출.
- * - id (string): generations.model_id에 박힐 라벨. estimateCost·라우팅 비교에 사용.
- * - model (LanguageModel): generateText에 전달할 SDK 객체.
- * 같은 키로 묶어 쓰는 곳에 따라 골라 쓴다.
- */
-const SONNET_ID = "claude-sonnet-4-6";
-// Sonnet 5 (API ID `claude-sonnet-5`, dateless pinned snapshot / 공식문서 확인 2026-07-24).
-// 도입가 $2/$10 (~2026-08-31), 이후 $3/$15로 복귀 — 우리 PRICING.sonnet과 동일 tier.
-// writing·instruction-following 1위(AAII 53). 생성 위저드·정답풀이에 사용.
-const SONNET_5_ID = "claude-sonnet-5";
-const HAIKU_ID = "claude-haiku-4-5";
-const GEMINI_FLASH_ID = "gemini-2.5-flash";
-const GEMINI_PRO_ID = "gemini-2.5-pro";
-// Gemini 3.6 Flash (API ID `gemini-3.6-flash`, GA — I/O 2026). $1.50/$7.50.
-// Flash-Lite 상위·Pro 하위. 위저드 생성 담당(Flash-Lite는 발표 슬라이드 감각 약해 탈락).
-const GEMINI_36_FLASH_ID = "gemini-3.6-flash";
-// Gemini 3.1 Pro (API ID `gemini-3.1-pro-preview` — 현재 최상급 Pro, 3.5 Pro는 미출시).
-// $2/$12 (200k 초과 $4/$18). 위저드 생성 + 시간표·강계 Vision 담당.
-// ★ 2026-07-24 실측: thinking budget 512로 낮추면 시간표 요일 9/9 정확도 유지하면서
-//   속도 56초→10초(5.6배). thinking 0은 거부(Pro는 thinking 필수). callProviderOptions 참고.
-const GEMINI_31_PRO_ID = "gemini-3.1-pro-preview";
-// Gemini 3.5 Flash-Lite (API ID `gemini-3.5-flash-lite`, GA — 공식문서 확인 2026-07-24).
-// $0.30 입력 / $2.50 출력. 3.1 Flash-Lite($0.25/$1.50)보다 약간 비싸지만 품질이 확실히 상위
-// (Google 공식 "significantly better quality than 3.1", 마이그레이션 권고). 3.5 계열 최저가.
-// ★ 우리 quiz A/B·강화 파이프라인 검증을 이 모델(3.5)로 했으므로 quiz는 반드시 3.5.
-// 고빈도·단순·짧은출력 작업(요약·전사·무료챗·일정파싱·짧은 OCR)에도 사용.
-const GEMINI_FLASH_LITE_ID = "gemini-3.5-flash-lite";
-// 3.1 Flash-Lite ($0.25/$1.50, GA/stable) — 더 싸지만 품질 하위. 품질 덜 민감한
-// 초저비용 대안이 필요하면 env로 이 값 사용 가능. 현재 라우팅 기본 아님.
-const GEMINI_FLASH_LITE_31_ID = "gemini-3.1-flash-lite";
-
+/** Supported IDs are pinned; adding a model also requires pricing and provider-option review. */
 export const MODELS = {
-  sonnet: SONNET_ID,
-  sonnet5: SONNET_5_ID,
-  haiku: HAIKU_ID,
-  geminiFlash: GEMINI_FLASH_ID,
-  gemini36Flash: GEMINI_36_FLASH_ID,
-  geminiFlashLite: GEMINI_FLASH_LITE_ID,
-  // 더 싼 3.1 Flash-Lite — 품질 덜 민감한 도구에서 env로 선택 가능(현재 기본 아님).
-  geminiFlashLite31: GEMINI_FLASH_LITE_31_ID,
-  geminiPro: GEMINI_PRO_ID,
-  // 3.1 Pro — 위저드 생성 + Vision(시간표·강계). thinking 512로 빠르고 정확.
-  gemini31Pro: GEMINI_31_PRO_ID,
+  sonnet: "claude-sonnet-4-6",
+  sonnet5: "claude-sonnet-5",
+  haiku: "claude-haiku-4-5",
+  haiku55: "claude-haiku-5-5",
+  geminiFlash: "gemini-2.5-flash",
+  gemini36Flash: "gemini-3.6-flash",
+  gemini38Flash: "gemini-3.8-flash",
+  geminiFlashLite: "gemini-3.5-flash-lite",
+  geminiFlashLite31: "gemini-3.1-flash-lite",
+  geminiPro: "gemini-2.5-pro",
+  gemini31Pro: "gemini-3.1-pro-preview",
 } as const;
 
-/**
- * LLM_VENDOR=google 전역 스위치가 켜졌을 때 도구별로 어떤 Gemini를 쓸지.
- *
- * ⚠️ 이 테이블이 존재하는 이유: LLM_VENDOR=google는 **모든 도구를 Gemini로** 강제하는
- *   비상 스위치인데, TOOL_MODEL은 일부가 아직 Anthropic(quiz=sonnet, chat=haiku,
- *   summarize/event-parse/exam-extract/chat-free/post-mortem=haiku)이라 TOOL_MODEL을
- *   그대로 쓰면 Gemini 강제가 안 된다. 그래서 all-Gemini 매핑을 따로 둔다.
- *
- * ★ 2026-07-24 FIX(버그 #1): 이전 값이 구세대(2.5 Pro/Flash)를 가리켜, LLM_VENDOR=google를
- *   켜면 TOOL_MODEL(3.6 Flash/3.1 Pro/Flash-Lite)과 다른 모델·가격이 나왔다. 현세대로 정렬.
- *   - Gemini가 이미 기본인 도구(quiz·위저드·Vision·exam-solve 등)는 TOOL_MODEL과 동일 모델.
- *   - Anthropic이 기본인 도구(chat·summarize 등)는 등가 현세대 Gemini(Flash-Lite)로.
- */
-const GEMINI_BY_TOOL: Record<ToolKind, string> = {
-  // quiz — TOOL_MODEL.quiz는 sonnet이지만 Gemini 강제 시엔 검증 모델 Flash-Lite로.
-  quiz: GEMINI_FLASH_LITE_ID,
-  // 생성 위저드 — TOOL_MODEL과 동일하게 3.6 Flash.
-  presentation: GEMINI_36_FLASH_ID,
-  "wizard-assignment": GEMINI_36_FLASH_ID,
-  "wizard-exam": GEMINI_36_FLASH_ID,
-  "wizard-cram": GEMINI_36_FLASH_ID,
-  // 리포트 구조 — TOOL_MODEL과 동일하게 Flash-Lite.
-  "report-structure": GEMINI_FLASH_LITE_ID,
-  // Vision — TOOL_MODEL과 동일하게 3.1 Pro.
-  "syllabus-extract": GEMINI_31_PRO_ID,
-  "timetable-extract": GEMINI_31_PRO_ID,
-  // 고빈도·단순·짧은출력·판정·맥락 — 현세대 최저가 Flash-Lite.
-  summarize: GEMINI_FLASH_LITE_ID,
-  "exam-extract": GEMINI_FLASH_LITE_ID,
-  "chat-free": GEMINI_FLASH_LITE_ID,
-  "event-parse": GEMINI_FLASH_LITE_ID,
-  "pdf-ocr": GEMINI_FLASH_LITE_ID,
-  "quiz-grade": GEMINI_FLASH_LITE_ID,
-  "quiz-verify": GEMINI_FLASH_LITE_ID,
-  chat: GEMINI_FLASH_LITE_ID,
-  "post-mortem": GEMINI_FLASH_LITE_ID,
-  // 기출 풀이 — TOOL_MODEL과 동일하게 Flash-Lite(A/B 정답 20/20).
-  "exam-solve": GEMINI_FLASH_LITE_ID,
+export type ToolKind =
+  | "summarize"
+  | "summary-verify"
+  | "classify-material"
+  | "quiz"
+  | "quiz-grade"
+  | "quiz-verify"
+  | "presentation"
+  | "wizard-assignment"
+  | "wizard-exam"
+  | "wizard-cram"
+  | "report-structure"
+  | "syllabus-extract"
+  | "timetable-extract"
+  | "post-mortem"
+  | "event-parse"
+  | "exam-extract"
+  | "exam-solve"
+  | "chat"
+  | "chat-free"
+  | "pdf-ocr";
+
+/** Actual defaults, before environment overrides. See docs/AI-MODELS.md. */
+export const TOOL_MODEL: Record<ToolKind, string> = {
+  summarize: MODELS.haiku55,
+  "summary-verify": MODELS.gemini38Flash,
+  "classify-material": MODELS.geminiFlashLite,
+  quiz: MODELS.haiku55,
+  "quiz-grade": MODELS.geminiFlashLite,
+  "quiz-verify": MODELS.geminiFlashLite,
+  presentation: MODELS.gemini38Flash,
+  "wizard-assignment": MODELS.gemini38Flash,
+  "wizard-exam": MODELS.gemini36Flash,
+  "wizard-cram": MODELS.gemini36Flash,
+  "report-structure": MODELS.geminiFlashLite,
+  "syllabus-extract": MODELS.gemini31Pro,
+  "timetable-extract": MODELS.gemini31Pro,
+  "post-mortem": MODELS.haiku,
+  "event-parse": MODELS.geminiFlashLite,
+  "exam-extract": MODELS.geminiFlashLite,
+  "exam-solve": MODELS.geminiFlashLite,
+  chat: MODELS.geminiFlashLite,
+  "chat-free": MODELS.geminiFlashLite,
+  "pdf-ocr": MODELS.geminiFlashLite,
 };
 
-/**
- * 도구 → env 접두사. `${접두사}_MODEL_VENDOR=anthropic` 으로 그 도구만 Anthropic 유지.
- * 예: quiz → QUIZ_MODEL_VENDOR, chat-free → CHAT_FREE_MODEL_VENDOR.
- */
-const TOOL_ENV_KEY: Record<ToolKind, string> = {
+export const TOOL_ENV_KEY: Record<ToolKind, string> = {
   summarize: "SUMMARY",
+  "summary-verify": "SUMMARY_VERIFY",
+  "classify-material": "CLASSIFY",
   quiz: "QUIZ",
   "quiz-grade": "QUIZ_GRADE",
   "quiz-verify": "QUIZ_VERIFY",
@@ -128,238 +95,74 @@ const TOOL_ENV_KEY: Record<ToolKind, string> = {
   "pdf-ocr": "PDF_OCR",
 };
 
-/**
- * id → LanguageModel 인스턴스. 호출 시점에만 SDK가 활성화돼 키 없으면 lazy fail.
- *   - Anthropic: ANTHROPIC_API_KEY 사용
- *   - Google: GOOGLE_GENERATIVE_AI_API_KEY 사용 (@ai-sdk/google 표준)
- *
- * export 이유: generate/generateWithFile/streamChatReply 밖에서도
- * 직접 generateText 호출이 필요한 케이스(classify-material, parsers/image)가 있어
- * 같은 routing을 거치게 한다. MODELS와 짝지어 쓴다.
- */
-export function modelInstance(id: string): LanguageModel {
-  if (id.includes("gemini")) return google(id);
-  return anthropic(id);
-}
-
-export type ToolKind =
-  | "summarize"
-  | "quiz"
-  | "quiz-grade"
-  | "quiz-verify"
-  | "presentation"
-  | "wizard-assignment"
-  | "wizard-exam"
-  | "wizard-cram"
-  | "report-structure"
-  | "syllabus-extract"
-  | "timetable-extract"
-  | "post-mortem"
-  | "event-parse"
-  | "exam-extract"
-  | "exam-solve"
-  | "chat"
-  | "chat-free"
-  | "pdf-ocr";
-
-/** 도구별 기본 모델 (Anthropic). vendor 플래그로 일부를 Gemini로 우회 가능. */
-export const TOOL_MODEL: Record<ToolKind, string> = {
-  summarize: MODELS.haiku,
-  quiz: MODELS.sonnet,
-  // 채점·검수 판정 — 2026-07-24 A/B 실측: 3.6 Flash·Flash-Lite·3.1 Pro 판정 정확도 완전 동일
-  //   (채점 88%·검수 100%). 짧은 분류라 상위 모델 추론력 불필요 → Flash-Lite가 정확도 같으면서
-  //   3.1 Pro보다 10배 싸고 3.5배 빠름. Flash-Lite로 변경. QUIZ_GRADE/QUIZ_VERIFY_MODEL=haiku 원복.
-  "quiz-grade": MODELS.geminiFlashLite,
-  "quiz-verify": MODELS.geminiFlashLite,
-  // 생성 위저드 — 2026-07-24 Gemini 3.6 Flash로 변경. Claude 탈피. Flash-Lite는 발표에서
-  //   "10분=6~11장" 감각 약해 5장만 만들어 탈락 → 상위 3.6 Flash($1.50/$7.50, Pro보다 쌈).
-  //   3.6 Flash는 시간표 Vision서 요일 9/9 정확 — 지능 충분. 발표 품질은 반영 후 실측 검증 예정.
-  presentation: MODELS.gemini36Flash,
-  "wizard-assignment": MODELS.gemini36Flash,
-  "wizard-exam": MODELS.gemini36Flash,
-  "wizard-cram": MODELS.gemini36Flash,
-  // 리포트 구조 설계 — 2026-07-24 A/B 실측: Flash-Lite가 validateOutput(섹션수·물음표 치팅가드
-  // 포함 5종)을 Sonnet 5와 동등하게 통과(4/4 vs 3/4). 12배 빠르고 16배 쌈. 구조 설계는 본문
-  // 생성이 아니라 Flash-Lite로 내려도 품질 유지 확인 → Flash-Lite로 변경.
-  // (발표는 "10분=6~11장" 감각이 약해 계속 5장만 만들어 탈락 → Sonnet 5 유지.)
-  "report-structure": MODELS.geminiFlashLite,
-  // 강의계획서·시간표 Vision — 2026-07-24 Gemini 3.1 Pro(thinking 512)로 변경.
-  //   실측: 3.1 Pro가 시간표 요일 9/9 정확(Flash-Lite는 요일 오추출로 탈락). thinking 낮춰
-  //   10초로 빠름. 오추출=일정 붕괴라 정확도 사활 → Pro. 저빈도(학기 1~2회)라 비용 무관.
-  "syllabus-extract": MODELS.gemini31Pro,
-  "timetable-extract": MODELS.gemini31Pro,
-  "post-mortem": MODELS.haiku,
-  // 자연어 → 일정 JSON. 짧고 정형이라 Haiku 충분.
-  "event-parse": MODELS.haiku,
-  // 기출문제 PDF에서 문제·정답·해설을 그대로 추출 (새 생성 X).
-  // Vision 입력이라 토큰 비싸지만 추출은 생성보다 쉬워 Haiku로 시작.
-  // EXTRACT_MODEL=sonnet env로 승격 가능 (정확도 70% 미만 시).
-  "exam-extract": MODELS.haiku,
-  // 기출 풀이 — 2026-07-24 A/B 실측: Flash-Lite가 정답 20/20(100%, 어려움 난이도 미분·조합·
-  //   역산 포함) 맞힘. 걱정과 달리 정답 정확도 충분 → Flash-Lite로 변경(8배 빠르고 10배 쌈).
-  //   EXAM_SOLVE_MODEL=haiku|sonnet로 승격 가능(안전판). resolveModel 분기에서 기본 Flash-Lite.
-  "exam-solve": MODELS.geminiFlashLite,
-  // 자료 기반 RAG 챗 — turn 빈도가 높아 Sonnet은 적자 위험. Haiku + 1h cache로 자료
-  // 본문 90% 할인. 답변 품질은 자료 인용 위주라 Haiku로 충분.
-  // CHAT_MODEL=sonnet env로 격상 가능.
-  chat: MODELS.haiku,
-  // 자유 텍스트 챗 (자료에 매여있지 않음) — 빈도 더 높고 자료 컨텍스트 없어
-  // 환각 위험이 자료 챗의 두 배라 가드가 강해야. Haiku로 충분, 굳이 Sonnet 비용 X.
-  // CHAT_FREE_MODEL=sonnet env로 격상 가능.
-  "chat-free": MODELS.haiku,
-  // PDF OCR — unpdf 텍스트 추출은 스캔본·이미지 박힌 PDF·복잡한 레이아웃을 못 읽는다.
-  // Gemini Flash는 PDF를 native file input으로 받아 페이지 단위 OCR + 레이아웃 보존.
-  // 단가 $0.30/$2.50/1M이라 자료 1건당 $0.005~0.02 수준. 키 없거나 호출 실패 시
-  // parsePdf가 자동으로 unpdf 폴백. PDF_OCR_VENDOR=anthropic으로 끄면 unpdf만 사용.
-  "pdf-ocr": MODELS.geminiFlash,
-};
-
 export type ModelVendor = "anthropic" | "google";
-
-/** Anthropic adaptive-thinking effort. 낮을수록 thinking 최소화(빠름). @ai-sdk/anthropic 지원. */
 export type AnthropicEffort = "low" | "medium" | "high" | "xhigh" | "max";
 
-/**
- * 슬러그 → vendor 추출.
- * `anthropic/claude-sonnet-4.6` → "anthropic"
- * `google/gemini-2.5-flash`   → "google"
- */
+/** Also recognizes provider-prefixed IDs in historical generation records. */
 export function getModelVendor(modelId: string): ModelVendor {
-  // SDK 직접 호출 시대(2026-05-28~)에는 model id가 short form ("claude-haiku-4-5", "gemini-2.5-flash").
-  // 과거 slug("anthropic/...", "google/...") 시기 row와의 호환을 위해 prefix도 함께 인식.
   if (modelId.startsWith("google/")) return "google";
   if (modelId.startsWith("anthropic/")) return "anthropic";
-  if (modelId.includes("gemini")) return "google";
-  return "anthropic";
+  return modelId.includes("gemini") ? "google" : "anthropic";
 }
 
-/** "google" 또는 "gemini" 둘 다 같은 의미로 받는다. 빈 문자열·undefined는 false. */
-function envSaysGoogle(raw: string | undefined): boolean {
-  const v = raw?.trim().toLowerCase();
-  return v === "google" || v === "gemini";
+export function modelInstance(id: string): LanguageModel {
+  return getModelVendor(id) === "google" ? google(id) : anthropic(id);
 }
+
+function parseVendor(raw: string | undefined): ModelVendor | undefined {
+  const value = raw?.trim().toLowerCase();
+  if (value === "google" || value === "gemini") return "google";
+  if (value === "anthropic" || value === "claude") return "anthropic";
+  return undefined;
+}
+
+const supportedModelIds = new Set<string>(Object.values(MODELS));
 
 /**
- * 런타임 모델 override.
- *
- * 2층 우선순위:
- *   1) vendor 분기 — `*_MODEL_VENDOR=google` 켜진 도구는 Gemini Flash로 (tier override 무시)
- *   2) tier 분기 — Anthropic 안에서 `QUIZ_MODEL=haiku|sonnet` 같은 도구별 격상/격하
- *
- * 예:
- *   QUIZ_MODEL_VENDOR=google             → quiz는 Gemini Flash (QUIZ_MODEL 무시)
- *   QUIZ_MODEL_VENDOR=anthropic (기본)   → quiz는 Anthropic, QUIZ_MODEL=haiku면 Haiku
- *   SUMMARY_MODEL_VENDOR=google          → summarize만 Gemini Flash
- *
- * 미지정·미인식 값이면 TOOL_MODEL 기본값 그대로.
+ * Priority: explicit *_MODEL_ID > per-tool vendor > global Google switch > legacy tier > default.
+ * IDs are allowlisted so typos cannot silently send traffic to an unpriced model.
+ * Legacy EXTRACT_MODEL and PDF_OCR_VENDOR remain supported for deployed environments.
  */
 function resolveModel(tool: ToolKind): string {
-  // ★ 전역 vendor 스위치 — LLM_VENDOR=google 이면 모든 도구를 Gemini로 (prod 포함).
-  //   2026-06-06 결정: Anthropic 크레딧 소진이 잦아 전면 Gemini 전환. 도구별 모델은
-  //   GEMINI_BY_TOOL(all-Gemini 매핑 — TOOL_MODEL은 일부가 아직 Anthropic이라 그대로 못 씀).
-  //   2026-07-24 GEMINI_BY_TOOL을 현세대로 정렬해 TOOL_MODEL과 모델·가격 드리프트 제거.
-  //   개별 도구를 다시 Anthropic으로 되돌리려면 그 도구의 *_MODEL_VENDOR=anthropic 으로
-  //   예외 지정(아래 분기에서 처리). 원복: 프로덕션 env에서 LLM_VENDOR 제거.
-  if (envSaysGoogle(process.env.LLM_VENDOR)) {
-    const perToolVendor = process.env[`${TOOL_ENV_KEY[tool]}_MODEL_VENDOR`]?.trim().toLowerCase();
-    const forcedAnthropic = perToolVendor === "anthropic" || perToolVendor === "claude";
-    if (!forcedAnthropic) return GEMINI_BY_TOOL[tool];
-    // forcedAnthropic이면 아래 기존 라우팅으로 떨어진다(그 도구만 Anthropic 유지).
+  const prefix = TOOL_ENV_KEY[tool];
+  const explicitId = process.env[`${prefix}_MODEL_ID`]?.trim();
+  if (explicitId) {
+    if (!supportedModelIds.has(explicitId)) {
+      throw new Error(`Unsupported ${prefix}_MODEL_ID; use a model listed in docs/AI-MODELS.md`);
+    }
+    return explicitId;
   }
 
-  // 1) Vendor 분기 — Gemini로 우회할 도구
-  // quiz — 2026-07-24 prod 포함 Flash-Lite 기본으로 FIX. 강화 파이프라인
-  // (verbatim 프롬프트 + validate-quiz evidence 검증 + 의미 dedup + 스마트 topup + 2차 검수)이
-  // Flash-Lite 약점을 모두 덮는다고 실측 확인. quiz는 AI 비용 79.9%라 5배 절감 효과.
-  // 안전판: QUIZ_MODEL_VENDOR=anthropic → 아래 tier 분기(QUIZ_MODEL=haiku|sonnet, 기본 Sonnet).
-  if (tool === "quiz") {
-    const raw = process.env.QUIZ_MODEL_VENDOR?.trim().toLowerCase();
-    const forcedAnthropic = raw === "anthropic" || raw === "claude";
-    if (!forcedAnthropic) return MODELS.geminiFlashLite;
-    // forcedAnthropic이면 아래 tier 분기로 떨어진다(QUIZ_MODEL 존중, 기본 Sonnet).
-  }
-  // summarize는 prod 포함 Gemini 기본. 2026-07-24 FIX: 2.5 Flash → 3.5 Flash-Lite(3.5 세대 품질).
-  // SUMMARY_MODEL_VENDOR=anthropic으로 강제하면 Haiku(원복 안전판).
-  if (tool === "summarize") {
-    const raw = process.env.SUMMARY_MODEL_VENDOR?.trim().toLowerCase();
-    if (raw === "anthropic" || raw === "claude") return MODELS.haiku;
-    return MODELS.geminiFlashLite;
-  }
-  // PDF OCR — prod 포함 Gemini 기본. 2026-07-24 FIX: 2.5 Flash → 3.5 Flash-Lite.
-  // 짧은 자료 전제(Flash-Lite MMMU Pro 76.8%). unpdf로 강제하려면 PDF_OCR_VENDOR=anthropic.
-  // ⚠️ 50p+ 긴 합본은 Claude가 우위 — 향후 길이 기준 분기 검토(현재는 Flash-Lite 단일).
-  if (tool === "pdf-ocr") {
-    const raw = process.env.PDF_OCR_VENDOR?.trim().toLowerCase();
-    if (raw === "anthropic" || raw === "claude") return MODELS.haiku;
-    return MODELS.geminiFlashLite;
-  }
-  // event-parse — 단순 자연어→일정 JSON. 2026-07-24 FIX: Flash-Lite 최적(최저가 GA).
-  // EVENT_PARSE_MODEL_VENDOR=anthropic으로 Haiku 원복 가능(안전판).
-  if (tool === "event-parse") {
-    const raw = process.env.EVENT_PARSE_MODEL_VENDOR?.trim().toLowerCase();
-    if (raw === "anthropic" || raw === "claude") return MODELS.haiku;
-    return MODELS.geminiFlashLite;
-  }
-  // 채점·검수 — 기본 Flash-Lite(실측 정확도 동일). QUIZ_GRADE_MODEL=haiku로 Haiku 원복(안전판).
-  if (tool === "quiz-grade") {
-    if (process.env.QUIZ_GRADE_MODEL?.trim().toLowerCase() === "haiku") return MODELS.haiku;
-    return MODELS.geminiFlashLite;
-  }
-  if (tool === "quiz-verify") {
-    if (process.env.QUIZ_VERIFY_MODEL?.trim().toLowerCase() === "haiku") return MODELS.haiku;
-    return MODELS.geminiFlashLite;
+  const perToolVendor = parseVendor(
+    process.env[`${prefix}_MODEL_VENDOR`] ||
+      (tool === "pdf-ocr" ? process.env.PDF_OCR_VENDOR : undefined),
+  );
+  const globalGoogle = parseVendor(process.env.LLM_VENDOR) === "google";
+  const vendor = perToolVendor ?? (globalGoogle ? "google" : undefined);
+  if (vendor === "google") {
+    return getModelVendor(TOOL_MODEL[tool]) === "google"
+      ? TOOL_MODEL[tool]
+      : MODELS.geminiFlashLite;
   }
 
-  // 2) Anthropic 안의 tier 분기
-  // quiz — 여기 오는 건 QUIZ_MODEL_VENDOR=anthropic으로 강제 원복한 경우뿐.
-  // QUIZ_MODEL=haiku면 Haiku, 그 외엔 아래 TOOL_MODEL.quiz(=Sonnet).
-  if (tool === "quiz") {
-    const override = process.env.QUIZ_MODEL?.toLowerCase();
-    if (override === "haiku") return MODELS.haiku;
-    if (override === "sonnet") return MODELS.sonnet;
+  const legacyKey = tool === "exam-extract" ? "EXTRACT_MODEL" : `${prefix}_MODEL`;
+  const legacy = process.env[legacyKey]?.trim().toLowerCase();
+  // QUIZ_MODEL historically selects an Anthropic tier only with its vendor switch enabled.
+  if (vendor === "anthropic" || tool !== "quiz") {
+    if (legacy === "haiku") return MODELS.haiku;
+    if (legacy === "sonnet") return MODELS.sonnet;
   }
-  // exam-extract — "본문 전사"라 추론 불필요. 2026-07-24 FIX: 기본 Flash-Lite(최저가 GA).
-  // EXTRACT_MODEL=haiku|sonnet로 승격 가능(정확도 70% 미만 시 안전판).
-  if (tool === "exam-extract") {
-    const override = process.env.EXTRACT_MODEL?.toLowerCase();
-    if (override === "haiku") return MODELS.haiku;
-    if (override === "sonnet") return MODELS.sonnet;
-    return MODELS.geminiFlashLite;
-  }
-  if (tool === "exam-solve") {
-    const override = process.env.EXAM_SOLVE_MODEL?.toLowerCase();
-    if (override === "haiku") return MODELS.haiku;
-    if (override === "sonnet") return MODELS.sonnet;
-  }
-  if (tool === "syllabus-extract") {
-    const override = process.env.SYLLABUS_MODEL?.toLowerCase();
-    if (override === "haiku") return MODELS.haiku;
-    if (override === "sonnet") return MODELS.sonnet;
-  }
-  // chat — 자료 RAG 챗. 2026-07-24 A/B 실측: Flash-Lite가 함정질문(자료에 없는 것) 3/3을
-  // "자료에 없어요"로 정직히 답하고(환각 0), 정상질문은 페이지·코드까지 정확 인용. 고빈도라
-  // 절감 효과 큼 → 기본 Flash-Lite. 문제 시 CHAT_MODEL=haiku|sonnet로 즉시 원복(안전판).
-  if (tool === "chat") {
-    const override = process.env.CHAT_MODEL?.toLowerCase();
-    if (override === "haiku") return MODELS.haiku;
-    if (override === "sonnet") return MODELS.sonnet;
-    return MODELS.geminiFlashLite;
-  }
-  // chat-free — 무료 티어 챗(최고빈도·단순). 2026-07-24 FIX: 기본 Flash-Lite(무료층 적자 방어).
-  // CHAT_FREE_MODEL=haiku|sonnet로 승격 가능(안전판).
-  if (tool === "chat-free") {
-    const override = process.env.CHAT_FREE_MODEL?.toLowerCase();
-    if (override === "haiku") return MODELS.haiku;
-    if (override === "sonnet") return MODELS.sonnet;
-    return MODELS.geminiFlashLite;
+  if (vendor === "anthropic") {
+    return ["quiz", "presentation", "wizard-assignment", "wizard-exam", "wizard-cram"].includes(
+      tool,
+    )
+      ? MODELS.sonnet
+      : MODELS.haiku;
   }
   return TOOL_MODEL[tool];
 }
 
-/**
- * 실패 로그·UI 표시용으로 어떤 model이 선택될지 미리 확인.
- * AI 호출 자체가 throw하면 result.modelId를 못 받으므로 호출 전에 박아둔다.
- */
+/** Resolves the same model used by generation, vision and streaming calls. */
 export function getModelIdFor(tool: ToolKind): string {
   return resolveModel(tool);
 }
@@ -468,6 +271,7 @@ function estimateTokensFromChars(text: string): number {
 
 type ModelTier =
   | "haiku"
+  | "haiku55"
   | "sonnet"
   | "opus"
   | "flash"
@@ -489,8 +293,10 @@ const MODEL_TIER: Record<string, ModelTier> = {
   [MODELS.sonnet]: "sonnet",
   [MODELS.sonnet5]: "sonnet",
   [MODELS.haiku]: "haiku",
+  [MODELS.haiku55]: "haiku55",
   [MODELS.geminiFlash]: "flash",
   [MODELS.gemini36Flash]: "flash36",
+  [MODELS.gemini38Flash]: "flash36",
   [MODELS.geminiFlashLite]: "flashLite",
   [MODELS.geminiFlashLite31]: "flashLite31",
   [MODELS.geminiPro]: "geminiPro",
@@ -504,7 +310,7 @@ const MODEL_TIER: Record<string, ModelTier> = {
  * 문자열 sniff 폴백 — 여기서 못 잡으면 보수적으로 "sonnet"(최고가)로 집계한다.
  */
 function modelTier(modelId: string): ModelTier {
-  const known = MODEL_TIER[modelId];
+  const known = MODEL_TIER[modelId.replace(/^(?:google|anthropic)\//, "")];
   if (known) return known;
   // --- unknown id 폴백 (레거시·raw override 전용) ---
   if (modelId.includes("haiku")) return "haiku";
@@ -515,7 +321,7 @@ function modelTier(modelId: string): ModelTier {
   if (modelId.includes("gemini") && modelId.includes("lite")) {
     return modelId.includes("3.1") ? "flashLite31" : "flashLite";
   }
-  if (modelId.includes("gemini") && modelId.includes("3.6")) return "flash36";
+  if (modelId.includes("gemini") && /3\.[68]-flash/.test(modelId)) return "flash36";
   if (modelId.includes("gemini")) return "flash";
   return "sonnet";
 }
@@ -533,7 +339,8 @@ function warnIfBelowCacheMin(tool: ToolKind, modelId: string, rulePrompt: string
   const tier = modelTier(modelId);
   // Gemini는 별도 캐시 정책 — 모든 Gemini tier 제외(Anthropic tier만 아래 경고 대상).
   if (modelId.includes("gemini")) return;
-  const min = CACHE_MIN_TOKENS[tier as keyof typeof CACHE_MIN_TOKENS] ?? 1024;
+  const min =
+    tier === "haiku55" ? 512 : (CACHE_MIN_TOKENS[tier as keyof typeof CACHE_MIN_TOKENS] ?? 1024);
   const est = estimateTokensFromChars(rulePrompt);
   if (est < min) {
     warnedCacheMissTools.add(tool);
@@ -629,6 +436,7 @@ function systemProviderOptions(vendor: ModelVendor): ProviderOptions | undefined
  * Sonnet 4.6·Haiku 4.5·Gemini 2.5는 여전히 받는다.
  */
 function supportsTemperature(modelId: string): boolean {
+  if (modelId === MODELS.haiku55) return false;
   if (modelId === "claude-sonnet-5" || modelId.includes("opus")) return false;
   if (modelId.includes("fable") || modelId.includes("mythos")) return false;
   // Gemini 3.x 세대는 thinking 모델 — temperature 미지원. 2.5는 지원.
@@ -656,8 +464,8 @@ function callProviderOptions(
   // Anthropic — adaptive-thinking 모델(Sonnet 5·Opus 4.8)에서 effort로 thinking 깊이를 조절.
   //   기본 high는 퀴즈처럼 실시간 UX 작업엔 느림 → low로 내려 속도 확보.
   //   1h 캐시와 함께 붙인다(순서 무관, 별도 키).
-  if (effort) {
-    return { anthropic: { ...ANTHROPIC_CACHE_1H.anthropic, effort } };
+  if (effort || modelId === MODELS.haiku55) {
+    return { anthropic: { ...ANTHROPIC_CACHE_1H.anthropic, effort: effort ?? "medium" } };
   }
   return undefined;
 }
@@ -784,12 +592,7 @@ export async function generate({
     return {
       text: error.text,
       modelId,
-      usage: {
-        inputTokens: error.usage?.inputTokens ?? 0,
-        outputTokens: error.usage?.outputTokens ?? 0,
-        cacheReadTokens: 0,
-        cacheCreationTokens: 0,
-      },
+      usage: extractUsage({ usage: error.usage }, vendor),
       finishReason: "error",
     };
   }
@@ -838,15 +641,16 @@ function logLlmStats(tool: ToolKind, modelId: string, usage: GenerateUsage): voi
  * Google은 캐시 의미가 달라 보수적으로 0 처리 (첫 호출 풀 비용).
  */
 function extractUsage(
-  result: Awaited<ReturnType<typeof generateText>>,
+  result: Partial<Pick<Awaited<ReturnType<typeof generateText>>, "usage" | "providerMetadata">>,
   vendor: ModelVendor,
 ): GenerateUsage {
-  const inputTokens = result.usage.inputTokens ?? 0;
-  const outputTokens = result.usage.outputTokens ?? 0;
+  const inputTokens = result.usage?.inputTokens ?? 0;
+  const outputTokens = result.usage?.outputTokens ?? 0;
   if (vendor === "anthropic") {
     const meta = (result.providerMetadata?.anthropic ?? {}) as Record<string, unknown>;
-    const cacheRead = Number(meta.cacheReadInputTokens ?? 0);
-    const cacheCreation = Number(meta.cacheCreationInputTokens ?? 0);
+    const details = result.usage?.inputTokenDetails;
+    const cacheRead = Number(meta.cacheReadInputTokens ?? details?.cacheReadTokens ?? 0);
+    const cacheCreation = Number(meta.cacheCreationInputTokens ?? details?.cacheWriteTokens ?? 0);
     return {
       inputTokens,
       outputTokens,
@@ -916,7 +720,7 @@ export async function generateWithFile({
   const result = await generateText({
     model: modelInstance(modelId),
     maxOutputTokens: maxTokens,
-    temperature,
+    temperature: supportsTemperature(modelId) ? temperature : undefined,
     system,
     messages,
     allowSystemInMessages: false,
@@ -1032,7 +836,7 @@ export function streamChatReply(input: StreamChatInput): StreamChatResult {
   const result = streamText({
     model: modelInstance(modelId),
     maxOutputTokens: input.maxTokens ?? 1500,
-    temperature: input.temperature ?? 0.3,
+    temperature: supportsTemperature(modelId) ? (input.temperature ?? 0.3) : undefined,
     system,
     messages,
     allowSystemInMessages: false,
@@ -1080,9 +884,11 @@ export function streamChatReply(input: StreamChatInput): StreamChatResult {
  */
 const PRICING = {
   sonnet: { input: 3, cacheWrite1h: 6, cacheRead: 0.3, output: 15 },
+  haiku55: { input: 0.1, cacheWrite1h: 0.2, cacheRead: 0.01, output: 0.5 },
   haiku: { input: 1, cacheWrite1h: 2, cacheRead: 0.1, output: 5 },
   flash: { input: 0.3, cacheWrite1h: 0, cacheRead: 0, output: 2.5 },
-  // Gemini 3.6 Flash ($1.50 입력 / $7.50 출력, GA). 위저드 담당. 명시 캐시 안 쓰면 0.
+  // Gemini 3.6/3.8 Flash standard rates after 2026-12-31.
+  // Conservatively excludes temporary discounts; see docs/AI-MODELS.md.
   flash36: { input: 1.5, cacheWrite1h: 0, cacheRead: 0, output: 7.5 },
   // Gemini 3.5 Flash-Lite ($0.30 입력 / $2.50 출력, GA). 명시 캐시 안 쓰면 0.
   // (2.5 Flash와 단가 동일하지만 3.5 세대 품질 상위. quiz 검증 모델.)
@@ -1098,26 +904,35 @@ const PRICING = {
 export function estimateCost(usage: GenerateUsage, modelId: string): number {
   const tier = modelTier(modelId);
   const rate =
-    tier === "haiku"
-      ? PRICING.haiku
-      : tier === "flash"
-        ? PRICING.flash
-        : tier === "flash36"
-          ? PRICING.flash36
-          : tier === "flashLite"
-            ? PRICING.flashLite
-            : tier === "flashLite31"
-              ? PRICING.flashLite31
-              : tier === "geminiPro"
-                ? PRICING.geminiPro
-                : tier === "gemini31Pro"
-                  ? PRICING.gemini31Pro
-                  : PRICING.sonnet; // opus는 단가가 sonnet과 같거나 더 비싸지만 우리 라우팅에 없음
+    tier === "haiku55"
+      ? PRICING.haiku55
+      : tier === "haiku"
+        ? PRICING.haiku
+        : tier === "flash"
+          ? PRICING.flash
+          : tier === "flash36"
+            ? PRICING.flash36
+            : tier === "flashLite"
+              ? PRICING.flashLite
+              : tier === "flashLite31"
+                ? PRICING.flashLite31
+                : tier === "geminiPro"
+                  ? PRICING.geminiPro
+                  : tier === "gemini31Pro"
+                    ? PRICING.gemini31Pro
+                    : PRICING.sonnet; // opus는 단가가 sonnet과 같거나 더 비싸지만 우리 라우팅에 없음
   const M = 1_000_000;
+  // AI SDK v6 inputTokens includes cache reads/writes. Do not bill them twice.
+  const uncached = Math.max(
+    0,
+    usage.inputTokens - usage.cacheReadTokens - usage.cacheCreationTokens,
+  );
+  const multiplier = tier === "haiku55" && usage.inputTokens > 100_000 ? 5 : 1;
   return (
-    (usage.inputTokens * rate.input) / M +
-    (usage.cacheCreationTokens * rate.cacheWrite1h) / M +
-    (usage.cacheReadTokens * rate.cacheRead) / M +
-    (usage.outputTokens * rate.output) / M
+    multiplier *
+    ((uncached * rate.input) / M +
+      (usage.cacheCreationTokens * rate.cacheWrite1h) / M +
+      (usage.cacheReadTokens * rate.cacheRead) / M +
+      (usage.outputTokens * rate.output) / M)
   );
 }
