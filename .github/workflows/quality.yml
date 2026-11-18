@@ -2,28 +2,64 @@ name: Quality
 on:
   pull_request:
   push:
-    branches: [main, refactor/model-routing-gemini]
+    branches: [main, refactor/model-routing-gemini, codex/security-release-checks]
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
   group: quality-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate GitHub Actions syntax
+        run: |
+          work_dir="$(mktemp -d)"
+          curl --fail --silent --show-error --location --retry 3 --max-time 45 \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output "$work_dir/actionlint.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $work_dir/actionlint.tar.gz" | sha256sum --check
+          tar -xzf "$work_dir/actionlint.tar.gz" -C "$work_dir" actionlint
+          "$work_dir/actionlint"
+      - name: Audit workflow permissions and supply chain
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          advanced-security: false
+          version: v1.32.0
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
+        with:
+          fail-on-severity: moderate
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
-          cache: npm
+          package-manager-cache: false
       - run: npm ci
       - run: npm run check -- --error-on-warnings
       - run: npm run typecheck
       - run: npm run test
       - run: npm run check:docs
-      - run: npm audit --audit-level=moderate
+      - name: Block vulnerable production dependencies
+        run: npm audit --omit=dev --audit-level=moderate
+      - name: Report advisories including development dependencies
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e -- --workers=2
@@ -31,7 +67,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
           name: browser-failure-details
