@@ -8,7 +8,7 @@ Next.js 쪽 [src/lib/parsers/hwp.ts](../../src/lib/parsers/hwp.ts)가 이 서비
 | | |
 |---|---|
 | 호스팅 | Render (무료 티어 — 750h/월) |
-| 빌드 | LibreOffice + Node 20, 도커 이미지 ~700MB, 첫 빌드 5~10분 |
+| 빌드 | LibreOffice + Node 24 LTS, 비루트 컨테이너 |
 | 변환 1건 | 5~30초, 메모리 200~400MB |
 | 무료 티어 한계 | 15분 idle → sleep → 첫 요청 cold start 30~60초 |
 
@@ -58,7 +58,7 @@ HWP_CONVERTER_TOKEN  <2)에서 만든 그 토큰>
 POST /convert?to=pdf
   body:    HWP/HWPX 바이트 (application/octet-stream)
   headers:
-    authorization: Bearer <HWP_CONVERTER_TOKEN>      # env 설정 시 필수
+    authorization: Bearer <HWP_CONVERTER_TOKEN>      # 필수
     x-filename:    <원본 파일명>                       # .hwp/.hwpx 확장자 판별용
   response:
     200 application/pdf      성공 (PDF 바이트)
@@ -66,6 +66,7 @@ POST /convert?to=pdf
     401                      토큰 불일치
     413                      25MB 초과
     500                      LibreOffice 변환 실패
+    503                      서버 인증 토큰 설정 필요
 
 GET /health → {"ok":true,"service":"hwp-converter"}
 ```
@@ -104,6 +105,8 @@ brew install --cask libreoffice
 ```bash
 cd services/hwp-converter
 npm install
+HWP_CONVERTER_TOKEN="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
+export HWP_CONVERTER_TOKEN
 npm run dev
 # → hwp-converter listening on :3001
 ```
@@ -117,6 +120,7 @@ curl http://localhost:3001/health
 ```bash
 curl -X POST "http://localhost:3001/convert?to=pdf" \
      -H "content-type: application/octet-stream" \
+     -H "authorization: Bearer $HWP_CONVERTER_TOKEN" \
      -H "x-filename: test.hwp" \
      --data-binary @any.hwp \
      -o out.pdf

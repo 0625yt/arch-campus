@@ -39,6 +39,7 @@ jobs:
       - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
         with:
           fail-on-severity: moderate
+          fail-on-scopes: runtime, development, unknown
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -57,6 +58,8 @@ jobs:
       - run: npm run check:docs
       - name: Block vulnerable production dependencies
         run: npm audit --omit=dev --audit-level=moderate
+      - name: Audit HWP converter dependencies
+        run: npm audit --prefix services/hwp-converter --omit=dev --audit-level=moderate
       - name: Report advisories including development dependencies
         run: npm audit --audit-level=moderate
         continue-on-error: true
